@@ -1,0 +1,10 @@
+exception TypingError of string
+
+val typing :
+  Syntax.var_ctx ->
+  Syntax.loc_ctx ->
+  Types.type_subst ->
+  Syntax.exprML ->
+  Types.typeML * Syntax.var_ctx * Types.type_subst
+
+val typing_full : bool -> bool -> Syntax.exprML -> Types.typeML
