@@ -3,6 +3,8 @@ open Pmap
 type id = string
 type loc = int
 
+let string_of_loc l = "ℓ" ^ (string_of_int l)
+
 
 (* Expressions *)
 

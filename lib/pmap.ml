@@ -36,6 +36,8 @@ let dom_of_pmap pmap = List.map fst pmap
 let codom_of_pmap pmap = List.map snd pmap
 *)
 
+let map_dom f = List.map (fun (x,v) -> (f x, v))
+
 let map_im f = List.map (fun (x,v) -> (x, f v))
 
 let map = List.map

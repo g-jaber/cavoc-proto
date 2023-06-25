@@ -1,6 +1,7 @@
 type id = string
 type loc = int
 
+val string_of_loc : loc -> string
 
 val fresh_evar : unit -> id
 
@@ -8,7 +9,7 @@ type exprML =
     Var of id
   | Loc of loc
   | Unit
-  | Int of loc
+  | Int of int
   | Bool of bool
   | Plus of exprML * exprML
   | Minus of exprML * exprML
@@ -41,7 +42,7 @@ type exprML =
 val isval : exprML -> bool
 val subst : exprML -> exprML -> exprML -> exprML
 val subst_list : exprML -> (id * exprML) list -> exprML
-val string_of_typed_var : id * Types.typeML -> string
+val string_of_typed_var : Types.typevar * Types.typeML -> string
 val string_par_of_exprML : exprML -> string
 val string_of_exprML : exprML -> string
 
@@ -93,4 +94,4 @@ val lsubst_type :
 val lsubst_vctx :
   (id, Types.typeML) Pmap.pmap ->
   ('a, Types.typeML) Pmap.pmap -> ('a, Types.typeML) Pmap.pmap
-val string_of_var_ctx : var_ctx -> id
+val string_of_var_ctx : var_ctx -> string

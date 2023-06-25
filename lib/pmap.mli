@@ -18,6 +18,8 @@ val modadd_pmap2 : ('a*'b) -> ('a*'b) -> ('a,'b) pmap -> ('a,'b) pmap
 
 val string_of_pmap : string -> ('a -> string) -> string -> (string,'a) pmap -> string
 
+val map_dom : ('a -> 'b) -> ('a,'c) pmap -> ('b,'c) pmap
+
 val map_im : ('a -> 'b) -> ('c,'a) pmap -> ('c,'b) pmap
 
 val map : (('a*'b) -> ('c*'d)) -> ('a,'b) pmap -> ('c,'d) pmap
