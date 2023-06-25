@@ -1,6 +1,6 @@
 exception TypingError of string
 
-val typing :
+val infer_type :
   Syntax.var_ctx ->
   Syntax.loc_ctx ->
   Types.type_subst ->
