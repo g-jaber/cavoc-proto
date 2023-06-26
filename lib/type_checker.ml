@@ -27,13 +27,13 @@ let rec infer_type vctx lctx tsubst expr = match expr with
   | Unit -> (TUnit,vctx,tsubst)
   | Int _ -> (TInt,vctx,tsubst)
   | Bool _ -> (TBool,vctx,tsubst)
-  | Plus (e1,e2) | Minus (e1,e2) | Mult (e1,e2) | Div (e1,e2) -> begin
+  | BinaryOp(Plus,e1,e2) | BinaryOp(Minus,e1,e2) | BinaryOp(Mult,e1,e2) | BinaryOp(Div,e1,e2) -> begin
       try check_type_bin vctx lctx tsubst TInt e1 e2 TInt
       with TypingError msg -> Error.fail_error ("Error typing Arithmetic Operator " ^ (Syntax.string_of_exprML expr) ^ ": " ^ msg) end
-  | And (e1,e2) | Or (e1,e2) -> check_type_bin vctx lctx tsubst TBool e1 e2 TBool
-  | Equal (e1,e2) | NEqual (e1,e2) | Less (e1,e2) | LessEq (e1,e2) | Great (e1,e2) | GreatEq (e1,e2)  -> 
+  | BinaryOp(And,e1,e2) | BinaryOp(Or,e1,e2) -> check_type_bin vctx lctx tsubst TBool e1 e2 TBool
+  | BinaryOp(Equal,e1,e2) | BinaryOp(NEqual,e1,e2) | BinaryOp(Less,e1,e2) | BinaryOp(LessEq,e1,e2) | BinaryOp(Great,e1,e2) | BinaryOp(GreatEq,e1,e2)  -> 
     check_type_bin vctx lctx tsubst TInt e1 e2 TBool
-  | Not e -> check_type vctx lctx tsubst e TBool
+  | UnaryOp(Not,e) -> check_type vctx lctx tsubst e TBool
   | If (e1,e2,e3) ->
     let (_,vctx1,tsubst1) = check_type vctx lctx tsubst e1 TBool in
     let (ty2,vctx2,tsubst2) = infer_type vctx1 lctx tsubst1 e2 in
@@ -142,6 +142,9 @@ let rec infer_type vctx lctx tsubst expr = match expr with
   | Seq (e1,e2) -> 
     let (_,vctx',tsubst') = check_type vctx lctx tsubst e1 TUnit in 
     infer_type vctx' lctx tsubst' e2
+  | While (e1,e2) ->
+    let (_,vctx',tsubst') = check_type vctx lctx tsubst e1 TBool in
+    check_type vctx' lctx tsubst' e2 TUnit     
   | Pair (e1,e2) -> 
     let (ty1,vctx',tsubst') = infer_type vctx lctx tsubst e1 in
     let (ty2,vctx'',tsubst'') = infer_type vctx' lctx tsubst' e2 in (TProd (ty1,ty2),vctx'',tsubst'')

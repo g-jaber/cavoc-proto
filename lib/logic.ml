@@ -95,12 +95,12 @@ let trivially_false preds =
 let expr_to_arith_pred = function
   | Bool true -> ATrue
   | Bool false -> AFalse
-  | Equal (expr1,expr2) -> AEqual (expr1, expr2)
-  | NEqual (expr1,expr2) -> ANEqual (expr1, expr2)
-  | Less (expr1,expr2) -> ALess (expr1, expr2)
-  | LessEq (expr1,expr2) -> ALessEq (expr1, expr2)
-  | Great (expr1,expr2) -> AGreat (expr1, expr2)
-  | GreatEq (expr1,expr2) -> AGreatEq (expr1, expr2)
+  | BinaryOp (Equal,expr1,expr2) -> AEqual (expr1, expr2)
+  | BinaryOp (NEqual,expr1,expr2) -> ANEqual (expr1, expr2)
+  | BinaryOp (Less,expr1,expr2) -> ALess (expr1, expr2)
+  | BinaryOp (LessEq,expr1,expr2) -> ALessEq (expr1, expr2)
+  | BinaryOp (Great,expr1,expr2) -> AGreat (expr1, expr2)
+  | BinaryOp (GreatEq,expr1,expr2) -> AGreatEq (expr1, expr2)
   | expr -> failwith ("Error: trying to transform the expression " ^ (string_of_exprML expr) ^ " into a predicate.")
 
 let rec string_of_conj sep g = function

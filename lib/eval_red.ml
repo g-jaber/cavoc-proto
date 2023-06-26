@@ -14,6 +14,10 @@ let rec red (expr,env,heap) = match expr with
     failwith "Evaluation of terms not in ANF is not yet implemented."
   | Seq (Unit,expr2) -> 
     ((expr2,Pmap.empty,heap),true)
+  | While (Bool false, _) ->
+    ((Unit,Pmap.empty,heap),true)
+  | While (Bool true, expr1) ->
+    ((Seq (expr1,expr),Pmap.empty,heap),true)
   | Seq (expr1,expr2) -> 
       let ((expr1',env',heap'),isred) = red (expr1,env,heap) in
       ((Seq (expr1',expr2),env',heap'),isred)
@@ -65,32 +69,35 @@ let rec red (expr,env,heap) = match expr with
   | If (expr,expr1,expr2) -> 
     let ((expr',env',heap'),isred) = red (expr,env,heap) in
     ((If (expr',expr1,expr2),env',heap'),isred)
-  | Plus _ | Minus _ | Mult _ | Div _ -> 
-    let (expr1,expr2,arith_op,_) = Syntax.get_aop_from_expr expr in 
+  | BinaryOp (Plus as op,expr1,expr2) | BinaryOp (Minus as op,expr1,expr2) 
+  | BinaryOp (Mult as op,expr1,expr2) | BinaryOp (Div as op,expr1,expr2) ->
+    let iop = Syntax.implement_arith_op op in
     begin match (expr1, expr2) with
     | (Int n1, Int n2) -> 
-      let n = arith_op n1 n2 in 
+      let n = iop n1 n2 in 
       ((Int n,Pmap.empty,heap),true)
     | _ -> failwith "Evaluation of terms not in ANF is not yet implemented."
     end
-  | And _ | Or _ -> 
-    let (expr1,expr2,bool_op,_) = Syntax.get_bop_from_expr expr in 
-    begin match (expr1, expr2) with
-    | (Bool b1, Bool b2) ->
-      let b = bool_op b1 b2 in
-      ((Bool b,Pmap.empty,heap),true)
-    | _ -> failwith "Evaluation of terms not in ANF is not yet implemented."
+    | BinaryOp(And as op,expr1,expr2) | BinaryOp(Or as op,expr1,expr2) ->
+      let iop = Syntax.implement_bin_bool_op op in
+      begin match (expr1, expr2) with
+      | (Bool b1, Bool b2) ->
+        let b = iop b1 b2 in
+        ((Bool b,Pmap.empty,heap),true)
+      | _ -> failwith "Evaluation of terms not in ANF is not yet implemented."
     end
-  | Not (Bool b) -> 
+  | UnaryOp(Not,Bool b) -> 
       ((Bool (not b),Pmap.empty,heap),true)
-  | Not expr ->
+  | UnaryOp(Not,expr) ->
     let ((expr',env',heap'),isred) = red (expr,env,heap) in
-    ((Not expr',env',heap'),isred)
-  | Equal _ | NEqual _ | Less _ | LessEq _ | Great _ | GreatEq _ ->
-    let (expr1,expr2,arithbool_op,_) = Syntax.get_abop_from_expr expr in 
+    ((UnaryOp(Not,expr'),env',heap'),isred)
+  | BinaryOp(Equal as op,expr1,expr2) | BinaryOp(NEqual as op,expr1,expr2) 
+  | BinaryOp(Less as op,expr1,expr2) | BinaryOp(LessEq as op,expr1,expr2) 
+  | BinaryOp(Great as op,expr1,expr2) | BinaryOp(GreatEq as op,expr1,expr2) ->
+    let iop = Syntax.implement_compar_op op in
     begin match (expr1, expr2) with
     | (Int n1, Int n2) ->
-      let b = arithbool_op n1 n2 in
+      let b = iop n1 n2 in
       ((Bool b,Pmap.empty,heap),true)
     | _ -> failwith "Evaluation of terms not in ANF is not yet implemented."
     end

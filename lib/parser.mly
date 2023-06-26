@@ -18,6 +18,7 @@
 %token IF THEN ELSE
 %token UNIT
 %token REF ASSIGN DEREF
+%token WHILE DO DONE
 %token MATCH WITH
 %token ASSERT
 
@@ -42,6 +43,7 @@
 
 %start prog
 %type <Declaration.decl list> prog
+
 
 
 %%
@@ -77,24 +79,25 @@ expr:
   | LET REC VAR typed_ident list_ident EQ expr IN expr
     { Let ($3, Fix (($3,TUndef),$4, List.fold_left (fun expr var -> Fun (var,expr)) $7 $5), $9) }
   | LET LPAR VAR COMMA VAR RPAR EQ expr IN expr
-    {LetPair ($3,$5,$8,$10)}
+    { LetPair ($3,$5,$8,$10)}
+  | WHILE expr DO expr DONE { While ($2,$4) }
   | REF expr         { Newref $2 }
   | expr ASSIGN expr { Assign ($1,$3) }
   | ASSERT expr      { Assert $2 }
 (*  | MINUS expr          { UMinus (-$2) }  *)
-  | expr PLUS expr     { Plus ($1, $3) }
-  | expr MINUS expr    { Minus ($1, $3) }
-  | expr MULT expr     { Mult ($1, $3) }
-  | expr DIV expr      { Div ($1, $3) }
-  | NOT expr          { Not ($2) }
-  | expr LAND expr     { And ($1, $3) }
-  | expr LOR expr      { Or ($1, $3) }
-  | expr EQ expr      { Equal ($1, $3) }
-  | expr NEQ expr     { NEqual ($1, $3) }
-  | expr GREAT expr    { Great ($1, $3) }
-  | expr GREATEQ expr  { GreatEq ($1, $3) }
-  | expr LESS expr    { Less ($1, $3) }
-  | expr LESSEQ expr  { LessEq ($1, $3) }
+  | expr PLUS expr     { BinaryOp (Plus, $1, $3) }
+  | expr MINUS expr    { BinaryOp (Minus, $1, $3) }
+  | expr MULT expr     { BinaryOp (Mult, $1, $3) }
+  | expr DIV expr      { BinaryOp (Div, $1, $3) }
+  | NOT expr          { UnaryOp (Not, $2) }
+  | expr LAND expr     { BinaryOp (And, $1, $3) }
+  | expr LOR expr      { BinaryOp (Or, $1, $3) }
+  | expr EQ expr      { BinaryOp (Equal, $1, $3) }
+  | expr NEQ expr     { BinaryOp (NEqual, $1, $3) }
+  | expr GREAT expr    { BinaryOp (Great, $1, $3) }
+  | expr GREATEQ expr  { BinaryOp (GreatEq, $1, $3) }
+  | expr LESS expr    { BinaryOp (Less, $1, $3) }
+  | expr LESSEQ expr  { BinaryOp (LessEq, $1, $3) }
 
 app_expr:
   | simple_expr { $1 }

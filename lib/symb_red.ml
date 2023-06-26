@@ -17,54 +17,52 @@ let aux_bin_red symbred cons_op = function
     | (expr1,expr2) when isval expr1 -> let (result,b) = symbred expr2 in (List.map (aux (fun x -> (cons_op (expr1,x)))) result,b)
     | (expr1,expr2) -> let (result,b) = symbred expr1 in (List.map (aux (fun x -> (cons_op (x,expr2)))) result,b)
 
-let aux_bin_arith cons heapPost symbred =
-  let (expr1,expr2,arith_op,cons_op) = Syntax.get_aop_from_expr cons in match (expr1, expr2) with
+let aux_bin_arith iop consfun expr1 expr2 heapPost symbred =
+  match (expr1, expr2) with
     | (Int n1, Int n2) -> 
-      let n = arith_op n1 n2 in 
+      let n = iop n1 n2 in 
       ([(Int n,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[])],true)
     | (Int n, Var x) -> 
       let newid = fresh_lvar () in
       let newvar = Var newid in
       ([(newvar,Pmap.empty,Pmap.empty,heapPost,Pmap.singleton(newid,Types.TInt),
-        [AEqual (newvar, cons_op (Int n,Var x))])],true)
+        [AEqual (newvar, consfun (Int n,Var x))])],true)
     | (Var x, Int n) -> 
       let newid = fresh_lvar () in
       let newvar = Var newid in
       ([(newvar,Pmap.empty,Pmap.empty,heapPost,Pmap.singleton (newid,Types.TInt),
-        [AEqual (newvar, cons_op  (Var x,Int n))])],true)
+        [AEqual (newvar, consfun  (Var x,Int n))])],true)
     | (Var x1, Var x2) -> 
       let newid = fresh_lvar () in
       let newvar = Var newid in
       ([(newvar,Pmap.empty,Pmap.empty,heapPost,Pmap.singleton (newid,Types.TInt),
-        [AEqual (newvar, cons_op (Var x1,Var x2))])],true)
-    | (expr1,expr2) -> aux_bin_red symbred cons_op (expr1,expr2)
+        [AEqual (newvar, consfun (Var x1,Var x2))])],true)
+    | (expr1,expr2) -> aux_bin_red symbred consfun (expr1,expr2)
 
-let aux_bin_arithbool cons heapPost symbred =
-  let (expr1,expr2,arithbool_op,cons_op) = Syntax.get_abop_from_expr cons in match (expr1, expr2) with
+let aux_bin_arithbool iop consfun expr1 expr2 heapPost symbred =
+  match (expr1,expr2) with
     | (Int n1, Int n2) ->
-      let b = arithbool_op n1 n2 in
+      let b = iop n1 n2 in
       ([(Bool b,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[])],true)
     | (Int n, Var x) ->
-      ([(Bool true,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[expr_to_arith_pred (cons_op (Int n,Var x))])
-        ;(Bool false,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[negate_arith_pred (expr_to_arith_pred (cons_op (Int n,Var x)))])]
+      ([(Bool true,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[expr_to_arith_pred (consfun (Int n,Var x))])
+        ;(Bool false,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[negate_arith_pred (expr_to_arith_pred (consfun (Int n,Var x)))])]
        ,true)
     | (Var x, Int n) ->
-      ([(Bool true,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[expr_to_arith_pred (cons_op (Var x,Int n))])
-        ;(Bool false,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[negate_arith_pred (expr_to_arith_pred (cons_op (Var x,Int n)))])]
+      ([(Bool true,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[expr_to_arith_pred (consfun (Var x,Int n))])
+        ;(Bool false,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[negate_arith_pred (expr_to_arith_pred (consfun (Var x,Int n)))])]
        ,true)
     | (Var x1, Var x2) ->
-      ([(Bool true,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[expr_to_arith_pred (cons_op (Var x1,Var x2))])
-        ;(Bool false,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[negate_arith_pred (expr_to_arith_pred (cons_op (Var x1,Var x2)))])]
+      ([(Bool true,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[expr_to_arith_pred (consfun (Var x1,Var x2))])
+        ;(Bool false,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[negate_arith_pred (expr_to_arith_pred (consfun (Var x1,Var x2)))])]
        ,true)
-    | (expr1,expr2) -> aux_bin_red symbred cons_op (expr1,expr2)
+    | (expr1,expr2) -> aux_bin_red symbred consfun (expr1,expr2)
 
-let aux_bin_bool cons heapPost symbred =
-  let (expr1,expr2,bool_op,cons_op) = Syntax.get_bop_from_expr cons in match (expr1, expr2) with
-    | (Bool b1, Bool b2) -> let b = bool_op b1 b2 in ([(Bool b,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[])],true)
-(*    | (Bool b, Var x) -> let newvar = fresh_lvar () in [(newvar,Pmap.empty,Pmap.empty,heapPost,[AEqual (newvar, AExpr(cons_op (Bool b,Var x)))])]
-    | (Var x, Bool b) -> let newvar = fresh_lvar () in [(newvar,Pmap.empty,Pmap.empty,heapPost,[AEqual (newvar, AExpr(cons_op  (Var x,Bool b)))])]
-    | (Var x1, Var x2) -> let newvar = fresh_lvar () in [(newvar,Pmap.empty,Pmap.empty,heapPost,[AEqual (newvar, AExpr(cons_op (Var x1,Var x2)))])]*)
-    | _ -> aux_bin_red symbred cons_op (expr1,expr2)
+let aux_bin_bool iop consfun expr1 expr2 heapPost symbred =
+  match (expr1, expr2) with
+    | (Bool b1, Bool b2) -> let b = iop b1 b2 in 
+    ([(Bool b,Pmap.empty,Pmap.empty,heapPost,Pmap.empty,[])],true)
+    | _ -> aux_bin_red symbred consfun (expr1,expr2)
 
 
 let rec symbred heapPost expr = match expr with
@@ -123,15 +121,26 @@ let rec symbred heapPost expr = match expr with
   | If (expr,expr1,expr2) -> 
       let (result,b) = symbred heapPost expr 
       in (List.map (aux (fun x -> (If (x,expr1,expr2)))) result,b)
-  | Plus _ | Minus _ | Mult _ | Div _ -> 
-      aux_bin_arith expr heapPost (symbred heapPost)
-  | And _ | Or _ -> 
-      aux_bin_bool expr heapPost (symbred heapPost)
-  | Not (Bool b) -> 
+  | BinaryOp(Plus as op,expr1,expr2) | BinaryOp(Minus as op,expr1,expr2) 
+  | BinaryOp(Mult as op,expr1,expr2) | BinaryOp(Div as op,expr1,expr2) ->
+    let iop = Syntax.implement_arith_op op in
+    let consfun = Syntax.get_consfun_from_bin_cons expr in
+    aux_bin_arith iop consfun expr1 expr2 heapPost (symbred heapPost)
+  | BinaryOp(And as op,expr1,expr2) | BinaryOp(Or as op,expr1,expr2) ->
+    let iop = Syntax.implement_bin_bool_op op in
+    let consfun = Syntax.get_consfun_from_bin_cons expr in
+    aux_bin_bool iop consfun expr1 expr2 heapPost (symbred heapPost)
+  | UnaryOp(Not,Bool b) -> 
       ([(Bool (not b),Pmap.empty,Pmap.empty,heapPost,Pmap.empty, [])],true)
 (*  | Not (Var b) -> [(Bool true, [],[],heapPost,[AEqual (AExpr(Var b)),(Bool false)]);(Bool false, [], [], heapPost,[AEqual (AExpr(Var b)),(Bool true)])]*)
-  | Not expr -> let (result,b) = symbred heapPost expr in (List.map (aux (fun x -> (Not x))) result,b)
-  | Equal _ | NEqual _ | Less _ | LessEq _ | Great _ | GreatEq _ -> aux_bin_arithbool expr heapPost (symbred heapPost)
+  | UnaryOp(Not,expr) -> 
+    let (result,b) = symbred heapPost expr in 
+    (List.map (aux (fun x -> UnaryOp (Not,x))) result,b)
+  | BinaryOp(Equal as op,expr1,expr2) | BinaryOp(NEqual as op,expr1,expr2) | BinaryOp(Less as op,expr1,expr2) 
+  | BinaryOp(LessEq as op,expr1,expr2) | BinaryOp(Great as op,expr1,expr2) | BinaryOp(GreatEq as op,expr1,expr2) ->
+    let iop = Syntax.implement_compar_op op in
+    let consfun = Syntax.get_consfun_from_bin_cons expr in
+    aux_bin_arithbool iop consfun expr1 expr2 heapPost (symbred heapPost)
   | _ -> ([(expr,Pmap.empty,Pmap.empty,heapPost,Pmap.empty, [])],false)
 
 

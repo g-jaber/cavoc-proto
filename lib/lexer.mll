@@ -48,6 +48,9 @@ rule token = parse
   | "match"  { MATCH }
   | "with"  { WITH }
   | "assert" { ASSERT }
+  | "while" { WHILE }
+  | "do" { DO }
+  | "done" { DONE }
 
   | "()" { UNIT }
   | "ref" { REF }

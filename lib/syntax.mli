@@ -5,25 +5,31 @@ val string_of_loc : loc -> string
 
 val fresh_evar : unit -> id
 
+type binary_op =
+  | Plus
+  | Minus
+  | Mult
+  | Div
+  | And
+  | Or
+  | Equal
+  | NEqual
+  | Less
+  | LessEq
+  | Great
+  | GreatEq
+
+type unary_op =
+  | Not
+
 type exprML =
     Var of id
   | Loc of loc
   | Unit
   | Int of int
   | Bool of bool
-  | Plus of exprML * exprML
-  | Minus of exprML * exprML
-  | Mult of exprML * exprML
-  | Div of exprML * exprML
-  | Not of exprML
-  | And of exprML * exprML
-  | Or of exprML * exprML
-  | Equal of exprML * exprML
-  | NEqual of exprML * exprML
-  | Less of exprML * exprML
-  | LessEq of exprML * exprML
-  | Great of exprML * exprML
-  | GreatEq of exprML * exprML
+  | BinaryOp of binary_op*exprML * exprML
+  | UnaryOp of unary_op * exprML
   | If of exprML * exprML * exprML
   | Fun of (id * Types.typeML) * exprML
   | Fix of (id * Types.typeML) * (id * Types.typeML) * exprML
@@ -31,6 +37,7 @@ type exprML =
   | LetPair of id * id * exprML * exprML
   | App of exprML * exprML
   | Seq of exprML * exprML
+  | While of exprML * exprML
   | Pair of exprML * exprML
   | Newref of exprML
   | Deref of exprML
@@ -46,9 +53,17 @@ val string_of_typed_var : Types.typevar * Types.typeML -> string
 val string_par_of_exprML : exprML -> string
 val string_of_exprML : exprML -> string
 
-val get_consfun_from_binexpr : exprML -> exprML * exprML -> exprML
-val get_consfun_from_unexpr : exprML -> exprML -> exprML
+val implement_arith_op : binary_op -> (int -> int -> int)
 
+val implement_bin_bool_op : binary_op -> (bool -> bool -> bool)
+
+val implement_compar_op : binary_op -> (int -> int -> bool)
+
+
+val get_consfun_from_bin_cons : exprML -> exprML * exprML -> exprML
+val get_consfun_from_un_cons : exprML -> exprML -> exprML
+
+(*
 val get_aop_from_expr :
   exprML ->
   exprML * exprML * (loc -> loc -> loc) * (exprML * exprML -> exprML)
@@ -60,6 +75,7 @@ val get_abop_from_expr :
 val get_bop_from_expr :
   exprML ->
   exprML * exprML * (bool -> bool -> bool) * (exprML * exprML -> exprML)
+*)
 
 type functional_env = (id, exprML) Pmap.pmap
 

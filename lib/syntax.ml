@@ -13,40 +13,46 @@ let fresh_evar () =
   let x = !count_evar in
   count_evar := !count_evar + 1;("_y" ^ (string_of_int x))
 
+  type binary_op =
+  | Plus
+  | Minus
+  | Mult
+  | Div
+  | And
+  | Or
+  | Equal
+  | NEqual
+  | Less
+  | LessEq
+  | Great
+  | GreatEq
+
+type unary_op =
+  | Not
+
 type exprML =
-  | Var of id
+    Var of id
   | Loc of loc
   | Unit
   | Int of int
   | Bool of bool
-  | Plus of exprML * exprML
-  | Minus of exprML * exprML
-  | Mult of exprML * exprML
-  | Div of exprML * exprML
-  | Not of exprML
-  | And of exprML * exprML
-  | Or of exprML * exprML
-  | Equal of exprML * exprML
-  | NEqual of exprML * exprML
-  | Less of exprML * exprML
-  | LessEq of exprML * exprML
-  | Great of exprML * exprML
-  | GreatEq of exprML * exprML
+  | BinaryOp of binary_op*exprML * exprML
+  | UnaryOp of unary_op * exprML
   | If of exprML * exprML * exprML
   | Fun of (id * Types.typeML) * exprML
   | Fix of (id * Types.typeML) * (id * Types.typeML) * exprML
   | Let of id * exprML * exprML
-(*  | Match of exprML * (exprML*exprML) list *)
   | LetPair of id * id * exprML * exprML
   | App of exprML * exprML
   | Seq of exprML * exprML
+  | While of exprML * exprML
   | Pair of exprML * exprML
   | Newref of exprML
   | Deref of exprML
   | Assign of exprML * exprML
   | Assert of exprML
   | Hole
-  | Named of id*exprML
+  | Named of id * exprML
 
 let rec isval = function
   | Var _ -> true
@@ -64,32 +70,10 @@ let rec subst expr value value' = match expr with
   | Loc _ when (expr = value) -> value'
   | Hole when (expr = value) -> value'
   | Var _ | Loc _ | Hole | Unit | Int _ | Bool _ -> expr
-  | Plus (expr1,expr2) ->
-    Plus (subst expr1 value value', subst expr2 value value')
-  | Minus (expr1,expr2) ->
-    Minus (subst expr1 value value', subst expr2 value value')
-  | Mult (expr1,expr2) ->
-    Mult (subst expr1 value value', subst expr2 value value')
-  | Div (expr1,expr2) ->
-    Div (subst expr1 value value', subst expr2 value value')
-  | And (expr1,expr2) ->
-    And (subst expr1 value value', subst expr2 value value')
-  | Or (expr1,expr2) ->
-    Or (subst expr1 value value', subst expr2 value value')
-  | Not expr ->
-    Not (subst expr value value')
-  | Equal (expr1,expr2) ->
-    Equal (subst expr1 value value', subst expr2 value value')
-  | NEqual (expr1,expr2) ->
-    NEqual (subst expr1 value value', subst expr2 value value')
-  | Less (expr1,expr2) ->
-    Less (subst expr1 value value', subst expr2 value value')
-  | LessEq (expr1,expr2) ->
-    LessEq (subst expr1 value value', subst expr2 value value')
-  | Great (expr1,expr2) ->
-    Great (subst expr1 value value', subst expr2 value value')
-  | GreatEq (expr1,expr2) ->
-    GreatEq (subst expr1 value value', subst expr2 value value')
+  | BinaryOp (op,expr1,expr2) ->
+    BinaryOp (op,subst expr1 value value', subst expr2 value value')
+  | UnaryOp (op,expr) ->
+    UnaryOp (op,subst expr value value')
   | If (expr1,expr2,expr3) ->
     If (subst expr1 value value', subst expr2 value value',
         subst expr3 value value')
@@ -113,6 +97,8 @@ let rec subst expr value value' = match expr with
     App (subst expr1 value value', subst expr2 value value')
   | Seq (expr1,expr2) ->
     Seq (subst expr1 value value', subst expr2 value value')
+  | While (expr1,expr2) ->
+    While (subst expr1 value value', subst expr2 value value')
   | Pair (expr1,expr2) ->
     Pair (subst expr1 value value', subst expr2 value value')
   | Newref expr' ->
@@ -133,6 +119,22 @@ let string_of_typed_var = function
   | (x,Types.TUndef) -> x
   | (x,ty) -> "(" ^ x ^ ":" ^ (Types.string_of_typeML ty) ^ ")"
 
+let string_of_binary_op = function
+  | Plus -> "+"
+  | Minus -> "-"
+  | Mult -> "*"
+  | Div -> "/"
+  | And -> "&&"
+  | Or -> "||"
+  | Equal -> "="
+  | NEqual -> "<>"
+  | Less -> "<"
+  | LessEq -> "<="
+  | Great -> ">"
+  | GreatEq -> ">="
+
+let string_of_unary_op = function
+  | Not -> "not"
 
 let rec string_par_of_exprML = function
   | Var x -> x
@@ -148,31 +150,9 @@ and string_of_exprML = function
   | Int n -> string_of_int n
   | Bool true -> "true"
   | Bool false -> "false"
-  | Plus (e1,e2) ->
-    "(" ^ (string_of_exprML e1) ^ "+" ^ (string_of_exprML e2) ^ ")"
-  | Minus(e1,e2) ->
-    "(" ^ (string_of_exprML e1) ^ "-" ^ (string_of_exprML e2) ^ ")"
-  | Mult (e1,e2) ->
-    "(" ^ (string_of_exprML e1) ^ "*" ^ (string_of_exprML e2) ^ ")"
-  | Div (e1,e2) ->
-    "(" ^ (string_of_exprML e1) ^ "/" ^ (string_of_exprML e2) ^ ")"
-  | Not e -> "not " ^ (string_of_exprML e)
-  | And (e1,e2) ->
-    "(" ^ (string_of_exprML e1) ^ "&&" ^ (string_of_exprML e2) ^ ")"
-  | Or (e1,e2) ->
-    "(" ^ (string_of_exprML e1) ^ "||" ^ (string_of_exprML e2) ^ ")"
-  | Equal (e1,e2) ->
-    "(" ^ (string_of_exprML e1) ^ "=" ^ (string_of_exprML e2) ^ ")"
-  | NEqual (e1,e2) ->
-    "(" ^ (string_of_exprML e1) ^ "<>" ^ (string_of_exprML e2) ^ ")"
-  | Less (e1,e2) ->
-    "(" ^ (string_of_exprML e1) ^ "<" ^ (string_of_exprML e2) ^ ")"
-  | LessEq (e1,e2) ->
-    "(" ^ (string_of_exprML e1) ^ "<=" ^ (string_of_exprML e2) ^ ")"
-  | Great (e1,e2) ->
-    "(" ^ (string_of_exprML e1) ^ ">" ^ (string_of_exprML e2) ^ ")"
-  | GreatEq (e1,e2) ->
-    "(" ^ (string_of_exprML e1) ^ ">=" ^ (string_of_exprML e2) ^ ")"
+  | BinaryOp (op,e1,e2) -> 
+    "(" ^ (string_of_exprML e1) ^ (string_of_binary_op op) ^ (string_of_exprML e2) ^ ")"
+  | UnaryOp (op,e) -> (string_of_unary_op op) ^ (string_of_exprML e)
   | If (e1,e2,e3) ->
     "if " ^ (string_of_exprML e1) ^ " then " ^ (string_of_exprML e2)
     ^ " else " ^ (string_of_exprML e3)
@@ -189,6 +169,7 @@ and string_of_exprML = function
     "let (" ^ var1 ^ "," ^ var2 ^ ") = " ^ (string_of_exprML e1) ^ " in "
     ^ (string_of_exprML e2)
   | Seq (e1,e2) -> (string_of_exprML e1) ^ " ; " ^ (string_of_exprML e2)
+  | While (e1,e2) -> "while " ^ (string_of_exprML e1) ^ " do " ^ (string_of_exprML e2) ^ " done "
   | App (e1,e2) -> (string_par_of_exprML e1) ^ " " ^ (string_par_of_exprML e2)
   | Pair (e1,e2) ->
     "(" ^ (string_of_exprML e1) ^ "," ^ (string_of_exprML e2) ^ ")"
@@ -201,19 +182,29 @@ and string_of_exprML = function
 
 (* Auxiliary functions *)
 
-let get_consfun_from_binexpr = function
-  | Plus _ -> fun (x,y) -> Plus (x,y)
-  | Minus _ -> fun (x,y) -> Minus (x,y)
-  | Mult _ -> fun (x,y) -> Mult (x,y)
-  | Div _ -> fun (x,y) -> Div (x,y)
-  | And _ ->  fun (x,y) -> And (x,y)
-  | Or _ ->  fun (x,y) -> Plus (x,y)
-  | Equal _ ->  fun (x,y) -> Plus (x,y)
-  | NEqual _ -> fun (x,y) -> NEqual (x,y)
-  | Less _ ->  fun (x,y) -> Less (x,y)
-  | LessEq _ ->  fun (x,y) -> LessEq (x,y)
-  | Great _ ->  fun (x,y) -> Great (x,y)
-  | GreatEq _ ->  fun (x,y) -> GreatEq (x,y)
+let implement_arith_op = function
+  | Plus -> (+)
+  | Minus -> (-)
+  | Mult -> ( * )
+  | Div -> (/)
+  | op -> failwith ("The binary operator " ^ (string_of_binary_op op) ^ " is not an arithmetic operator.")
+
+let implement_bin_bool_op = function
+  | And -> (&&) (* We probably loose lazy semantics *)
+  | Or -> (||)
+  | op -> failwith ("The binary operator " ^ (string_of_binary_op op) ^ " is not a boolean operator.")
+
+let implement_compar_op = function
+  | Equal -> (=)
+  | NEqual -> (<>)
+  | Less -> (<)
+  | LessEq -> (<=)
+  | Great -> (>)
+  | GreatEq -> (>=)
+  | op -> failwith ("The binary operator " ^ (string_of_binary_op op) ^ " is not a comparison operator.")
+
+let get_consfun_from_bin_cons = function
+  | BinaryOp (op,_,_) -> fun (x,y) -> BinaryOp (op,x,y)
   | Let (var,_,_) ->  fun (x,y) -> Let (var,x,y)
   | Seq _ ->  fun (x,y) -> Seq (x,y)
   | App _ ->  fun (x,y) -> App (x,y)
@@ -222,40 +213,12 @@ let get_consfun_from_binexpr = function
   | expr -> failwith ("No binary constructor function can be extracted from "
                       ^ (string_of_exprML expr))
 
-let get_consfun_from_unexpr = function
-  | Not _ -> fun x -> Not x
-  | Newref _ -> fun x -> Newref x
-  | Deref _ -> fun x -> Deref x
+let get_consfun_from_un_cons = function
+  | UnaryOp (op,_) -> fun x -> UnaryOp (op,x) 
+  | Newref _ -> fun x -> Newref x 
+  | Deref _ -> fun x -> Deref x 
   | expr -> failwith ("No unary constructor function can be extracted from "
                       ^ (string_of_exprML expr))
-
-let get_aop_from_expr = function
-  | Plus (expr1,expr2) -> (expr1,expr2,(+),fun (x,y) -> Plus (x,y))
-  | Mult (expr1,expr2) -> (expr1,expr2,( * ),fun (x,y) -> Mult (x,y))
-  | Minus (expr1,expr2) -> (expr1,expr2,(-),fun (x,y) -> Minus (x,y))
-  | Div (expr1,expr2) -> (expr1,expr2,(/),fun (x,y) -> Div (x,y))
-  | expr ->
-    failwith ("Error: trying to extract a binary arithmetic function from "
-              ^ (string_of_exprML expr))
-
-let get_abop_from_expr = function
-  | Equal (expr1,expr2) -> (expr1,expr2,(=),fun (x,y) -> Equal (x,y))
-  | NEqual (expr1,expr2) -> (expr1,expr2,(<>),fun (x,y) -> NEqual (x,y))
-  | Less (expr1,expr2) -> (expr1,expr2,(<),fun (x,y) -> Less (x,y))
-  | LessEq (expr1,expr2) -> (expr1,expr2,(<=),fun (x,y) -> LessEq (x,y))
-  | Great (expr1,expr2) -> (expr1,expr2,(<),fun (x,y) -> Great (x,y))
-  | GreatEq (expr1,expr2) -> (expr1,expr2,(<=),fun (x,y) -> GreatEq (x,y))
-  | expr ->
-    failwith ("Error: trying to extract a boolean comparison function from "
-              ^ (string_of_exprML expr))
-
-let get_bop_from_expr = function
-  | And (expr1,expr2) -> (expr1,expr2,(&&),fun (x,y) -> And (x,y))
-  | Or (expr1,expr2) -> (expr1,expr2,(||),fun (x,y) -> Or (x,y))
-  | expr ->
-    failwith ("Error: trying to extract a boolean function from "
-              ^ (string_of_exprML expr))
-
 
 (* Full Expressions *)
 
@@ -275,32 +238,21 @@ type eval_context = exprML
 
 let rec extract_ctx expr = match expr with
   | _ when (isval expr) -> (expr,Hole)
-  | Plus _ | Minus _ | Mult _ | Div _ ->
-    let (expr1,expr2,_,cons_op) = get_aop_from_expr expr in
-    extract_ctx_bin cons_op expr1 expr2
-  | Not expr -> extract_ctx_un (fun x -> Not x) expr
-  | And _ | Or _ ->
-    let (expr1,expr2,_,cons_op) = get_bop_from_expr expr in
-    extract_ctx_bin cons_op expr1 expr2
-  | Equal _ | NEqual _ | Less _ | LessEq _ | Great _ | GreatEq _ ->
-    let (expr1,expr2,_,cons_op) = get_abop_from_expr expr in
-    extract_ctx_bin cons_op expr1 expr2
+  | BinaryOp (_,expr1,expr2) | App (expr1,expr2) | Pair (expr1,expr2) 
+  | Assign (expr1,expr2) ->
+    let consfun = get_consfun_from_bin_cons expr in
+    extract_ctx_bin consfun expr1 expr2
+  | UnaryOp (_,expr) | Newref expr | Deref expr -> 
+    let consfun = get_consfun_from_un_cons expr in
+    extract_ctx_un consfun expr
   | If (expr1,expr2,expr3) ->
     extract_ctx_un (fun x -> If (x,expr2,expr3)) expr1
   | Let (var,expr1,expr2) ->
     extract_ctx_un (fun x -> Let (var,x,expr2)) expr1
-  | App (expr1,expr2) ->
-    extract_ctx_bin (fun (x,y) -> App (x,y)) expr1 expr2
   | Seq (expr1,expr2) ->
     extract_ctx_un (fun x -> Seq (x,expr2)) expr1
-  | Pair (expr1,expr2) ->
-    extract_ctx_bin (fun (x,y) -> Pair (x,y)) expr1 expr2
-  | Newref expr ->
-    extract_ctx_un (fun x -> Newref x) expr
-  | Deref expr ->
-    extract_ctx_un (fun x -> Deref x) expr
-  | Assign (expr1,expr2) ->
-    extract_ctx_bin (fun (x,y) -> Assign (x,y)) expr1 expr2
+  | While (expr1,expr2) ->
+    extract_ctx_un (fun x -> While (x,expr2)) expr1
   | Named (cn,expr) -> extract_ctx_un (fun x -> Named (cn,x)) expr
   | expr ->
     failwith ("Error: trying to extract an evaluation context from "
