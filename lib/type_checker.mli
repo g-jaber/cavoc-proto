@@ -7,4 +7,4 @@ val infer_type :
   Syntax.exprML ->
   Types.typeML * Syntax.var_ctx * Types.type_subst
 
-val typing_full : bool -> bool -> Syntax.exprML -> Types.typeML
+val typing_full : Syntax.exprML -> Types.typeML

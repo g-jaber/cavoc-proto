@@ -1,30 +1,38 @@
-type decl_attribute =
-  | Public
-  | Private
-
-let string_of_attribute = function
-  | Public -> "Public"
-  | Private -> "Private"
 
 
-type decl =
-  |  TypeDecl of (decl_attribute*Types.typevar*Types.typeML)
-  |  TypeValDecl of (decl_attribute*Syntax.id*Types.typeML)
+type signature_decl =
+  |  PrivateTypeDecl of Types.typevar
+  |  PublicTypeDecl of (Types.typevar*Types.typeML)
+  |  PublicValDecl of (Syntax.id*Types.typeML)
+
+let string_of_signature_decl = function
+  | PrivateTypeDecl (tvar) ->
+    "type " ^ tvar
+  | PublicTypeDecl (tvar, ty) ->
+    "type " ^ tvar ^ " = " ^ (Types.string_of_typeML ty)
+  | PublicValDecl (var, ty) ->
+    " val " ^ var ^ " : " ^ (Types.string_of_typeML ty)
+
+let string_of_signature signature =
+  String.concat "\n" ((List.map string_of_signature_decl) signature)
+
+let extract_type_subst signature = 
+  let rec aux = function
+  | [] -> []
+  | PublicTypeDecl (tvar, ty)::l -> (tvar,ty)::(aux l)
+  | _::l -> aux l
+in Pmap.list_to_pmap (aux signature)
+
+
+type implem_decl =
+  |  TypeDecl of (Types.typevar*Types.typeML)
   |  ValDecl of (Syntax.id*Syntax.exprML)
 
-let string_of_decl = function
-  | TypeDecl (attr, tvar, ty) ->
-    (string_of_attribute attr) ^ " type " ^ tvar ^ " = " ^ (Types.string_of_typeML ty)
-  | TypeValDecl (attr, var, ty) ->
-    (string_of_attribute attr) ^ " val " ^ var ^ " : " ^ (Types.string_of_typeML ty)
-  | ValDecl (var, expr) ->
-    " let " ^ var ^ " = " ^ (Syntax.string_of_exprML expr)
+let string_of_implem_decl = function
+  | TypeDecl (tvar, ty) ->
+    "type " ^ tvar ^ " = " ^ (Types.string_of_typeML ty)
+  | ValDecl (var, exprML) ->
+    " let " ^ var ^ " = " ^ (Syntax.string_of_exprML exprML)
 
-let string_of_program prog =
-  String.concat "\n" ((List.map string_of_decl) prog)
-
-let extract_type_subst prog = 
-  let aux = function
-  | TypeDecl (_, tvar, ty) -> Some (tvar,ty)
-  | _ -> None
-in Pmap.list_to_pmap (List.filter_map aux prog)
+let string_of_prog prog =
+  String.concat "\n" ((List.map string_of_implem_decl) prog)

@@ -73,8 +73,6 @@ rule token = parse
   | ':'  { COLON }
   | ';'  { SEMICOLON }
   
-  | "public" { PUBLIC }
-  | "private" { PRIVATE }
   | "type" { TYPE }  
   | "val" { VAL } 
 

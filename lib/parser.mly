@@ -1,6 +1,7 @@
 %{
   open Syntax
   open Types
+  open Declaration
 %}
 
 
@@ -22,7 +23,7 @@
 %token MATCH WITH
 %token ASSERT
 
-%token PUBLIC PRIVATE TYPE VAL
+%token TYPE VAL
 
 %token TUNIT
 %token TINT
@@ -42,29 +43,41 @@
 
 
 %start prog
-%type <Declaration.decl list> prog
+%type <Declaration.implem_decl list> prog
 
+%start signature
+%type <Declaration.signature_decl list> signature
 
+%start fullexpr
+%type <Syntax.exprML> fullexpr
 
 %%
 
-prog: list_decl; EOF  { $1 }
+fullexpr: expr; EOF  { $1 }
 
-attributetype: 
-  | PUBLIC { Public }
-  | PRIVATE { Private }  
+prog: list_implem_decl; EOF  { $1 }
 
-decl:
-  | attributetype TYPE VAR EQ ty { TypeDecl ($1,$3,$5) }
-  | attributetype VAL VAR COLON ty { TypeValDecl ($1,$3,$5) }
+signature: list_signature_decl; EOF { $1 }
+
+signature_decl:
+  | TYPE VAR { PrivateTypeDecl ($2) }  
+  | TYPE VAR EQ ty { PublicTypeDecl ($2,$4) }
+  | VAL VAR COLON ty { PublicValDecl ($2,$4) }
+
+implem_decl:
+  | TYPE VAR EQ ty { TypeDecl ($2,$4) }
   | LET VAR list_ident EQ expr
     { ValDecl ($2, List.fold_left (fun expr var -> Fun (var,expr)) $5 $3) }
   | LET REC VAR typed_ident list_ident EQ expr
     { ValDecl ($3, Fix (($3,TUndef),$4, List.fold_left (fun expr var -> Fun (var,expr)) $7 $5)) }
 
-list_decl:
+list_signature_decl:
   |  { [] }
-  | list_decl decl {$2::$1}
+  | list_signature_decl signature_decl {$2::$1}
+
+list_implem_decl:
+  |  { [] }
+  | list_implem_decl implem_decl {$2::$1}
 
 
 expr:

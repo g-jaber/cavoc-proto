@@ -63,20 +63,6 @@ val implement_compar_op : binary_op -> (int -> int -> bool)
 val get_consfun_from_bin_cons : exprML -> exprML * exprML -> exprML
 val get_consfun_from_un_cons : exprML -> exprML -> exprML
 
-(*
-val get_aop_from_expr :
-  exprML ->
-  exprML * exprML * (loc -> loc -> loc) * (exprML * exprML -> exprML)
-
-val get_abop_from_expr :
-  exprML ->
-  exprML * exprML * ('a -> 'a -> bool) * (exprML * exprML -> exprML)
-
-val get_bop_from_expr :
-  exprML ->
-  exprML * exprML * (bool -> bool -> bool) * (exprML * exprML -> exprML)
-*)
-
 type functional_env = (id, exprML) Pmap.pmap
 
 val string_of_functional_env : string -> functional_env -> string
