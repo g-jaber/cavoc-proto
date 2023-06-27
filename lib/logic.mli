@@ -2,7 +2,6 @@ val iter : int -> ('a -> 'a) -> 'a -> 'a
 
 val fresh_locvar : unit -> string
 
-
 type symbheap = (Syntax.id, Syntax.exprML) Pmap.pmap
 
 val string_of_symb_heap : symbheap -> string
@@ -32,7 +31,9 @@ val simplify_arith_pred : arith_pred -> arith_pred
 val trivially_false : arith_pred list -> bool
 val expr_to_arith_pred : Syntax.exprML -> arith_pred
 val string_of_conj : string -> ('a -> string) -> 'a list -> string
+
 val string_of_arith_pred : arith_pred -> string
+
 val full_arith_simplification_aux : arith_pred list -> arith_pred list
 val full_arith_simplification : arith_pred -> arith_pred
 

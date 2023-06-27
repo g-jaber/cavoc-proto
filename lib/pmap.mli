@@ -10,6 +10,8 @@ val list_to_pmap : ('a*'b) list -> ('a,'b) pmap
 
 val lookup_pmap : 'a -> ('a,'b) pmap -> 'b option
 
+val lookup_exn : 'a -> ('a,'b) pmap -> 'b
+
 val add : ('a*'b) -> ('a,'b) pmap -> ('a,'b) pmap
 
 val modadd_pmap : ('a*'b) -> ('a,'b) pmap -> ('a,'b) pmap

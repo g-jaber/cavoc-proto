@@ -13,6 +13,11 @@ let rec lookup_pmap x = function
   | (y,v)::_ when x = y -> Some v
   | _::pmap -> lookup_pmap x pmap
 
+let rec lookup_exn x = function
+  | [] -> raise Not_found
+  | (y,v)::_ when x = y -> v
+  | _::pmap -> lookup_exn x pmap
+
 let add (a,b) p  = (a,b)::p
 
 let rec modadd_pmap (x,v) = function
