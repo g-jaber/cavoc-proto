@@ -1,33 +1,27 @@
-open Syntax
+module type MOVES = functor (Lang:Language.LANG) ->
+  sig
+  type player = Proponent | Opponent
 
-type nup = exprML
-val fresh_fname : unit -> id
-val fresh_cname : unit -> id
+  type move
 
-type name_ctx = (id,Types.typeML) Pmap.pmap
+  type action =
+  | PDiv
+  | Vis of move
+    (*| PRecCall of Lang.id *)
 
-val generate_nup : Types.typeML -> (nup*name_ctx) list
+  val generate_pmove : Lang.name_type_ctx -> Lang.name -> Lang.interactive_val -> (action * Lang.interactive_env * Lang.name_type_ctx)
 
+  val generate_omove : Lang.name_type_ctx -> (action * Lang.name_type_ctx) list
 
+  val generate_term : Lang.interactive_env -> action -> Lang.computation
 
-type kindTerm =
-    IsVal of (id*exprML)
-  | IsCallExtern of (id*exprML*eval_context)
-  | IsRecCall of (id*exprML*exprML*eval_context)
+  val unify_move : Lang.name Namespan.namespan -> move -> move -> Lang.name Namespan.namespan option
 
-val decompose_nf : full_expr -> kindTerm
+  val synch_move : Lang.name Namespan.namespan -> move -> move -> Lang.name Namespan.namespan option
 
-type interactive_env = (id, Syntax.exprML) Pmap.pmap
+  val unify_action : Lang.name Namespan.namespan -> action -> action -> Lang.name Namespan.namespan option
 
-val abstract_val : exprML -> Types.typeML -> nup * interactive_env * name_ctx
+  val string_of_action : action -> string
+end
 
-
-val string_of_interactive_env : interactive_env -> string
-
-type action =
-  | Op
-  | RecCall of id 
-  | PQ of id*nup*id
-  | PA of id*nup
-  | OQ of id*nup*id
-  | OA of id*nup
+module Moves : MOVES

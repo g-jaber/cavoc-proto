@@ -1,4 +1,4 @@
-(executable
- (public_name cavoc)
- (name main)
+(executables
+ (names cavoctree cavocsynch)
+ (public_names cavoctree cavocsynch)
  (libraries cavoc))

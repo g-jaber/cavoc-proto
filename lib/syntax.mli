@@ -1,9 +1,19 @@
 type id = string
-type loc = int
+type loc
 
+val string_of_id : id -> string
 val string_of_loc : loc -> string
 
+val fresh_loc : unit -> loc
+
 val fresh_evar : unit -> id
+
+type name
+
+val fresh_fname : unit -> name
+val fresh_cname : unit -> name
+
+val string_of_name : name -> string
 
 type binary_op =
   | Plus
@@ -24,6 +34,7 @@ type unary_op =
 
 type exprML =
     Var of id
+  | Name of name
   | Loc of loc
   | Unit
   | Int of int
@@ -39,16 +50,22 @@ type exprML =
   | Seq of exprML * exprML
   | While of exprML * exprML
   | Pair of exprML * exprML
-  | Newref of exprML
+  | Newref of Types.typeML*exprML
   | Deref of exprML
   | Assign of exprML * exprML
   | Assert of exprML
   | Hole
-  | Named of id * exprML
+  | ECtx of exprML
+  | Named of name * exprML
+
+val get_names : exprML -> name list
+
+type valML = exprML
 
 val isval : exprML -> bool
-val subst : exprML -> exprML -> exprML -> exprML
-val subst_list : exprML -> (id * exprML) list -> exprML
+val subst : exprML -> valML -> valML -> exprML
+val subst_var : exprML -> id -> valML -> exprML
+val subst_list : exprML -> (id * valML) list -> exprML
 val string_of_typed_var : Types.typevar * Types.typeML -> string
 val string_par_of_exprML : exprML -> string
 val string_of_exprML : exprML -> string
@@ -63,9 +80,9 @@ val implement_compar_op : binary_op -> (int -> int -> bool)
 val get_consfun_from_bin_cons : exprML -> exprML * exprML -> exprML
 val get_consfun_from_un_cons : exprML -> exprML -> exprML
 
-type functional_env = (id, exprML) Pmap.pmap
+type functional_env = (id, valML) Pmap.pmap
 
-val string_of_functional_env : string -> functional_env -> string
+val string_of_functional_env : functional_env -> string
 
 type full_expr = exprML * functional_env
 
@@ -96,4 +113,18 @@ val lsubst_type :
 val lsubst_vctx :
   (id, Types.typeML) Pmap.pmap ->
   ('a, Types.typeML) Pmap.pmap -> ('a, Types.typeML) Pmap.pmap
+
 val string_of_var_ctx : var_ctx -> string
+val string_of_loc_ctx : loc_ctx -> string
+
+
+type name_ctx = (name,Types.typeML) Pmap.pmap
+
+val empty_name_ctx : name_ctx
+val empty_loc_ctx : loc_ctx
+
+val string_of_name_ctx : name_ctx -> string
+
+val init_term : exprML -> Types.typeML -> (exprML*name_ctx)
+
+val generate_ground_value : Types.typeML -> valML list

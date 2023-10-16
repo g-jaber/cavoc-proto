@@ -3,8 +3,15 @@ open Pmap
 type id = string
 type loc = int
 
+let string_of_id x = x
+
 let string_of_loc l = "ℓ" ^ (string_of_int l)
 
+let count_loc = ref 0
+let fresh_loc () =
+  let l = !count_loc in
+  count_loc := !count_loc + 1; 
+  l
 
 (* Expressions *)
 
@@ -13,7 +20,26 @@ let fresh_evar () =
   let x = !count_evar in
   count_evar := !count_evar + 1;("_y" ^ (string_of_int x))
 
-  type binary_op =
+  
+type name = 
+  | FName of id
+  | CName of id
+
+let count_fname = ref 0
+let fresh_fname () =
+  let fn = !count_fname in
+  count_fname := !count_fname + 1; FName ("f" ^ (string_of_int fn))
+
+let count_cname = ref 0
+let fresh_cname () =
+  let cn = !count_cname in
+  count_cname := !count_cname + 1; CName ("c" ^ (string_of_int cn))
+
+let string_of_name = function
+  | FName f -> "f" ^ f
+  | CName c -> "c" ^ c 
+
+type binary_op =
   | Plus
   | Minus
   | Mult
@@ -32,6 +58,7 @@ type unary_op =
 
 type exprML =
     Var of id
+  | Name of name
   | Loc of loc
   | Unit
   | Int of int
@@ -47,15 +74,36 @@ type exprML =
   | Seq of exprML * exprML
   | While of exprML * exprML
   | Pair of exprML * exprML
-  | Newref of exprML
+  | Newref of Types.typeML * exprML
   | Deref of exprML
   | Assign of exprML * exprML
   | Assert of exprML
   | Hole
-  | Named of id * exprML
+  | ECtx of exprML
+  | Named of name * exprML
+
+let get_names expr =
+  let rec aux lnames = function
+    | Name n -> if List.mem n lnames then lnames else n::lnames
+    | Var _ | Loc _ | Unit | Int _ | Bool _ | Hole -> lnames
+    | UnaryOp (_,e) | Fun (_,e) | Fix (_,_,e) | Newref (_,e) 
+    | Deref e | Assert e | ECtx (e)| Named (_,e) -> aux lnames e
+    | BinaryOp (_,e1,e2) | Let (_,e1,e2) | LetPair (_,_,e1,e2) | Seq (e1,e2) 
+    | While (e1,e2) | App (e1,e2) | Pair (e1,e2) | Assign (e1,e2) -> 
+      let lnames1 = aux lnames e1 in 
+      aux lnames1 e2
+    | If (e1,e2,e3) -> 
+      let lnames1 = aux lnames e1 in
+      let lnames2 = aux lnames1 e2 in
+      aux lnames2 e3
+  in aux [] expr 
+      
+
+type valML = exprML
 
 let rec isval = function
   | Var _ -> true
+  | Name _ -> true
   | Loc _ -> true
   | Unit -> true
   | Int _ -> true
@@ -63,13 +111,15 @@ let rec isval = function
   | Fix _ -> true
   | Fun _ -> true
   | Pair (e1,e2) -> (isval e1) && (isval e2)
+  | ECtx _ -> true
   | _ -> false
 
 let rec subst expr value value' = match expr with
   | Var _ when (expr = value) -> value'
+  | Name _ when (expr = value) -> value'
   | Loc _ when (expr = value) -> value'
   | Hole when (expr = value) -> value'
-  | Var _ | Loc _ | Hole | Unit | Int _ | Bool _ -> expr
+  | Var _ | Name _ | Loc _ | Hole | Unit | Int _ | Bool _ -> expr
   | BinaryOp (op,expr1,expr2) ->
     BinaryOp (op,subst expr1 value value', subst expr2 value value')
   | UnaryOp (op,expr) ->
@@ -101,15 +151,18 @@ let rec subst expr value value' = match expr with
     While (subst expr1 value value', subst expr2 value value')
   | Pair (expr1,expr2) ->
     Pair (subst expr1 value value', subst expr2 value value')
-  | Newref expr' ->
-    Newref (subst expr' value value')
+  | Newref (ty,expr') ->
+    Newref (ty,subst expr' value value')
   | Deref expr' ->
     Deref (subst expr' value value')
   | Assign (expr1,expr2) ->
     Assign (subst expr1 value value', subst expr2 value value')
   | Assert expr ->
     Assert (subst expr value value')
-  | Named (cn,expr) -> Named (cn,subst expr value value') 
+  | ECtx ectx -> ECtx (subst ectx value value') 
+  | Named (cn,expr) -> Named (cn,subst expr value value')
+
+let subst_var expr id = subst expr (Var id)
 
 let subst_list expr lsubst =
   List.fold_left (fun expr (var,value) -> subst expr (Var var) value)
@@ -145,6 +198,7 @@ let rec string_par_of_exprML = function
 
 and string_of_exprML = function
   | Var x -> x
+  | Name n -> string_of_name n
   | Loc l -> "l" ^ (string_of_int l)
   | Unit -> "()"
   | Int n -> string_of_int n
@@ -173,12 +227,13 @@ and string_of_exprML = function
   | App (e1,e2) -> (string_par_of_exprML e1) ^ " " ^ (string_par_of_exprML e2)
   | Pair (e1,e2) ->
     "(" ^ (string_of_exprML e1) ^ "," ^ (string_of_exprML e2) ^ ")"
-  | Newref e -> "ref " ^ (string_of_exprML e)
+  | Newref (ty,e) -> "ref_" ^ (Types.string_of_typeML ty) ^ " " ^ (string_of_exprML e)
   | Deref e -> "!" ^ (string_of_exprML e)
   | Assign (e1,e2) -> (string_of_exprML e1) ^ " := " ^ (string_of_exprML e2)
   | Assert e -> "assert " ^ (string_of_exprML e)
   | Hole -> "•"
-  | Named (cn,e) -> "[" ^ cn ^ "]" ^ (string_of_exprML e)
+  | ECtx (e) -> "cont(" ^ (string_of_exprML e) ^ ")"
+  | Named (cn,e) -> "[" ^ (string_of_name cn) ^ "]" ^ (string_of_exprML e)
 
 (* Auxiliary functions *)
 
@@ -215,7 +270,7 @@ let get_consfun_from_bin_cons = function
 
 let get_consfun_from_un_cons = function
   | UnaryOp (op,_) -> fun x -> UnaryOp (op,x) 
-  | Newref _ -> fun x -> Newref x 
+  | Newref (ty,_) -> fun x -> Newref (ty,x) 
   | Deref _ -> fun x -> Deref x 
   | expr -> failwith ("No unary constructor function can be extracted from "
                       ^ (string_of_exprML expr))
@@ -224,13 +279,13 @@ let get_consfun_from_un_cons = function
 
 type functional_env = (id,exprML) pmap
 
-let string_of_functional_env = string_of_pmap "->" string_of_exprML
+let string_of_functional_env = string_of_pmap "ε" "->" string_of_id string_of_exprML
 
 type full_expr = exprML*functional_env
 
 let string_of_full_expr (expr,gamma) =
   "(" ^ (string_of_exprML expr) ^ ",[" ^
-  (string_of_pmap "->" string_of_exprML "" gamma) ^ "])"
+  (string_of_pmap "ε" "->" string_of_id string_of_exprML gamma) ^ "])"
 
 (* Evaluation Contexts *)
 
@@ -242,9 +297,9 @@ let rec extract_ctx expr = match expr with
   | Assign (expr1,expr2) ->
     let consfun = get_consfun_from_bin_cons expr in
     extract_ctx_bin consfun expr1 expr2
-  | UnaryOp (_,expr) | Newref expr | Deref expr -> 
+  | UnaryOp (_,expr') | Newref (_,expr') | Deref expr' -> 
     let consfun = get_consfun_from_un_cons expr in
-    extract_ctx_un consfun expr
+    extract_ctx_un consfun expr'
   | If (expr1,expr2,expr3) ->
     extract_ctx_un (fun x -> If (x,expr2,expr3)) expr1
   | Let (var,expr1,expr2) ->
@@ -267,7 +322,7 @@ and extract_ctx_bin cons_op expr1 expr2 =
   | (true,true) -> (cons_op (expr1,expr2),Hole)
 
 and extract_ctx_un cons_op expr =
-  if (isval expr) then (expr,Hole)
+  if (isval expr) then (expr,cons_op Hole)
   else let (result,ctx) = extract_ctx expr in (result, cons_op ctx)
 
 let extract_call expr =
@@ -305,4 +360,39 @@ let string_of_var_ctx =
   let aux = function
     | Types.TUndef -> "undef"
     | ty -> "::" ^ (Types.string_of_typeML ty)
-  in Pmap.string_of_pmap "" aux ""
+  in Pmap.string_of_pmap "ε" "" string_of_id aux
+
+let string_of_loc_ctx =
+  let aux = function
+    | Types.TUndef -> "undef"
+    | ty -> "::" ^ (Types.string_of_typeML ty)
+  in Pmap.string_of_pmap "ε" "" string_of_loc aux
+
+type name_ctx = (name,Types.typeML) Pmap.pmap
+
+let string_of_name_ctx =
+  let aux = function
+    | Types.TUndef -> "undef"
+    | ty -> "::" ^ (Types.string_of_typeML ty)
+  in Pmap.string_of_pmap "ε" "" string_of_name aux
+
+let empty_name_ctx = Pmap.empty
+let empty_loc_ctx = Pmap.empty
+
+let init_term term ty =
+  let cn = fresh_cname () in
+  (Named (cn,term),Pmap.singleton (cn,Types.TNeg ty))
+
+let max_int = 1
+
+let generate_ground_value : Types.typeML -> exprML list = function
+  | TUnit -> [Unit]
+  | TBool -> [Bool true; (Bool false)]
+  | TInt ->
+    let rec aux i =
+      if i < 0 then []
+      else (Int i)::(aux (i-1))
+    in aux max_int
+  | ty -> failwith ("Error: the type"
+            ^ (Types.string_of_typeML ty)
+            ^ " is not of ground type. It should not appear inside heaps.")

@@ -62,7 +62,7 @@ let rec apply_type_subst ty subst = match ty with
   | TSum (ty1,ty2) ->
     TSum (apply_type_subst ty1 subst, apply_type_subst ty2 subst)
   | TVar tvar ->
-    begin match Pmap.lookup_pmap tvar subst with
+    begin match Pmap.lookup tvar subst with
       | Some ty' -> ty'
       | None -> ty
     end
@@ -125,7 +125,7 @@ let rec apply_type_subst ty subst = match ty with
     | ((TVar tvar1) as ty1,TVar tvar2) when tvar1 = tvar2 -> Some (ty1, tsubst)
     | ((TVar _) as ty1,TVar tvar2) -> Some (ty1, Pmap.modadd_pmap (tvar2,ty1) tsubst)
     | (TVar tvar,ty) | (ty, TVar tvar) ->
-      begin match Pmap.lookup_pmap tvar tsubst with
+      begin match Pmap.lookup tvar tsubst with
         | None -> Some (ty, Pmap.modadd_pmap (tvar,ty) tsubst)
         | Some ty' ->
           begin match unify_type tsubst (ty,ty') with
@@ -150,3 +150,8 @@ let rec apply_type_subst ty subst = match ty with
     | TVar _ -> sty
     | TNeg ty' -> TNeg (close_type sty ty') 
     | TUndef -> failwith "Error: undefined type, please report."
+
+let neg_type = function
+  | TArrow (ty1,ty2) -> TProd (ty1,TNeg ty2)
+  | TNeg ty -> ty
+  | ty -> failwith ("Cannot negate the type " ^ (string_of_typeML ty))

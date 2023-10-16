@@ -38,3 +38,6 @@ val full_arith_simplification_aux : arith_pred list -> arith_pred list
 val full_arith_simplification : arith_pred -> arith_pred
 
 
+type arith_ctx = arith_pred list
+
+val string_of_arith_ctx : arith_ctx -> string

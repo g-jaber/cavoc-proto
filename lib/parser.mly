@@ -94,7 +94,7 @@ expr:
   | LET LPAR VAR COMMA VAR RPAR EQ expr IN expr
     { LetPair ($3,$5,$8,$10)}
   | WHILE expr DO expr DONE { While ($2,$4) }
-  | REF expr         { Newref $2 }
+  | REF expr         { Newref (TUndef,$2) }
   | expr ASSIGN expr { Assign ($1,$3) }
   | ASSERT expr      { Assert $2 }
 (*  | MINUS expr          { UMinus (-$2) }  *)

@@ -25,3 +25,5 @@ val subst_type : typevar -> typeML -> typeML -> typeML
 val unify_type : type_subst -> typeML*typeML -> (typeML*type_subst) option
 
 val close_type : typeML -> typeML -> typeML
+
+val neg_type : typeML -> typeML

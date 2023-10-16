@@ -67,9 +67,9 @@ let aux_bin_bool iop consfun expr1 expr2 heapPost symbred =
 
 let rec symbred heapPost expr = match expr with
   | App (Fun ((var,_),expr1),expr2) when (isval expr2) -> 
-      ([(subst expr1 (Var var) expr2, Pmap.empty, Pmap.empty, heapPost, Pmap.empty, [])],true)
+      ([(subst_var expr1 var expr2, Pmap.empty, Pmap.empty, heapPost, Pmap.empty, [])],true)
   | App (Fix ((idfun,_),(var,ty),expr1),expr2) when (isval expr2) ->
-      ([(subst expr1 (Var var) expr2, Pmap.singleton (idfun,Fun ((var,ty),expr1)), Pmap.empty, heapPost, Pmap.empty, [])],true)
+      ([(subst_var expr1 var expr2, Pmap.singleton (idfun,Fun ((var,ty),expr1)), Pmap.empty, heapPost, Pmap.empty, [])],true)
   | App (expr1,expr2) -> 
       aux_bin_red (symbred heapPost) (fun (x,y) -> App (x,y)) (expr1,expr2)
   | Seq (Unit,expr2) -> 
@@ -80,24 +80,24 @@ let rec symbred heapPost expr = match expr with
   | Pair (expr1,expr2) -> 
       aux_bin_red (symbred heapPost) (fun (x,y) -> Pair (x,y)) (expr1,expr2)
   | Let (var,expr1,expr2) when (isval expr1) -> 
-      ([(subst expr2 (Var var) expr1, Pmap.empty, Pmap.empty, heapPost, Pmap.empty, [])],true)
+      ([(subst_var expr2 var expr1, Pmap.empty, Pmap.empty, heapPost, Pmap.empty, [])],true)
   | Let (var,expr1,expr2) -> let (result,b) = symbred heapPost expr1 in
       (List.map (aux (fun x -> (Let (var,x,expr2)))) result,b)
   | LetPair (var1,var2,Pair (expr1,expr2),expr') when (isval expr1 && isval expr2)->
-      let expr'' = subst expr' (Var var1) expr1 in
-      let expr'' = subst expr'' (Var var2) expr2 in
+      let expr'' = subst_var expr' var1 expr1 in
+      let expr'' = subst_var expr'' var2 expr2 in
       ([(expr'', Pmap.empty, Pmap.empty, heapPost, Pmap.empty, [])],true)
   | LetPair (var1,var2,expr1,expr2) ->
       let (result,b) = symbred heapPost expr1 in 
       (List.map (aux (fun x -> (LetPair (var1,var2,x,expr2)))) result,b)
-  | Newref expr -> 
+  | Newref (ty,expr) -> 
     if (isval expr) then 
       let (l,heapPost') = add_locvar heapPost expr in 
       ([(Var l,Pmap.empty,Pmap.empty,heapPost',Pmap.singleton (l,Types.TRef Types.TInt), [])],true) (* Fix This *)
      else let (result,b) = symbred heapPost expr in 
-      (List.map (aux (fun x -> (Newref x))) result,b)
+      (List.map (aux (fun x -> (Newref (ty,x)))) result,b)
   | Deref (Var l) -> 
-    begin match lookup_pmap l heapPost with
+    begin match lookup l heapPost with
       | Some value -> ([(value,Pmap.empty,Pmap.empty,heapPost,Pmap.empty, [])],true)
       | None -> let x = Logic.fresh_lvar () in
                 let heapPre = Pmap.singleton (l,Var x) in 
@@ -105,7 +105,7 @@ let rec symbred heapPost expr = match expr with
     end
   | Deref expr -> let (result,b) = symbred heapPost expr in (List.map (aux (fun x -> (Deref x))) result,b)
   | Assign (Var l,expr2) when (isval expr2) ->
-    begin match lookup_pmap l heapPost with
+    begin match lookup l heapPost with
       | Some _ ->  ([(Unit,Pmap.empty,Pmap.empty,modadd_pmap (l,expr2) heapPost,Pmap.empty, [])],true)
       | None -> let x = Logic.fresh_lvar () in
                 let heapPre = Pmap.singleton (l,Var x) in 

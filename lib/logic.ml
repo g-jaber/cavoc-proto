@@ -13,7 +13,7 @@ let fresh_locvar () =
 
 type symbheap =  (id,exprML) Pmap.pmap
 
-let string_of_symb_heap = Pmap.string_of_pmap "↪" Syntax.string_of_exprML "ε"
+let string_of_symb_heap = Pmap.string_of_pmap "ε" "↪" Syntax.string_of_id Syntax.string_of_exprML
 
 let count_lvar = ref 0
 let fresh_lvar () =
@@ -153,3 +153,9 @@ let full_arith_simplification apred = match apred with
 
 
            
+type arith_ctx = arith_pred list
+
+let string_of_arith_ctx actx =
+    let strlist = List.map string_of_arith_pred actx in
+    let str = String.concat "/\\" strlist in
+    "[" ^ str ^ "]"
