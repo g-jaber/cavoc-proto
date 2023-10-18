@@ -8,12 +8,16 @@ val fresh_loc : unit -> loc
 
 val fresh_evar : unit -> id
 
-type name
+type name =
+  | FName of id
+  | CName of id
 
 val fresh_fname : unit -> name
 val fresh_cname : unit -> name
 
 val string_of_name : name -> string
+
+val name_of_id : id -> name
 
 type binary_op =
   | Plus

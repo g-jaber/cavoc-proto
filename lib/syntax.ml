@@ -25,6 +25,7 @@ type name =
   | FName of id
   | CName of id
 
+let name_of_id id = FName ("_"^id) 
 let count_fname = ref 0
 let fresh_fname () =
   let fn = !count_fname in
@@ -36,8 +37,8 @@ let fresh_cname () =
   count_cname := !count_cname + 1; CName ("c" ^ (string_of_int cn))
 
 let string_of_name = function
-  | FName f -> "f" ^ f
-  | CName c -> "c" ^ c 
+  | FName f -> f
+  | CName c -> c 
 
 type binary_op =
   | Plus

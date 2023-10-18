@@ -8,6 +8,7 @@
 %token EOF
 %token <int> INT
 %token <Syntax.id> VAR
+%token <Syntax.id> NAME
 %token EQ
 %token PLUS MINUS MULT DIV
 %token LAND LOR NOT
@@ -118,6 +119,7 @@ app_expr:
 
 simple_expr:
   | VAR             { Var $1 }
+  | NAME            { Name (FName $1) }
   | UNIT            { Unit }
   | INT             { Int $1 }
   | TRUE            { Bool true }
