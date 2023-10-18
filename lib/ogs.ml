@@ -67,7 +67,7 @@ let init_aconf computation namectxO =
    namectxO;
    namectxP = Pmap.empty}
 
-let init_pconf ienv namectxO namectxP =
+let init_pconf ienv namectxP namectxO =
   {heap = Lang.empty_resources;
    ienv;
    namectxO ;
