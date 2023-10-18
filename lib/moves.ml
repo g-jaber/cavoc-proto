@@ -20,6 +20,7 @@ module type MOVES = functor (Lang:Language.LANG) ->
   val synch_move : Lang.name Namespan.namespan -> move -> move -> Lang.name Namespan.namespan option
 
   val unify_action : Lang.name Namespan.namespan -> action -> action -> Lang.name Namespan.namespan option
+  val synch_action : Lang.name Namespan.namespan -> action -> action -> Lang.name Namespan.namespan option
 
   val string_of_action : action -> string
 end
@@ -49,6 +50,7 @@ let string_of_action = function
   | Vis move -> string_of_move move
 
 let generate_omove namectx = 
+  Debug.print_debug "Generating O-moves";
   let aux (id,ty) = 
     let nups = Lang.generate_nup (Lang.neg_type ty) in
     List.map (fun (nup,namectx') -> (Vis (Opponent,id,nup),namectx')) nups
@@ -93,7 +95,7 @@ let synch_move span move1 move2 =
   match (move1,move2) with
     | ((Proponent,nn1,nup1),(Opponent,nn2,nup2))
       | ((Opponent,nn1,nup1),(Proponent,nn2,nup2))
-        -> if (Namespan.is_in_dom_im (nn1,nn2) span) 
+        -> if (Namespan.is_in_dom_im (nn2,nn1) span) 
            then Lang.unify_nup span nup1 nup2
            else None
     | _ -> None 
@@ -102,7 +104,12 @@ let unify_action span act1 act2 =
   match (act1,act2) with
     | (Vis move1,Vis move2) -> unify_move span move1 move2
     | (PDiv,PDiv) -> Some span
-    (*| (PRecCall _,_) | (_,PRecCall _) -> failwith "We do not support unification of recursive call actions yet." *)
+    | (Vis _,PDiv) | (PDiv, Vis _) -> None
+
+let synch_action span act1 act2 = 
+  match (act1,act2) with
+    | (Vis move1,Vis move2) -> synch_move span move1 move2
+    | (PDiv,PDiv) -> Some span
     | (Vis _,PDiv) | (PDiv, Vis _) -> None
 
 end

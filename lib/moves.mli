@@ -20,6 +20,8 @@ module type MOVES = functor (Lang:Language.LANG) ->
   val synch_move : Lang.name Namespan.namespan -> move -> move -> Lang.name Namespan.namespan option
 
   val unify_action : Lang.name Namespan.namespan -> action -> action -> Lang.name Namespan.namespan option
+  
+  val synch_action : Lang.name Namespan.namespan -> action -> action -> Lang.name Namespan.namespan option
 
   val string_of_action : action -> string
 end

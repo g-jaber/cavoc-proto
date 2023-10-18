@@ -20,6 +20,8 @@ let rec unify_nup nspan nup1 nup2 =
     | _ -> failwith ("Error: one of the terms " ^ (string_of_nup nup1) ^ " or " ^ (string_of_nup nup2)
       ^ " is not a NUP. Please report.")
 
+let max_int = 3
+
 let rec generate_nup = function
   | TUnit -> [(Unit,Syntax.empty_name_ctx)]
   | TBool -> [(Bool true,Syntax.empty_name_ctx); (Bool false,Syntax.empty_name_ctx)]
@@ -46,13 +48,16 @@ let rec generate_nup = function
   | TNeg _ as ty  -> 
     let cn = fresh_cname () in
     [(Name cn, Pmap.singleton (cn,ty))]
-  | _ -> failwith "Error generating a nup. Please report"
+  | TVar _ -> failwith "NUPs for type variables are not yet supported"
+  | ty -> failwith ("Error generating a nup on type " ^ (Types.string_of_typeML ty) ^ ". Please report")
 
 type interactive_env = (name,exprML) Pmap.pmap
 
 let empty_ienv = Pmap.empty
 
 let singleton_ienv = Pmap.singleton
+
+let list_to_ienv = Pmap.list_to_pmap
 
 let string_of_interactive_env =
   Pmap.string_of_pmap "ε" " => " Syntax.string_of_name Syntax.string_of_exprML

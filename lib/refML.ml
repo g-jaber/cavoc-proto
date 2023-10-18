@@ -5,7 +5,7 @@ module RefML : Language.LANG = struct
   let get_typed_computation nbprog inBuffer = 
     let lineBuffer = Lexing.from_channel inBuffer in
     try let expr = Parser.fullexpr Lexer.token lineBuffer in
-        let ty = Type_checker.typing_full expr in
+        let ty = Type_checker.typing_full Pmap.empty expr in
         Syntax.init_term expr ty
     with
     | Lexer.SyntaxError msg -> failwith ("Parsing Error in the " ^ nbprog
@@ -42,7 +42,18 @@ module RefML : Language.LANG = struct
   let lookup_ienv = Focusing.lookup_ienv
   let concat_ienv = Focusing.concat_ienv
   let string_of_ienv = Focusing.string_of_interactive_env
-  let get_typed_ienv = failwith "Not implemented yet"
+  let get_typed_ienv inBuffer = 
+    let lineBuffer = Lexing.from_channel inBuffer in
+    try let implem_decl_l = Parser.prog Lexer.token lineBuffer in
+        Declaration.get_ienv implem_decl_l
+    with
+    | Lexer.SyntaxError msg -> failwith ("Parsing Error: " ^ msg)
+    | Parser.Error ->
+      failwith ("Syntax Error: "
+                ^ " at position "
+                ^ (string_of_int (Lexing.lexeme_start lineBuffer)))
+    | Type_checker.TypingError msg -> 
+      failwith ("Typing Error: " ^ msg)
 
 
   type nup = Focusing.nup

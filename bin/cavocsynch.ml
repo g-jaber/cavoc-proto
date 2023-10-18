@@ -26,12 +26,17 @@ let () =
   parse speclist get_filename usage_msg;
   check_number_filenames ();
   let module OGS = Cavoc.Ogs.OGS(Cavoc.RefML.RefML)(Cavoc.Monad.ListMonad) in
+  Cavoc.Debug.print_debug "Getting the program";
   let inBuffer1 = open_in !filename1 in
   let (expr1,namectxO) = Cavoc.RefML.RefML.get_typed_computation "first" inBuffer1 in
-  let init_aconf = OGS.init_aconf expr1 namectxO in
-  let inBuffer2 = open_in !filename1 in
-  let (ienv,namectxO',namectx) = Cavoc.RefML.RefML.get_typed_ienv "second" inBuffer2 in
-  let init_pconf = OGS.init_pconf ienv namectxO' namectx in
+  Cavoc.Debug.print_debug "Getting the module";
+  let inBuffer2 = open_in !filename2 in
+  let (ienv,namectxO') = Cavoc.RefML.RefML.get_typed_ienv inBuffer2 in
+  Cavoc.Debug.print_debug ("Name contexts for Opponent: " ^ (Cavoc.RefML.RefML.string_of_name_type_ctx namectxO) ^ " and " ^ (Cavoc.RefML.RefML.string_of_name_type_ctx namectxO'));
+  let init_aconf = OGS.init_aconf expr1 (Cavoc.Pmap.concat namectxO namectxO') in
+  let init_pconf = OGS.init_pconf ienv namectxO' Cavoc.Pmap.empty in
   let module OGS_Synchronize = Cavoc.Synchronize.Make(Cavoc.RefML.RefML)(Cavoc.Monad.ListMonad)(Cavoc.Ogs.OGS) in
-  let traces = OGS_Synchronize.get_traces init_aconf init_pconf in
+  let namespan = Cavoc.Namespan.id_nspan (Cavoc.Pmap.dom namectxO') in
+  let traces = OGS_Synchronize.get_traces namespan init_aconf init_pconf in
+  Cavoc.Debug.print_debug "Getting the trace";
   List.iter print_endline traces;;

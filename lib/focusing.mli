@@ -10,6 +10,7 @@ type kindTerm =
 type interactive_env
 val empty_ienv : interactive_env
 val singleton_ienv : (Syntax.name*Syntax.exprML) -> interactive_env
+val list_to_ienv : (Syntax.name*Syntax.exprML) list -> interactive_env
 val lookup_ienv : Syntax.name -> interactive_env -> Syntax.exprML option
 val concat_ienv : interactive_env -> interactive_env -> interactive_env
 val string_of_interactive_env : interactive_env -> string
