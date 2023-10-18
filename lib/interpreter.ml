@@ -43,7 +43,7 @@ let interpreter interpreter (expr,heap) =
       | Name _ -> 
         let* (expr2',heap'') = interpreter (expr2,heap') in
         return (App (expr1',expr2'),heap'') 
-      | _ -> failwith ("Error. the term " ^ (string_of_exprML expr) ^ " is a wrong application. Please report.")
+      | _ -> return (App (expr1',expr2),heap')
     end
   | Seq (expr1,expr2) -> 
     let* (expr1',heap') = interpreter (expr1,heap) in
@@ -76,83 +76,99 @@ let interpreter interpreter (expr,heap) =
       interpreter (expr',heap')
     else return (Let (var,expr1',expr2),heap') 
   | LetPair (var1,var2,expr1,expr2) ->
-    let* (value,heap') = interpreter (expr1,heap) in
-    begin match value with
+    let* (nf1,heap') = interpreter (expr1,heap) in
+    begin match nf1 with
       | Pair (value1,value2) ->
         let expr2' = subst_var expr2 var1 value1 in
         let expr2'' = subst_var expr2' var2 value2 in
         interpreter (expr2'',heap')
-      | _ -> failwith ("Error: " ^ (Syntax.string_of_exprML expr1) ^ " does not reduces to a pair. Please report.")
+      | _ -> return (LetPair (var1,var2,nf1,expr2),heap')
     end
-  | Newref (_,expr) -> 
-    let* (value,heap') = interpreter (expr,heap) in
-    let (l,heap'') = Heap.allocate heap' value in 
-      return (Loc l,heap'')
+  | Newref (ty,expr) -> 
+    let* (nf,heap') = interpreter (expr,heap) in
+    if isval nf then 
+      let (l,heap'') = Heap.allocate heap' nf in 
+        return (Loc l,heap'')
+    else return (Newref (ty,nf),heap) 
   | Deref expr -> 
-    let* (loc,heap') = interpreter (expr,heap) in
-    begin match loc with
+    let* (nf,heap') = interpreter (expr,heap) in
+    begin match nf with
       | Loc l -> 
         begin match Heap.access heap l with
           | Some value -> return (value,heap')
-          | None -> failwith "Small footprint  not yet implemented"
+          | None -> failwith ("Error in the interpreter: " ^ (Syntax.string_of_loc l) ^ "is not in the heap " ^ (Heap.string_of_heap heap))
         end
-      | _ -> failwith ("Error: " ^ (Syntax.string_of_exprML expr) ^ " does not reduces to a location. Please report.")
+      | _ -> return (Deref nf, heap')
     end
   | Assign (expr1,expr2) ->
-    let* (value,heap') = interpreter (expr2,heap) in
-    let* (loc,heap'') = interpreter (expr1,heap') in
-    begin match loc with
-      | Loc l -> return (Unit,Heap.modify heap'' l value)
-      | _ -> failwith ("Error: " ^ (Syntax.string_of_exprML expr1) ^ " does not reduces to a location. Please report.")
+    let* (nf1,heap') = interpreter (expr1,heap) in
+    begin match nf1 with
+      | Loc l -> 
+        let* (nf2,heap'') = interpreter (expr2,heap') in
+        if isval nf2 then return (Unit,Heap.modify heap'' l nf2)
+        else return (Assign (nf1,nf2),heap'')
+      | _ -> return (Assign (nf1,expr2),heap')
     end
   | If (guard,expr1,expr2) -> 
-      let* (value,heap') = interpreter (guard,heap) in
-      begin match value with
+      let* (nf_guard,heap') = interpreter (guard,heap) in
+      begin match nf_guard with
       | Bool true ->
         interpreter (expr1,heap')
       | Bool false ->
         interpreter (expr2,heap')
-      | _ -> failwith ("Error: " ^ (Syntax.string_of_exprML guard) ^ " does not reduces to a boolean. Please report.")
+      | _ -> return (If (nf_guard,expr1,expr2), heap')
     end
   | BinaryOp (Plus as op,expr1,expr2) | BinaryOp (Minus as op,expr1,expr2) 
   | BinaryOp (Mult as op,expr1,expr2) | BinaryOp (Div as op,expr1,expr2) ->
-    let* (value1,heap1) = interpreter (expr1,heap) in
-    let* (value2,heap2) = interpreter (expr2,heap1) in
-    let iop = Syntax.implement_arith_op op in
-    begin match (value1, value2) with
-      | (Int n1, Int n2) -> 
-        let n = iop n1 n2 in
-        return (Int n,heap2)
-      | _ -> failwith ("Error: " ^ (Syntax.string_of_exprML expr) ^ " does not reduces to two integers. Please report.")
-    end
+    let* (nf1,heap1) = interpreter (expr1,heap) in
+    begin match nf1 with
+      | Int n1  ->
+        let* (nf2,heap2) = interpreter (expr2,heap1) in
+        begin match nf2 with
+          | Int n2 -> 
+            let iop = Syntax.implement_arith_op op in
+            let n = iop n1 n2 in
+            return (Int n,heap2)
+          | _ -> return (BinaryOp (op,nf1,nf2),heap2)
+        end
+      | _ -> return (BinaryOp (op,nf1,expr2),heap1)
+      end
   | BinaryOp(And as op,expr1,expr2) | BinaryOp(Or as op,expr1,expr2) ->
-    let* (value1,heap1) = interpreter (expr1,heap) in
-    let* (value2,heap2) = interpreter (expr2,heap1) in
-    let iop = Syntax.implement_bin_bool_op op in
-    begin match (value1, value2) with
-      | (Bool b1, Bool b2) -> 
-        let b = iop b1 b2 in
-        return (Bool b,heap2)
-      | _ -> failwith ("Error: " ^ (Syntax.string_of_exprML expr) ^ " does not reduces to two booleans. Please report.")
-    end
+    let* (nf1,heap1) = interpreter (expr1,heap) in
+    begin match nf1 with
+      | Bool b1  ->
+        let* (nf2,heap2) = interpreter (expr2,heap1) in
+        begin match nf2 with
+        | Bool b2 -> 
+          let iop = Syntax.implement_bin_bool_op op in
+          let b = iop b1 b2 in
+          return (Bool b,heap2)
+        | _ -> return (BinaryOp (op,nf1,nf2),heap2)
+        end
+      | _ -> return (BinaryOp (op,nf1,expr2),heap1)
+      end
   | UnaryOp(Not,expr) -> 
-    let* (value, heap') = interpreter (expr,heap) in
-    begin match value with 
+    let* (nf, heap') = interpreter (expr,heap) in
+    begin match nf with 
       | Bool b -> return (Bool (not b),heap')
-      | _ -> failwith ("Error: " ^ (Syntax.string_of_exprML expr) ^ " does not reduces to two booleans. Please report.")
+      | _ -> return (UnaryOp(Not,nf),heap')
     end
   | BinaryOp(Equal as op,expr1,expr2) | BinaryOp(NEqual as op,expr1,expr2) 
   | BinaryOp(Less as op,expr1,expr2) | BinaryOp(LessEq as op,expr1,expr2) 
   | BinaryOp(Great as op,expr1,expr2) | BinaryOp(GreatEq as op,expr1,expr2) ->
-    let* (value1,heap1) = interpreter (expr1,heap) in
-    let* (value2,heap2) = interpreter (expr2,heap1) in
-    let iop = Syntax.implement_compar_op op in
-    begin match (value1, value2) with
-      | (Int n1, Int n2) -> 
-        let b = iop n1 n2 in 
-        return (Bool b, heap2)
-      | _ -> failwith ("Error: " ^ (Syntax.string_of_exprML expr) ^ " does not reduces to two integers. Please report.")
-    end
+    let* (nf1,heap1) = interpreter (expr1,heap) in
+    begin match nf1 with
+      | Int n1  ->
+        let* (nf2,heap2) = interpreter (expr2,heap1) in
+        begin match nf2 with
+          | Int n2 -> 
+            let iop = Syntax.implement_compar_op op in
+            let b = iop n1 n2 in
+            return (Bool b,heap2)
+          | _ -> return (BinaryOp (op,nf1,nf2),heap2)
+        end
+      | _ -> return (BinaryOp (op,nf1,expr2),heap1)
+      end
   | Named (cn,expr) -> 
     let* (expr',heap') = interpreter (expr,heap) in
     return (Named (cn,expr'),heap')
