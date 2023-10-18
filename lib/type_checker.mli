@@ -8,4 +8,4 @@ val infer_type :
   Syntax.exprML ->
   Types.typeML * Syntax.var_ctx * Types.type_subst
 
-val typing_full : Syntax.exprML -> Types.typeML
+val typing_full : Types.type_subst -> Syntax.exprML -> Types.typeML

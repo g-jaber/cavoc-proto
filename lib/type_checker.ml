@@ -221,8 +221,8 @@ and check_type_bin vctx lctx nctx tsubst com_ty expr1 expr2 res_ty =
   | (_,_) when (ty1' <> com_ty) -> raise (TypingError ((string_of_typeML ty1) ^ " is not equal to " ^(string_of_typeML com_ty)))
   | (_,_) -> raise (TypingError ((string_of_typeML ty2) ^ " is not equal to " ^(string_of_typeML com_ty)))
 
-let typing_full expr =
+let typing_full tsubst expr =
   let lnames = Syntax.get_names expr in
   let name_ctx = Pmap.list_to_pmap @@ List.map (fun n -> let tvar = fresh_typevar () in (n,tvar)) lnames in
-  let (ty,_,_) = infer_type Pmap.empty Pmap.empty name_ctx Pmap.empty expr in
+  let (ty,_,_) = infer_type Pmap.empty Pmap.empty name_ctx tsubst expr in
   ty
