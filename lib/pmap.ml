@@ -12,6 +12,11 @@ let concat p1 p2 = p1@p2
 
 let list_to_pmap l = l 
 
+let dom pmap = List.map fst pmap
+
+let codom pmap = List.map snd pmap
+
+
 let rec lookup x = function
   | [] -> None
   | (y,v)::_ when x = y -> Some v
@@ -48,11 +53,6 @@ let rec string_of_pmap empty sep string_of_dom string_of_im  = function
   | [] -> empty
   | [(x,v)] -> (string_of_dom x)  ^ sep ^ (string_of_im v)
   | (x,v)::pmap -> (string_of_dom x)  ^ sep ^ (string_of_im v) ^ ", " ^ (string_of_pmap empty sep string_of_dom string_of_im pmap)
-(*
-let dom_of_pmap pmap = List.map fst pmap
-
-let codom_of_pmap pmap = List.map snd pmap
-*)
 
 let map_dom f = List.map (fun (x,v) -> (f x, v))
 

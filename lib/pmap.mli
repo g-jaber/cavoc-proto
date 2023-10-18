@@ -10,6 +10,9 @@ val concat :  ('a,'b) pmap -> ('a,'b) pmap -> ('a,'b) pmap
 
 val list_to_pmap : ('a*'b) list -> ('a,'b) pmap
 
+val dom : ('a,'b) pmap -> 'a list
+val codom : ('a,'b) pmap -> 'b list
+
 val lookup : 'a -> ('a,'b) pmap -> 'b option
 
 val lookup_exn : 'a -> ('a,'b) pmap -> 'b
