@@ -1,18 +1,18 @@
-module type LTS  = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (OGSM : Ogssig.OGS) -> sig
+module type GRAPH  = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (OGSM : Ogssig.OGS) -> sig
   type state
   val string_of_state : state -> string
   type transition
   val string_of_transition : transition -> string
-  type lts = {
+  type graph = {
     states : state list;
     edges : transition list;
   }
-  val string_of_lts : lts -> string
-  val empty_lts : lts
-  val compute_lts : OGSM(Lang)(M).active_conf -> lts
+  val string_of_graph : graph -> string
+  val empty_graph : graph
+  val compute_graph : OGSM(Lang)(M).active_conf -> graph
 end
 
-module Lts : LTS = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (OGSM : Ogssig.OGS) -> struct
+module Graph : GRAPH = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (OGSM : Ogssig.OGS) -> struct
 
 module OGS = OGSM(Lang)(M)
 module Moves = Moves.Moves(Lang)
@@ -48,17 +48,17 @@ let string_of_transition = function
 | PublicTrans (st1,act,st2) ->
   (idstring_of_state st1) ^ " -"^ (Moves.string_of_action act) ^"-> " ^ (idstring_of_state st2)
 
-type lts = { states : state list;
+type graph = { states : state list;
              edges : transition list}
 
-let string_of_lts {states; edges} =
+let string_of_graph {states; edges} =
   let states_string = String.concat ",\n " (List.map string_of_state states) in
   let edges_string =  String.concat ", " (List.map string_of_transition edges) in
   "{"^ states_string ^"}\n" ^ "{"^ edges_string ^"}\n"
 
-let empty_lts = { states = []; edges = []}
+let empty_graph = { states = []; edges = []}
 
-include Monad.LStMonad(struct type t = lts end)
+include Monad.LStMonad(struct type t = graph end)
 
 
 let equiv_act_state act_conf act_state =
@@ -68,21 +68,21 @@ let equiv_act_state act_conf act_state =
 
 
 let find_equiv_aconf act_conf : (state option) m = 
-  let* lts = get () in
-  return (List.find_opt (equiv_act_state act_conf) lts.states)
+  let* graph = get () in
+  return (List.find_opt (equiv_act_state act_conf) graph.states)
 
 let add_state st : unit m = 
-  let* lts = get () in
-  set {lts with states = st::(lts.states)}
+  let* graph = get () in
+  set {graph with states = st::(graph.states)}
 
 let add_edge edge : unit m =
-  let* lts = get () in
-  set {lts with edges = edge::(lts.edges)}
+  let* graph = get () in
+  set {graph with edges = edge::(graph.edges)}
 
-(* The computation of the lts is always called on an active state*)
+(* The computation of the graph is always called on an active state*)
 
-let rec compute_lts_monad act_conf : unit m =
-  Debug.print_debug "Computing the LTS";
+let rec compute_graph_monad act_conf : unit m =
+  Debug.print_debug "Computing the GRAPH";
   let id = fresh_id_state () in
   let act_state = ActState (act_conf,id) in
   let* () = add_state act_state in
@@ -108,7 +108,7 @@ let rec compute_lts_monad act_conf : unit m =
           let act_state' = ActState (act_conf',id'') in
           let edge = PublicTrans(pas_state,omove,act_state') in
           let* () = add_edge edge in
-          compute_lts_monad act_conf'
+          compute_graph_monad act_conf'
         | Some act_state'' ->
           Debug.print_debug ("Loop detected: \n   " ^ (OGS.string_of_active_conf act_conf') ^ "\n  " ^   (string_of_state act_state''));
           let edge = PublicTrans (pas_state,omove,act_state'') in
@@ -116,8 +116,8 @@ let rec compute_lts_monad act_conf : unit m =
       end
 
 
-let compute_lts aconf =
-  let comp = compute_lts_monad aconf in
-  let (_,lts) = runState comp empty_lts in
-  lts
+let compute_graph aconf =
+  let comp = compute_graph_monad aconf in
+  let (_,graph) = runState comp empty_graph in
+  graph
 end

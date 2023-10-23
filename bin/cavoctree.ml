@@ -27,7 +27,7 @@ let () =
   let (expr,namectxO) = Cavoc.RefML.RefML.get_typed_computation "first" inBuffer in
   let module POGS = Cavoc.Pogs.POGS(Cavoc.RefML.RefML)(Cavoc.Monad.ListMonad) in
   let init_aconf = POGS.init_aconf expr namectxO in
-  let module POGS_LTS = Cavoc.Lts.Lts(Cavoc.RefML.RefML)(Cavoc.Monad.ListMonad)(Cavoc.Pogs.POGS) in
-  let pogs = POGS_LTS.compute_lts init_aconf in
-  let lts_string = POGS_LTS.string_of_lts pogs in
+  let module POGS_LTS = Cavoc.Graph.Graph(Cavoc.RefML.RefML)(Cavoc.Monad.ListMonad)(Cavoc.Pogs.POGS) in
+  let pogs = POGS_LTS.compute_graph init_aconf in
+  let lts_string = POGS_LTS.string_of_graph pogs in
   print_string lts_string;;
