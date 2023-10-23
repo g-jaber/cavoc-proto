@@ -1,4 +1,4 @@
-module type GRAPH  = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (BILTSM : Ogssig.BILTS) -> sig
+module type GRAPH  = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (BILTSM : Bilts.BILTS) -> sig
   type state
   val string_of_state : state -> string
   type transition
@@ -12,7 +12,7 @@ module type GRAPH  = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (BILTSM : 
   val compute_graph : BILTSM(Lang)(M).active_conf -> graph
 end
 
-module Graph : GRAPH = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (BILTSM : Ogssig.BILTS) -> struct
+module Graph : GRAPH = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (BILTSM : Bilts.BILTS) -> struct
 
 module BILTS = BILTSM(Lang)(M)
 module Moves = Moves.Moves(Lang)

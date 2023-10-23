@@ -1,4 +1,4 @@
-module Make = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (BILTSM : Ogssig.BILTS) -> struct
+module Make = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (BILTSM : Bilts.BILTS) -> struct
 
 module Moves = Moves.Moves(Lang)
 include Monad.LWMonad(struct type t = (Moves.action) end)
