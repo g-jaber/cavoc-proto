@@ -1,16 +1,16 @@
-module Make = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (OGSM : Ogssig.OGS) -> struct
+module Make = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (BILTSM : Ogssig.BILTS) -> struct
 
 module Moves = Moves.Moves(Lang)
 include Monad.LWMonad(struct type t = (Moves.action) end)
-module OGS = OGSM(Lang)(M)
+module BILTS = BILTSM(Lang)(M)
 
 let rec synchronize nspan act_conf pas_conf =
   Debug.print_debug "One step of synchronize";
-  let (pmove,pas_conf_option) = OGS.p_trans act_conf in
+  let (pmove,pas_conf_option) = BILTS.p_trans act_conf in
   match pas_conf_option with
     | None -> Debug.print_debug "Stopping synchronization"; print pmove
     | Some pas_conf' ->
-      let* (omove,act_conf') = para_list (M.run (OGS.o_trans pas_conf)) in
+      let* (omove,act_conf') = para_list (M.run (BILTS.o_trans pas_conf)) in
       Debug.print_debug ("Synching moves " ^ (Moves.string_of_action pmove) ^" and " ^ (Moves.string_of_action omove)); 
       let nspan_option = Moves.synch_action nspan pmove omove in
       begin match nspan_option with

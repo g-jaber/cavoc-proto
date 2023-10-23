@@ -1,4 +1,4 @@
-module type GRAPH  = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (OGSM : Ogssig.OGS) -> sig
+module type GRAPH  = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (BILTSM : Ogssig.BILTS) -> sig
   type state
   val string_of_state : state -> string
   type transition
@@ -9,12 +9,12 @@ module type GRAPH  = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (OGSM : Og
   }
   val string_of_graph : graph -> string
   val empty_graph : graph
-  val compute_graph : OGSM(Lang)(M).active_conf -> graph
+  val compute_graph : BILTSM(Lang)(M).active_conf -> graph
 end
 
-module Graph : GRAPH = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (OGSM : Ogssig.OGS) -> struct
+module Graph : GRAPH = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) (BILTSM : Ogssig.BILTS) -> struct
 
-module OGS = OGSM(Lang)(M)
+module BILTS = BILTSM(Lang)(M)
 module Moves = Moves.Moves(Lang)
 
 type id_state = int
@@ -28,12 +28,12 @@ let fresh_id_state () =
   count_id_state := !count_id_state + 1;x
 
 type state = 
-  | ActState of OGS.active_conf*id_state
-  | PasState of OGS.passive_conf*id_state
+  | ActState of BILTS.active_conf*id_state
+  | PasState of BILTS.passive_conf*id_state
 
 let string_of_state = function
-  | ActState (aconf,id) -> (OGS.string_of_active_conf aconf) ^ "_" ^ (string_of_id_state id)
-  | PasState (pconf,id) -> (OGS.string_of_passive_conf pconf) ^ "_" ^ (string_of_id_state id)
+  | ActState (aconf,id) -> (BILTS.string_of_active_conf aconf) ^ "_" ^ (string_of_id_state id)
+  | PasState (pconf,id) -> (BILTS.string_of_passive_conf pconf) ^ "_" ^ (string_of_id_state id)
 
 let idstring_of_state = function
 | ActState (_,id) | PasState (_,id) -> (string_of_id_state id)
@@ -63,7 +63,7 @@ include Monad.LStMonad(struct type t = graph end)
 
 let equiv_act_state act_conf act_state =
   match act_state with
-  | ActState (act_conf',_) ->  OGS.equiv_aconf act_conf act_conf'
+  | ActState (act_conf',_) ->  BILTS.equiv_aconf act_conf act_conf'
   | PasState _ -> false
 
 
@@ -87,7 +87,7 @@ let rec compute_graph_monad act_conf : unit m =
   let act_state = ActState (act_conf,id) in
   let* () = add_state act_state in
   Debug.print_debug ("Adding the active state: " ^ (string_of_state act_state));
-  let (pmove,pas_conf_option) = OGS.p_trans act_conf in
+  let (pmove,pas_conf_option) = BILTS.p_trans act_conf in
   match pas_conf_option with
     | None -> 
       Debug.print_debug "We are diverging!";
@@ -100,7 +100,7 @@ let rec compute_graph_monad act_conf : unit m =
       let edge = PublicTrans (act_state,pmove,pas_state) in
       Debug.print_debug ("Adding the transition: " ^ (string_of_transition edge));
       let* () = add_edge edge in
-      let* (omove,act_conf') = para_list (M.run (OGS.o_trans pas_conf)) in
+      let* (omove,act_conf') = para_list (M.run (BILTS.o_trans pas_conf)) in
       let* act_state_option = find_equiv_aconf act_conf' in
       begin match act_state_option with
         | None -> 
@@ -110,7 +110,7 @@ let rec compute_graph_monad act_conf : unit m =
           let* () = add_edge edge in
           compute_graph_monad act_conf'
         | Some act_state'' ->
-          Debug.print_debug ("Loop detected: \n   " ^ (OGS.string_of_active_conf act_conf') ^ "\n  " ^   (string_of_state act_state''));
+          Debug.print_debug ("Loop detected: \n   " ^ (BILTS.string_of_active_conf act_conf') ^ "\n  " ^   (string_of_state act_state''));
           let edge = PublicTrans (pas_state,omove,act_state'') in
           add_edge edge
       end

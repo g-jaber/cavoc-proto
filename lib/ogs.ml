@@ -1,4 +1,4 @@
-module OGS = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) -> struct
+module BILTS = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) -> struct
 
 include M
 module Moves = Moves.Moves(Lang)

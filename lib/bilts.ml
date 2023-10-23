@@ -1,4 +1,4 @@
-module type OGS = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) ->
+module type BILTS = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) ->
   sig
     type active_conf
     type passive_conf
@@ -12,9 +12,9 @@ module type OGS = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) ->
 end
 
 (*
-module type FOGS = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) ->
+module type FBILTS = functor (Lang:Language.LANG) (M:Monad.LISTMONAD) ->
   sig
-  include module type of OGS(Lang)
+  include module type of BILTS(Lang)
   val o_trans : passive_conf -> (Moves.Moves(Lang).action * active_conf) M.m
 end
 *)
