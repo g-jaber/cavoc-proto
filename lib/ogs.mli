@@ -1,1 +1,1 @@
-module BILTS : Bilts.BILTS
+module OgsLtsF : Bilts.INT_LTS_F

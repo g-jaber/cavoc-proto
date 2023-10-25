@@ -37,6 +37,8 @@ module type LANG = sig
   type nup
   val string_of_nup : nup -> string
   val generate_nup : interactive_type -> (nup*name_type_ctx) list
+  val names_of_nup : nup -> name list
+
   val compute_nf : opconf -> opconf option
   val decompose_nf : opconf -> name*interactive_val
 
@@ -44,6 +46,6 @@ module type LANG = sig
 
   val abstract_ival : interactive_val -> interactive_type -> nup * interactive_env * name_type_ctx
   val unify_nup : 
-  name Namespan.namespan ->
+    name Namespan.namespan ->
     nup -> nup -> name Namespan.namespan option
 end

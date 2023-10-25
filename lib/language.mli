@@ -36,6 +36,8 @@ module type LANG =
     type nup
     val string_of_nup : nup -> string
     val generate_nup : interactive_type -> (nup*name_type_ctx) list
+    val names_of_nup : nup -> name list
+    
     val compute_nf : opconf -> opconf option
     val decompose_nf : opconf -> name * interactive_val
     val val_composition : interactive_val -> nup -> computation

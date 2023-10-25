@@ -24,10 +24,11 @@ let () =
   parse speclist get_filename usage_msg;
   check_number_filenames ();
   let inBuffer = open_in !filename in
-  let (expr,namectxO) = Cavoc.RefML.RefML.get_typed_computation "first" inBuffer in
-  let module PBILTS = Cavoc.Pogs.PBILTS(Cavoc.RefML.RefML)(Cavoc.Monad.ListMonad) in
-  let init_aconf = PBILTS.init_aconf expr namectxO in
-  let module PBILTS_LTS = Cavoc.Graph.Graph(Cavoc.RefML.RefML)(Cavoc.Monad.ListMonad)(Cavoc.Pogs.PBILTS) in
-  let pogs = PBILTS_LTS.compute_graph init_aconf in
-  let lts_string = PBILTS_LTS.string_of_graph pogs in
-  print_string lts_string;;
+  let module Int = Cavoc.Cps.Int_Make(Cavoc.RefML.RefML) in
+  let (expr,namectxO) = Int.Actions.Lang.get_typed_computation "first" inBuffer in
+  let module POGS_LTS = Cavoc.Pogs.PogsLtsF(Cavoc.Monad.ListMonad)(Int) in
+  let init_aconf = POGS_LTS.init_aconf expr namectxO in
+  let module Graph = Cavoc.Graph.Graph(POGS_LTS) in
+  let graph = Graph.compute_graph init_aconf in
+  let graph_string = Graph.string_of_graph graph in
+  print_string graph_string;;

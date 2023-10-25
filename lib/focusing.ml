@@ -5,6 +5,8 @@ type nup = exprML
 
 let string_of_nup = string_of_exprML
 
+let names_of_nup = get_names
+
 let rec unify_nup nspan nup1 nup2 =
   match (nup1,nup2) with
     | (Unit,Unit) -> Some nspan
@@ -20,7 +22,7 @@ let rec unify_nup nspan nup1 nup2 =
     | _ -> failwith ("Error: one of the terms " ^ (string_of_nup nup1) ^ " or " ^ (string_of_nup nup2)
       ^ " is not a NUP. Please report.")
 
-let max_int = 3
+let max_int = 2
 
 let rec generate_nup = function
   | TUnit -> [(Unit,Syntax.empty_name_ctx)]

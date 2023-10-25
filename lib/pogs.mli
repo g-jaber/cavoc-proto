@@ -1,1 +1,1 @@
-module PBILTS : Bilts.BILTS
+module PogsLtsF : Bilts.INT_LTS_F

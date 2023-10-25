@@ -1,5 +1,5 @@
 
-module RefML : Language.LANG = struct
+module RefML : Cps.LANG = struct
   type computation = Syntax.exprML
   let string_of_computation = Syntax.string_of_exprML 
   let get_typed_computation nbprog inBuffer = 
@@ -22,6 +22,16 @@ module RefML : Language.LANG = struct
   let neg_type = Types.neg_type
   type name = Syntax.name
   let string_of_name = Syntax.string_of_name
+  
+  type cont_name = Syntax.id
+  let string_of_cont_name cn = cn
+  let get_cont_name = function
+      | Syntax.CName cn -> Some cn
+      | _ -> None
+
+  let inj_cont_name id = Syntax.CName id
+
+  
   type name_type_ctx = Syntax.name_ctx
   let string_of_name_type_ctx = Syntax.string_of_name_ctx
   type resources = Heap.heap
@@ -59,6 +69,8 @@ module RefML : Language.LANG = struct
   type nup = Focusing.nup
   let string_of_nup = Focusing.string_of_nup
   let generate_nup = Focusing.generate_nup
+  let names_of_nup = Focusing.names_of_nup
+
   let compute_nf = Interpreter.compute_nf
   let decompose_nf = Focusing.decompose_nf
 
