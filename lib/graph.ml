@@ -55,7 +55,7 @@ module Graph : GRAPH = functor (IntLTS : Bilts.INT_LTS) -> struct
 
   let empty_graph = { states = []; edges = []}
 
-  include Monad.LStMonad(struct type t = graph end)
+  include Util.Monad.LStMonad(struct type t = graph end)
 
 
   let equiv_act_state act_conf act_state =
@@ -79,23 +79,23 @@ module Graph : GRAPH = functor (IntLTS : Bilts.INT_LTS) -> struct
   (* The computation of the graph is always called on an active state*)
 
   let rec compute_graph_monad act_conf : unit m =
-    Debug.print_debug "Computing the GRAPH";
+    Util.Debug.print_debug "Computing the GRAPH";
     let id = fresh_id_state () in
     let act_state = ActState (act_conf,id) in
     let* () = add_state act_state in
-    Debug.print_debug ("Adding the active state: " ^ (string_of_state act_state));
+    Util.Debug.print_debug ("Adding the active state: " ^ (string_of_state act_state));
     let (pmove,pas_conf_option) = IntLTS.p_trans act_conf in
     match pas_conf_option with
       | None -> 
-        Debug.print_debug "We are diverging!";
+        Util.Debug.print_debug "We are diverging!";
         add_edge (Divergent act_state)
       | Some pas_conf ->
         let id' = fresh_id_state () in
         let pas_state = PasState (pas_conf,id') in
-        Debug.print_debug ("Adding the passive configuration: " ^ (string_of_state pas_state));
+        Util.Debug.print_debug ("Adding the passive configuration: " ^ (string_of_state pas_state));
         let* () = add_state pas_state in
         let edge = PublicTrans (act_state,pmove,pas_state) in
-        Debug.print_debug ("Adding the transition: " ^ (string_of_transition edge));
+        Util.Debug.print_debug ("Adding the transition: " ^ (string_of_transition edge));
         let* () = add_edge edge in
         let* (omove,act_conf') = para_list (IntLTS.M.run (IntLTS.o_trans pas_conf)) in
         let* act_state_option = find_equiv_aconf act_conf' in
@@ -107,7 +107,7 @@ module Graph : GRAPH = functor (IntLTS : Bilts.INT_LTS) -> struct
             let* () = add_edge edge in
             compute_graph_monad act_conf'
           | Some act_state'' ->
-            Debug.print_debug ("Loop detected: \n   " ^ (IntLTS.string_of_active_conf act_conf') ^ "\n  " ^   (string_of_state act_state''));
+            Util.Debug.print_debug ("Loop detected: \n   " ^ (IntLTS.string_of_active_conf act_conf') ^ "\n  " ^   (string_of_state act_state''));
             let edge = PublicTrans (pas_state,omove,act_state'') in
             add_edge edge
         end

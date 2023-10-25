@@ -11,9 +11,9 @@ let fresh_locvar () =
 
 (* Symbolic Heaps *)
 
-type symbheap =  (id,exprML) Pmap.pmap
+type symbheap =  (id,exprML) Util.Pmap.pmap
 
-let string_of_symb_heap = Pmap.string_of_pmap "ε" "↪" Syntax.string_of_id Syntax.string_of_exprML
+let string_of_symb_heap = Util.Pmap.string_of_pmap "ε" "↪" Syntax.string_of_id Syntax.string_of_exprML
 
 let count_lvar = ref 0
 let fresh_lvar () =

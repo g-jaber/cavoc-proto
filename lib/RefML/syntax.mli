@@ -84,7 +84,7 @@ val implement_compar_op : binary_op -> (int -> int -> bool)
 val get_consfun_from_bin_cons : exprML -> exprML * exprML -> exprML
 val get_consfun_from_un_cons : exprML -> exprML -> exprML
 
-type functional_env = (id, valML) Pmap.pmap
+type functional_env = (id, valML) Util.Pmap.pmap
 
 val string_of_functional_env : functional_env -> string
 
@@ -104,8 +104,8 @@ val fill_hole : eval_context -> exprML -> exprML
 
 val string_of_eval_context : eval_context -> string
 
-type var_ctx = (id,Types.typeML) Pmap.pmap
-type loc_ctx = (loc,Types.typeML) Pmap.pmap
+type var_ctx = (id,Types.typeML) Util.Pmap.pmap
+type loc_ctx = (loc,Types.typeML) Util.Pmap.pmap
 
 
 val subst_vctx :
@@ -113,16 +113,16 @@ val subst_vctx :
   Types.typeML ->
     var_ctx -> var_ctx
 val lsubst_type :
-  (id, Types.typeML) Pmap.pmap -> Types.typeML -> Types.typeML
+  (id, Types.typeML) Util.Pmap.pmap -> Types.typeML -> Types.typeML
 val lsubst_vctx :
-  (id, Types.typeML) Pmap.pmap ->
-  ('a, Types.typeML) Pmap.pmap -> ('a, Types.typeML) Pmap.pmap
+  (id, Types.typeML) Util.Pmap.pmap ->
+  ('a, Types.typeML) Util.Pmap.pmap -> ('a, Types.typeML) Util.Pmap.pmap
 
 val string_of_var_ctx : var_ctx -> string
 val string_of_loc_ctx : loc_ctx -> string
 
 
-type name_ctx = (name,Types.typeML) Pmap.pmap
+type name_ctx = (name,Types.typeML) Util.Pmap.pmap
 
 val empty_name_ctx : name_ctx
 val empty_loc_ctx : loc_ctx

@@ -8,7 +8,7 @@ module type LANG = sig
   type name
   val string_of_name : name -> string
 
-  type name_type_ctx = (name, interactive_type) Pmap.pmap
+  type name_type_ctx = (name, interactive_type) Util.Pmap.pmap
   val string_of_name_type_ctx : name_type_ctx -> string
 
   val get_typed_computation : string -> in_channel -> (computation*name_type_ctx)
@@ -46,6 +46,6 @@ module type LANG = sig
 
   val abstract_ival : interactive_val -> interactive_type -> nup * interactive_env * name_type_ctx
   val unify_nup : 
-    name Namespan.namespan ->
-    nup -> nup -> name Namespan.namespan option
+    name Util.Namespan.namespan ->
+    nup -> nup -> name Util.Namespan.namespan option
 end

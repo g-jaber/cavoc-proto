@@ -61,7 +61,7 @@ let rec simplify_temp_formula formula = match formula with
       TImpl (preds',simplify_temp_formula formula)
   | TForAll (vctx,formula) -> 
     let formula' = simplify_temp_formula formula in
-    if Pmap.is_empty vctx then formula'
+    if Util.Pmap.is_empty vctx then formula'
     else TForAll (vctx,formula')
   | GFix (x, formula) -> GFix (x, simplify_temp_formula formula)
   | SVar _ -> formula

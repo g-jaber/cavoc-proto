@@ -6,7 +6,7 @@ let () =
   let pogs = ref false in
   let ogs = ref false in
   let speclist =
-    [("-debug",Set Cavoc.Debug.debug_mode,"Debug mode");
+    [("-debug",Set Util.Debug.debug_mode,"Debug mode");
      ("-pogs", Set pogs, "Compute the Tree representation");
      ("-ogs", Set ogs, "Compute BILTS (Beware, this might be infinite)")
     ] in
@@ -14,19 +14,19 @@ let () =
   let get_filename str =
     match !number_filename with
     | 0 -> filename := str; number_filename := !number_filename+1;
-    | _ -> Cavoc.Error.fail_error ("Error: too many filenames have been provided. \n"^ usage_msg);
+    | _ -> Util.Error.fail_error ("Error: too many filenames have been provided. \n"^ usage_msg);
   in
   let check_number_filenames () =
     if !number_filename = 0 then
-      Cavoc.Error.fail_error ("Error: a filenames containing the programs "
+      Util.Error.fail_error ("Error: a filenames containing the programs "
         ^ "should have been provided. "^ usage_msg);
   in
   parse speclist get_filename usage_msg;
   check_number_filenames ();
   let inBuffer = open_in !filename in
-  let module Int = Cavoc.Cps.Int_Make(Cavoc.RefML.RefML) in
+  let module Int = Cavoc.Cps.Int_Make(Refml.RefML.RefML) in
   let (expr,namectxO) = Int.Actions.Lang.get_typed_computation "first" inBuffer in
-  let module POGS_LTS = Cavoc.Pogs.PogsLtsF(Cavoc.Monad.ListMonad)(Int) in
+  let module POGS_LTS = Cavoc.Pogs.PogsLtsF(Util.Monad.ListMonad)(Int) in
   let init_aconf = POGS_LTS.init_aconf expr namectxO in
   let module Graph = Cavoc.Graph.Graph(POGS_LTS) in
   let graph = Graph.compute_graph init_aconf in

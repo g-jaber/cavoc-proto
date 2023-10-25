@@ -2,7 +2,7 @@ val iter : int -> ('a -> 'a) -> 'a -> 'a
 
 val fresh_locvar : unit -> string
 
-type symbheap = (Syntax.id, Syntax.exprML) Pmap.pmap
+type symbheap = (Syntax.id, Syntax.exprML) Util.Pmap.pmap
 
 val string_of_symb_heap : symbheap -> string
 

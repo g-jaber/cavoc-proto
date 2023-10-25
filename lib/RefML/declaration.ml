@@ -34,7 +34,7 @@ let extract_type_subst signature =
     | [] -> []
     | TypeDecl (tvar, ty)::l -> (tvar,ty)::(aux l)
     | _::l -> aux l
-  in Pmap.list_to_pmap (aux signature)
+  in Util.Pmap.list_to_pmap (aux signature)
 
 let split_implem_decl_list implem_decl_l = 
   let rec aux (val_decl_l,type_decl_l) = function
@@ -46,11 +46,11 @@ let split_implem_decl_list implem_decl_l =
   in aux ([],[]) implem_decl_l 
 let get_ienv implem_decl_l = 
   let (val_decl_l,type_decl_l) = split_implem_decl_list implem_decl_l in
-  let tsubst = Pmap.list_to_pmap type_decl_l in
+  let tsubst = Util.Pmap.list_to_pmap type_decl_l in
   let aux (var,expr) = 
     let ty = Type_checker.typing_full tsubst expr in
     let nn = Syntax.name_of_id var in
     ((nn,expr),(nn,ty))
   in 
   let (tval_l,tnn_l) = List.split @@ List.map aux val_decl_l in
-  (Focusing.list_to_ienv tval_l,Pmap.list_to_pmap tnn_l)
+  (Focusing.list_to_ienv tval_l,Util.Pmap.list_to_pmap tnn_l)

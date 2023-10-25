@@ -1,4 +1,4 @@
-open Pmap
+open Util.Pmap
 
 type id = string
 type loc = int
@@ -334,8 +334,8 @@ let extract_call expr =
                    ^ " is not a call to a function. Please report.")
 
 let extract_body = function
-  | Fun ((var,_),expr) -> (var,(expr,Pmap.empty))
-  | Fix ((idfun,_),(var,_),expr) as fullexpr -> (var,(expr,Pmap.singleton (idfun,fullexpr)))
+  | Fun ((var,_),expr) -> (var,(expr,Util.Pmap.empty))
+  | Fix ((idfun,_),(var,_),expr) as fullexpr -> (var,(expr,Util.Pmap.singleton (idfun,fullexpr)))
   | expr -> failwith ("Error: " ^ (string_of_exprML expr)
                       ^ " is not a function. Please report.")
 
@@ -345,44 +345,44 @@ let string_of_eval_context ctx = string_of_exprML ctx
 
 (* Typing contexts for variables and locations *)
 
-type var_ctx = (id,Types.typeML) Pmap.pmap
-type loc_ctx = (loc,Types.typeML) Pmap.pmap
+type var_ctx = (id,Types.typeML) Util.Pmap.pmap
+type loc_ctx = (loc,Types.typeML) Util.Pmap.pmap
 
 let subst_vctx tvar sty =
-  Pmap.map_im (fun ty -> Types.subst_type tvar sty ty)
+  Util.Pmap.map_im (fun ty -> Types.subst_type tvar sty ty)
 
 let lsubst_type lsubst ty =
-  Pmap.fold (fun ty (tvar,sty) -> Types.subst_type tvar sty ty) ty lsubst
+  Util.Pmap.fold (fun ty (tvar,sty) -> Types.subst_type tvar sty ty) ty lsubst
 
 let lsubst_vctx lsubst =
-  Pmap.map_im (fun ty -> lsubst_type lsubst ty)
+  Util.Pmap.map_im (fun ty -> lsubst_type lsubst ty)
 
 let string_of_var_ctx =
   let aux = function
     | Types.TUndef -> "undef"
     | ty -> "::" ^ (Types.string_of_typeML ty)
-  in Pmap.string_of_pmap "ε" "" string_of_id aux
+  in Util.Pmap.string_of_pmap "ε" "" string_of_id aux
 
 let string_of_loc_ctx =
   let aux = function
     | Types.TUndef -> "undef"
     | ty -> "::" ^ (Types.string_of_typeML ty)
-  in Pmap.string_of_pmap "ε" "" string_of_loc aux
+  in Util.Pmap.string_of_pmap "ε" "" string_of_loc aux
 
-type name_ctx = (name,Types.typeML) Pmap.pmap
+type name_ctx = (name,Types.typeML) Util.Pmap.pmap
 
 let string_of_name_ctx =
   let aux = function
     | Types.TUndef -> "undef"
     | ty -> "::" ^ (Types.string_of_typeML ty)
-  in Pmap.string_of_pmap "ε" "" string_of_name aux
+  in Util.Pmap.string_of_pmap "ε" "" string_of_name aux
 
-let empty_name_ctx = Pmap.empty
-let empty_loc_ctx = Pmap.empty
+let empty_name_ctx = Util.Pmap.empty
+let empty_loc_ctx = Util.Pmap.empty
 
 let init_term term ty =
   let cn = fresh_cname () in
-  (Named (cn,term),Pmap.singleton (cn,Types.TNeg ty))
+  (Named (cn,term),Util.Pmap.singleton (cn,Types.TNeg ty))
 
 let max_int = 1
 

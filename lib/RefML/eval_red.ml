@@ -5,22 +5,22 @@ type op_conf = Syntax.exprML*Syntax.functional_env*Heap.heap
 let rec red (expr,env,heap) = match expr with
   | App (Fun ((var,_),expr1),expr2) when (isval expr2) ->
     let expr1' = subst_var expr1 var expr2 in
-    ((expr1', Pmap.empty, heap),true)
+    ((expr1', Util.Pmap.empty, heap),true)
   | App (Fix ((idfun,_),(var,ty),expr1),expr2) when (isval expr2) ->
     let expr' = subst_var expr1 var expr2 in
-    let env' = Pmap.add (idfun,Fun ((var,ty),expr1)) env in
+    let env' = Util.Pmap.add (idfun,Fun ((var,ty),expr1)) env in
     ((expr',env',heap),true)
   | App _ -> 
     failwith "Evaluation of terms not in ANF is not yet implemented."
   | Seq (Unit,expr2) -> 
-    ((expr2,Pmap.empty,heap),true)
+    ((expr2,Util.Pmap.empty,heap),true)
   | Seq (expr1,expr2) -> 
       let ((expr1',env',heap'),isred) = red (expr1,env,heap) in
       ((Seq (expr1',expr2),env',heap'),isred)
   | While (Bool false, _) ->
-    ((Unit,Pmap.empty,heap),true)
+    ((Unit,Util.Pmap.empty,heap),true)
   | While (Bool true, expr1) ->
-    ((Seq (expr1,expr),Pmap.empty,heap),true)
+    ((Seq (expr1,expr),Util.Pmap.empty,heap),true)
   | Pair _ -> failwith "Evaluation of terms not in ANF is not yet implemented."
   | Let (var,expr1,expr2) when (isval expr1) ->
     let expr' = subst_var expr2 var expr1 in
@@ -33,7 +33,7 @@ let rec red (expr,env,heap) = match expr with
       | (true,true) ->
         let expr' = subst_var expr var1 expr1 in
         let expr'' = subst_var expr' var2 expr2 in
-        ((expr'', Pmap.empty, heap),true)
+        ((expr'', Util.Pmap.empty, heap),true)
       | (true,false) ->
         let ((expr2',env',heap'),isred) = red (expr2,env,heap) in
         ((LetPair (var1,var2,expr1,expr2'),env',heap'),isred)
@@ -44,13 +44,13 @@ let rec red (expr,env,heap) = match expr with
   | Newref (ty,expr) -> 
     if (isval expr) then
       let (l,heap') = Heap.allocate heap expr in 
-      ((Loc l,Pmap.empty,heap'),true)
+      ((Loc l,Util.Pmap.empty,heap'),true)
     else 
       let ((expr',env',heap'),isred) = red (expr,env,heap) in
       ((Newref (ty,expr'),env',heap'),isred)
   | Deref (Loc l) -> 
     begin match Heap.access heap l with
-      | Some value -> ((value,Pmap.empty,heap),true)
+      | Some value -> ((value,Util.Pmap.empty,heap),true)
       | None -> failwith "Small footprint  not yet implemented"
     end
   | Deref expr ->
@@ -58,14 +58,14 @@ let rec red (expr,env,heap) = match expr with
     ((Deref expr',env',heap'),isred)
   | Assign (Loc l,expr) when (isval expr) ->
     begin match Heap.access heap l with
-      | Some _ ->  ((Unit,Pmap.empty,Heap.modify heap l expr),true)
+      | Some _ ->  ((Unit,Util.Pmap.empty,Heap.modify heap l expr),true)
       | None -> failwith "Small footprint approach not yet implemented"
     end
   | Assign _  -> failwith "Evaluation of terms not in ANF is not yet implemented."
   | If (Bool b,expr1,expr2) -> 
       if b then 
-        ((expr1,Pmap.empty,heap),true)
-      else ((expr2,Pmap.empty,heap),true)
+        ((expr1,Util.Pmap.empty,heap),true)
+      else ((expr2,Util.Pmap.empty,heap),true)
   | If (expr,expr1,expr2) -> 
     let ((expr',env',heap'),isred) = red (expr,env,heap) in
     ((If (expr',expr1,expr2),env',heap'),isred)
@@ -75,7 +75,7 @@ let rec red (expr,env,heap) = match expr with
     begin match (expr1, expr2) with
     | (Int n1, Int n2) -> 
       let n = iop n1 n2 in 
-      ((Int n,Pmap.empty,heap),true)
+      ((Int n,Util.Pmap.empty,heap),true)
     | _ -> failwith "Evaluation of terms not in ANF is not yet implemented."
     end
     | BinaryOp(And as op,expr1,expr2) | BinaryOp(Or as op,expr1,expr2) ->
@@ -83,11 +83,11 @@ let rec red (expr,env,heap) = match expr with
       begin match (expr1, expr2) with
       | (Bool b1, Bool b2) ->
         let b = iop b1 b2 in
-        ((Bool b,Pmap.empty,heap),true)
+        ((Bool b,Util.Pmap.empty,heap),true)
       | _ -> failwith "Evaluation of terms not in ANF is not yet implemented."
     end
   | UnaryOp(Not,Bool b) -> 
-      ((Bool (not b),Pmap.empty,heap),true)
+      ((Bool (not b),Util.Pmap.empty,heap),true)
   | UnaryOp(Not,expr) ->
     let ((expr',env',heap'),isred) = red (expr,env,heap) in
     ((UnaryOp(Not,expr'),env',heap'),isred)
@@ -98,10 +98,10 @@ let rec red (expr,env,heap) = match expr with
     begin match (expr1, expr2) with
     | (Int n1, Int n2) ->
       let b = iop n1 n2 in
-      ((Bool b,Pmap.empty,heap),true)
+      ((Bool b,Util.Pmap.empty,heap),true)
     | _ -> failwith "Evaluation of terms not in ANF is not yet implemented."
     end
-  | _ -> ((expr,Pmap.empty,heap),false)
+  | _ -> ((expr,Util.Pmap.empty,heap),false)
 
 let rec compute_nf op_conf =
   let (op_conf',isred) = red op_conf in

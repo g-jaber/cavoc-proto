@@ -1,4 +1,4 @@
-module OgsLtsF = functor (M:Monad.LISTMONAD) (Int:Interactive.INT) -> struct
+module OgsLtsF = functor (M:Util.Monad.LISTMONAD) (Int:Interactive.INT) -> struct
 
   module M=M
   include M
@@ -57,7 +57,7 @@ module OgsLtsF = functor (M:Monad.LISTMONAD) (Int:Interactive.INT) -> struct
         let (move,ienv',namectxP') = Int.Actions.generate_output_action aconf.namectxO nn value in
         (move,Some {heap; 
               ienv = Int.Actions.Lang.concat_ienv ienv' aconf.ienv; 
-              namectxP = Pmap.concat namectxP' aconf.namectxP; 
+              namectxP = Util.Pmap.concat namectxP' aconf.namectxP; 
               namectxO = aconf.namectxO})
 
   let o_trans pconf  =
@@ -65,7 +65,7 @@ module OgsLtsF = functor (M:Monad.LISTMONAD) (Int:Interactive.INT) -> struct
     let computation = Int.Actions.generate_computation pconf.ienv omove in
     return (omove,
             {computation; heap = pconf.heap; ienv = pconf.ienv;
-            namectxO = Pmap.concat lnamectx pconf.namectxO;
+            namectxO = Util.Pmap.concat lnamectx pconf.namectxO;
             namectxP = pconf.namectxP})
 
   let init_aconf computation namectxO =
@@ -73,7 +73,7 @@ module OgsLtsF = functor (M:Monad.LISTMONAD) (Int:Interactive.INT) -> struct
     heap = Int.Actions.Lang.empty_resources;
     ienv = Int.Actions.Lang.empty_ienv;
     namectxO;
-    namectxP = Pmap.empty}
+    namectxP = Util.Pmap.empty}
 
   let init_pconf ienv namectxP namectxO =
     {heap = Int.Actions.Lang.empty_resources;

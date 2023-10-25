@@ -9,7 +9,7 @@ let string_of_opconf (expr,heap) =
   ^ (Heap.string_of_heap heap)
   ^ ")"
 
-include Monad.LStMonad(struct type t = opconf list end)
+include Util.Monad.LStMonad(struct type t = opconf list end)
 
 let empty_state = []
 
@@ -28,7 +28,7 @@ let add (expr,heap) =
     | _ -> return ()
 
 let interpreter interpreter (expr,heap) = 
-  Debug.print_debug ("Interpreter on : " ^ (Syntax.string_of_exprML expr));
+  Util.Debug.print_debug ("Interpreter on : " ^ (Syntax.string_of_exprML expr));
   match expr with
   | value when isval value -> return (value,heap) 
   | App (expr1,expr2)  ->
@@ -62,7 +62,7 @@ let interpreter interpreter (expr,heap) =
         end
       | Bool false -> return (Unit,heap')
       | _ ->
-        Debug.print_debug "Callback inside a guard !";  
+        Util.Debug.print_debug "Callback inside a guard !";  
         return (While (guard',body),heap')
     end
   | Pair (expr1,expr2) -> 
@@ -178,7 +178,7 @@ let compute_nf_monad opconf =
   let rec aux opconf =
     let* b = lookup opconf in
     if b then begin 
-      Debug.print_debug ("The operational configuration " ^ (string_of_opconf opconf) ^" is diverging") ;
+      Util.Debug.print_debug ("The operational configuration " ^ (string_of_opconf opconf) ^" is diverging") ;
       fail ()
     end
     else let* _ = add opconf in

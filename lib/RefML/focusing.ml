@@ -18,7 +18,7 @@ let rec unify_nup nspan nup1 nup2 =
         | None -> None
         | Some nspan1 -> unify_nup nspan1 nup12 nup22
       end
-    | (Name n1, Name n2) -> Namespan.add_nspan (n1,n2) nspan
+    | (Name n1, Name n2) -> Util.Namespan.add_nspan (n1,n2) nspan
     | _ -> failwith ("Error: one of the terms " ^ (string_of_nup nup1) ^ " or " ^ (string_of_nup nup2)
       ^ " is not a NUP. Please report.")
 
@@ -35,7 +35,7 @@ let rec generate_nup = function
   | TProd (ty1,ty2) ->
     let nups1 = generate_nup ty1 in
     let nups2 = generate_nup ty2 in
-    let aux (nup1,nctx1) = List.map (fun (nup2,nctx2) -> (Pair (nup1,nup2),Pmap.concat nctx1 nctx2)) nups2
+    let aux (nup1,nctx1) = List.map (fun (nup2,nctx2) -> (Pair (nup1,nup2),Util.Pmap.concat nctx1 nctx2)) nups2
     in List.flatten (List.map aux nups1)
   | TSum _ ->
     failwith "Need to add injection to the syntax of expressions"
@@ -46,45 +46,45 @@ let rec generate_nup = function
     lnup1'@lnup2' *)
   | TArrow _ as ty ->
     let fn = fresh_fname () in
-    [(Name fn, Pmap.singleton (fn,ty))]
+    [(Name fn, Util.Pmap.singleton (fn,ty))]
   | TNeg _ as ty  -> 
     let cn = fresh_cname () in
-    [(Name cn, Pmap.singleton (cn,ty))]
+    [(Name cn, Util.Pmap.singleton (cn,ty))]
   | TVar _ -> failwith "NUPs for type variables are not yet supported"
   | ty -> failwith ("Error generating a nup on type " ^ (Types.string_of_typeML ty) ^ ". Please report")
 
-type interactive_env = (name,exprML) Pmap.pmap
+type interactive_env = (name,exprML) Util.Pmap.pmap
 
-let empty_ienv = Pmap.empty
+let empty_ienv = Util.Pmap.empty
 
-let singleton_ienv = Pmap.singleton
+let singleton_ienv = Util.Pmap.singleton
 
-let list_to_ienv = Pmap.list_to_pmap
+let list_to_ienv = Util.Pmap.list_to_pmap
 
 let string_of_interactive_env =
-  Pmap.string_of_pmap "ε" " => " Syntax.string_of_name Syntax.string_of_exprML
+  Util.Pmap.string_of_pmap "ε" " => " Syntax.string_of_name Syntax.string_of_exprML
 
-let lookup_ienv = Pmap.lookup
+let lookup_ienv = Util.Pmap.lookup
 
-let concat_ienv = Pmap.concat
+let concat_ienv = Util.Pmap.concat
 
 let rec abstract_val value ty =
   match (value,ty) with
   | (Fun _,TArrow _) | (Fix _,TArrow _) | (Name _,TArrow _) -> 
     let fn = fresh_fname () in
-    let ienv = Pmap.singleton (fn,value) in
-    let lnamectx = Pmap.singleton (fn,ty) in
+    let ienv = Util.Pmap.singleton (fn,value) in
+    let lnamectx = Util.Pmap.singleton (fn,ty) in
     (Name fn,ienv,lnamectx)
   | (ECtx _,_) ->
     let cn = fresh_cname () in
-    let ienv = Pmap.singleton (cn,value) in
-    let lnamectx = Pmap.singleton (cn,ty) in
+    let ienv = Util.Pmap.singleton (cn,value) in
+    let lnamectx = Util.Pmap.singleton (cn,ty) in
     (Name cn,ienv,lnamectx)
-  | (Unit,TUnit) | (Bool _,TBool) | (Int _,TInt) -> (value,Pmap.empty,Syntax.empty_name_ctx) 
+  | (Unit,TUnit) | (Bool _,TBool) | (Int _,TInt) -> (value,Util.Pmap.empty,Syntax.empty_name_ctx) 
   | (Pair (value1, value2),TProd (ty1,ty2)) ->
     let (nup1,ienv1,lnamectx1) = abstract_val value1 ty1 in
     let (nup2,ienv2,lnamectx2) = abstract_val value2 ty2 in
-    (Pair (nup1,nup2),Pmap.concat ienv1 ienv2,Pmap.concat lnamectx1 lnamectx2)
+    (Pair (nup1,nup2),Util.Pmap.concat ienv1 ienv2,Util.Pmap.concat lnamectx1 lnamectx2)
   | _ -> failwith ("Error: "
                   ^ (string_of_exprML value) 
                   ^ " of type " 

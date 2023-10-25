@@ -16,7 +16,7 @@ val string_of_typeML : typeML -> string
 
 val fresh_typevar : unit -> typeML
 
-type type_subst = (typevar,typeML) Pmap.pmap
+type type_subst = (typevar,typeML) Util.Pmap.pmap
 
 val apply_type_subst : typeML -> type_subst -> typeML
 

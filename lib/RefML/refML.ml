@@ -1,11 +1,10 @@
-
-module RefML : Cps.LANG = struct
+module RefML : Lang.Cps.LANG = struct
   type computation = Syntax.exprML
   let string_of_computation = Syntax.string_of_exprML 
   let get_typed_computation nbprog inBuffer = 
     let lineBuffer = Lexing.from_channel inBuffer in
     try let expr = Parser.fullexpr Lexer.token lineBuffer in
-        let ty = Type_checker.typing_full Pmap.empty expr in
+        let ty = Type_checker.typing_full Util.Pmap.empty expr in
         Syntax.init_term expr ty
     with
     | Lexer.SyntaxError msg -> failwith ("Parsing Error in the " ^ nbprog

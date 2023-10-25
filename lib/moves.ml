@@ -14,7 +14,7 @@ module type MOVES = sig
   val dual : move -> move
 end
 
-module type MOVESF = functor (Lang:Language.LANG) -> 
+module type MOVESF = functor (Lang:Lang.Language.LANG) -> 
   sig include MOVES with
     type kind = Lang.name
     and type data = Lang.nup

@@ -1,4 +1,4 @@
-module PogsLtsF = functor (M:Monad.LISTMONAD) (Int:Interactive.INT)  -> struct
+module PogsLtsF = functor (M:Util.Monad.LISTMONAD) (Int:Interactive.INT)  -> struct
 
   module M=M
   include M
@@ -60,7 +60,7 @@ module PogsLtsF = functor (M:Monad.LISTMONAD) (Int:Interactive.INT)  -> struct
     return (omove,
             {computation; heap;
             loc_ctx = pconf.loc_ctx;
-            namectxO = Pmap.concat lnamectx pconf.namectxO})
+            namectxO = Util.Pmap.concat lnamectx pconf.namectxO})
 
   let init_aconf computation namectxO =
     {computation;

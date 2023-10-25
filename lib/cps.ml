@@ -1,18 +1,3 @@
-module type CONT_NAMES = sig
-  (* to be instantiated *)
-  type name
-  (* *)
-  type cont_name
-  val inj_cont_name : cont_name -> name
-  val get_cont_name : name -> cont_name option
-  val string_of_cont_name : cont_name -> string
-end
-
-module type LANG = sig
-  include Language.LANG
-  include CONT_NAMES with type name := name
-end
-
 module type MOVES = sig
   (* to be instantiated *)
   type kind
@@ -26,12 +11,12 @@ module type MOVES = sig
   val get_data : move -> data
   val get_player : move -> player
   val dual : move -> move
-  module ContNames : CONT_NAMES
+  module ContNames : Lang.Cps.CONT_NAMES
   val get_transmitted_continuation_names : move -> ContNames.cont_name list
   val get_active_continuation_name : move -> ContNames.cont_name option
 end
 
-module Moves_Make (Lang:LANG) = struct
+module Moves_Make (Lang:Lang.Cps.LANG) = struct
   type kind = Lang.name
   type data = Lang.nup
   type player = Proponent | Opponent
@@ -75,7 +60,7 @@ module type INT = sig
 end
 
 
-module Int_Make (Lang:LANG) : INT with type Moves.ContNames.name = Lang.name  = struct
+module Int_Make (Lang:Lang.Cps.LANG) : INT with type Moves.ContNames.name = Lang.name  = struct
 
   module Moves = Moves_Make(Lang)
 
@@ -97,14 +82,14 @@ module Int_Make (Lang:LANG) : INT with type Moves.ContNames.name = Lang.name  = 
       | Vis move -> Moves.string_of_move move
 
     let generate_input_action namectx = 
-      Debug.print_debug "Generating O-moves";
+      Util.Debug.print_debug "Generating O-moves";
       let aux (id,ty) = 
         let nups = Lang.generate_nup (Lang.neg_type ty) in
         List.map (fun (nup,namectx') -> (Vis (Moves.Opponent,id,nup),namectx')) nups
-      in List.flatten (Pmap.map_list aux namectx)
+      in List.flatten (Util.Pmap.map_list aux namectx)
 
     let generate_output_action namectxO nn value =
-      let ty_option = Pmap.lookup nn namectxO in
+      let ty_option = Util.Pmap.lookup nn namectxO in
         begin match ty_option with
           | Some ty ->
             let nty = Lang.neg_type ty in
@@ -133,7 +118,7 @@ module Int_Make (Lang:LANG) : INT with type Moves.ContNames.name = Lang.name  = 
       match (move1,move2) with
         | ((Moves.Proponent,nn1,nup1),(Moves.Proponent,nn2,nup2))
           | ((Moves.Opponent,nn1,nup1),(Moves.Opponent,nn2,nup2))
-            -> if (Namespan.is_in_dom_im (nn1,nn2) span) 
+            -> if (Util.Namespan.is_in_dom_im (nn1,nn2) span) 
               then Lang.unify_nup span nup1 nup2
               else None
         | _ -> None 
@@ -142,7 +127,7 @@ module Int_Make (Lang:LANG) : INT with type Moves.ContNames.name = Lang.name  = 
       match (move1,move2) with
         | ((Moves.Proponent,nn1,nup1),(Moves.Opponent,nn2,nup2))
           | ((Moves.Opponent,nn1,nup1),(Moves.Proponent,nn2,nup2))
-            -> if (Namespan.is_in_dom_im (nn2,nn1) span) 
+            -> if (Util.Namespan.is_in_dom_im (nn2,nn1) span) 
               then Lang.unify_nup span nup1 nup2
               else None
         | _ -> None 

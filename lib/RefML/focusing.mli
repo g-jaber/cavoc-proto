@@ -26,5 +26,5 @@ val abstract_val : Syntax.valML -> Types.typeML -> nup * interactive_env * Synta
 
 
 val unify_nup :
-  Syntax.name Namespan.namespan ->
-  nup -> nup -> Syntax.name Namespan.namespan option
+  Syntax.name Util.Namespan.namespan ->
+  nup -> nup -> Syntax.name Util.Namespan.namespan option

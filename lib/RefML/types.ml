@@ -51,7 +51,7 @@ let fresh_typevar () =
   count_typevar := !count_typevar + 1;
   TVar ("'a" ^ (string_of_int a))
   
-type type_subst = (typevar,typeML) Pmap.pmap
+type type_subst = (typevar,typeML) Util.Pmap.pmap
   
 let rec apply_type_subst ty subst = match ty with
   | TUnit | TInt | TBool | TRef _ -> ty
@@ -62,7 +62,7 @@ let rec apply_type_subst ty subst = match ty with
   | TSum (ty1,ty2) ->
     TSum (apply_type_subst ty1 subst, apply_type_subst ty2 subst)
   | TVar tvar ->
-    begin match Pmap.lookup tvar subst with
+    begin match Util.Pmap.lookup tvar subst with
       | Some ty' -> ty'
       | None -> ty
     end
@@ -95,13 +95,13 @@ let rec apply_type_subst ty subst = match ty with
     | (TArrow (ty11,ty12), TArrow (ty21,ty22)) ->
       begin match unify_type tsubst (ty11,ty21) with
         | None ->
-          Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty11) ^ " and "
+          Util.Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty11) ^ " and "
                              ^ (string_of_typeML ty21));
           None
         | Some (ty1,tsubst') ->
           begin match unify_type tsubst' (ty12,ty22) with
             | None ->
-              Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty12)
+              Util.Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty12)
                                  ^ " and " ^ (string_of_typeML ty22));
               None
             | Some (ty2,tsubst'') -> Some (TArrow (ty1,ty2),tsubst'')
@@ -110,34 +110,34 @@ let rec apply_type_subst ty subst = match ty with
     | (TProd (ty11,ty12), TProd (ty21,ty22)) ->
       begin match unify_type tsubst (ty11,ty21) with
         | None ->
-          Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty11) ^ " and "
+          Util.Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty11) ^ " and "
                              ^ (string_of_typeML ty21));
           None
         | Some (ty1,lsubst') ->
           begin match unify_type lsubst' (ty12,ty22) with
             | None ->
-              Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty12)
+              Util.Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty12)
                                  ^ " and " ^ (string_of_typeML ty22));
               None
             | Some (ty2,lsubst'') -> Some (TProd (ty1,ty2),lsubst'')
           end
       end
     | ((TVar tvar1) as ty1,TVar tvar2) when tvar1 = tvar2 -> Some (ty1, tsubst)
-    | ((TVar _) as ty1,TVar tvar2) -> Some (ty1, Pmap.modadd_pmap (tvar2,ty1) tsubst)
+    | ((TVar _) as ty1,TVar tvar2) -> Some (ty1, Util.Pmap.modadd_pmap (tvar2,ty1) tsubst)
     | (TVar tvar,ty) | (ty, TVar tvar) ->
-      begin match Pmap.lookup tvar tsubst with
-        | None -> Some (ty, Pmap.modadd_pmap (tvar,ty) tsubst)
+      begin match Util.Pmap.lookup tvar tsubst with
+        | None -> Some (ty, Util.Pmap.modadd_pmap (tvar,ty) tsubst)
         | Some ty' ->
           begin match unify_type tsubst (ty,ty') with
             | None ->
-              Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty)
+              Util.Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty)
                                  ^ " and " ^ (string_of_typeML ty'));
               None
-            | Some (ty'',lsubst'') -> Some (ty'', Pmap.modadd_pmap (tvar,ty'') lsubst'')
+            | Some (ty'',lsubst'') -> Some (ty'', Util.Pmap.modadd_pmap (tvar,ty'') lsubst'')
           end
       end
     | (ty1,ty2) ->
-      Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty1) ^ " and "
+      Util.Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty1) ^ " and "
                          ^ (string_of_typeML ty2));
       None
   

@@ -1,4 +1,4 @@
-type heap =  (Syntax.loc,Syntax.exprML) Pmap.pmap
+type heap =  (Syntax.loc,Syntax.exprML) Util.Pmap.pmap
 val emptyheap : heap
 val allocate : heap -> Syntax.exprML -> Syntax.loc * heap
 val modify : heap -> Syntax.loc -> Syntax.exprML -> heap
