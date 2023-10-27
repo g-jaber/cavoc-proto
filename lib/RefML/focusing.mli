@@ -2,6 +2,7 @@ type nup
 val generate_nup : Types.typeML -> (nup*Syntax.name_ctx) list
 val string_of_nup : nup -> string
 val names_of_nup : nup -> Syntax.name list
+val type_check_nup : Syntax.name_ctx -> Types.typeML -> nup -> Syntax.name_ctx option
 
 type kindTerm =
     Extern of (Syntax.name*Syntax.exprML*Heap.heap)

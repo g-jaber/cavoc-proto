@@ -53,6 +53,27 @@ let rec generate_nup = function
   | TVar _ -> failwith "NUPs for type variables are not yet supported"
   | ty -> failwith ("Error generating a nup on type " ^ (Types.string_of_typeML ty) ^ ". Please report")
 
+let rec type_check_nup namectxP ty nup = match (ty,nup) with
+    | (TUnit,Unit) -> Some empty_name_ctx
+    | (TUnit, _) -> None
+    | (TBool,Bool _) -> Some empty_name_ctx
+    | (TBool, _) -> None
+    | (TInt, Int _) -> Some empty_name_ctx
+    | (TInt, _) -> None
+    | (TProd (ty1,ty2),Pair (nup1,nup2)) ->
+      begin match (type_check_nup namectxP ty1 nup1,type_check_nup namectxP ty2 nup2) with
+        | (None,_) | (_,None) -> None
+        | (Some namectxO1,Some namectxO2) -> 
+          if Util.Pmap.disjoint namectxO1 namectxO2 then Some (Util.Pmap.concat namectxO1 namectxO2) 
+          else None
+      end
+    | (TProd _,_) -> None
+    | (TArrow _,Name nn) | (TNeg _, Name nn) -> 
+      if Util.Pmap.mem nn namectxP then None 
+      else Some (Util.Pmap.singleton (nn,ty))
+    | (TArrow _,_) | (TNeg _,_) -> None
+    | (TVar _,_) | (TUndef ,_) | (TRef _,_) | (TSum _,_) -> failwith "not yet implemented"
+
 type interactive_env = (name,exprML) Util.Pmap.pmap
 
 let empty_ienv = Util.Pmap.empty

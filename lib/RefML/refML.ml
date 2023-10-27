@@ -69,6 +69,7 @@ module RefML : Lang.Cps.LANG = struct
   let string_of_nup = Focusing.string_of_nup
   let generate_nup = Focusing.generate_nup
   let names_of_nup = Focusing.names_of_nup
+  let type_check_nup = Focusing.type_check_nup
 
   let compute_nf = Interpreter.compute_nf
   let decompose_nf = Focusing.decompose_nf
