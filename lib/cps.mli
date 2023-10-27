@@ -2,15 +2,15 @@ module type MOVES = sig
   (* to be instantiated *)
   type kind
   type data
-  type player = Proponent | Opponent
+  type direction =  Input | Output | None
   (* *)
 
-  type move = player * kind * data
+  type move = direction * kind * data
   val string_of_move : move -> string
   val get_kind : move -> kind
   val get_data : move -> data
-  val get_player : move -> player
-  val dual : move -> move
+  val get_player : move -> direction
+  val switch_direction : move -> move
   module ContNames : Lang.Cps.CONT_NAMES
   val get_transmitted_continuation_names : move -> ContNames.cont_name list
   val get_active_continuation_name : move -> ContNames.cont_name option

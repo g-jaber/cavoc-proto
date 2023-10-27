@@ -6,6 +6,7 @@ module OgsLtsF = functor (M:Util.Monad.LISTMONAD) (Int:Interactive.INT) -> struc
   type action = Int.Actions.action
   type move = Int.Moves.move
   let get_move_from_action = Int.Actions.get_move_from_action
+  let inject_move = Int.Actions.inject_move
 
   type active_conf = 
     { computation : Int.Actions.Lang.computation;
@@ -24,49 +25,58 @@ module OgsLtsF = functor (M:Util.Monad.LISTMONAD) (Int:Interactive.INT) -> struc
     | Active of active_conf
     | Passive of passive_conf
 
-  let string_of_active_conf aconf =
+  let string_of_active_conf act_conf =
     "<" 
-    ^ Int.Actions.Lang.string_of_computation aconf.computation 
+    ^ Int.Actions.Lang.string_of_computation act_conf.computation 
     ^ " | " 
-    ^ Int.Actions.Lang.string_of_resources aconf.heap
+    ^ Int.Actions.Lang.string_of_resources act_conf.heap
     ^ " | " 
-    ^ Int.Actions.Lang.string_of_ienv aconf.ienv 
+    ^ Int.Actions.Lang.string_of_ienv act_conf.ienv 
     ^ " | " 
-    ^ Int.Actions.Lang.string_of_name_type_ctx aconf.namectxO
+    ^ Int.Actions.Lang.string_of_name_type_ctx act_conf.namectxO
     ^ " | " 
-    ^ Int.Actions.Lang.string_of_name_type_ctx aconf.namectxP
+    ^ Int.Actions.Lang.string_of_name_type_ctx act_conf.namectxP
     ^ ">"
 
-  let string_of_passive_conf pconf =
+  let string_of_passive_conf pas_conf =
     "<"   
-    ^ Int.Actions.Lang.string_of_resources pconf.heap
+    ^ Int.Actions.Lang.string_of_resources pas_conf.heap
     ^ " | " 
-    ^ Int.Actions.Lang.string_of_ienv pconf.ienv 
+    ^ Int.Actions.Lang.string_of_ienv pas_conf.ienv 
     ^ " | " 
-    ^ Int.Actions.Lang.string_of_name_type_ctx pconf.namectxO
+    ^ Int.Actions.Lang.string_of_name_type_ctx pas_conf.namectxO
     ^ " | " 
-    ^ Int.Actions.Lang.string_of_name_type_ctx pconf.namectxP
+    ^ Int.Actions.Lang.string_of_name_type_ctx pas_conf.namectxP
     ^ ">"
 
-  let p_trans aconf =
-    let opconf_option = Int.Actions.Lang.compute_nf (aconf.computation,aconf.heap) in
+  let p_trans act_conf =
+    let opconf_option = Int.Actions.Lang.compute_nf (act_conf.computation,act_conf.heap) in
     match opconf_option with
       | None -> (Int.Actions.diverging_action, None)
       | Some ((_,heap) as opconf) -> 
         let (nn,value) = Int.Actions.Lang.decompose_nf opconf in
-        let (move,ienv',namectxP') = Int.Actions.generate_output_action aconf.namectxO nn value in
+        let (move,ienv',namectxP') = Int.Actions.generate_output_action act_conf.namectxO nn value in
         (move,Some {heap; 
-              ienv = Int.Actions.Lang.concat_ienv ienv' aconf.ienv; 
-              namectxP = Util.Pmap.concat namectxP' aconf.namectxP; 
-              namectxO = aconf.namectxO})
+              ienv = Int.Actions.Lang.concat_ienv ienv' act_conf.ienv; 
+              namectxP = Util.Pmap.concat namectxP' act_conf.namectxP; 
+              namectxO = act_conf.namectxO})
 
-  let o_trans pconf  =
-    let* (omove,lnamectx) = M.para_list (Int.Actions.generate_input_action pconf.namectxP) in
-    let computation = Int.Actions.generate_computation pconf.ienv omove in
-    return (omove,
-            {computation; heap = pconf.heap; ienv = pconf.ienv;
-            namectxO = Util.Pmap.concat lnamectx pconf.namectxO;
-            namectxP = pconf.namectxP})
+  let o_trans pas_conf input_move =
+    match Int.Actions.check_input_move pas_conf.namectxP input_move with
+      | None -> None
+      | Some lnamectx -> 
+        let computation = Int.Actions.generate_computation pas_conf.ienv input_move in
+        Some {computation; heap = pas_conf.heap; ienv = pas_conf.ienv;
+            namectxO = Util.Pmap.concat lnamectx pas_conf.namectxO;
+            namectxP = pas_conf.namectxP}
+  
+  let o_trans_gen pas_conf  =
+    let* (input_move,lnamectx) = M.para_list (Int.Actions.generate_input_moves pas_conf.namectxP) in
+    let computation = Int.Actions.generate_computation pas_conf.ienv input_move in
+    return (input_move,
+            {computation; heap = pas_conf.heap; ienv = pas_conf.ienv;
+            namectxO = Util.Pmap.concat lnamectx pas_conf.namectxO;
+            namectxP = pas_conf.namectxP})
 
   let init_aconf computation namectxO =
     {computation;
@@ -81,7 +91,7 @@ module OgsLtsF = functor (M:Util.Monad.LISTMONAD) (Int:Interactive.INT) -> struc
     namectxO ;
     namectxP}
 
-  let equiv_aconf aconf aconfb =
-    (aconf.computation = aconfb.computation) && (aconf.heap = aconfb.heap) 
+  let equiv_aconf act_conf aconfb =
+    (act_conf.computation = aconfb.computation) && (act_conf.heap = aconfb.heap) 
     
 end

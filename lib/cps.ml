@@ -2,15 +2,15 @@ module type MOVES = sig
   (* to be instantiated *)
   type kind
   type data
-  type player = Proponent | Opponent
+  type direction = Input | Output | None
   (* *)
 
-  type move = player * kind * data
+  type move = direction * kind * data
   val string_of_move : move -> string
   val get_kind : move -> kind
   val get_data : move -> data
-  val get_player : move -> player
-  val dual : move -> move
+  val get_player : move -> direction
+  val switch_direction : move -> move
   module ContNames : Lang.Cps.CONT_NAMES
   val get_transmitted_continuation_names : move -> ContNames.cont_name list
   val get_active_continuation_name : move -> ContNames.cont_name option
@@ -19,25 +19,27 @@ end
 module Moves_Make (Lang:Lang.Cps.LANG) = struct
   type kind = Lang.name
   type data = Lang.nup
-  type player = Proponent | Opponent
+  type direction = Input | Output | None
 
-  let string_of_player = function
-    | Proponent -> "P"
-    | Opponent -> "O"
+  let string_of_direction = function
+    | Input -> "?"
+    | Output -> "!"
+    | None -> "."
 
-  let switch_player = function
-    | Proponent -> Opponent
-    | Opponent -> Proponent
+  let switch = function
+    | Input -> Output
+    | Output -> Input
+    | None -> None
 
-  type move = player * kind * data
+  type move = direction * kind * data
 
-  let string_of_move (player,nn,nup) = (Lang.string_of_name nn) ^"(" ^ (Lang.string_of_nup nup) ^")_" ^ (string_of_player player)
+  let string_of_move (direction,nn,nup) = (Lang.string_of_name nn) ^ (string_of_direction direction) ^ "(" ^ (Lang.string_of_nup nup) ^ ")"
   
   let get_data (_,_,d) = d
   let get_kind (_,k,_) = k
   let get_player (p,_,_) = p
 
-  let dual (p,k,d) = (switch_player p,k,d)
+  let switch_direction (p,k,d) = (switch p,k,d)
 
   (* Should we use a sub-module Cont_Names in Lang instead ?*)
   module ContNames = struct
@@ -75,18 +77,12 @@ module Int_Make (Lang:Lang.Cps.LANG) : INT with type Moves.ContNames.name = Lang
       | Vis move -> Some move
       | PDiv -> None
 
+    let inject_move move = Vis move
     let diverging_action = PDiv
 
     let string_of_action = function
       | PDiv -> "Div"
       | Vis move -> Moves.string_of_move move
-
-    let generate_input_action namectx = 
-      Util.Debug.print_debug "Generating O-moves";
-      let aux (id,ty) = 
-        let nups = Lang.generate_nup (Lang.neg_type ty) in
-        List.map (fun (nup,namectx') -> (Vis (Moves.Opponent,id,nup),namectx')) nups
-      in List.flatten (Util.Pmap.map_list aux namectx)
 
     let generate_output_action namectxO nn value =
       let ty_option = Util.Pmap.lookup nn namectxO in
@@ -94,7 +90,7 @@ module Int_Make (Lang:Lang.Cps.LANG) : INT with type Moves.ContNames.name = Lang
           | Some ty ->
             let nty = Lang.neg_type ty in
             let (nup,ienv,namectxP) = Lang.abstract_ival value nty in
-            (Vis (Moves.Proponent,nn,nup),ienv,namectxP)
+            (Vis (Moves.Output,nn,nup),ienv,namectxP)
           | None -> 
             failwith ("Error: the name " 
               ^ (Lang.string_of_name nn) 
@@ -103,44 +99,55 @@ module Int_Make (Lang:Lang.Cps.LANG) : INT with type Moves.ContNames.name = Lang
               ^ ". Please report.")
         end
 
-    let generate_computation ienv omove = match omove with
-      | Vis (Moves.Opponent,name,nup) -> 
+    let generate_input_moves namectx = 
+      Util.Debug.print_debug "Generating O-moves";
+      let aux (id,ty) = 
+        let nups = Lang.generate_nup (Lang.neg_type ty) in
+        List.map (fun (nup,namectx') -> ((Moves.Input,id,nup),namectx')) nups
+      in List.flatten (Util.Pmap.map_list aux namectx)
+
+    let check_input_move namectxP (dir,name,nup) =
+      match dir with
+        | Moves.Output -> None
+        | Moves.Input -> 
+          begin match Util.Pmap.lookup name namectxP with
+            | None -> None
+            | Some ty -> Lang.type_check_nup namectxP (Lang.neg_type ty) nup
+          end
+        | Moves.None -> None
+
+    let generate_computation ienv input_move = match input_move with
+      | (Moves.Input,name,nup) -> 
         begin match Lang.lookup_ienv name ienv with
         | Some value -> Lang.val_composition value nup
         | None -> 
-          failwith ("Error: the action " ^ (string_of_action omove) ^ " is ill-formed: the name "
+          failwith ("Error: the move " ^ (Moves.string_of_move input_move) ^ " is ill-formed: the name "
             ^ (Lang.string_of_name name) ^ " is not in the environment " ^ (Lang.string_of_ienv ienv) 
             ^ ". Please report.")
         end
-      | _ -> failwith ("Error: the action " ^ (string_of_action omove) ^ " is not an Opponent move. Please report.")
+      | _ -> failwith ("Error: the move " ^ (Moves.string_of_move input_move) ^ " is not an Opponent move. Please report.")
 
     let unify_move span move1 move2 =
       match (move1,move2) with
-        | ((Moves.Proponent,nn1,nup1),(Moves.Proponent,nn2,nup2))
-          | ((Moves.Opponent,nn1,nup1),(Moves.Opponent,nn2,nup2))
-            -> if (Util.Namespan.is_in_dom_im (nn1,nn2) span) 
-              then Lang.unify_nup span nup1 nup2
-              else None
+        | ((Moves.Output,nn1,nup1),(Moves.Output,nn2,nup2))
+        | ((Moves.Input,nn1,nup1),(Moves.Input,nn2,nup2)) -> 
+          if (Util.Namespan.is_in_dom_im (nn1,nn2) span) 
+          then Lang.unify_nup span nup1 nup2
+          else None
         | _ -> None 
 
     let synch_move span move1 move2 =
       match (move1,move2) with
-        | ((Moves.Proponent,nn1,nup1),(Moves.Opponent,nn2,nup2))
-          | ((Moves.Opponent,nn1,nup1),(Moves.Proponent,nn2,nup2))
-            -> if (Util.Namespan.is_in_dom_im (nn2,nn1) span) 
-              then Lang.unify_nup span nup1 nup2
-              else None
+        | ((Moves.Output,nn1,nup1),(Moves.Input,nn2,nup2))
+        | ((Moves.Input,nn1,nup1),(Moves.Output,nn2,nup2)) -> 
+          if (Util.Namespan.is_in_dom_im (nn1,nn2) span) 
+          then Lang.unify_nup span nup1 nup2
+          else None
         | _ -> None 
 
     let unify_action span act1 act2 = 
       match (act1,act2) with
         | (Vis move1,Vis move2) -> unify_move span move1 move2
-        | (PDiv,PDiv) -> Some span
-        | (Vis _,PDiv) | (PDiv, Vis _) -> None
-
-    let synch_action span act1 act2 = 
-      match (act1,act2) with
-        | (Vis move1,Vis move2) -> synch_move span move1 move2
         | (PDiv,PDiv) -> Some span
         | (Vis _,PDiv) | (PDiv, Vis _) -> None
 

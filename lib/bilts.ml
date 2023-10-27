@@ -6,6 +6,7 @@ module type LTS =
     type action
     type move
     val get_move_from_action : action -> move option
+    val inject_move : move -> action
     type active_conf
     type passive_conf
     type conf = 
@@ -13,9 +14,10 @@ module type LTS =
       | Passive of passive_conf
     val string_of_active_conf : active_conf -> string
     val string_of_passive_conf : passive_conf -> string
-    val p_trans : active_conf -> action * passive_conf option
     val equiv_aconf : active_conf -> active_conf -> bool
-    val o_trans : passive_conf -> (action * active_conf) M.m
+    val p_trans : active_conf -> action * passive_conf option
+    val o_trans : passive_conf -> move -> active_conf option
+    val o_trans_gen : passive_conf -> (move * active_conf) M.m
 end
 
 module type INT_LTS = sig

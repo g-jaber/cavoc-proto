@@ -6,6 +6,7 @@ module PogsLtsF = functor (M:Util.Monad.LISTMONAD) (Int:Interactive.INT)  -> str
   type action = Int.Actions.action
   type move = Int.Moves.move
   let get_move_from_action = Int.Actions.get_move_from_action
+  let inject_move = Int.Actions.inject_move
 
   type active_conf = 
     { computation : Int.Actions.Lang.computation;
@@ -53,11 +54,16 @@ module PogsLtsF = functor (M:Util.Monad.LISTMONAD) (Int:Interactive.INT)  -> str
         let (move,ienv,namectxP) = Int.Actions.generate_output_action aconf.namectxO nn value in
         (move,Some {loc_ctx; ienv; namectxP; namectxO = aconf.namectxO})
 
-  let o_trans pconf  =
-    let* (omove,lnamectx) = M.para_list (Int.Actions.generate_input_action pconf.namectxP) in
+  let o_trans pas_conf input_move =
+    match Int.Actions.check_input_move pas_conf.namectxP input_move with
+      | None -> None
+      | Some _ -> failwith "POGS o_trans cannot be implemented without moves-with-heaps !!"
+
+  let o_trans_gen pconf  =
+    let* (input_move,lnamectx) = M.para_list (Int.Actions.generate_input_moves pconf.namectxP) in
     let* heap = M.para_list (Int.Actions.Lang.generate_resources pconf.loc_ctx) in
-    let computation = Int.Actions.generate_computation pconf.ienv omove in
-    return (omove,
+    let computation = Int.Actions.generate_computation pconf.ienv input_move in
+    return (input_move,
             {computation; heap;
             loc_ctx = pconf.loc_ctx;
             namectxO = Util.Pmap.concat lnamectx pconf.namectxO})

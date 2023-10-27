@@ -5,6 +5,7 @@ module type ACTIONS = sig
   (* *)
   type action
   val get_move_from_action : action -> move option
+  val inject_move : move -> action
   val diverging_action : action
   (*=
   | PDiv
@@ -12,13 +13,15 @@ module type ACTIONS = sig
 
   val generate_output_action : Lang.name_type_ctx -> Lang.name -> Lang.interactive_val -> (action * Lang.interactive_env * Lang.name_type_ctx)
 
-  val generate_input_action : Lang.name_type_ctx -> (action * Lang.name_type_ctx) list
+  val generate_input_moves : Lang.name_type_ctx -> (move * Lang.name_type_ctx) list
+  
+  val check_input_move : Lang.name_type_ctx -> move -> Lang.name_type_ctx option
 
-  val generate_computation : Lang.interactive_env -> action -> Lang.computation
+  val generate_computation : Lang.interactive_env -> move -> Lang.computation
   
   val unify_action : Lang.name Util.Namespan.namespan -> action -> action -> Lang.name Util.Namespan.namespan option
   
-  val synch_action : Lang.name Util.Namespan.namespan -> action -> action -> Lang.name Util.Namespan.namespan option
+  val synch_move : Lang.name Util.Namespan.namespan -> move -> move -> Lang.name Util.Namespan.namespan option
 
   val string_of_action : action -> string
 end

@@ -97,18 +97,18 @@ module Graph : GRAPH = functor (IntLTS : Bilts.INT_LTS) -> struct
         let edge = PublicTrans (act_state,pmove,pas_state) in
         Util.Debug.print_debug ("Adding the transition: " ^ (string_of_transition edge));
         let* () = add_edge edge in
-        let* (omove,act_conf') = para_list (IntLTS.M.run (IntLTS.o_trans pas_conf)) in
+        let* (input_move,act_conf') = para_list (IntLTS.M.run (IntLTS.o_trans_gen pas_conf)) in
         let* act_state_option = find_equiv_aconf act_conf' in
         begin match act_state_option with
           | None -> 
             let id'' = fresh_id_state () in
             let act_state' = ActState (act_conf',id'') in
-            let edge = PublicTrans(pas_state,omove,act_state') in
+            let edge = PublicTrans(pas_state,IntLTS.inject_move input_move,act_state') in
             let* () = add_edge edge in
             compute_graph_monad act_conf'
           | Some act_state'' ->
             Util.Debug.print_debug ("Loop detected: \n   " ^ (IntLTS.string_of_active_conf act_conf') ^ "\n  " ^   (string_of_state act_state''));
-            let edge = PublicTrans (pas_state,omove,act_state'') in
+            let edge = PublicTrans (pas_state,IntLTS.inject_move input_move,act_state'') in
             add_edge edge
         end
 
