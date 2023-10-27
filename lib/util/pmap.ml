@@ -16,6 +16,7 @@ let dom pmap = List.map fst pmap
 
 let codom pmap = List.map snd pmap
 
+let mem = List.mem_assoc
 
 let rec lookup x = function
   | [] -> None
@@ -65,3 +66,6 @@ let map_list = List.map
 let filter_map = List.filter_map
 
 let fold = List.fold_left 
+
+let disjoint pmap1 pmap2 = 
+  List.for_all (fun (x,_) -> not @@ (List.mem_assoc x) pmap2) pmap1

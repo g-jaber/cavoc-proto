@@ -13,6 +13,8 @@ val list_to_pmap : ('a*'b) list -> ('a,'b) pmap
 val dom : ('a,'b) pmap -> 'a list
 val codom : ('a,'b) pmap -> 'b list
 
+val mem : 'a -> ('a,'b) pmap -> bool
+
 val lookup : 'a -> ('a,'b) pmap -> 'b option
 
 val lookup_exn : 'a -> ('a,'b) pmap -> 'b
@@ -41,3 +43,5 @@ val map_list : (('a*'b) -> 'c) -> ('a,'b) pmap -> 'c list
 val filter_map : (('a*'b) -> ('c*'d) option) -> ('a,'b) pmap -> ('c,'d) pmap
 
 val fold : ('a -> ('b*'c) -> 'a) -> 'a -> ('b,'c) pmap -> 'a 
+
+val disjoint : ('a,'b) pmap -> ('a,'b) pmap -> bool
