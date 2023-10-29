@@ -1,4 +1,4 @@
 (executables
- (names cavoctree cavocsynch)
- (public_names cavoctree cavocsynch)
+ (names cavoctree cavocsynch explore)
+ (public_names cavoctree cavocsynch explore)
  (libraries refml cavoc))
