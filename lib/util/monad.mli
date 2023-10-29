@@ -5,7 +5,7 @@ module type MONAD = sig
     'a m -> ('a -> 'b m) -> 'b m
 end
 
-module type LISTMONAD = sig
+module type BRANCH = sig
   include MONAD
   val fail : unit -> 'a m
   val para_list : 'a list -> 'a m
@@ -13,12 +13,13 @@ module type LISTMONAD = sig
 end
   
 
-module ListMonad : LISTMONAD
+module ListB : BRANCH
 
+module UserChoose : BRANCH
 
 module type MEMSTATE = sig type t end
 
-module type STMONAD = functor (MemState : MEMSTATE) ->
+module type STATE = functor (MemState : MEMSTATE) ->
   sig
     type mem_state = MemState.t
     include MONAD with type 'a m = mem_state -> ('a * mem_state)
@@ -27,9 +28,9 @@ module type STMONAD = functor (MemState : MEMSTATE) ->
     val runState : 'a m -> mem_state -> ('a* mem_state)
   end
 
-module StMonad : STMONAD
+module State : STATE
 
-module type LSTMONAD = functor (MemState : MEMSTATE) ->
+module type BRANCH_STATE = functor (MemState : MEMSTATE) ->
   sig
     type mem_state = MemState.t
     include MONAD with type 'a m = mem_state -> ('a list * mem_state)
@@ -40,16 +41,24 @@ module type LSTMONAD = functor (MemState : MEMSTATE) ->
     val runState : 'a m -> mem_state -> ('a list * mem_state)
   end
 
-module LStMonad : LSTMONAD
+module BranchState : BRANCH_STATE
 
-module type LWMONAD = functor (MemState : MEMSTATE) ->
+module type SHOWABLE = sig 
+  type t 
+  val show : t -> string
+end
+
+module type BRANCH_WRITE = functor (MemState : SHOWABLE) ->
   sig
-    type output = MemState.t
-    include MONAD with type 'a m = ('a * output list) list
-    val print : output -> unit m
+    type trace
+    val string_of_trace : trace -> string
+    include MONAD
+    val emit : MemState.t -> unit m
     val fail : unit -> 'a m
     val para_list : 'a list -> 'a m
-    val get_output : 'a m -> output list list
+    val get_trace : 'a m -> trace list
   end
 
-module LWMonad : LWMONAD
+module ListWrite : BRANCH_WRITE
+
+module UserChooseWrite : BRANCH_WRITE

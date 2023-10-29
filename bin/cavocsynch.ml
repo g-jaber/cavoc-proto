@@ -22,7 +22,7 @@ let () =
   parse speclist get_filename usage_msg;
   check_number_filenames ();
   let module Int = Cavoc.Cps.Int_Make(Refml.RefML.RefML) in
-  let module OGS_LTS = Cavoc.Ogs.OgsLtsF(Util.Monad.ListMonad)(Int) in
+  let module OGS_LTS = Cavoc.Ogs.OgsLtsF(Util.Monad.ListB)(Int) in
   let module WBLTS = Cavoc.Wblts.WBLTS(Int.Moves) in
   let module ProdLTS = Cavoc.Product_lts.Make(OGS_LTS)(WBLTS) in
   Util.Debug.print_debug "Getting the program";

@@ -1,4 +1,4 @@
-module PogsLtsF = functor (M:Util.Monad.LISTMONAD) (Int:Interactive.INT)  -> struct
+module PogsLtsF = functor (M:Util.Monad.BRANCH) (Int:Interactive.INT)  -> struct
 
   module M=M
   include M

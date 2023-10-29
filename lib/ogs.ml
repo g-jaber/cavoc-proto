@@ -1,4 +1,4 @@
-module OgsLtsF = functor (M:Util.Monad.LISTMONAD) (Int:Interactive.INT) -> struct
+module OgsLtsF = functor (M:Util.Monad.BRANCH) (Int:Interactive.INT) -> struct
 
   module M=M
   include M
@@ -78,6 +78,7 @@ module OgsLtsF = functor (M:Util.Monad.LISTMONAD) (Int:Interactive.INT) -> struc
             namectxO = Util.Pmap.concat lnamectx pas_conf.namectxO;
             namectxP = pas_conf.namectxP})
 
+
   let init_aconf computation namectxO =
     {computation;
     heap = Int.Actions.Lang.empty_resources;
@@ -92,6 +93,5 @@ module OgsLtsF = functor (M:Util.Monad.LISTMONAD) (Int:Interactive.INT) -> struc
     namectxP}
 
   let equiv_aconf act_conf aconfb =
-    (act_conf.computation = aconfb.computation) && (act_conf.heap = aconfb.heap) 
-    
+    (act_conf.computation = aconfb.computation) && (act_conf.heap = aconfb.heap)
 end

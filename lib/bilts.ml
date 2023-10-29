@@ -1,7 +1,7 @@
 module type LTS =
   sig
     (* The following field is to be instantiated *)
-    module M:Util.Monad.LISTMONAD
+    module M:Util.Monad.BRANCH
     (* *)
     type action
     type move
@@ -27,4 +27,4 @@ module type INT_LTS = sig
   val init_pconf : Int.Actions.Lang.interactive_env -> Int.Actions.Lang.name_type_ctx -> Int.Actions.Lang.name_type_ctx -> passive_conf
 end
 
-module type INT_LTS_F = functor (M:Util.Monad.LISTMONAD) (Int:Interactive.INT) -> INT_LTS with module Int = Int and module M = M
+module type INT_LTS_F = functor (M:Util.Monad.BRANCH) (Int:Interactive.INT) -> INT_LTS with module Int = Int and module M = M

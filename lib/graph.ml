@@ -55,7 +55,7 @@ module Graph : GRAPH = functor (IntLTS : Bilts.INT_LTS) -> struct
 
   let empty_graph = { states = []; edges = []}
 
-  include Util.Monad.LStMonad(struct type t = graph end)
+  include Util.Monad.BranchState(struct type t = graph end)
 
 
   let equiv_act_state act_conf act_state =

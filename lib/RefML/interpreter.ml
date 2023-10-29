@@ -9,7 +9,7 @@ let string_of_opconf (expr,heap) =
   ^ (Heap.string_of_heap heap)
   ^ ")"
 
-include Util.Monad.LStMonad(struct type t = opconf list end)
+include Util.Monad.BranchState(struct type t = opconf list end)
 
 let empty_state = []
 
