@@ -4,12 +4,8 @@ let () =
   let number_filename = ref 0 in
   let filename1 = ref "" in
   let filename2 = ref "" in
-  let pogs = ref false in
-  let ogs = ref false in
   let speclist =
     [("-debug",Set Util.Debug.debug_mode,"Debug mode");
-     ("-pogs", Set pogs, "Compute the Tree representation");
-     ("-ogs", Set ogs, "Compute BILTS (Beware, this might be infinite)");
     ] in
   let usage_msg = "Usage: cavocsynch filename1 filename2 [options]" in
   let get_filename str =
