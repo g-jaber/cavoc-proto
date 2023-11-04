@@ -16,5 +16,5 @@ module type HISLTS_INIT = sig
 end
 
 module type HISLTS_INIT_F = functor (Int:Interactive.INT) -> sig
-  include HISLTS_INIT with type move = Int.Moves.move and type name = Int.Actions.Lang.name
+  include HISLTS_INIT with type move = Int.Actions.Moves.move and type name = Int.OpLang.name
 end

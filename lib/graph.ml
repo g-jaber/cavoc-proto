@@ -103,12 +103,12 @@ module Graph : GRAPH = functor (IntLTS : Bilts.INT_LTS) -> struct
           | None -> 
             let id'' = fresh_id_state () in
             let act_state' = ActState (act_conf',id'') in
-            let edge = PublicTrans(pas_state,IntLTS.inject_move input_move,act_state') in
+            let edge = PublicTrans(pas_state,IntLTS.Actions.inject_move input_move,act_state') in
             let* () = add_edge edge in
             compute_graph_monad act_conf'
           | Some act_state'' ->
             Util.Debug.print_debug ("Loop detected: \n   " ^ (IntLTS.string_of_active_conf act_conf') ^ "\n  " ^   (string_of_state act_state''));
-            let edge = PublicTrans (pas_state,IntLTS.inject_move input_move,act_state'') in
+            let edge = PublicTrans (pas_state,IntLTS.Actions.inject_move input_move,act_state'') in
             add_edge edge
         end
 

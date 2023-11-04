@@ -1,5 +1,6 @@
 module Make (IntLts:Bilts.INT_LTS) 
-            (HistLts:Hislts.HISLTS_INIT  with type move = IntLts.move and type name = IntLts.Int.Actions.Lang.name) 
+            (HistLts:Hislts.HISLTS_INIT  
+            with type move = IntLts.Int.Actions.Moves.move and type name = IntLts.Int.OpLang.name) 
         : Bilts.INT_LTS with module Int = IntLts.Int  
   = struct
 
@@ -7,10 +8,7 @@ module Make (IntLts:Bilts.INT_LTS)
   open M
   (* *)
   module Int = IntLts.Int
-  type action = IntLts.action 
-  type move = IntLts.move
-  let get_move_from_action = IntLts.get_move_from_action
-  let inject_move = IntLts.inject_move
+  module Actions = IntLts.Actions
 
   type active_conf = IntLts.active_conf * HistLts.active_conf
 
@@ -29,7 +27,7 @@ module Make (IntLts:Bilts.INT_LTS)
 
   let p_trans (active_iconf,active_hconf) =
     let (action,passive_iconf_option) = IntLts.p_trans active_iconf in
-    match (IntLts.get_move_from_action action,passive_iconf_option) with
+    match (IntLts.Actions.get_move_from_action action,passive_iconf_option) with
       | (Some output_move,Some passive_iconf) -> 
         let passive_hconf = HistLts.p_trans active_hconf output_move in
         (action,Some (passive_iconf,passive_hconf))

@@ -23,17 +23,17 @@ let () =
   check_number_filenames ();
   let module Int = Cavoc.Cps.Int_Make(Refml.RefML.RefML) in
   let module OGS_LTS = Cavoc.Ogs.OgsLtsF(Util.Monad.ListB)(Int) in
-  let module WBLTS = Cavoc.Wblts.WBLTS(Int.Moves) in
+  let module WBLTS = Cavoc.Wblts.WBLTS(Int.ContNames)(Int.Actions.Moves) in
   let module ProdLTS = Cavoc.Product_lts.Make(OGS_LTS)(WBLTS) in
   Util.Debug.print_debug "Getting the program";
   let inBuffer1 = open_in !filename1 in
-  let (expr1,namectxO) = Int.Actions.Lang.get_typed_computation "first" inBuffer1 in
+  let (expr1,namectxO) = Int.OpLang.get_typed_computation "first" inBuffer1 in
   Util.Debug.print_debug "Getting the module";
   let inBuffer2 = open_in !filename2 in
-  let (ienv,namectxO') = Int.Actions.Lang.get_typed_ienv inBuffer2 in
+  let (ienv,namectxO') = Int.OpLang.get_typed_ienv inBuffer2 in
   Util.Debug.print_debug 
-    ("Name contexts for Opponent: " ^ (Int.Actions.Lang.string_of_name_type_ctx namectxO) 
-    ^ " and " ^ (Int.Actions.Lang.string_of_name_type_ctx namectxO'));
+    ("Name contexts for Opponent: " ^ (Int.OpLang.string_of_name_type_ctx namectxO) 
+    ^ " and " ^ (Int.OpLang.string_of_name_type_ctx namectxO'));
   let init_aconf = ProdLTS.Active (ProdLTS.init_aconf expr1 (Util.Pmap.concat namectxO namectxO')) in
   let init_pconf = ProdLTS.Passive (ProdLTS.init_pconf ienv namectxO' Util.Pmap.empty) in
   let module Synchronized_LTS = Cavoc.Synchronize.Make(ProdLTS) in

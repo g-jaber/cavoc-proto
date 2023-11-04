@@ -21,13 +21,13 @@ parse speclist get_filename usage_msg;
 check_number_filenames ();
   let module Int = Cavoc.Cps.Int_Make(Refml.RefML.RefML) in
   let module OGS_LTS = Cavoc.Ogs.OgsLtsF(Util.Monad.ListB)(Int) in
-  let module WBLTS = Cavoc.Wblts.WBLTS(Int.Moves) in
+  let module WBLTS = Cavoc.Wblts.WBLTS(Int.ContNames)(Int.Actions.Moves) in
   let module ProdLTS = Cavoc.Product_lts.Make(OGS_LTS)(WBLTS) in
   Util.Debug.print_debug "Getting the program";
   let inBuffer1 = open_in !filename in
-  let (expr,namectxO) = Int.Actions.Lang.get_typed_computation "first" inBuffer1 in
+  let (expr,namectxO) = Int.OpLang.get_typed_computation "first" inBuffer1 in
   Util.Debug.print_debug 
-    ("Name contexts for Opponent: " ^ (Int.Actions.Lang.string_of_name_type_ctx namectxO));
+    ("Name contexts for Opponent: " ^ (Int.OpLang.string_of_name_type_ctx namectxO));
   let init_aconf = ProdLTS.init_aconf expr namectxO in
   Util.Debug.print_debug "Getting the trace";
   let module Generate = Cavoc.Generate_trace.Make(ProdLTS) in
