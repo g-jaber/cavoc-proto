@@ -226,3 +226,22 @@ let compute_nf opconf =
   | [] -> None
   | [ nf ] -> Some nf
   | _ -> failwith "Error: non-determinism in the evaluation. Please report"
+
+let compute_valenv comp_list =
+  let rec aux valenv heap = function
+    | [] -> (valenv, heap)
+    | (var, comp) :: comp_list' ->
+        if isval comp then
+          let valenv' = Util.Pmap.add (var, comp) valenv in
+          aux valenv' heap comp_list'
+        else begin
+          match compute_nf (comp, valenv, heap) with
+          | None ->
+              failwith @@ "The operational configuration "
+              ^ string_of_opconf (comp, valenv, heap)
+              ^ " is diverging."
+          | Some (value, _, heap') ->
+              let valenv' = Util.Pmap.add (var, value) valenv in
+              aux valenv' heap' comp_list'
+        end in
+  aux empty_val_env Heap.emptyheap comp_list
