@@ -1,0 +1,5 @@
+
+exp-grouping=preserve
+parens-tuple=always
+parens-tuple-patterns=always
+break-before-in=auto

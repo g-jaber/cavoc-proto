@@ -18,7 +18,7 @@ type temp_formula =
   | Mod of modality * temp_formula
   | TAnd of temp_formula list
   | TImpl of (arith_pred list)*temp_formula
-  | TForAll of (Syntax.var_ctx*temp_formula)
+  | TForAll of (Type_ctx.var_ctx*temp_formula)
   | GFix of id * temp_formula
   | SVar of id
 
@@ -40,7 +40,7 @@ let rec string_of_temp_formula = function
   | Mod (m,formula) -> (string_of_modality m) ^ "(" ^ (string_of_temp_formula formula) ^ ")"
   | TAnd  preds-> string_of_conj  " /\\ " string_of_temp_formula preds
   | TImpl (preds,formula) -> (string_of_conj " /\\ " string_of_arith_pred preds) ^ " => " ^ (string_of_temp_formula formula)
-  | TForAll (vctx,formula) -> "∀" ^ (string_of_var_ctx vctx) ^ ", " ^ (string_of_temp_formula formula)
+  | TForAll (vctx,formula) -> "∀" ^ (Type_ctx.string_of_var_ctx vctx) ^ ", " ^ (string_of_temp_formula formula)
   | GFix (x, formula) -> "nu " ^ x ^ "." ^ (string_of_temp_formula formula)
   | SVar (x) -> x
 

@@ -3,20 +3,15 @@ type loc
 
 val string_of_id : id -> string
 val string_of_loc : loc -> string
-
 val fresh_loc : unit -> loc
-
 val fresh_evar : unit -> id
 
-type name =
-  | FName of id
-  | CName of id
+type name = FName of id | CName of id | PName of id
 
 val fresh_fname : unit -> name
 val fresh_cname : unit -> name
-
+val fresh_pname : unit -> name
 val string_of_name : name -> string
-
 val name_of_id : id -> name
 
 type binary_op =
@@ -33,17 +28,16 @@ type binary_op =
   | Great
   | GreatEq
 
-type unary_op =
-  | Not
+type unary_op = Not
 
 type exprML =
-    Var of id
+  | Var of id
   | Name of name
   | Loc of loc
   | Unit
   | Int of int
   | Bool of bool
-  | BinaryOp of binary_op*exprML * exprML
+  | BinaryOp of binary_op * exprML * exprML
   | UnaryOp of unary_op * exprML
   | If of exprML * exprML * exprML
   | Fun of (id * Types.typeML) * exprML
@@ -54,7 +48,7 @@ type exprML =
   | Seq of exprML * exprML
   | While of exprML * exprML
   | Pair of exprML * exprML
-  | Newref of Types.typeML*exprML
+  | Newref of Types.typeML * exprML
   | Deref of exprML
   | Assign of exprML * exprML
   | Assert of exprML
@@ -73,62 +67,25 @@ val subst_list : exprML -> (id * valML) list -> exprML
 val string_of_typed_var : Types.typevar * Types.typeML -> string
 val string_par_of_exprML : exprML -> string
 val string_of_exprML : exprML -> string
-
-val implement_arith_op : binary_op -> (int -> int -> int)
-
-val implement_bin_bool_op : binary_op -> (bool -> bool -> bool)
-
-val implement_compar_op : binary_op -> (int -> int -> bool)
-
-
+val implement_arith_op : binary_op -> int -> int -> int
+val implement_bin_bool_op : binary_op -> bool -> bool -> bool
+val implement_compar_op : binary_op -> int -> int -> bool
 val get_consfun_from_bin_cons : exprML -> exprML * exprML -> exprML
 val get_consfun_from_un_cons : exprML -> exprML -> exprML
 
-type functional_env = (id, valML) Util.Pmap.pmap
+type val_env = (id, valML) Util.Pmap.pmap
 
-val string_of_functional_env : functional_env -> string
+val string_of_functional_env : val_env -> string
 
-type full_expr = exprML * functional_env
+type full_expr = exprML * val_env
 
 val string_of_full_expr : full_expr -> string
 
 type eval_context = exprML
 
 val extract_ctx : exprML -> exprML * eval_context
-
 val extract_call : exprML -> id * eval_context * exprML
-
-val extract_body : exprML -> (id*full_expr)
-
+val extract_body : exprML -> id * full_expr
 val fill_hole : eval_context -> exprML -> exprML
-
 val string_of_eval_context : eval_context -> string
-
-type var_ctx = (id,Types.typeML) Util.Pmap.pmap
-type loc_ctx = (loc,Types.typeML) Util.Pmap.pmap
-
-
-val subst_vctx :
-  id ->
-  Types.typeML ->
-    var_ctx -> var_ctx
-val lsubst_type :
-  (id, Types.typeML) Util.Pmap.pmap -> Types.typeML -> Types.typeML
-val lsubst_vctx :
-  (id, Types.typeML) Util.Pmap.pmap ->
-  ('a, Types.typeML) Util.Pmap.pmap -> ('a, Types.typeML) Util.Pmap.pmap
-
-val string_of_var_ctx : var_ctx -> string
-val string_of_loc_ctx : loc_ctx -> string
-
-
-type name_ctx = (name,Types.typeML) Util.Pmap.pmap
-
-val empty_name_ctx : name_ctx
-val empty_loc_ctx : loc_ctx
-
-val string_of_name_ctx : name_ctx -> string
-
-val init_term : exprML -> Types.typeML -> (exprML*name_ctx)
-
 val generate_ground_value : Types.typeML -> valML list

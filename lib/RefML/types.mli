@@ -13,17 +13,11 @@ type typeML =
   | TUndef
 
 val string_of_typeML : typeML -> string
-
 val fresh_typevar : unit -> typeML
 
-type type_subst = (typevar,typeML) Util.Pmap.pmap
+type type_subst = (typevar, typeML) Util.Pmap.pmap
 
 val apply_type_subst : typeML -> type_subst -> typeML
-
 val subst_type : typevar -> typeML -> typeML -> typeML
-
-val unify_type : type_subst -> typeML*typeML -> (typeML*type_subst) option
-
-val close_type : typeML -> typeML -> typeML
-
+val unify_type : type_subst -> typeML * typeML -> (typeML * type_subst) option
 val neg_type : typeML -> typeML
