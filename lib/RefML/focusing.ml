@@ -146,7 +146,7 @@ type kindTerm =
   | IsRecCall of (id * exprML * exprML * eval_context * Heap.heap)
   | Diverge
 
-let decompose_nf (expr, _) =
+let decompose_nf (expr, _, _) =
   match extract_ctx expr with
   | (App (Name fn, value), ectx) -> (fn, Pair (value, ECtx ectx))
   | (value, Named (cn, Hole)) when isval value -> (cn, value)
@@ -159,7 +159,7 @@ let decompose_nf (expr, _) =
 
 let decompose_nf_option = function
   | None -> Diverge
-  | Some ((_, heap) as opconf) ->
+  | Some ((_, _, heap) as opconf) ->
       let (nn, value) = decompose_nf opconf in
       Extern (nn, value, heap)
 

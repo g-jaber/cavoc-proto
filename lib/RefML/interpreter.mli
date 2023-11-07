@@ -1,16 +1,12 @@
 (* This file provides a definitional interpreter for RefML *)
 
-type opconf = Syntax.exprML * Heap.heap
+type opconf = Syntax.exprML * Syntax.val_env * Heap.heap
+val string_of_opconf : opconf -> string
 type mem_state = opconf list
 type 'a m = mem_state -> 'a list * mem_state
 
 val lookup : opconf -> bool m
 val add : opconf -> unit m
-
-val interpreter :
-  (Syntax.exprML * Heap.heap -> (Syntax.exprML * Heap.heap) m) ->
-  Syntax.exprML * Heap.heap ->
-  (Syntax.exprML * Heap.heap) m
-
-val compute_nf_monad : opconf -> (Syntax.exprML * Heap.heap) m
-val compute_nf : opconf -> (Syntax.exprML * Heap.heap) option
+val interpreter : (opconf -> opconf m) -> opconf -> opconf m
+val compute_nf_monad : opconf -> opconf m
+val compute_nf : opconf -> opconf option

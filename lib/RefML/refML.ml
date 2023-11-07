@@ -38,17 +38,26 @@ module RefML : Lang.Cps.LANG = struct
 
   let string_of_name_type_ctx = Type_ctx.string_of_name_ctx
 
-  type resources = Heap.heap
+  type resources = Syntax.val_env * Heap.heap
 
-  let string_of_resources = Heap.string_of_heap
-  let empty_resources = Heap.emptyheap
+  let string_of_resources (valenv, heap) =
+    Syntax.string_of_val_env valenv ^ "| " ^ Heap.string_of_heap heap
 
-  type resources_type_ctx = Type_ctx.loc_ctx
+  let empty_resources = (Syntax.empty_val_env, Heap.emptyheap)
 
-  let empty_resources_type_ctx = Type_ctx.empty_loc_ctx
-  let string_of_resources_type_ctx = Type_ctx.string_of_loc_ctx
-  let resources_type_ctx_of_resources = Heap.loc_ctx_of_heap
-  let generate_resources = Heap.generate_heaps
+  (* We trick the system by keeping the full val_env as type ctx *)
+  type resources_type_ctx = Syntax.val_env * Type_ctx.loc_ctx
+
+  let empty_resources_type_ctx = (Syntax.empty_val_env, Type_ctx.empty_loc_ctx)
+
+  let string_of_resources_type_ctx (valenv, loc_ctx) =
+    Syntax.string_of_val_env valenv ^ "|" ^ Type_ctx.string_of_loc_ctx loc_ctx
+
+  let resources_type_ctx_of_resources (valenv, loc_ctx) =
+    (valenv, Heap.loc_ctx_of_heap loc_ctx)
+
+  let generate_resources (valenv, loc_ctx) =
+    List.map (fun heap -> (valenv, heap)) (Heap.generate_heaps loc_ctx)
 
   type opconf = computation * resources
   type interactive_val = Syntax.exprML
@@ -79,8 +88,11 @@ module RefML : Lang.Cps.LANG = struct
   let generate_nup = Focusing.generate_nup
   let names_of_nup = Focusing.names_of_nup
   let type_check_nup = Focusing.type_check_nup
-  let compute_nf = Interpreter.compute_nf
-  let decompose_nf = Focusing.decompose_nf
+  let compute_nf (expr,(valenv,heap)) = 
+    match Interpreter.compute_nf (expr,valenv,heap) with
+      | None -> None
+      | Some (expr',valenv',heap') -> Some (expr',(valenv',heap'))
+  let decompose_nf (expr,(valenv,heap)) = Focusing.decompose_nf (expr,valenv,heap)
   let val_composition = Focusing.val_composition
   let abstract_ival = Focusing.abstract_val
   let unify_nup = Focusing.unify_nup

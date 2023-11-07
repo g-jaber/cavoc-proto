@@ -75,7 +75,8 @@ val get_consfun_from_un_cons : exprML -> exprML -> exprML
 
 type val_env = (id, valML) Util.Pmap.pmap
 
-val string_of_functional_env : val_env -> string
+val string_of_val_env : val_env -> string
+val empty_val_env : val_env
 
 type full_expr = exprML * val_env
 

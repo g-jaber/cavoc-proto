@@ -137,7 +137,7 @@ let get_names expr =
 type valML = exprML
 
 let rec isval = function
-  | Var _ -> true
+  (*| Var _ -> true*)
   | Name _ -> true
   | Loc _ -> true
   | Unit -> true
@@ -328,8 +328,11 @@ let get_consfun_from_un_cons = function
 
 type val_env = (id, exprML) pmap
 
-let string_of_functional_env =
+let string_of_val_env =
   string_of_pmap "ε" "->" string_of_id string_of_exprML
+
+let empty_val_env = Util.Pmap.empty
+
 
 type full_expr = exprML * val_env
 
