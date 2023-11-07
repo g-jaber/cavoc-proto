@@ -13,11 +13,13 @@ let rec generate act_conf =
       Util.Debug.print_debug "Stopping generation"; 
       emit output_move
     | (Some pas_conf,Some output_move) ->
+      print_endline @@ "Proponent has played " ^ IntLTS.Actions.Moves.string_of_move output_move;
       let* () = emit output_move in
       let results_list = IntLTS.M.run (IntLTS.o_trans_gen pas_conf) in
       print_endline "The possible moves are :";
       List.iter print_endline (List.map (fun (m,_) -> IntLTS.Actions.Moves.string_of_move m) results_list);
       let* (input_move,act_conf') = para_list results_list in
+      print_endline @@ "You have played " ^ IntLTS.Actions.Moves.string_of_move input_move;
       let* () = emit input_move in 
       (generate act_conf')
 

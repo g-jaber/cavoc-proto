@@ -39,7 +39,7 @@ module type LANG = sig
   val lookup_ienv : name -> interactive_env -> interactive_val option
   val concat_ienv : interactive_env -> interactive_env -> interactive_env
   val string_of_ienv : interactive_env -> string
-  val get_typed_ienv : in_channel -> interactive_env * name_type_ctx
+  val get_typed_ienv : in_channel -> in_channel -> interactive_env * resources * name_type_ctx
 
   type nup
 

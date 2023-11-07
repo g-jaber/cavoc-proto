@@ -40,12 +40,33 @@ let split_implem_decl_list implem_decl_l =
         aux (vd :: val_decl_l, type_decl_l) implem_decl_l' in
   aux ([], []) implem_decl_l
 
-let get_ienv implem_decl_l =
+let split_signature_decl_list signature_decl_l =
+  let rec aux (val_decl_l, type_decl_l) = function
+    | [] -> (val_decl_l, type_decl_l)
+    | PublicTypeDecl td :: signature_decl_l' ->
+        aux (val_decl_l, td :: type_decl_l) signature_decl_l'
+    | PrivateTypeDecl _ :: signature_decl_l' ->
+        aux (val_decl_l, type_decl_l) signature_decl_l'
+    | PublicValDecl vd :: signature_decl_l' ->
+        aux (vd :: val_decl_l, type_decl_l) signature_decl_l' in
+  aux ([], []) signature_decl_l
+
+type comp_env = (Syntax.id * Syntax.exprML) list
+
+let get_comp_env implem_decl_l =
   let (val_decl_l, type_decl_l) = split_implem_decl_list implem_decl_l in
-  let tsubst = Util.Pmap.list_to_pmap type_decl_l in
+  let type_subst = Util.Pmap.list_to_pmap type_decl_l in
   let aux (var, expr) =
-    let ty = Type_checker.typing_full tsubst expr in
+    let ty = Type_checker.typing_full type_subst expr in
+    ((var, expr), (var, ty)) in
+  let (comp_env, var_ctx_l) = List.split @@ List.map aux val_decl_l in
+  (comp_env, Util.Pmap.list_to_pmap var_ctx_l)
+
+let get_ienv sign_decl_l =
+  let (var_ctx_l, type_decl_l) = split_signature_decl_list sign_decl_l in
+  let _ = Util.Pmap.list_to_pmap type_decl_l in
+  let aux (var, ty) =
     let nn = Syntax.name_of_id var in
-    ((nn, expr), (nn, ty)) in
-  let (tval_l, tnn_l) = List.split @@ List.map aux val_decl_l in
-  (Focusing.list_to_ienv tval_l, Util.Pmap.list_to_pmap tnn_l)
+    ((nn, Syntax.Var var), (nn, ty)) in
+  let (ienv, name_ctx_l) = List.split @@ List.map aux var_ctx_l in
+  (Focusing.list_to_ienv ienv, Util.Pmap.list_to_pmap name_ctx_l)

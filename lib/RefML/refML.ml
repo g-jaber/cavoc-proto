@@ -69,17 +69,22 @@ module RefML : Lang.Cps.LANG = struct
   let concat_ienv = Focusing.concat_ienv
   let string_of_ienv = Focusing.string_of_interactive_env
 
-  let get_typed_ienv inBuffer =
-    let lineBuffer = Lexing.from_channel inBuffer in
+  let get_typed_ienv inBuffer_implem inBuffer_signature =
+    let lexer_implem = Lexing.from_channel inBuffer_implem in
+    let lexer_signature = Lexing.from_channel inBuffer_signature in
     try
-      let implem_decl_l = Parser.prog Lexer.token lineBuffer in
-      Declaration.get_ienv implem_decl_l
+      let implem_decl_l = Parser.prog Lexer.token lexer_implem in
+      let signature_decl_l = Parser.signature Lexer.token lexer_signature in
+      let (comp_env,_) = Declaration.get_comp_env implem_decl_l in
+      let (val_env,heap) = Interpreter.compute_valenv comp_env in
+      let (ienv,name_type_ctx) = Declaration.get_ienv signature_decl_l in
+      (ienv,(val_env,heap),name_type_ctx)
     with
     | Lexer.SyntaxError msg -> failwith ("Parsing Error: " ^ msg)
     | Parser.Error ->
         failwith
           ("Syntax Error: " ^ " at position "
-          ^ string_of_int (Lexing.lexeme_start lineBuffer))
+          ^ string_of_int (Lexing.lexeme_start lexer_implem)) (* Need to get in which file the Parser.Error is *)
     | Type_checker.TypingError msg -> failwith ("Typing Error: " ^ msg)
 
   type nup = Focusing.nup
