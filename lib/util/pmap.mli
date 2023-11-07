@@ -29,7 +29,8 @@ val modadd_pmap : ('a*'b) -> ('a,'b) pmap -> ('a,'b) pmap
 
 val modadd_pmap2 : ('a*'b) -> ('a*'b) -> ('a,'b) pmap -> ('a,'b) pmap
 
-(* first argument is the string for the empty map, second is the string for the symbol between the index and its value *)
+(* The first argument of string_of_pmap is the string for the empty map, 
+   the second is the string for the separation symbol between the index and its value *)
 val string_of_pmap : string -> string -> ('a -> string) -> ('b -> string) -> ('a,'b) pmap -> string
 
 val map_dom : ('a -> 'b) -> ('a,'c) pmap -> ('b,'c) pmap
@@ -45,3 +46,5 @@ val filter_map : (('a*'b) -> ('c*'d) option) -> ('a,'b) pmap -> ('c,'d) pmap
 val fold : ('a -> ('b*'c) -> 'a) -> 'a -> ('b,'c) pmap -> 'a 
 
 val disjoint : ('a,'b) pmap -> ('a,'b) pmap -> bool
+
+val select_im : 'b -> ('a,'b) pmap -> 'a list

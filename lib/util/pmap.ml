@@ -69,3 +69,7 @@ let fold = List.fold_left
 
 let disjoint pmap1 pmap2 = 
   List.for_all (fun (x,_) -> not @@ (List.mem_assoc x) pmap2) pmap1
+
+let rec select_im b = function
+  | [] -> []
+  | (a,b')::tl -> if b = b' then a::(select_im b tl) else select_im b tl

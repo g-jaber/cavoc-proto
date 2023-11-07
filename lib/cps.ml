@@ -81,12 +81,12 @@ module Int_Make (CpsLang : Lang.Cps.LANG) :
             ^ ". Please report.")
       end
 
-  let generate_input_moves namectx = 
+  let generate_input_moves namectxP =
     Util.Debug.print_debug "Generating O-moves";    
     let aux (id,ty) =
-      let nups = CpsLang.generate_nup (CpsLang.neg_type ty) in
+      let nups = CpsLang.generate_nup namectxP (CpsLang.neg_type ty) in
       List.map (fun (nup,namectx') -> ((Moves.Input,id,nup),namectx')) nups
-    in List.flatten (Util.Pmap.map_list aux namectx)
+    in List.flatten (Util.Pmap.map_list aux namectxP)
 
   let check_input_move namectxP (dir,name,nup) =
    match dir with
