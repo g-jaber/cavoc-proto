@@ -75,9 +75,9 @@ module RefML : Lang.Cps.LANG = struct
     try
       let implem_decl_l = Parser.prog Lexer.token lexer_implem in
       let signature_decl_l = Parser.signature Lexer.token lexer_signature in
-      let (comp_env,_) = Declaration.get_comp_env implem_decl_l in
+      let (comp_env,_) = Declaration.get_typed_comp_env implem_decl_l in
       let (val_env,heap) = Interpreter.compute_valenv comp_env in
-      let (ienv,name_type_ctx) = Declaration.get_ienv signature_decl_l in
+      let (ienv,name_type_ctx) = Declaration.get_typed_int_env val_env signature_decl_l in
       (ienv,(val_env,heap),name_type_ctx)
     with
     | Lexer.SyntaxError msg -> failwith ("Parsing Error: " ^ msg)
