@@ -83,8 +83,8 @@ module OgsLtsF = functor (M:Util.Monad.BRANCH) (Int:Interactive.INT) -> struct
     namectxO;
     namectxP = Util.Pmap.empty}
 
-  let init_pconf ienv namectxP namectxO =
-    {heap = Int.OpLang.empty_resources;
+  let init_pconf resources ienv namectxP namectxO =
+    {heap = resources;
     ienv;
     namectxO ;
     namectxP}

@@ -36,6 +36,8 @@ module RefML : Lang.Cps.LANG = struct
 
   type name_type_ctx = Type_ctx.name_ctx
 
+  let empty_name_type_ctx = Type_ctx.empty_name_ctx
+
   let string_of_name_type_ctx = Type_ctx.string_of_name_ctx
 
   type resources = Syntax.val_env * Heap.heap

@@ -38,7 +38,7 @@ let () =
   Util.Debug.print_debug "Getting the module";
   let inBuffer2 = open_in !filename2 in
   let inBuffer3 = open_in !filename3 in
-  let (ienv, _, namectxO') = Int.OpLang.get_typed_ienv inBuffer2 inBuffer3 in
+  let (ienv, resources, namectxO') = Int.OpLang.get_typed_ienv inBuffer2 inBuffer3 in
   Util.Debug.print_debug
     ("Name contexts for Opponent: "
     ^ Int.OpLang.string_of_name_type_ctx namectxO
@@ -48,7 +48,7 @@ let () =
     ProdLTS.Active
       (ProdLTS.init_aconf expr1 (Util.Pmap.concat namectxO namectxO')) in
   let init_pconf =
-    ProdLTS.Passive (ProdLTS.init_pconf ienv namectxO' Util.Pmap.empty) in
+    ProdLTS.Passive (ProdLTS.init_pconf resources ienv namectxO' Util.Pmap.empty) in
   let module Synchronized_LTS = Cavoc.Synchronize.Make (ProdLTS) in
   let traces = Synchronized_LTS.get_traces_check init_aconf init_pconf in
   Util.Debug.print_debug "Getting the trace";

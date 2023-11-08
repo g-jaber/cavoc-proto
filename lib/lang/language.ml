@@ -12,6 +12,7 @@ module type LANG = sig
   val string_of_name : name -> string
 
   type name_type_ctx = (name, interactive_type) Util.Pmap.pmap
+  val empty_name_type_ctx : name_type_ctx
 
   val string_of_name_type_ctx : name_type_ctx -> string
 

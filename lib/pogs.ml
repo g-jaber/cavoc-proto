@@ -71,10 +71,11 @@ module PogsLtsF = functor (M:Util.Monad.BRANCH) (Int:Interactive.INT)  -> struct
     loc_ctx = Int.OpLang.empty_resources_type_ctx; 
     namectxO}
 
-  let init_pconf ienv namectxO namectxP =
-    {loc_ctx = Int.OpLang.empty_resources_type_ctx;
+  let init_pconf resources ienv namectxO namectxP =
+    let resouce_ctx = Int.OpLang.resources_type_ctx_of_resources resources in
+    {loc_ctx = resouce_ctx;
     ienv;
-    namectxO ;
+    namectxO;
     namectxP}
 
   let equiv_aconf aconf aconfb =

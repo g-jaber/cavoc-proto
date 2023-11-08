@@ -50,8 +50,9 @@ module Make (IntLts:Bilts.INT_LTS)
       let init_iconf = IntLts.init_aconf comp namectxP in
       let init_hconf = HistLts.init_aconf (Util.Pmap.dom namectxP) in
       (init_iconf,init_hconf)
-    let init_pconf ienv namectxP namectxO =
-      let init_iconf = IntLts.init_pconf ienv namectxP namectxO in
+
+    let init_pconf resources ienv namectxP namectxO =
+      let init_iconf = IntLts.init_pconf resources ienv namectxP namectxO in
       let init_hconf = HistLts.init_pconf (Util.Pmap.dom namectxP) (Util.Pmap.dom namectxO) in
       (init_iconf,init_hconf)
 end
