@@ -7,9 +7,7 @@ let string_of_opconf (expr, valenv, heap) =
   ^ Syntax.string_of_val_env valenv
   ^ " | " ^ Heap.string_of_heap heap ^ ")"
 
-include Util.Monad.BranchState (struct
-  type t = opconf list
-end)
+include Util.Monad.BranchState (struct type t = opconf list end)
 
 let empty_state = []
 

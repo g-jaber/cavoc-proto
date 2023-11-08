@@ -2,7 +2,7 @@ module type CONT_NAMES = sig
   (* to be instantiated *)
   type name
   (* *)
-  
+
   type cont_name
 
   val inj_cont_name : cont_name -> name
@@ -11,6 +11,5 @@ module type CONT_NAMES = sig
 end
 
 module type LANG = sig
-  include Language.LANG
-  include CONT_NAMES with type name := name
+  include Language.LANG include CONT_NAMES with type name := name
 end

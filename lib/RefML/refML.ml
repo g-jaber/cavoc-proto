@@ -37,7 +37,6 @@ module RefML : Lang.Cps.LANG = struct
   type name_type_ctx = Type_ctx.name_ctx
 
   let empty_name_type_ctx = Type_ctx.empty_name_ctx
-
   let string_of_name_type_ctx = Type_ctx.string_of_name_ctx
 
   type resources = Syntax.val_env * Heap.heap
@@ -77,16 +76,18 @@ module RefML : Lang.Cps.LANG = struct
     try
       let implem_decl_l = Parser.prog Lexer.token lexer_implem in
       let signature_decl_l = Parser.signature Lexer.token lexer_signature in
-      let (comp_env,_) = Declaration.get_typed_comp_env implem_decl_l in
-      let (val_env,heap) = Interpreter.compute_valenv comp_env in
-      let (ienv,name_type_ctx) = Declaration.get_typed_int_env val_env signature_decl_l in
-      (ienv,(val_env,heap),name_type_ctx)
+      let (comp_env, _) = Declaration.get_typed_comp_env implem_decl_l in
+      let (val_env, heap) = Interpreter.compute_valenv comp_env in
+      let (ienv, name_type_ctx) =
+        Declaration.get_typed_int_env val_env signature_decl_l in
+      (ienv, (val_env, heap), name_type_ctx)
     with
     | Lexer.SyntaxError msg -> failwith ("Parsing Error: " ^ msg)
     | Parser.Error ->
         failwith
           ("Syntax Error: " ^ " at position "
-          ^ string_of_int (Lexing.lexeme_start lexer_implem)) (* Need to get in which file the Parser.Error is *)
+          ^ string_of_int (Lexing.lexeme_start lexer_implem))
+        (* Need to get in which file the Parser.Error is *)
     | Type_checker.TypingError msg -> failwith ("Typing Error: " ^ msg)
 
   type nup = Focusing.nup
@@ -95,11 +96,15 @@ module RefML : Lang.Cps.LANG = struct
   let generate_nup = Focusing.generate_nup
   let names_of_nup = Focusing.names_of_nup
   let type_check_nup = Focusing.type_check_nup
-  let compute_nf (expr,(valenv,heap)) = 
-    match Interpreter.compute_nf (expr,valenv,heap) with
-      | None -> None
-      | Some (expr',valenv',heap') -> Some (expr',(valenv',heap'))
-  let decompose_nf (expr,(valenv,heap)) = Focusing.decompose_nf (expr,valenv,heap)
+
+  let compute_nf (expr, (valenv, heap)) =
+    match Interpreter.compute_nf (expr, valenv, heap) with
+    | None -> None
+    | Some (expr', valenv', heap') -> Some (expr', (valenv', heap'))
+
+  let decompose_nf (expr, (valenv, heap)) =
+    Focusing.decompose_nf (expr, valenv, heap)
+
   let val_composition = Focusing.val_composition
   let abstract_ival = Focusing.abstract_val
   let unify_nup = Focusing.unify_nup
