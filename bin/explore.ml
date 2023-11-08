@@ -32,7 +32,7 @@ let () =
   let module OGS_LTS = Cavoc.Ogs.OgsLtsF (Util.Monad.ListB) (Int) in
   let module WBLTS = Cavoc.Wblts.WBLTS (Int.ContNames) (Int.Actions.Moves) in
   let module ProdLTS = Cavoc.Product_lts.Make (OGS_LTS) (WBLTS) in
-  let init_aconf =
+  let init_conf =
     if !is_computation then begin
       check_number_filenames 1;
       Util.Debug.print_debug "Getting the program";
@@ -42,7 +42,8 @@ let () =
       Util.Debug.print_debug
         ("Name contexts for Opponent: "
         ^ Int.OpLang.string_of_name_type_ctx namectxO);
-      ProdLTS.init_aconf expr namectxO
+      let init_act_conf = ProdLTS.init_aconf expr namectxO in
+      ProdLTS.Active init_act_conf
     end
     else begin
       check_number_filenames 2;
@@ -51,12 +52,12 @@ let () =
       let signature_buffer = open_in !filename2 in
       let (interactive_env, resources, name_type_ctxP) =
         Int.OpLang.get_typed_ienv decl_buffer signature_buffer in
-      let _ =
+      let init_pas_conf =
         ProdLTS.init_pconf resources interactive_env name_type_ctxP
           Int.OpLang.empty_name_type_ctx in
-      failwith "Not yet implemented"
+      ProdLTS.Passive init_pas_conf
     end in
   Util.Debug.print_debug "Getting the trace";
   let module Generate = Cavoc.Generate_trace.Make (ProdLTS) in
-  let traces = Generate.get_traces init_aconf in
+  let traces = Generate.get_traces init_conf in
   List.iter print_endline traces
