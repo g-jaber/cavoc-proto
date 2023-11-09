@@ -18,7 +18,7 @@ val extract_type_subst : implem_decl list -> Types.type_subst
 
 type comp_env = (Syntax.id * Syntax.exprML) list
 
-val get_typed_comp_env : implem_decl list -> comp_env * Type_ctx.var_ctx
+val get_typed_comp_env : implem_decl list -> comp_env * Type_ctx.type_ctx
 
 val get_typed_int_env :
   Syntax.val_env ->

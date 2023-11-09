@@ -54,6 +54,7 @@ let fresh_typevar () =
 
 type type_subst = (typevar, typeML) Util.Pmap.pmap
 
+(* The following function perform parallel substitution of subst on ty *)
 let rec apply_type_subst ty subst =
   match ty with
   | TUnit | TInt | TBool | TRef _ -> ty
@@ -81,8 +82,10 @@ let rec subst_type tvar sty ty =
   | TNeg ty -> TNeg (subst_type tvar sty ty)
   | TUndef -> failwith "Error: undefined type, please report."
 
-(* The following function tries to unify two types, and produces
-   a type susbtitution if it is possible, otherwise it returns None *)
+(* The following function
+  taking an initial type substitution
+  and two types as input
+  and tries to find a type susbtitution extending the initial one that unifies the two types, otherwise it returns None *)
 let rec unify_type tsubst = function
   | (TUnit, TUnit) -> Some (TUnit, tsubst)
   | (TInt, TInt) -> Some (TInt, tsubst)

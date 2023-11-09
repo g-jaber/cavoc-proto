@@ -38,7 +38,7 @@ let () =
   Util.Debug.print_debug "Getting the module";
   let inBuffer2 = open_in !filename2 in
   let inBuffer3 = open_in !filename3 in
-  let (ienv, resources, namectxO') =
+  let (ienv, resources, namectxO', _) =
     Int.OpLang.get_typed_ienv inBuffer2 inBuffer3 in
   Util.Debug.print_debug
     ("Name contexts for Opponent: "

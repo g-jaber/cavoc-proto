@@ -50,7 +50,7 @@ let () =
       Util.Debug.print_debug "Getting the module declaration";
       let decl_buffer = open_in !filename1 in
       let signature_buffer = open_in !filename2 in
-      let (interactive_env, resources, name_type_ctxP) =
+      let (interactive_env, resources, name_type_ctxP, _) = (* To be corrected *)
         Int.OpLang.get_typed_ienv decl_buffer signature_buffer in
       let init_pas_conf =
         ProdLTS.init_pconf resources interactive_env name_type_ctxP

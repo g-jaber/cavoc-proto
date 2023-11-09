@@ -1,3 +1,5 @@
+open Type_ctx
+
 type signature_decl =
   | PrivateTypeDecl of Types.typevar
   | PublicTypeDecl of (Types.typevar * Types.typeML)
@@ -56,11 +58,20 @@ type comp_env = (Syntax.id * Syntax.exprML) list
 let get_typed_comp_env implem_decl_l =
   let (val_decl_l, type_decl_l) = split_implem_decl_list implem_decl_l in
   let type_subst = Util.Pmap.list_to_pmap type_decl_l in
-  let aux (var, expr) =
-    let ty = Type_checker.typing_full type_subst expr in
-    ((var, expr), (var, ty)) in
-  let (comp_env, var_ctx_l) = List.split @@ List.map aux val_decl_l in
-  (comp_env, Util.Pmap.list_to_pmap var_ctx_l)
+  let type_ctx =
+    { var_ctx= Type_ctx.empty_var_ctx;
+      loc_ctx= Type_ctx.empty_loc_ctx;
+      name_ctx = Type_ctx.empty_name_ctx; (*To be corrected *)
+      type_subst;
+    } in
+  let rec aux comp_env type_ctx = function
+    | [] -> (comp_env,type_ctx)
+    | (var, expr)::val_decl_l ->
+    let (ty,type_ctx') = Type_checker.infer_type type_ctx expr in
+    let type_ctx'' = Type_ctx.extend_var_ctx type_ctx' var ty in
+    aux ((var,expr)::comp_env) type_ctx'' val_decl_l
+  in
+  aux [] type_ctx val_decl_l
 
 let get_typed_int_env val_env sign_decl_l =
   let (var_ctx_l, type_decl_l) = split_signature_decl_list sign_decl_l in
