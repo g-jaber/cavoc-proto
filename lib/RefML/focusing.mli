@@ -7,10 +7,14 @@ val string_of_nup : nup -> string
 val names_of_nup : nup -> Syntax.name list
 
 (* type_check_nup takes Proponent's point of view when checking
-   if nup is of typed ty within namectxP and namectxO the first and second name_ctx 
+   if nup is of typed ty within namectxP and namectxO the first and second name_ctx
     respectively for Proponent and Opponent names*)
 val type_check_nup :
-  Type_ctx.name_ctx -> Type_ctx.name_ctx -> Types.typeML -> nup -> Type_ctx.name_ctx option
+  Type_ctx.name_ctx ->
+  Type_ctx.name_ctx ->
+  Types.typeML ->
+  nup ->
+  Type_ctx.name_ctx option
 
 type kindTerm =
   | Extern of (Syntax.name * Syntax.exprML * Heap.heap)

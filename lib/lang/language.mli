@@ -57,10 +57,13 @@ module type LANG = sig
   val names_of_nup : nup -> name list
 
   val type_check_nup :
-    name_type_ctx -> name_type_ctx -> interactive_type -> nup -> name_type_ctx option
+    name_type_ctx ->
+    name_type_ctx ->
+    interactive_type ->
+    nup ->
+    name_type_ctx option
 
   val subst_names_of_nup : interactive_env -> nup -> nup
-
   val compute_nf : opconf -> opconf option
   val decompose_nf : opconf -> name * interactive_val
   val val_composition : interactive_val -> nup -> computation

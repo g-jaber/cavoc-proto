@@ -53,7 +53,8 @@ let () =
       let (interactive_env, resources, name_type_ctxP, name_type_ctxO) =
         Int.OpLang.get_typed_ienv decl_buffer signature_buffer in
       let init_pas_conf =
-        ProdLTS.init_pconf resources interactive_env name_type_ctxP name_type_ctxO in
+        ProdLTS.init_pconf resources interactive_env name_type_ctxP
+          name_type_ctxO in
       ProdLTS.Passive init_pas_conf
     end in
   Util.Debug.print_debug "Getting the trace";

@@ -60,11 +60,8 @@ let fresh_pname () =
   PName ("p" ^ string_of_int pn)
 
 let string_of_name = function FName f -> f | CName c -> c | PName p -> p
-
 let cname_of_id id = CName id
-let cname_to_id = function
-  | CName cn -> Some cn
-  | _ -> None
+let cname_to_id = function CName cn -> Some cn | _ -> None
 
 let is_callable = function
   | FName _ -> true
@@ -118,33 +115,35 @@ type exprML =
 (* TODO: We should rather use a Set rather than a list to represent set of names*)
 
 type name_set = name list
+
 let empty_name_set = []
+
 let rec get_new_names lnames = function
-    | Name n -> if List.mem n lnames then lnames else n :: lnames
-    | Var _ | Loc _ | Unit | Int _ | Bool _ | Hole -> lnames
-    | UnaryOp (_, e)
-    | Fun (_, e)
-    | Fix (_, _, e)
-    | Newref (_, e)
-    | Deref e
-    | Assert e
-    | ECtx e
-    | Named (_, e) ->
+  | Name n -> if List.mem n lnames then lnames else n :: lnames
+  | Var _ | Loc _ | Unit | Int _ | Bool _ | Hole -> lnames
+  | UnaryOp (_, e)
+  | Fun (_, e)
+  | Fix (_, _, e)
+  | Newref (_, e)
+  | Deref e
+  | Assert e
+  | ECtx e
+  | Named (_, e) ->
       get_new_names lnames e
-    | BinaryOp (_, e1, e2)
-    | Let (_, e1, e2)
-    | LetPair (_, _, e1, e2)
-    | Seq (e1, e2)
-    | While (e1, e2)
-    | App (e1, e2)
-    | Pair (e1, e2)
-    | Assign (e1, e2) ->
-        let lnames1 = get_new_names lnames e1 in
-        get_new_names lnames1 e2
-    | If (e1, e2, e3) ->
-        let lnames1 = get_new_names lnames e1 in
-        let lnames2 = get_new_names lnames1 e2 in
-        get_new_names lnames2 e3
+  | BinaryOp (_, e1, e2)
+  | Let (_, e1, e2)
+  | LetPair (_, _, e1, e2)
+  | Seq (e1, e2)
+  | While (e1, e2)
+  | App (e1, e2)
+  | Pair (e1, e2)
+  | Assign (e1, e2) ->
+      let lnames1 = get_new_names lnames e1 in
+      get_new_names lnames1 e2
+  | If (e1, e2, e3) ->
+      let lnames1 = get_new_names lnames e1 in
+      let lnames2 = get_new_names lnames1 e2 in
+      get_new_names lnames2 e3
 
 let get_names = get_new_names empty_name_set
 

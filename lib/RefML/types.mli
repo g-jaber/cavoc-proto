@@ -10,7 +10,7 @@ type typeML =
   | TSum of typeML * typeML
   | TRef of typeML
   | TVar of typevar
-  | TForall of (typevar list)*typeML
+  | TForall of typevar list * typeML
   | TId of id
   | TNeg of typeML (* type of evaluation contexts *)
   | TUndef
