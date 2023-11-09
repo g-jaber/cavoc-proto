@@ -1,23 +1,12 @@
-type nup
+type interactive_val
+type glue_val
 
-val generate_nup :
-  Type_ctx.name_ctx -> Types.typeML -> (nup * Type_ctx.name_ctx) list
+val embed_val : Syntax.valML -> interactive_val
 
-val string_of_nup : nup -> string
-val names_of_nup : nup -> Syntax.name list
-
-(* type_check_nup takes Proponent's point of view when checking
-   if nup is of typed ty within namectxP and namectxO the first and second name_ctx
-    respectively for Proponent and Opponent names*)
-val type_check_nup :
-  Type_ctx.name_ctx ->
-  Type_ctx.name_ctx ->
-  Types.typeML ->
-  nup ->
-  Type_ctx.name_ctx option
+type interactive_env
 
 type kindTerm =
-  | Extern of (Syntax.name * Syntax.exprML * Heap.heap)
+  | Extern of (Syntax.name * glue_val * Heap.heap)
   | IsRecCall of
       (Syntax.id
       * Syntax.exprML
@@ -26,25 +15,17 @@ type kindTerm =
       * Heap.heap)
   | Diverge
 
-type interactive_env
-
 val empty_ienv : interactive_env
-val singleton_ienv : Syntax.name * Syntax.exprML -> interactive_env
-val list_to_ienv : (Syntax.name * Syntax.exprML) list -> interactive_env
-val lookup_ienv : Syntax.name -> interactive_env -> Syntax.exprML option
+val singleton_ienv : Syntax.name * interactive_val -> interactive_env
+val list_to_ienv : (Syntax.name * interactive_val) list -> interactive_env
+val lookup_ienv : Syntax.name -> interactive_env -> interactive_val option
 val concat_ienv : interactive_env -> interactive_env -> interactive_env
 val string_of_interactive_env : interactive_env -> string
-val decompose_nf : Interpreter.opconf -> Syntax.name * Syntax.exprML
+val decompose_nf : Interpreter.opconf -> Syntax.name * glue_val
 val decompose_nf_option : Interpreter.opconf option -> kindTerm
-val val_composition : Syntax.exprML -> nup -> Syntax.exprML
+val val_composition : interactive_val -> Syntax.valML -> Syntax.exprML
 
-val abstract_val :
-  Syntax.valML -> Types.typeML -> nup * interactive_env * Type_ctx.name_ctx
+val abstract_glue_val :
+  glue_val -> Types.typeML -> Nup.nup * interactive_env * Type_ctx.name_ctx
 
-val unify_nup :
-  Syntax.name Util.Namespan.namespan ->
-  nup ->
-  nup ->
-  Syntax.name Util.Namespan.namespan option
-
-val subst_names_of_nup : interactive_env -> nup -> nup
+val subst_names_of_nup : interactive_env -> Nup.nup -> Syntax.valML

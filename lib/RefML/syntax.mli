@@ -66,6 +66,7 @@ val get_new_names : name_set -> exprML -> name_set
 val get_names : exprML -> name_set
 
 type valML = exprML
+val string_of_value : valML -> string
 
 val isval : exprML -> bool
 

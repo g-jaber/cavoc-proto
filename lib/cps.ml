@@ -1,7 +1,7 @@
-module Moves_Make (CpsLang : Lang.Cps.LANG) = struct
-  type name = CpsLang.name
-  type kind = CpsLang.name
-  type data = CpsLang.nup
+module Moves_Make (OpLang : Lang.Language.LANG) = struct
+  type name = OpLang.name
+  type kind = OpLang.name
+  type data = OpLang.nup
   type direction = Input | Output | None
 
   let string_of_direction = function
@@ -14,15 +14,15 @@ module Moves_Make (CpsLang : Lang.Cps.LANG) = struct
   type move = direction * kind * data
 
   let string_of_move (direction, nn, nup) =
-    CpsLang.string_of_name nn
+    OpLang.string_of_name nn
     ^ string_of_direction direction
-    ^ "(" ^ CpsLang.string_of_nup nup ^ ")"
+    ^ "(" ^ OpLang.string_of_nup nup ^ ")"
 
   let get_data (_, _, d) = d
   let get_kind (_, k, _) = k
   let get_direction (p, _, _) = p
   let switch_direction (p, k, d) = (switch p, k, d)
-  let get_transmitted_names (_, _, nup) = CpsLang.names_of_nup nup
+  let get_transmitted_names (_, _, nup) = OpLang.names_of_nup nup
   let get_subject_names (_, nn, _) = [ nn ]
 end
 
@@ -62,13 +62,13 @@ module Int_Make (CpsLang : Lang.Cps.LANG) :
 
   open Actions
 
-  let generate_output_action namectxO nn value =
+  let generate_output_action namectxO nn glue_val =
     let ty_option = Util.Pmap.lookup nn namectxO in
     begin
       match ty_option with
       | Some ty ->
           let nty = CpsLang.neg_type ty in
-          let (nup, ienv, namectxP) = CpsLang.abstract_ival value nty in
+          let (nup, ienv, namectxP) = CpsLang.abstract_glue_val glue_val nty in
           (Vis (Moves.Output, nn, nup), ienv, namectxP)
       | None ->
           failwith
@@ -105,8 +105,8 @@ module Int_Make (CpsLang : Lang.Cps.LANG) :
     | (Moves.Input, name, nup) -> begin
         match CpsLang.lookup_ienv name ienv with
         | Some value ->
-            let nup' = CpsLang.subst_names_of_nup ienv nup in
-            CpsLang.val_composition value nup'
+            let value' = CpsLang.subst_names_of_nup ienv nup in
+            CpsLang.val_composition value value'
         | None ->
             failwith
               ("Error: the move "

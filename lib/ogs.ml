@@ -51,9 +51,9 @@ module OgsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
     match opconf_option with
     | None -> (Int.Actions.diverging_action, None)
     | Some ((_, heap) as opconf) ->
-        let (nn, value) = Int.OpLang.decompose_nf opconf in
+        let (nn, glue_val) = Int.OpLang.decompose_nf opconf in
         let (move, ienv', namectxP') =
-          Int.generate_output_action act_conf.namectxO nn value in
+          Int.generate_output_action act_conf.namectxO nn glue_val in
         ( move,
           Some
             {

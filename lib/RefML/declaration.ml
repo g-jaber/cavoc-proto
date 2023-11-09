@@ -93,6 +93,6 @@ let get_typed_int_env val_env sign_decl_l =
   let aux (var, ty) =
     let value = Util.Pmap.lookup_exn var val_env in
     let nn = Syntax.fname_of_id var in
-    ((nn, value), (nn, ty)) in
+    ((nn, Focusing.embed_val value), (nn, ty)) in
   let (ienv_l, name_ctx_l) = List.split @@ List.map aux var_ctx_l in
   (Focusing.list_to_ienv ienv_l, Util.Pmap.list_to_pmap name_ctx_l)

@@ -10,7 +10,7 @@ module type INT = sig
   val generate_output_action :
     OpLang.name_type_ctx ->
     OpLang.name ->
-    OpLang.interactive_val ->
+    OpLang.glue_val ->
     action * OpLang.interactive_env * OpLang.name_type_ctx
 
   val generate_input_moves :

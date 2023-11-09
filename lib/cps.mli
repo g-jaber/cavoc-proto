@@ -1,5 +1,3 @@
-module Moves_Make : functor (_ : Lang.Cps.LANG) -> Moves.MOVES
-
 module type INT = sig
   module ContNames : Lang.Cps.CONT_NAMES include Interactive.INT
 end

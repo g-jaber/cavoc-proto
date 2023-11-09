@@ -25,8 +25,8 @@ module RefML : Lang.Cps.LANG = struct
   let neg_type = Types.neg_type
 
   type name = Syntax.name
-  let is_callable = Syntax.is_callable
 
+  let is_callable = Syntax.is_callable
   let string_of_name = Syntax.string_of_name
 
   type cont_name = Syntax.id
@@ -62,7 +62,8 @@ module RefML : Lang.Cps.LANG = struct
     List.map (fun heap -> (valenv, heap)) (Heap.generate_heaps loc_ctx)
 
   type opconf = computation * resources
-  type interactive_val = Syntax.exprML
+  type interactive_val = Focusing.interactive_val
+  type glue_val = Focusing.glue_val
   type interactive_env = Focusing.interactive_env
 
   let empty_ienv = Focusing.empty_ienv
@@ -91,12 +92,12 @@ module RefML : Lang.Cps.LANG = struct
         (* Need to get in which file the Parser.Error is *)
     | Type_checker.TypingError msg -> failwith ("Typing Error: " ^ msg)
 
-  type nup = Focusing.nup
+  type nup = Nup.nup
 
-  let string_of_nup = Focusing.string_of_nup
-  let generate_nup = Focusing.generate_nup
-  let names_of_nup = Focusing.names_of_nup
-  let type_check_nup = Focusing.type_check_nup
+  let string_of_nup = Nup.string_of_nup
+  let generate_nup = Nup.generate_nup
+  let names_of_nup = Nup.names_of_nup
+  let type_check_nup = Nup.type_check_nup
   let subst_names_of_nup = Focusing.subst_names_of_nup
 
   let compute_nf (expr, (valenv, heap)) =
@@ -108,6 +109,6 @@ module RefML : Lang.Cps.LANG = struct
     Focusing.decompose_nf (expr, valenv, heap)
 
   let val_composition = Focusing.val_composition
-  let abstract_ival = Focusing.abstract_val
-  let unify_nup = Focusing.unify_nup
+  let abstract_glue_val = Focusing.abstract_glue_val
+  let unify_nup = Nup.unify_nup
 end

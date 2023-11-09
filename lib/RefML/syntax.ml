@@ -284,6 +284,8 @@ and string_of_exprML = function
   | ECtx e -> "cont(" ^ string_of_exprML e ^ ")"
   | Named (cn, e) -> "[" ^ string_of_name cn ^ "]" ^ string_of_exprML e
 
+  let string_of_value = string_of_exprML
+
 (* Auxiliary functions *)
 
 let implement_arith_op = function
