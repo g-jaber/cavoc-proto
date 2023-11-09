@@ -1,4 +1,5 @@
 type typevar = string
+type id = string
 
 (* Types *)
 type typeML =
@@ -10,6 +11,8 @@ type typeML =
   | TSum of typeML * typeML
   | TRef of typeML
   | TVar of typevar
+  | TForall of (typevar list)*typeML
+  | TId of id
   | TNeg of typeML (* type of evaluation contexts *)
   | TUndef
 
@@ -25,6 +28,10 @@ let rec string_par_of_typeML = function
       "(" ^ string_par_of_typeML ty1 ^ "+" ^ string_par_of_typeML ty2 ^ ")"
   | TRef ty -> "(ref " ^ string_of_typeML ty ^ ")"
   | TVar typevar -> typevar
+  | TForall (tvars,ty) -> 
+    let tvars_string = String.concat " " tvars in
+    "(∀" ^ tvars_string ^ "." ^ string_par_of_typeML ty ^")"
+  | TId id -> id
   | TNeg ty -> "(¬" ^ string_of_typeML ty ^ ")"
   | TUndef -> "undef"
 
@@ -38,6 +45,10 @@ and string_of_typeML = function
   | TSum (ty1, ty2) -> string_par_of_typeML ty1 ^ "+" ^ string_par_of_typeML ty2
   | TRef ty -> "ref " ^ string_of_typeML ty
   | TVar typevar -> typevar
+  | TForall (tvars,ty) -> 
+    let tvars_string = String.concat " " tvars in
+    "∀" ^ tvars_string ^ "." ^ string_par_of_typeML ty
+  | TId id -> id
   | TNeg ty -> "¬" ^ string_of_typeML ty ^ ""
   | TUndef -> "undef"
 
@@ -49,6 +60,24 @@ let fresh_typevar () =
   let a = !count_typevar in
   count_typevar := !count_typevar + 1;
   TVar ("'a" ^ string_of_int a)
+
+module TVarSet = Set.Make(struct 
+type t = typevar
+let compare = String.compare end)
+
+let rec get_new_tvars tvar_set = function
+| TUnit | TInt | TBool | TId _ | TUndef -> tvar_set
+| TArrow (ty1, ty2) | TProd (ty1, ty2) | TSum (ty1, ty2) ->
+  let tvar_set' = get_new_tvars tvar_set ty1 in
+  get_new_tvars tvar_set' ty2
+| TRef ty | TNeg ty -> get_new_tvars tvar_set ty
+| TVar typevar -> TVarSet.add typevar tvar_set
+| TForall (tvars,ty) -> 
+  let tvar_set' = List.fold_left (Fun.flip TVarSet.remove) tvar_set tvars in
+  get_new_tvars tvar_set' ty
+
+let get_tvars ty= TVarSet.elements @@ get_new_tvars TVarSet.empty ty
+
 
 (* Type substitutions are maps from type variables to types *)
 
@@ -67,6 +96,8 @@ let rec apply_type_subst ty subst =
   | TVar tvar -> begin
       match Util.Pmap.lookup tvar subst with Some ty' -> ty' | None -> ty
     end
+  | TId _ -> ty
+  | TForall _ -> failwith "Applying type substitution on universally quantified type is not supported. Please report."
   | TNeg ty -> TNeg (apply_type_subst ty subst)
   | TUndef -> failwith "Error: undefined type, please report."
 
@@ -79,6 +110,10 @@ let rec subst_type tvar sty ty =
   | TSum (ty1, ty2) -> TSum (subst_type tvar sty ty1, subst_type tvar sty ty2)
   | TVar tvar' when tvar = tvar' -> sty
   | TVar _ -> ty
+  | TId _ -> ty
+  | TForall (tvars,ty') when List.mem tvar tvars -> 
+    TForall (tvars,subst_type tvar sty ty')
+  | TForall _ -> ty
   | TNeg ty -> TNeg (subst_type tvar sty ty)
   | TUndef -> failwith "Error: undefined type, please report."
 
@@ -133,7 +168,7 @@ let rec unify_type tsubst = function
   | (TVar tvar, ty) | (ty, TVar tvar) -> begin
       match Util.Pmap.lookup tvar tsubst with
       | None -> Some (ty, Util.Pmap.modadd_pmap (tvar, ty) tsubst)
-      | Some ty' -> (
+      | Some ty' -> begin
           match unify_type tsubst (ty, ty') with
           | None ->
               Util.Debug.print_debug
@@ -141,8 +176,10 @@ let rec unify_type tsubst = function
                ^ string_of_typeML ty');
               None
           | Some (ty'', lsubst'') ->
-              Some (ty'', Util.Pmap.modadd_pmap (tvar, ty'') lsubst''))
+              Some (ty'', Util.Pmap.modadd_pmap (tvar, ty'') lsubst'')
+          end
     end
+  | ((TId id1) as ty, TId id2) -> if id1 = id2 then Some (ty, tsubst) else None
   | (ty1, ty2) ->
       Util.Debug.print_debug
         ("Cannot unify " ^ string_of_typeML ty1 ^ " and " ^ string_of_typeML ty2);

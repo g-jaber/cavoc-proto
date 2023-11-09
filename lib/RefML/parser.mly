@@ -8,6 +8,7 @@
 %token EOF
 %token <int> INT
 %token <Syntax.id> VAR
+%token <Syntax.id> TVAR
 %token <Syntax.id> NAME
 %token EQ
 %token PLUS MINUS MULT DIV
@@ -138,7 +139,8 @@ list_ident :
   | list_ident typed_ident {$2::$1}
 
 ty:
-  | VAR          { TVar $1 }
+  | TVAR          { TVar $1 }
+  | VAR          { TId $1 }
   | TUNIT        { TUnit }
   | TBOOL        { TBool }
   | TINT         { TInt }

@@ -17,7 +17,10 @@ module type INT = sig
     OpLang.name_type_ctx -> (move * OpLang.name_type_ctx) list
 
   val check_input_move :
-    OpLang.name_type_ctx -> move -> OpLang.name_type_ctx option
+    OpLang.name_type_ctx ->
+    OpLang.name_type_ctx ->
+    move ->
+    OpLang.name_type_ctx option
 
   val trigger_computation : OpLang.interactive_env -> move -> OpLang.computation
 

@@ -1,4 +1,5 @@
 type typevar = string
+type id = string
 
 type typeML =
   | TUnit
@@ -9,11 +10,14 @@ type typeML =
   | TSum of typeML * typeML
   | TRef of typeML
   | TVar of typevar
+  | TForall of (typevar list)*typeML
+  | TId of id
   | TNeg of typeML (* type of evaluation contexts *)
   | TUndef
 
 val string_of_typeML : typeML -> string
 val fresh_typevar : unit -> typeML
+val get_tvars : typeML -> typevar list
 
 type type_subst = (typevar, typeML) Util.Pmap.pmap
 

@@ -16,6 +16,7 @@ let alpha = ['a'-'z' 'A'-'Z']
 let ident = ['a'-'z'] (alpha | '_' | '\'' | digit)*
 let sum = ['A'-'Z'] (alpha | '_' | '\'' | digit)*
 let name = '_' (alpha | '_' | '\'' | digit)*
+let tvar = '\'' (alpha | '_' | digit)*
 let integer = digit+
 
 rule token = parse
@@ -82,6 +83,7 @@ rule token = parse
 
   | integer as n  { INT (int_of_string n) }
   | ident as id  { VAR id }
+  | tvar as t  { TVAR t }
   | name as nn { NAME nn }
 
   | _  { raise Error }

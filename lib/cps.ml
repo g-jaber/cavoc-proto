@@ -82,19 +82,21 @@ module Int_Make (CpsLang : Lang.Cps.LANG) :
     Util.Debug.print_debug "Generating O-moves";
     let aux (nn, ty) =
       if CpsLang.is_callable nn then
-      let nups = CpsLang.generate_nup namectxP (CpsLang.neg_type ty) in
-      List.map (fun (nup, namectx') -> ((Moves.Input, nn, nup), namectx')) nups
-      else []
-    in
+        let nups = CpsLang.generate_nup namectxP (CpsLang.neg_type ty) in
+        List.map
+          (fun (nup, namectx') -> ((Moves.Input, nn, nup), namectx'))
+          nups
+      else [] in
     List.flatten (Util.Pmap.map_list aux namectxP)
 
-  let check_input_move namectxP (dir, name, nup) =
+  let check_input_move namectxP namectxO (dir, name, nup) =
     match dir with
     | Moves.Output -> None
     | Moves.Input -> begin
         match Util.Pmap.lookup name namectxP with
         | None -> None
-        | Some ty -> CpsLang.type_check_nup namectxP (CpsLang.neg_type ty) nup
+        | Some ty ->
+            CpsLang.type_check_nup namectxP namectxO (CpsLang.neg_type ty) nup
       end
     | Moves.None -> None
 
@@ -102,9 +104,9 @@ module Int_Make (CpsLang : Lang.Cps.LANG) :
     match input_move with
     | (Moves.Input, name, nup) -> begin
         match CpsLang.lookup_ienv name ienv with
-        | Some value -> 
-          let nup' = CpsLang.subst_names_of_nup ienv nup in
-          CpsLang.val_composition value nup'
+        | Some value ->
+            let nup' = CpsLang.subst_names_of_nup ienv nup in
+            CpsLang.val_composition value nup'
         | None ->
             failwith
               ("Error: the move "

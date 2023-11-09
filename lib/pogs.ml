@@ -52,7 +52,9 @@ module PogsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
         (move, Some { loc_ctx; ienv; namectxP; namectxO= aconf.namectxO })
 
   let o_trans pas_conf input_move =
-    match Int.check_input_move pas_conf.namectxP input_move with
+    match
+      Int.check_input_move pas_conf.namectxP pas_conf.namectxO input_move
+    with
     | None -> None
     | Some _ ->
         failwith

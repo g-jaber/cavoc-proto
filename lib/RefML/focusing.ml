@@ -64,7 +64,7 @@ let rec generate_nup namectxP = function
   | TNeg _ as ty ->
       let cn = fresh_cname () in
       [ (Name cn, Util.Pmap.singleton (cn, ty)) ]
-  | TVar _ as ty ->
+  | TId _ as ty ->
       let pn_list = Util.Pmap.select_im ty namectxP in
       List.map (fun pn -> (Name pn, Type_ctx.empty_name_ctx)) pn_list
   | ty ->
@@ -72,7 +72,7 @@ let rec generate_nup namectxP = function
         ("Error generating a nup on type " ^ Types.string_of_typeML ty
        ^ ". Please report")
 
-let rec type_check_nup namectxP ty nup =
+let rec type_check_nup namectxP namectxO ty nup =
   match (ty, nup) with
   | (TUnit, Unit) -> Some Type_ctx.empty_name_ctx
   | (TUnit, _) -> None
@@ -82,7 +82,8 @@ let rec type_check_nup namectxP ty nup =
   | (TInt, _) -> None
   | (TProd (ty1, ty2), Pair (nup1, nup2)) -> begin
       match
-        (type_check_nup namectxP ty1 nup1, type_check_nup namectxP ty2 nup2)
+        ( type_check_nup namectxP namectxO ty1 nup1,
+          type_check_nup namectxP namectxO ty2 nup2 )
       with
       | (None, _) | (_, None) -> None
       | (Some namectxO1, Some namectxO2) ->
@@ -91,11 +92,22 @@ let rec type_check_nup namectxP ty nup =
           else None
     end
   | (TProd _, _) -> None
-  | (TArrow _, Name nn) | (TNeg _, Name nn) ->
-      if Util.Pmap.mem nn namectxP then None
+  | (TArrow _, Name nn) | (TForall _, Name nn) | (TNeg _, Name nn) ->
+      if Util.Pmap.mem nn namectxP || Util.Pmap.mem nn namectxO then None
+        (* the name nn has to be fresh to be well-typed *)
       else Some (Util.Pmap.singleton (nn, ty))
-  | (TArrow _, _) | (TNeg _, _) -> None
-  | (TVar _, _) | (TUndef, _) | (TRef _, _) | (TSum _, _) ->
+  | (TArrow _, _) | (TForall _, _) | (TNeg _, _) -> None
+  | (TId id, Name nn) -> begin
+      match Util.Pmap.lookup nn namectxP with
+      | None -> None
+      | Some (TId id') when id = id' -> Some Type_ctx.empty_name_ctx
+      | Some _ -> None
+    end
+  | (TVar _, Name nn) ->
+      if Util.Pmap.mem nn namectxP || Util.Pmap.mem nn namectxO then None
+        (* the name nn has to be fresh to be well-typed *)
+      else Some (Util.Pmap.singleton (nn, ty))
+  | (TVar _, _) | (TId _, _) | (TUndef, _) | (TRef _, _) | (TSum _, _) ->
       failwith "not yet implemented"
 
 type interactive_env = (name, exprML) Util.Pmap.pmap
@@ -131,7 +143,7 @@ let rec abstract_val value ty =
       ( Pair (nup1, nup2),
         Util.Pmap.concat ienv1 ienv2,
         Util.Pmap.concat lnamectx1 lnamectx2 )
-  | (_, TVar _) ->
+  | (_, TId _) ->
       let pn = fresh_pname () in
       let ienv = Util.Pmap.singleton (pn, value) in
       let lnamectx = Util.Pmap.singleton (pn, ty) in
@@ -175,5 +187,6 @@ let val_composition value nup =
        ^ ". Please report")
 
 let subst_names_of_nup ienv nup =
-  Util.Pmap.fold (fun nup -> fun (nn,value) -> Syntax.subst nup (Name nn) value)  nup ienv
-     
+  Util.Pmap.fold
+    (fun nup (nn, value) -> Syntax.subst nup (Name nn) value)
+    nup ienv

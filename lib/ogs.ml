@@ -64,7 +64,9 @@ module OgsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
             } )
 
   let o_trans pas_conf input_move =
-    match Int.check_input_move pas_conf.namectxP input_move with
+    match
+      Int.check_input_move pas_conf.namectxP pas_conf.namectxO input_move
+    with
     | None -> None
     | Some lnamectx ->
         let computation = Int.trigger_computation pas_conf.ienv input_move in

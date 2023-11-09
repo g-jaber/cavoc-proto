@@ -1,25 +1,25 @@
 open Type_ctx
 
 type signature_decl =
-  | PrivateTypeDecl of Types.typevar
-  | PublicTypeDecl of (Types.typevar * Types.typeML)
+  | PrivateTypeDecl of Types.id
+  | PublicTypeDecl of (Types.id * Types.typeML)
   | PublicValDecl of (Syntax.id * Types.typeML)
 
 let string_of_signature_decl = function
-  | PrivateTypeDecl tvar -> "type " ^ tvar
-  | PublicTypeDecl (tvar, ty) ->
-      "type " ^ tvar ^ " = " ^ Types.string_of_typeML ty
+  | PrivateTypeDecl tid -> "type " ^ tid
+  | PublicTypeDecl (tid, ty) ->
+      "type " ^ tid ^ " = " ^ Types.string_of_typeML ty
   | PublicValDecl (var, ty) -> " val " ^ var ^ " : " ^ Types.string_of_typeML ty
 
 let string_of_signature signature =
   String.concat "\n" ((List.map string_of_signature_decl) signature)
 
 type implem_decl =
-  | TypeDecl of (Types.typevar * Types.typeML)
+  | TypeDecl of (Types.id * Types.typeML)
   | ValDecl of (Syntax.id * Syntax.exprML)
 
 let string_of_implem_decl = function
-  | TypeDecl (tvar, ty) -> "type " ^ tvar ^ " = " ^ Types.string_of_typeML ty
+  | TypeDecl (tid, ty) -> "type " ^ tid ^ " = " ^ Types.string_of_typeML ty
   | ValDecl (var, exprML) ->
       " let " ^ var ^ " = " ^ Syntax.string_of_exprML exprML
 
@@ -29,7 +29,7 @@ let string_of_prog prog =
 let extract_type_subst signature =
   let rec aux = function
     | [] -> []
-    | TypeDecl (tvar, ty) :: l -> (tvar, ty) :: aux l
+    | TypeDecl (tid, ty) :: l -> (tid, ty) :: aux l
     | _ :: l -> aux l in
   Util.Pmap.list_to_pmap (aux signature)
 
@@ -63,14 +63,15 @@ let build_name_ctx comp_env =
   Util.Pmap.list_to_pmap
   @@ List.map
        (fun n ->
-         let tvar = Types.fresh_typevar () in
-         (n, tvar))
+         let tid = Types.fresh_typevar () in
+         (n, tid))
        name_set
 
 let get_typed_comp_env implem_decl_l =
   let (val_decl_l, type_decl_l) = split_implem_decl_list implem_decl_l in
   let type_subst = Util.Pmap.list_to_pmap type_decl_l in
-  let name_ctx = build_name_ctx val_decl_l in (* TODO: Should we also put domain of type_subst in name_ctx ?*)
+  let name_ctx = build_name_ctx val_decl_l in
+  (* TODO: Should we also put domain of type_subst in name_ctx ?*)
   let type_ctx =
     {
       var_ctx= Type_ctx.empty_var_ctx;

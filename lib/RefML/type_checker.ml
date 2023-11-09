@@ -318,6 +318,11 @@ and check_type_bin type_ctx com_ty expr1 expr2 res_ty =
     ^ string_of_typeML ty2);
   (res_ty, type_ctx'')
 
+let infer_gen_type type_ctx expr =
+  let (ty,type_ctx) = infer_type type_ctx expr in
+  let tvar_l = get_tvars ty in
+  (TForall (tvar_l,ty),type_ctx)
+
 let typing_full type_subst expr =
   let lnames = Syntax.get_names expr in
   let name_ctx =
