@@ -80,9 +80,11 @@ module Int_Make (CpsLang : Lang.Cps.LANG) :
 
   let generate_input_moves namectxP =
     Util.Debug.print_debug "Generating O-moves";
-    let aux (id, ty) =
+    let aux (nn, ty) =
+      if CpsLang.is_callable nn then
       let nups = CpsLang.generate_nup namectxP (CpsLang.neg_type ty) in
-      List.map (fun (nup, namectx') -> ((Moves.Input, id, nup), namectx')) nups
+      List.map (fun (nup, namectx') -> ((Moves.Input, nn, nup), namectx')) nups
+      else []
     in
     List.flatten (Util.Pmap.map_list aux namectxP)
 
@@ -100,7 +102,9 @@ module Int_Make (CpsLang : Lang.Cps.LANG) :
     match input_move with
     | (Moves.Input, name, nup) -> begin
         match CpsLang.lookup_ienv name ienv with
-        | Some value -> CpsLang.val_composition value nup
+        | Some value -> 
+          let nup' = CpsLang.subst_names_of_nup ienv nup in
+          CpsLang.val_composition value nup'
         | None ->
             failwith
               ("Error: the move "

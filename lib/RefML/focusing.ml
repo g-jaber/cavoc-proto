@@ -173,3 +173,7 @@ let val_composition value nup =
         ("Error: the value " ^ string_of_exprML value
        ^ " cannot be composed with the NUP " ^ string_of_exprML nup
        ^ ". Please report")
+
+let subst_names_of_nup ienv nup =
+  Util.Pmap.fold (fun nup -> fun (nn,value) -> Syntax.subst nup (Name nn) value)  nup ienv
+     

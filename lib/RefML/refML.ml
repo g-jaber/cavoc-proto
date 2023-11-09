@@ -25,6 +25,10 @@ module RefML : Lang.Cps.LANG = struct
   let neg_type = Types.neg_type
 
   type name = Syntax.name
+  let is_callable = function
+      | Syntax.FName _ -> true
+      | Syntax.CName _ -> true
+      | Syntax.PName _ -> false
 
   let string_of_name = Syntax.string_of_name
 
@@ -76,11 +80,11 @@ module RefML : Lang.Cps.LANG = struct
     try
       let implem_decl_l = Parser.prog Lexer.token lexer_implem in
       let signature_decl_l = Parser.signature Lexer.token lexer_signature in
-      let (comp_env, _) = Declaration.get_typed_comp_env implem_decl_l in
+      let (comp_env, type_ctx) = Declaration.get_typed_comp_env implem_decl_l in
       let (val_env, heap) = Interpreter.compute_valenv comp_env in
-      let (ienv, name_type_ctx) =
+      let (ienv, name_type_ctxP) =
         Declaration.get_typed_int_env val_env signature_decl_l in
-      (ienv, (val_env, heap), name_type_ctx)
+      (ienv, (val_env, heap), name_type_ctxP, Type_ctx.get_name_ctx type_ctx)
     with
     | Lexer.SyntaxError msg -> failwith ("Parsing Error: " ^ msg)
     | Parser.Error ->
@@ -96,6 +100,7 @@ module RefML : Lang.Cps.LANG = struct
   let generate_nup = Focusing.generate_nup
   let names_of_nup = Focusing.names_of_nup
   let type_check_nup = Focusing.type_check_nup
+  let subst_names_of_nup = Focusing.subst_names_of_nup
 
   let compute_nf (expr, (valenv, heap)) =
     match Interpreter.compute_nf (expr, valenv, heap) with

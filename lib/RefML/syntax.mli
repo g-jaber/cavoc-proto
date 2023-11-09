@@ -61,6 +61,9 @@ val get_names : exprML -> name list
 type valML = exprML
 
 val isval : exprML -> bool
+(* The following function subst expr value value 'can be used to substitue any occurence of 
+  value by value' in expr.
+   It is particulatly useful to substitute names.*)
 val subst : exprML -> valML -> valML -> exprML
 val subst_var : exprML -> id -> valML -> exprML
 val subst_list : exprML -> (id * valML) list -> exprML

@@ -39,3 +39,5 @@ val unify_nup :
   nup ->
   nup ->
   Syntax.name Util.Namespan.namespan option
+
+val subst_names_of_nup : interactive_env -> nup -> nup

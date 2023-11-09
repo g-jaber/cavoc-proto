@@ -10,6 +10,7 @@ module type LANG = sig
   type name
 
   val string_of_name : name -> string
+  val is_callable : name -> bool
 
   type name_type_ctx = (name, interactive_type) Util.Pmap.pmap
 
@@ -42,7 +43,7 @@ module type LANG = sig
   val string_of_ienv : interactive_env -> string
 
   val get_typed_ienv :
-    in_channel -> in_channel -> interactive_env * resources * name_type_ctx
+    in_channel -> in_channel -> interactive_env * resources * name_type_ctx * name_type_ctx
 
   type nup
 
@@ -55,6 +56,8 @@ module type LANG = sig
 
   val type_check_nup :
     name_type_ctx -> interactive_type -> nup -> name_type_ctx option
+
+  val subst_names_of_nup : interactive_env -> nup -> nup
 
   val compute_nf : opconf -> opconf option
   val decompose_nf : opconf -> name * interactive_val

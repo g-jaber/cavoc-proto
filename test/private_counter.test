@@ -1,8 +1,5 @@
-private type t = int
-
-public val get : unit -> t
-public val check : t -> unit 
+type t = int
 
 let c = ref 0
 let get ()= c:=!c+1;!c 
-let check x = assert (x > 0)
+let check x = x > 0
