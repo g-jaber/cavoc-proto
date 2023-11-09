@@ -25,18 +25,15 @@ module RefML : Lang.Cps.LANG = struct
   let neg_type = Types.neg_type
 
   type name = Syntax.name
-  let is_callable = function
-      | Syntax.FName _ -> true
-      | Syntax.CName _ -> true
-      | Syntax.PName _ -> false
+  let is_callable = Syntax.is_callable
 
   let string_of_name = Syntax.string_of_name
 
   type cont_name = Syntax.id
 
   let string_of_cont_name cn = cn
-  let get_cont_name = function Syntax.CName cn -> Some cn | _ -> None
-  let inj_cont_name id = Syntax.CName id
+  let get_cont_name = Syntax.cname_to_id
+  let inj_cont_name = Syntax.cname_of_id
 
   type name_type_ctx = Type_ctx.name_ctx
 

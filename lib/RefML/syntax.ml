@@ -37,7 +37,7 @@ let fresh_evar () =
 
 type name = FName of id | CName of id | PName of id
 
-let name_of_id id = FName ("_" ^ id)
+let fname_of_id id = FName id
 let count_fname = ref 0
 
 let fresh_fname () =
@@ -60,6 +60,16 @@ let fresh_pname () =
   PName ("p" ^ string_of_int pn)
 
 let string_of_name = function FName f -> f | CName c -> c | PName p -> p
+
+let cname_of_id id = CName id
+let cname_to_id = function
+  | CName cn -> Some cn
+  | _ -> None
+
+let is_callable = function
+  | FName _ -> true
+  | CName _ -> true
+  | PName _ -> false
 
 (* Syntax of Expressions *)
 

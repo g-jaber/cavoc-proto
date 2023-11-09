@@ -119,7 +119,7 @@ app_expr:
 
 simple_expr:
   | VAR             { Var $1 }
-  | NAME            { Name (FName $1) }
+  | NAME            { Name (fname_of_id $1) }
   | UNIT            { Unit }
   | INT             { Int $1 }
   | TRUE            { Bool true }

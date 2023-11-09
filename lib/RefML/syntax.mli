@@ -6,13 +6,16 @@ val string_of_loc : loc -> string
 val fresh_loc : unit -> loc
 val fresh_evar : unit -> id
 
-type name = FName of id | CName of id | PName of id
+type name
 
 val fresh_fname : unit -> name
 val fresh_cname : unit -> name
 val fresh_pname : unit -> name
 val string_of_name : name -> string
-val name_of_id : id -> name
+val fname_of_id : id -> name
+val cname_of_id : id -> name
+val cname_to_id : name -> id option
+val is_callable : name -> bool
 
 type binary_op =
   | Plus
