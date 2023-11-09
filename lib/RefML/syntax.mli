@@ -59,7 +59,10 @@ type exprML =
   | ECtx of exprML
   | Named of name * exprML
 
-val get_names : exprML -> name list
+type name_set = name list
+val empty_name_set : name_set
+val get_new_names : name_set -> exprML -> name_set
+val get_names : exprML -> name_set
 
 type valML = exprML
 

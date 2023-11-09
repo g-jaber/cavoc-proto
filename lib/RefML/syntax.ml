@@ -115,8 +115,11 @@ type exprML =
   | ECtx of exprML
   | Named of name * exprML
 
-let get_names expr =
-  let rec aux lnames = function
+(* TODO: We should rather use a Set rather than a list to represent set of names*)
+
+type name_set = name list
+let empty_name_set = []
+let rec get_new_names lnames = function
     | Name n -> if List.mem n lnames then lnames else n :: lnames
     | Var _ | Loc _ | Unit | Int _ | Bool _ | Hole -> lnames
     | UnaryOp (_, e)
@@ -127,7 +130,7 @@ let get_names expr =
     | Assert e
     | ECtx e
     | Named (_, e) ->
-        aux lnames e
+      get_new_names lnames e
     | BinaryOp (_, e1, e2)
     | Let (_, e1, e2)
     | LetPair (_, _, e1, e2)
@@ -136,13 +139,14 @@ let get_names expr =
     | App (e1, e2)
     | Pair (e1, e2)
     | Assign (e1, e2) ->
-        let lnames1 = aux lnames e1 in
-        aux lnames1 e2
+        let lnames1 = get_new_names lnames e1 in
+        get_new_names lnames1 e2
     | If (e1, e2, e3) ->
-        let lnames1 = aux lnames e1 in
-        let lnames2 = aux lnames1 e2 in
-        aux lnames2 e3 in
-  aux [] expr
+        let lnames1 = get_new_names lnames e1 in
+        let lnames2 = get_new_names lnames1 e2 in
+        get_new_names lnames2 e3
+
+let get_names = get_new_names empty_name_set
 
 type valML = exprML
 

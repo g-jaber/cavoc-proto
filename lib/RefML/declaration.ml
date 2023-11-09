@@ -55,22 +55,35 @@ let split_signature_decl_list signature_decl_l =
 
 type comp_env = (Syntax.id * Syntax.exprML) list
 
+let build_name_ctx comp_env =
+  let name_set =
+    List.fold_left
+      (fun n_set (_, expr) -> Syntax.get_new_names n_set expr)
+      Syntax.empty_name_set comp_env in
+  Util.Pmap.list_to_pmap
+  @@ List.map
+       (fun n ->
+         let tvar = Types.fresh_typevar () in
+         (n, tvar))
+       name_set
+
 let get_typed_comp_env implem_decl_l =
   let (val_decl_l, type_decl_l) = split_implem_decl_list implem_decl_l in
   let type_subst = Util.Pmap.list_to_pmap type_decl_l in
+  let name_ctx = build_name_ctx val_decl_l in (* TODO: Should we also put domain of type_subst in name_ctx ?*)
   let type_ctx =
-    { var_ctx= Type_ctx.empty_var_ctx;
+    {
+      var_ctx= Type_ctx.empty_var_ctx;
       loc_ctx= Type_ctx.empty_loc_ctx;
-      name_ctx = Type_ctx.empty_name_ctx; (*To be corrected *)
+      name_ctx;
       type_subst;
     } in
   let rec aux comp_env type_ctx = function
-    | [] -> (comp_env,type_ctx)
-    | (var, expr)::val_decl_l ->
-    let (ty,type_ctx') = Type_checker.infer_type type_ctx expr in
-    let type_ctx'' = Type_ctx.extend_var_ctx type_ctx' var ty in
-    aux ((var,expr)::comp_env) type_ctx'' val_decl_l
-  in
+    | [] -> (comp_env, type_ctx)
+    | (var, expr) :: val_decl_l ->
+        let (ty, type_ctx') = Type_checker.infer_type type_ctx expr in
+        let type_ctx'' = Type_ctx.extend_var_ctx type_ctx' var ty in
+        aux ((var, expr) :: comp_env) type_ctx'' val_decl_l in
   aux [] type_ctx val_decl_l
 
 let get_typed_int_env val_env sign_decl_l =
