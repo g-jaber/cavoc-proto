@@ -21,9 +21,13 @@ module type INT_LTS = sig
   module Int : Interactive.INT
   include LTS with module Actions = Int.Actions
 
+  (* init_aconf creates an configuration from a computation and a name context for Opponent. 
+     Its resource, interactive env, and name context for Proponent are all set to empty*)    
   val init_aconf :
     Int.OpLang.computation -> Int.OpLang.name_type_ctx -> active_conf
 
+  (* init_pconf creates a passive configuration from a resource, an interactive env, 
+     a name context for Proponent and a name context for Opponent. *)  
   val init_pconf :
     Int.OpLang.resources ->
     Int.OpLang.interactive_env ->
