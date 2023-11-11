@@ -13,7 +13,6 @@ type typeML =
   | TVar of typevar
   | TForall of typevar list * typeML
   | TId of id
-  | TNeg of typeML (* type of evaluation contexts *)
   | TUndef
 
 let rec string_par_of_typeML = function
@@ -32,7 +31,6 @@ let rec string_par_of_typeML = function
       let tvars_string = String.concat " " tvars in
       "(∀" ^ tvars_string ^ "." ^ string_par_of_typeML ty ^ ")"
   | TId id -> id
-  | TNeg ty -> "(¬" ^ string_of_typeML ty ^ ")"
   | TUndef -> "undef"
 
 and string_of_typeML = function
@@ -49,7 +47,6 @@ and string_of_typeML = function
       let tvars_string = String.concat " " tvars in
       "∀" ^ tvars_string ^ "." ^ string_par_of_typeML ty
   | TId id -> id
-  | TNeg ty -> "¬" ^ string_of_typeML ty ^ ""
   | TUndef -> "undef"
 
 (* We provide a way to generate fresh type variables,
@@ -72,7 +69,7 @@ let rec get_new_tvars tvar_set = function
   | TArrow (ty1, ty2) | TProd (ty1, ty2) | TSum (ty1, ty2) ->
       let tvar_set' = get_new_tvars tvar_set ty1 in
       get_new_tvars tvar_set' ty2
-  | TRef ty | TNeg ty -> get_new_tvars tvar_set ty
+  | TRef ty -> get_new_tvars tvar_set ty
   | TVar typevar -> TVarSet.add typevar tvar_set
   | TForall (tvars, ty) ->
       let tvar_set' = List.fold_left (Fun.flip TVarSet.remove) tvar_set tvars in
@@ -102,7 +99,6 @@ let rec apply_type_subst ty subst =
       failwith
         "Applying type substitution on universally quantified type is not \
          supported. Please report."
-  | TNeg ty -> TNeg (apply_type_subst ty subst)
   | TUndef -> failwith "Error: undefined type, please report."
 
 let rec subst_type tvar sty ty =
@@ -118,7 +114,6 @@ let rec subst_type tvar sty ty =
   | TForall (tvars, ty') when List.mem tvar tvars ->
       TForall (tvars, subst_type tvar sty ty')
   | TForall _ -> ty
-  | TNeg ty -> TNeg (subst_type tvar sty ty)
   | TUndef -> failwith "Error: undefined type, please report."
 
 (* The following function
@@ -188,8 +183,3 @@ let rec unify_type tsubst = function
       Util.Debug.print_debug
         ("Cannot unify " ^ string_of_typeML ty1 ^ " and " ^ string_of_typeML ty2);
       None
-
-let neg_type = function
-  | TArrow (ty1, ty2) -> TProd (ty1, TNeg ty2)
-  | TNeg ty -> ty
-  | ty -> failwith ("Cannot negate the type " ^ string_of_typeML ty)

@@ -69,9 +69,6 @@ let rec generate_nup namectxP = function
   | TArrow _ as ty ->
       let fn = fresh_fname () in
       [ (Name fn, Util.Pmap.singleton (fn, ty)) ]
-  | TNeg _ as ty ->
-      let cn = Syntax.cname_of_id @@ fresh_cname () in
-      [ (Name cn, Util.Pmap.singleton (cn, ty)) ]
   | TId _ as ty ->
       let pn_list = Util.Pmap.select_im ty namectxP in
       List.map (fun pn -> (Name pn, Type_ctx.empty_name_ctx)) pn_list
@@ -100,11 +97,11 @@ let rec type_check_nup namectxP namectxO ty nup =
           else None
     end
   | (TProd _, _) -> None
-  | (TArrow _, Name nn) | (TForall _, Name nn) | (TNeg _, Name nn) ->
+  | (TArrow _, Name nn) | (TForall _, Name nn) ->
       if Util.Pmap.mem nn namectxP || Util.Pmap.mem nn namectxO then None
         (* the name nn has to be fresh to be well-typed *)
       else Some (Util.Pmap.singleton (nn, ty))
-  | (TArrow _, _) | (TForall _, _) | (TNeg _, _) -> None
+  | (TArrow _, _) | (TForall _, _) -> None
   | (TId id, Name nn) -> begin
       match Util.Pmap.lookup nn namectxP with
       | None -> None

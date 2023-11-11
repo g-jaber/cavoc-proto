@@ -12,7 +12,6 @@ type typeML =
   | TVar of typevar
   | TForall of typevar list * typeML
   | TId of id
-  | TNeg of typeML (* type of evaluation contexts *)
   | TUndef
 
 val string_of_typeML : typeML -> string
@@ -24,4 +23,3 @@ type type_subst = (typevar, typeML) Util.Pmap.pmap
 val apply_type_subst : typeML -> type_subst -> typeML
 val subst_type : typevar -> typeML -> typeML -> typeML
 val unify_type : type_subst -> typeML * typeML -> (typeML * type_subst) option
-val neg_type : typeML -> typeML
