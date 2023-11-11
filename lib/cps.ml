@@ -16,9 +16,7 @@ module Moves_Make (IntLang : Lang.Interactive.LANG) = struct
   let string_of_move (direction, nn, aval) =
     IntLang.string_of_name nn
     ^ string_of_direction direction
-    ^ "("
     ^ IntLang.Focusing.string_of_abstract_val aval
-    ^ ")"
 
   let get_data (_, _, d) = d
   let get_kind (_, k, _) = k

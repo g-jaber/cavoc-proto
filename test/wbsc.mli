@@ -1,1 +1,1 @@
-val g : (unit -> unit) -> int
+val g : (unit -> unit) -> unit
