@@ -45,8 +45,10 @@ let split_implem_decl_list implem_decl_l =
 let split_signature_decl_list signature_decl_l =
   let rec aux (val_decl_l, type_decl_l) = function
     | [] -> (val_decl_l, type_decl_l)
-    | PublicTypeDecl td :: signature_decl_l' ->
-        aux (val_decl_l, td :: type_decl_l) signature_decl_l'
+    | PublicTypeDecl (tid, ty) :: signature_decl_l' ->
+        Util.Debug.print_debug @@ "The type id " ^ tid
+        ^ " is implemented publicly by the type " ^ Types.string_of_typeML ty;
+        aux (val_decl_l, (tid, ty) :: type_decl_l) signature_decl_l'
     | PrivateTypeDecl _ :: signature_decl_l' ->
         aux (val_decl_l, type_decl_l) signature_decl_l'
     | PublicValDecl vd :: signature_decl_l' ->
@@ -87,12 +89,12 @@ let get_typed_comp_env implem_decl_l =
         aux ((var, expr) :: comp_env) type_ctx'' val_decl_l in
   aux [] type_ctx val_decl_l
 
-let get_typed_int_env var_val_env sign_decl_l =
+let get_typed_val_env var_val_env sign_decl_l =
   let (var_ctx_l, type_decl_l) = split_signature_decl_list sign_decl_l in
-  let _ = Util.Pmap.list_to_pmap type_decl_l in
+  let type_env = Util.Pmap.list_to_pmap type_decl_l in
   let aux (var, ty) =
     let value = Util.Pmap.lookup_exn var var_val_env in
     let nn = Syntax.fname_of_id var in
-    ((nn, value), (nn, ty)) in
+    ((nn, value), (nn, Types.apply_type_env ty type_env)) in
   let (name_val_env_l, name_ctx_l) = List.split @@ List.map aux var_ctx_l in
   (Util.Pmap.list_to_pmap name_val_env_l, Util.Pmap.list_to_pmap name_ctx_l)

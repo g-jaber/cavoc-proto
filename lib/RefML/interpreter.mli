@@ -13,5 +13,5 @@ val interpreter : (opconf -> opconf m) -> opconf -> opconf m
 val compute_nf_monad : opconf -> opconf m
 val compute_nf : opconf -> opconf option
 
-val compute_valenv :
+val compute_val_env :
   (Syntax.id * Syntax.exprML) list -> Syntax.val_env * Heap.heap

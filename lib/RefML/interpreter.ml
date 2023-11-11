@@ -232,7 +232,7 @@ let compute_nf opconf =
   | [ nf ] -> Some nf
   | _ -> failwith "Error: non-determinism in the evaluation. Please report"
 
-let compute_valenv comp_list =
+let compute_val_env comp_list =
   let rec aux valenv heap = function
     | [] -> (valenv, heap)
     | (var, comp) :: comp_list' ->

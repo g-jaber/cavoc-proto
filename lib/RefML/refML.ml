@@ -107,12 +107,13 @@ module RefML : Lang.Focusing.INTLANG = struct
       let implem_decl_l = Parser.prog Lexer.token lexer_implem in
       let signature_decl_l = Parser.signature Lexer.token lexer_signature in
       let (comp_env, type_ctx) = Declaration.get_typed_comp_env implem_decl_l in
-      let (val_env, heap) = Interpreter.compute_valenv comp_env in
-      let (ienv, name_type_ctxP) =
-        Declaration.get_typed_int_env val_env signature_decl_l in
-      ( Focusing.embed_value_env ienv,
+      let (val_env, heap) = Interpreter.compute_val_env comp_env in
+      let (val_env', name_ctxP) =
+        Declaration.get_typed_val_env val_env signature_decl_l in
+        Util.Debug.print_debug @@ "The type name context for Proponent is " ^ (Type_ctx.string_of_name_ctx name_ctxP);
+      ( Focusing.embed_value_env val_env',
         (val_env, heap),
-        Focusing.embed_name_ctx @@ name_type_ctxP,
+        Focusing.embed_name_ctx @@ name_ctxP,
         Focusing.embed_name_ctx @@ Type_ctx.get_name_ctx type_ctx )
     with
     | Lexer.SyntaxError msg -> failwith ("Parsing Error: " ^ msg)

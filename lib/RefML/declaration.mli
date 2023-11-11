@@ -20,7 +20,7 @@ type comp_env = (Syntax.id * Syntax.exprML) list
 
 val get_typed_comp_env : implem_decl list -> comp_env * Type_ctx.type_ctx
 
-val get_typed_int_env :
+val get_typed_val_env :
   Syntax.val_env ->
   signature_decl list ->
     (Syntax.name,Syntax.valML) Util.Pmap.pmap * Type_ctx.name_ctx

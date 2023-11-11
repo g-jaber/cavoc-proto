@@ -80,6 +80,7 @@ let get_tvars ty = TVarSet.elements @@ get_new_tvars TVarSet.empty ty
 (* Type substitutions are maps from type variables to types *)
 
 type type_subst = (typevar, typeML) Util.Pmap.pmap
+type type_env = (id, typeML) Util.Pmap.pmap
 
 (* The following function perform parallel substitution of subst on ty *)
 let rec apply_type_subst ty subst =
@@ -100,6 +101,24 @@ let rec apply_type_subst ty subst =
         "Applying type substitution on universally quantified type is not \
          supported. Please report."
   | TUndef -> failwith "Error: undefined type, please report."
+
+  let rec apply_type_env ty type_env =
+    match ty with
+    | TUnit | TInt | TBool | TRef _ | TVar _ -> ty
+    | TArrow (ty1, ty2) ->
+        TArrow (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
+    | TProd (ty1, ty2) ->
+        TProd (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
+    | TSum (ty1, ty2) ->
+        TSum (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
+    | TId id -> begin
+      match Util.Pmap.lookup id type_env with Some ty' -> ty' | None -> ty
+    end
+    | TForall _ ->
+        failwith
+          "Applying type substitution on universally quantified type is not \
+           supported. Please report."
+    | TUndef -> failwith "Error: undefined type, please report."
 
 let rec subst_type tvar sty ty =
   match ty with
