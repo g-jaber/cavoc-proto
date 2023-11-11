@@ -1,10 +1,18 @@
+(* Instantiation *)
+type name = Syntax.name
+type value = Syntax.valML
+type typ = Types.typeML
+(* *)
+type name_ctx = (name,typ) Util.Pmap.pmap
+type val_env = (name,value) Util.Pmap.pmap
+
+type nup = Syntax.exprML
+
+let string_of_nup = Syntax.string_of_exprML
+let names_of_nup = Syntax.get_names
+
 open Syntax
 open Types
-
-type nup = exprML
-
-let string_of_nup = string_of_exprML
-let names_of_nup = get_names
 
 let rec unify_nup nspan nup1 nup2 =
   match (nup1, nup2) with
@@ -62,7 +70,7 @@ let rec generate_nup namectxP = function
       let fn = fresh_fname () in
       [ (Name fn, Util.Pmap.singleton (fn, ty)) ]
   | TNeg _ as ty ->
-      let cn = fresh_cname () in
+      let cn = Syntax.cname_of_id @@ fresh_cname () in
       [ (Name cn, Util.Pmap.singleton (cn, ty)) ]
   | TId _ as ty ->
       let pn_list = Util.Pmap.select_im ty namectxP in
@@ -109,8 +117,6 @@ let rec type_check_nup namectxP namectxO ty nup =
       else Some (Util.Pmap.singleton (nn, ty))
   | (TVar _, _) | (TId _, _) | (TUndef, _) | (TRef _, _) | (TSum _, _) ->
       failwith "not yet implemented"
-
-type val_env = (Syntax.name, Syntax.valML) Util.Pmap.pmap
 
 let rec abstract_val (value : valML) ty =
   match (value, ty) with

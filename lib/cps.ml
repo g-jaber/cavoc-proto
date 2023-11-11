@@ -1,7 +1,7 @@
-module Moves_Make (OpLang : Lang.Language.LANG) = struct
-  type name = OpLang.name
-  type kind = OpLang.name
-  type data = OpLang.nup
+module Moves_Make (IntLang : Lang.Interactive.LANG) = struct
+  type name = IntLang.name
+  type kind = IntLang.name
+  type data = IntLang.Focusing.abstract_val
   type direction = Input | Output | None
 
   let string_of_direction = function
@@ -13,29 +13,34 @@ module Moves_Make (OpLang : Lang.Language.LANG) = struct
 
   type move = direction * kind * data
 
-  let string_of_move (direction, nn, nup) =
-    OpLang.string_of_name nn
+  let string_of_move (direction, nn, aval) =
+    IntLang.string_of_name nn
     ^ string_of_direction direction
-    ^ "(" ^ OpLang.string_of_nup nup ^ ")"
+    ^ "("
+    ^ IntLang.Focusing.string_of_abstract_val aval
+    ^ ")"
 
   let get_data (_, _, d) = d
   let get_kind (_, k, _) = k
   let get_direction (p, _, _) = p
   let switch_direction (p, k, d) = (switch p, k, d)
-  let get_transmitted_names (_, _, nup) = OpLang.names_of_nup nup
+
+  let get_transmitted_names (_, _, aval) =
+    IntLang.Focusing.names_of_abstract_val aval
+
   let get_subject_names (_, nn, _) = [ nn ]
 end
 
 module type INT = sig
-  module ContNames : Lang.Cps.CONT_NAMES include Interactive.INT
+  module ContNames : Lang.Names.CONT_NAMES include Interactive.INT
 end
 
-module Int_Make (CpsLang : Lang.Cps.LANG) :
+module Int_Make (CpsLang : Lang.Focusing.INTLANG) :
   INT
-    with type OpLang.name = CpsLang.name
+    with type IntLang.name = CpsLang.name
      and type ContNames.name = CpsLang.name
      and type Actions.Moves.name = CpsLang.name = struct
-  module OpLang = CpsLang
+  module IntLang = CpsLang
 
   module ContNames = struct
     type name = CpsLang.name
@@ -44,6 +49,7 @@ module Int_Make (CpsLang : Lang.Cps.LANG) :
     let inj_cont_name = CpsLang.inj_cont_name
     let get_cont_name = CpsLang.get_cont_name
     let string_of_cont_name = CpsLang.string_of_cont_name
+    let fresh_cname = CpsLang.fresh_cname
   end
 
   module Actions = struct
@@ -67,46 +73,49 @@ module Int_Make (CpsLang : Lang.Cps.LANG) :
     begin
       match ty_option with
       | Some ty ->
-          let nty = CpsLang.neg_type ty in
-          let (nup, ienv, namectxP) = CpsLang.abstract_glue_val glue_val nty in
-          (Vis (Moves.Output, nn, nup), ienv, namectxP)
+          let nty = CpsLang.Focusing.neg_type ty in
+          let (aval, ienv, namectxP) =
+            CpsLang.Focusing.abstract_glue_val glue_val nty in
+          (Vis (Moves.Output, nn, aval), ienv, namectxP)
       | None ->
           failwith
             ("Error: the name " ^ CpsLang.string_of_name nn
            ^ " is not in the name context "
-            ^ CpsLang.string_of_name_type_ctx namectxO
-            ^ ". Please report.")
+           (*^ CpsLang.Focusing.string_of_name_type_ctx namectxO*)
+           ^ ". Please report.")
     end
 
   let generate_input_moves namectxP =
     Util.Debug.print_debug "Generating O-moves";
     let aux (nn, ty) =
       if CpsLang.is_callable nn then
-        let nups = CpsLang.generate_nup namectxP (CpsLang.neg_type ty) in
+        let aval_l =
+          CpsLang.Focusing.generate_abstract_val namectxP
+            (CpsLang.Focusing.neg_type ty) in
         List.map
-          (fun (nup, namectx') -> ((Moves.Input, nn, nup), namectx'))
-          nups
+          (fun (aval, namectx') -> ((Moves.Input, nn, aval), namectx'))
+          aval_l
       else [] in
     List.flatten (Util.Pmap.map_list aux namectxP)
 
-  let check_input_move namectxP namectxO (dir, name, nup) =
+  let check_input_move namectxP namectxO (dir, name, aval) =
     match dir with
     | Moves.Output -> None
     | Moves.Input -> begin
         match Util.Pmap.lookup name namectxP with
         | None -> None
         | Some ty ->
-            CpsLang.type_check_nup namectxP namectxO (CpsLang.neg_type ty) nup
+            CpsLang.Focusing.type_check_abstract_val namectxP namectxO
+              (CpsLang.Focusing.neg_type ty)
+              aval
       end
     | Moves.None -> None
 
   let trigger_computation ienv input_move =
     match input_move with
-    | (Moves.Input, name, nup) -> begin
-        match CpsLang.lookup_ienv name ienv with
-        | Some value ->
-            let value' = CpsLang.subst_names_of_nup ienv nup in
-            CpsLang.val_composition value value'
+    | (Moves.Input, name, aval) -> begin
+        match CpsLang.Focusing.lookup_ienv name ienv with
+        | Some value -> CpsLang.Focusing.val_composition ienv value aval
         | None ->
             failwith
               ("Error: the move "
@@ -114,7 +123,7 @@ module Int_Make (CpsLang : Lang.Cps.LANG) :
               ^ " is ill-formed: the name "
               ^ CpsLang.string_of_name name
               ^ " is not in the environment "
-              ^ CpsLang.string_of_ienv ienv
+              ^ CpsLang.Focusing.string_of_interactive_env ienv
               ^ ". Please report.")
       end
     | _ ->
@@ -125,19 +134,19 @@ module Int_Make (CpsLang : Lang.Cps.LANG) :
 
   let unify_move span move1 move2 =
     match (move1, move2) with
-    | ((Moves.Output, nn1, nup1), (Moves.Output, nn2, nup2))
-    | ((Moves.Input, nn1, nup1), (Moves.Input, nn2, nup2)) ->
+    | ((Moves.Output, nn1, aval1), (Moves.Output, nn2, aval2))
+    | ((Moves.Input, nn1, aval1), (Moves.Input, nn2, aval2)) ->
         if Util.Namespan.is_in_dom_im (nn1, nn2) span then
-          CpsLang.unify_nup span nup1 nup2
+          CpsLang.Focusing.unify_abstract_val span aval1 aval2
         else None
     | _ -> None
 
   let synch_move span move1 move2 =
     match (move1, move2) with
-    | ((Moves.Output, nn1, nup1), (Moves.Input, nn2, nup2))
-    | ((Moves.Input, nn1, nup1), (Moves.Output, nn2, nup2)) ->
+    | ((Moves.Output, nn1, aval1), (Moves.Input, nn2, aval2))
+    | ((Moves.Input, nn1, aval1), (Moves.Output, nn2, aval2)) ->
         if Util.Namespan.is_in_dom_im (nn1, nn2) span then
-          CpsLang.unify_nup span nup1 nup2
+          CpsLang.Focusing.unify_abstract_val span aval1 aval2
         else None
     | _ -> None
 

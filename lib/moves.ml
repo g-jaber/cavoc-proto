@@ -17,6 +17,6 @@ module type MOVES = sig
   val get_transmitted_names : move -> name list
 end
 
-module type MOVESF = functor (Lang : Lang.Language.LANG) -> sig
-  include MOVES with type kind = Lang.name and type data = Lang.nup
+module type MOVESF = functor (Lang : Lang.Language.WITHNUP) -> sig
+  include MOVES with type kind = Lang.name and type data = Lang.Nup.nup
 end

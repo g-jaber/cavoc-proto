@@ -9,9 +9,10 @@ val fresh_evar : unit -> id
 type name
 
 val fresh_fname : unit -> name
-val fresh_cname : unit -> name
+val fresh_cname : unit -> id
 val fresh_pname : unit -> name
 val string_of_name : name -> string
+val trim_name_id : id -> id
 val fname_of_id : id -> name
 val cname_of_id : id -> name
 val cname_to_id : name -> id option
@@ -70,6 +71,8 @@ val string_of_value : valML -> string
 
 val isval : exprML -> bool
 
+val apply_value : valML -> valML -> exprML
+
 (* The following function subst expr value value 'can be used to substitue any occurence of
    value by value' in expr.
     It is particulatly useful to substitute names.*)
@@ -98,6 +101,8 @@ type eval_context = exprML
 
 val extract_ctx : exprML -> exprML * eval_context
 val extract_call : exprML -> id * eval_context * exprML
+val get_value : exprML -> valML option
+val get_callback : exprML -> (name * valML * eval_context) option
 val extract_body : exprML -> id * full_expr
 val fill_hole : eval_context -> exprML -> exprML
 val string_of_eval_context : eval_context -> string

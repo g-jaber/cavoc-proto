@@ -23,4 +23,4 @@ val get_typed_comp_env : implem_decl list -> comp_env * Type_ctx.type_ctx
 val get_typed_int_env :
   Syntax.val_env ->
   signature_decl list ->
-  Focusing.interactive_env * Type_ctx.name_ctx
+    (Syntax.name,Syntax.valML) Util.Pmap.pmap * Type_ctx.name_ctx

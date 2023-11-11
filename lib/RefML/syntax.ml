@@ -37,6 +37,10 @@ let fresh_evar () =
 
 type name = FName of id | CName of id | PName of id
 
+let trim_name_id id =
+  if id.[0] = '_' then String.sub id 1 (String.length id - 1)
+  else failwith @@ "The id " ^ id ^ "does not start with _. It is not a name."
+
 let fname_of_id id = FName id
 let count_fname = ref 0
 
@@ -50,7 +54,7 @@ let count_cname = ref 0
 let fresh_cname () =
   let cn = !count_cname in
   count_cname := !count_cname + 1;
-  CName ("c" ^ string_of_int cn)
+  ("c" ^ string_of_int cn)
 
 let count_pname = ref 0
 
@@ -60,7 +64,7 @@ let fresh_pname () =
   PName ("p" ^ string_of_int pn)
 
 let string_of_name = function FName f -> f | CName c -> c | PName p -> p
-let cname_of_id id = CName id
+let cname_of_id id =  CName id
 let cname_to_id = function CName cn -> Some cn | _ -> None
 
 let is_callable = function
@@ -161,6 +165,8 @@ let rec isval = function
   | Pair (e1, e2) -> isval e1 && isval e2
   | ECtx _ -> true
   | _ -> false
+
+let apply_value val1 val2 = App (val1, val2)
 
 let rec subst expr value value' =
   match expr with
@@ -284,7 +290,7 @@ and string_of_exprML = function
   | ECtx e -> "cont(" ^ string_of_exprML e ^ ")"
   | Named (cn, e) -> "[" ^ string_of_name cn ^ "]" ^ string_of_exprML e
 
-  let string_of_value = string_of_exprML
+let string_of_value = string_of_exprML
 
 (* Auxiliary functions *)
 
@@ -414,6 +420,12 @@ let extract_body = function
       failwith
         ("Error: " ^ string_of_exprML expr
        ^ " is not a function. Please report.")
+
+let get_value expr = if isval expr then Some expr else None
+
+let get_callback expr =
+  let (expr', ctx) = extract_ctx expr in
+  match expr' with App (Name fn, expr'') -> Some (fn, expr'', ctx) | _ -> None
 
 let fill_hole ctx expr = subst ctx Hole expr
 let string_of_eval_context ctx = string_of_exprML ctx

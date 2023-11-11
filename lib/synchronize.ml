@@ -118,7 +118,7 @@ functor
             match nspan_option with
             | None ->
                 let span_string =
-                  Util.Namespan.string_of_span IntLTS.Int.OpLang.string_of_name
+                  Util.Namespan.string_of_span IntLTS.Int.IntLang.string_of_name
                     nspan in
                 Util.Debug.print_debug
                   ("Synching failed in namespan " ^ span_string);

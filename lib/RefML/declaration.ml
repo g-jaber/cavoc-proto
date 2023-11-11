@@ -87,12 +87,12 @@ let get_typed_comp_env implem_decl_l =
         aux ((var, expr) :: comp_env) type_ctx'' val_decl_l in
   aux [] type_ctx val_decl_l
 
-let get_typed_int_env val_env sign_decl_l =
+let get_typed_int_env var_val_env sign_decl_l =
   let (var_ctx_l, type_decl_l) = split_signature_decl_list sign_decl_l in
   let _ = Util.Pmap.list_to_pmap type_decl_l in
   let aux (var, ty) =
-    let value = Util.Pmap.lookup_exn var val_env in
+    let value = Util.Pmap.lookup_exn var var_val_env in
     let nn = Syntax.fname_of_id var in
-    ((nn, Focusing.embed_val value), (nn, ty)) in
-  let (ienv_l, name_ctx_l) = List.split @@ List.map aux var_ctx_l in
-  (Focusing.list_to_ienv ienv_l, Util.Pmap.list_to_pmap name_ctx_l)
+    ((nn, value), (nn, ty)) in
+  let (name_val_env_l, name_ctx_l) = List.split @@ List.map aux var_ctx_l in
+  (Util.Pmap.list_to_pmap name_val_env_l, Util.Pmap.list_to_pmap name_ctx_l)

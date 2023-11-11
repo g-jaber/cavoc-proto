@@ -34,17 +34,17 @@ let () =
   let module ProdLTS = Cavoc.Product_lts.Make (OGS_LTS) (WBLTS) in
   Util.Debug.print_debug "Getting the program";
   let inBuffer1 = open_in !filename1 in
-  let (expr1, namectxO) = Int.OpLang.get_typed_computation "first" inBuffer1 in
+  let (expr1, namectxO) = Int.IntLang.get_typed_computation "first" inBuffer1 in
   Util.Debug.print_debug "Getting the module";
   let inBuffer2 = open_in !filename2 in
   let inBuffer3 = open_in !filename3 in
   let (ienv, resources, namectxO', _) =
-    Int.OpLang.get_typed_ienv inBuffer2 inBuffer3 in
+    Int.IntLang.get_typed_ienv inBuffer2 inBuffer3 in
   Util.Debug.print_debug
     ("Name contexts for Opponent: "
-    ^ Int.OpLang.string_of_name_type_ctx namectxO
+    ^ Int.IntLang.Focusing.string_of_name_type_ctx namectxO
     ^ " and "
-    ^ Int.OpLang.string_of_name_type_ctx namectxO');
+    ^ Int.IntLang.Focusing.string_of_name_type_ctx namectxO');
   let init_aconf =
     ProdLTS.Active
       (ProdLTS.init_aconf expr1 (Util.Pmap.concat namectxO namectxO')) in

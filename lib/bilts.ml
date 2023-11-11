@@ -24,15 +24,15 @@ module type INT_LTS = sig
   (* init_aconf creates an configuration from a computation and a name context for Opponent. 
      Its resource, interactive env, and name context for Proponent are all set to empty*)    
   val init_aconf :
-    Int.OpLang.computation -> Int.OpLang.name_type_ctx -> active_conf
+    Int.IntLang.Focusing.computation -> Int.IntLang.Focusing.name_type_ctx -> active_conf
 
   (* init_pconf creates a passive configuration from a resource, an interactive env, 
      a name context for Proponent and a name context for Opponent. *)  
   val init_pconf :
-    Int.OpLang.resources ->
-    Int.OpLang.interactive_env ->
-    Int.OpLang.name_type_ctx ->
-    Int.OpLang.name_type_ctx ->
+    Int.IntLang.resources ->
+    Int.IntLang.Focusing.interactive_env ->
+    Int.IntLang.Focusing.name_type_ctx ->
+    Int.IntLang.Focusing.name_type_ctx ->
     passive_conf
 end
 

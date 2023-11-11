@@ -22,7 +22,7 @@ let () =
   check_number_filenames ();
   let inBuffer = open_in !filename in
   let module Int = Cavoc.Cps.Int_Make (Refml.RefML.RefML) in
-  let (expr, namectxO) = Int.OpLang.get_typed_computation "first" inBuffer in
+  let (expr, namectxO) = Int.IntLang.get_typed_computation "first" inBuffer in
   let module POGS_LTS = Cavoc.Pogs.PogsLtsF (Util.Monad.ListB) (Int) in
   let init_aconf = POGS_LTS.init_aconf expr namectxO in
   let module Graph = Cavoc.Graph.Graph (POGS_LTS) in

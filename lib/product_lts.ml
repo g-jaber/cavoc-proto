@@ -1,6 +1,6 @@
 module Make (IntLts:Bilts.INT_LTS) 
             (HistLts:Hislts.HISLTS_INIT  
-            with type move = IntLts.Int.Actions.Moves.move and type name = IntLts.Int.OpLang.name) 
+            with type move = IntLts.Int.Actions.Moves.move and type name = IntLts.Int.IntLang.name) 
         : Bilts.INT_LTS with module Int = IntLts.Int  
   = struct
 

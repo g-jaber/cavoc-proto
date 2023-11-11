@@ -38,10 +38,10 @@ let () =
       Util.Debug.print_debug "Getting the program";
       let expr_buffer = open_in !filename1 in
       let (expr, namectxO) =
-        Int.OpLang.get_typed_computation "first" expr_buffer in
+        Int.IntLang.get_typed_computation "first" expr_buffer in
       Util.Debug.print_debug
         ("Name contexts for Opponent: "
-        ^ Int.OpLang.string_of_name_type_ctx namectxO);
+        ^ Int.IntLang.Focusing.string_of_name_type_ctx namectxO);
       let init_act_conf = ProdLTS.init_aconf expr namectxO in
       ProdLTS.Active init_act_conf
     end
@@ -51,7 +51,7 @@ let () =
       let decl_buffer = open_in !filename1 in
       let signature_buffer = open_in !filename2 in
       let (interactive_env, resources, name_type_ctxP, name_type_ctxO) =
-        Int.OpLang.get_typed_ienv decl_buffer signature_buffer in
+        Int.IntLang.get_typed_ienv decl_buffer signature_buffer in
       let init_pas_conf =
         ProdLTS.init_pconf resources interactive_env name_type_ctxP
           name_type_ctxO in

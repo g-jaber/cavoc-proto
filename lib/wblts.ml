@@ -1,7 +1,7 @@
 (*TODO: Reimplement it using Moves:Moves.MOVES*)
 
 module WBLTS
-    (ContNames : Lang.Cps.CONT_NAMES)
+    (ContNames : Lang.Names.CONT_NAMES)
     (Moves : Moves.MOVES with type name = ContNames.name) :
   Hislts.HISLTS_INIT with type move = Moves.move and type name = ContNames.name =
 struct

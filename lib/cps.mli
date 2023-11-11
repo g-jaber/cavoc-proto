@@ -1,9 +1,9 @@
 module type INT = sig
-  module ContNames : Lang.Cps.CONT_NAMES include Interactive.INT
+  module ContNames : Lang.Names.CONT_NAMES include Interactive.INT
 end
 
-module Int_Make : functor (CpsLang : Lang.Cps.LANG) ->
+module Int_Make (CpsLang : Lang.Focusing.INTLANG) :
   INT
-    with type OpLang.name = CpsLang.name
+    with type IntLang.name = CpsLang.name
      and type ContNames.name = CpsLang.name
      and type Actions.Moves.name = CpsLang.name

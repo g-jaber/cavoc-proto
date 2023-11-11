@@ -1,40 +1,44 @@
 module type INT = sig
   (* To be instantiated *)
-  module OpLang : Lang.Language.LANG
-  module Actions : Actions.ACTIONS with type Moves.name = OpLang.name
+  module IntLang : Lang.Interactive.LANG
+  module Actions : Actions.ACTIONS with type Moves.name = IntLang.name
 
   (* *)
-  open Actions
-  open Actions.Moves
 
   val generate_output_action :
-    OpLang.name_type_ctx ->
-    OpLang.name ->
-    OpLang.glue_val ->
-    action * OpLang.interactive_env * OpLang.name_type_ctx
+    IntLang.Focusing.name_type_ctx ->
+    IntLang.name ->
+    IntLang.Focusing.glue_val ->
+    Actions.action
+    * IntLang.Focusing.interactive_env
+    * IntLang.Focusing.name_type_ctx
 
   val generate_input_moves :
-    OpLang.name_type_ctx -> (move * OpLang.name_type_ctx) list
+    IntLang.Focusing.name_type_ctx ->
+    (Actions.Moves.move * IntLang.Focusing.name_type_ctx) list
 
   val check_input_move :
-    OpLang.name_type_ctx ->
-    OpLang.name_type_ctx ->
-    move ->
-    OpLang.name_type_ctx option
+    IntLang.Focusing.name_type_ctx ->
+    IntLang.Focusing.name_type_ctx ->
+    Actions.Moves.move ->
+    IntLang.Focusing.name_type_ctx option
 
-  val trigger_computation : OpLang.interactive_env -> move -> OpLang.computation
+  val trigger_computation :
+    IntLang.Focusing.interactive_env ->
+    Actions.Moves.move ->
+    IntLang.Focusing.computation
 
   val unify_action :
-    OpLang.name Util.Namespan.namespan ->
-    action ->
-    action ->
-    OpLang.name Util.Namespan.namespan option
+    IntLang.name Util.Namespan.namespan ->
+    Actions.action ->
+    Actions.action ->
+    IntLang.name Util.Namespan.namespan option
 
   val synch_move :
-    OpLang.name Util.Namespan.namespan ->
-    move ->
-    move ->
-    OpLang.name Util.Namespan.namespan option
+    IntLang.name Util.Namespan.namespan ->
+    Actions.Moves.move ->
+    Actions.Moves.move ->
+    IntLang.name Util.Namespan.namespan option
 end
 
 (*
@@ -45,14 +49,14 @@ end
 *)
 
 module type INT_F = functor
-  (OpLang : Lang.Language.LANG)
-  (Moves : Moves.MOVES with type name = OpLang.name)
+  (IntLang : Lang.Interactive.LANG)
+  (Moves : Moves.MOVES with type name = IntLang.name)
   -> sig
-  include INT with module OpLang = OpLang and module Actions.Moves = Moves
+  include INT with module IntLang = IntLang and module Actions.Moves = Moves
 end
 
 (*
-module type CPSINT_F = functor (OpLang:Language.CONTLANG) -> sig 
-  include CPSINT with module OpLang = OpLang
+module type CPSINT_F = functor (IntLang:Language.CONTLANG) -> sig 
+  include CPSINT with module IntLang = IntLang
 end
 *)
