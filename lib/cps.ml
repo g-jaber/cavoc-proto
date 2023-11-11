@@ -55,14 +55,16 @@ module Int_Make (CpsLang : Lang.Focusing.INTLANG) :
   module Actions = struct
     module Moves = Moves_Make (CpsLang)
 
-    type action = PDiv | Vis of Moves.move
+    type action = PDiv | PError | Vis of Moves.move
 
-    let get_move_from_action = function Vis move -> Some move | PDiv -> None
+    let get_move_from_action = function Vis move -> Some move | PError | PDiv -> None
     let inject_move move = Vis move
     let diverging_action = PDiv
+    let error_action = PError
 
     let string_of_action = function
       | PDiv -> "Div"
+      | PError -> "Error"
       | Vis move -> Moves.string_of_move move
   end
 
@@ -154,5 +156,6 @@ module Int_Make (CpsLang : Lang.Focusing.INTLANG) :
     match (act1, act2) with
     | (Vis move1, Vis move2) -> unify_move span move1 move2
     | (PDiv, PDiv) -> Some span
-    | (Vis _, PDiv) | (PDiv, Vis _) -> None
+    | (PError, PError) -> Some span
+    | _ -> None
 end

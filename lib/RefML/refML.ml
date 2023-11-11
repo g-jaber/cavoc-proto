@@ -27,6 +27,7 @@ module WithNup = struct
   let get_callback = Syntax.get_callback
   let get_value = Syntax.get_value
   (*let fresh_cname = Syntax.fresh_cname*)
+  let is_error = Syntax.is_error
 
   type typ = Types.typeML
 

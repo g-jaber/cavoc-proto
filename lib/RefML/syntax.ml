@@ -54,7 +54,7 @@ let count_cname = ref 0
 let fresh_cname () =
   let cn = !count_cname in
   count_cname := !count_cname + 1;
-  ("c" ^ string_of_int cn)
+  "c" ^ string_of_int cn
 
 let count_pname = ref 0
 
@@ -64,7 +64,7 @@ let fresh_pname () =
   PName ("p" ^ string_of_int pn)
 
 let string_of_name = function FName f -> f | CName c -> c | PName p -> p
-let cname_of_id id =  CName id
+let cname_of_id id = CName id
 let cname_to_id = function CName cn -> Some cn | _ -> None
 
 let is_callable = function
@@ -113,6 +113,7 @@ type exprML =
   | Assign of exprML * exprML
   | Assert of exprML
   | Hole
+  | Error
 
 (* TODO: We should rather use a Set rather than a list to represent set of names*)
 
@@ -122,13 +123,14 @@ let empty_name_set = []
 
 let rec get_new_names lnames = function
   | Name n -> if List.mem n lnames then lnames else n :: lnames
-  | Var _ | Loc _ | Unit | Int _ | Bool _ | Hole -> lnames
+  | Var _ | Loc _ | Unit | Int _ | Bool _ | Hole | Error -> lnames
   | UnaryOp (_, e)
   | Fun (_, e)
   | Fix (_, _, e)
   | Newref (_, e)
   | Deref e
-  | Assert e
+  | Assert e ->
+      get_new_names lnames e
   | BinaryOp (_, e1, e2)
   | Let (_, e1, e2)
   | LetPair (_, _, e1, e2)
@@ -168,7 +170,7 @@ let rec subst expr value value' =
   | Name _ when expr = value -> value'
   | Loc _ when expr = value -> value'
   | Hole when expr = value -> value'
-  | Var _ | Name _ | Loc _ | Hole | Unit | Int _ | Bool _ -> expr
+  | Var _ | Name _ | Loc _ | Hole | Unit | Int _ | Bool _ | Error -> expr
   | BinaryOp (op, expr1, expr2) ->
       BinaryOp (op, subst expr1 value value', subst expr2 value value')
   | UnaryOp (op, expr) -> UnaryOp (op, subst expr value value')
@@ -279,6 +281,7 @@ and string_of_exprML = function
   | Assign (e1, e2) -> string_of_exprML e1 ^ " := " ^ string_of_exprML e2
   | Assert e -> "assert " ^ string_of_exprML e
   | Hole -> "•"
+  | Error -> "error"
 
 let string_of_value = string_of_exprML
 
@@ -316,7 +319,6 @@ let implement_compar_op = function
 
 let get_consfun_from_bin_cons = function
   | BinaryOp (op, _, _) -> fun (x, y) -> BinaryOp (op, x, y)
-  | Let (var, _, _) -> fun (x, y) -> Let (var, x, y)
   | Seq _ -> fun (x, y) -> Seq (x, y)
   | App _ -> fun (x, y) -> App (x, y)
   | Pair _ -> fun (x, y) -> Pair (x, y)
@@ -330,6 +332,7 @@ let get_consfun_from_un_cons = function
   | UnaryOp (op, _) -> fun x -> UnaryOp (op, x)
   | Newref (ty, _) -> fun x -> Newref (ty, x)
   | Deref _ -> fun x -> Deref x
+  | Assert _ -> fun x -> Assert x
   | expr ->
       failwith
         ("No unary constructor function can be extracted from "
@@ -355,7 +358,7 @@ type eval_context = exprML
 
 let rec extract_ctx expr =
   match expr with
-  | _ when isval expr -> (expr, Hole)
+  | Name _ | Loc _ | Unit | Int _ | Bool _ | Fix _ | Fun _ | Error -> (expr, Hole)
   | BinaryOp (_, expr1, expr2)
   | App (expr1, expr2)
   | Pair (expr1, expr2)
@@ -369,9 +372,13 @@ let rec extract_ctx expr =
       extract_ctx_un (fun x -> If (x, expr2, expr3)) expr1
   | Let (var, expr1, expr2) ->
       extract_ctx_un (fun x -> Let (var, x, expr2)) expr1
+  | LetPair (var1, var2, expr1, expr2) -> 
+    extract_ctx_un (fun x -> LetPair (var1, var2, x, expr2)) expr1
   | Seq (expr1, expr2) -> extract_ctx_un (fun x -> Seq (x, expr2)) expr1
   | While (expr1, expr2) -> extract_ctx_un (fun x -> While (x, expr2)) expr1
-  | expr ->
+  | Assert expr' ->
+    extract_ctx_un (fun x -> Assert x) expr'
+  | Var _ | Hole ->
       failwith
         ("Error: trying to extract an evaluation context from "
        ^ string_of_exprML expr ^ ". Please report.")
@@ -415,6 +422,10 @@ let get_value expr = if isval expr then Some expr else None
 let get_callback expr =
   let (expr', ctx) = extract_ctx expr in
   match expr' with App (Name fn, expr'') -> Some (fn, expr'', ctx) | _ -> None
+
+let is_error expr =
+  let (expr', _) = extract_ctx expr in
+  match expr' with Error -> true | _ -> false
 
 let fill_hole ctx expr = subst ctx Hole expr
 let string_of_eval_context ctx = string_of_exprML ctx

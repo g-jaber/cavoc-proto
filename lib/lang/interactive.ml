@@ -5,6 +5,7 @@ module type WITHNUP = sig
 end
 
 
+(* TODO: Ideally we should be able to remove the dependency over value, term and typ*)
 module type FOCUSING = sig
   (* to be instantiated *)
   type name
@@ -22,8 +23,6 @@ module type FOCUSING = sig
   type glue_val
   type computation
   val string_of_computation : computation -> string
-
-  (*val embed_val : value -> interactive_val*)
 
   type glue_type
   type interactive_type
@@ -60,7 +59,7 @@ module type FOCUSING = sig
   val lookup_ienv : name -> interactive_env -> interactive_val option
   val concat_ienv : interactive_env -> interactive_env -> interactive_env
   val string_of_interactive_env : interactive_env -> string
-  val decompose_nf : computation -> name * glue_val
+  val decompose_nf : computation -> (name * glue_val) option
 
   val val_composition :
     interactive_env -> interactive_val -> abstract_val -> computation

@@ -16,6 +16,7 @@ module type BASIC = sig
   val apply_value : value -> value -> term
   val get_callback : term -> (name * value * eval_ctx) option
   val get_value : term -> value option
+  val is_error : term -> bool
 end
 
 module type TYPED = sig

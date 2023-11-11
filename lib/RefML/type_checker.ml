@@ -279,6 +279,9 @@ let rec infer_type type_ctx expr =
               ^ " : " ^ string_of_typeML ty ^ " is not equal to bool")
       end
   | Hole -> failwith "Error: The typechecker cannot type a hole"
+  | Error ->
+      let tvar = fresh_typevar () in
+      (tvar, type_ctx)
 
 and check_type type_ctx expr res_ty =
   let (ty, type_ctx') = infer_type type_ctx expr in

@@ -50,18 +50,21 @@ module OgsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
       Int.IntLang.compute_nf (act_conf.computation, act_conf.heap) in
     match opconf_option with
     | None -> (Int.Actions.diverging_action, None)
-    | Some (nf, heap) ->
-        let (nn, glue_val) = Int.IntLang.Focusing.decompose_nf nf in
-        let (move, ienv', namectxP') =
-          Int.generate_output_action act_conf.namectxO nn glue_val in
-        ( move,
-          Some
-            {
-              heap;
-              ienv= Int.IntLang.Focusing.concat_ienv ienv' act_conf.ienv;
-              namectxP= Util.Pmap.concat namectxP' act_conf.namectxP;
-              namectxO= act_conf.namectxO;
-            } )
+    | Some (nf, heap) -> begin
+        match Int.IntLang.Focusing.decompose_nf nf with
+        | Some (nn, glue_val) ->
+            let (move, ienv', namectxP') =
+              Int.generate_output_action act_conf.namectxO nn glue_val in
+            ( move,
+              Some
+                {
+                  heap;
+                  ienv= Int.IntLang.Focusing.concat_ienv ienv' act_conf.ienv;
+                  namectxP= Util.Pmap.concat namectxP' act_conf.namectxP;
+                  namectxO= act_conf.namectxO;
+                } )
+        | None -> (Int.Actions.error_action, None)
+      end
 
   let o_trans pas_conf input_move =
     match

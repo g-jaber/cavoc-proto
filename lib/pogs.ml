@@ -44,12 +44,15 @@ module PogsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
     let opconf_option = Int.IntLang.compute_nf (aconf.computation, aconf.heap) in
     match opconf_option with
     | None -> (Int.Actions.diverging_action, None)
-    | Some (nf, heap) ->
-        let (nn, glue_val) = Int.IntLang.Focusing.decompose_nf nf in
-        let loc_ctx = Int.IntLang.resources_type_ctx_of_resources heap in
-        let (move, ienv, namectxP) =
-          Int.generate_output_action aconf.namectxO nn glue_val in
-        (move, Some { loc_ctx; ienv; namectxP; namectxO= aconf.namectxO })
+    | Some (nf, heap) -> begin
+        match Int.IntLang.Focusing.decompose_nf nf with
+        | Some (nn, glue_val) ->
+            let loc_ctx = Int.IntLang.resources_type_ctx_of_resources heap in
+            let (move, ienv, namectxP) =
+              Int.generate_output_action aconf.namectxO nn glue_val in
+            (move, Some { loc_ctx; ienv; namectxP; namectxO= aconf.namectxO })
+        | None -> (Int.Actions.error_action, None)
+      end
 
   let o_trans pas_conf input_move =
     match

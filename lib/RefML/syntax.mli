@@ -57,6 +57,7 @@ type exprML =
   | Assign of exprML * exprML
   | Assert of exprML
   | Hole
+  | Error
 
 type name_set = name list
 
@@ -65,10 +66,9 @@ val get_new_names : name_set -> exprML -> name_set
 val get_names : exprML -> name_set
 
 type valML = exprML
+
 val string_of_value : valML -> string
-
 val isval : exprML -> bool
-
 val apply_value : valML -> valML -> exprML
 
 (* The following function subst expr value value 'can be used to substitue any occurence of
@@ -101,6 +101,7 @@ val extract_ctx : exprML -> exprML * eval_context
 val extract_call : exprML -> id * eval_context * exprML
 val get_value : exprML -> valML option
 val get_callback : exprML -> (name * valML * eval_context) option
+val is_error : exprML -> bool
 val extract_body : exprML -> id * full_expr
 val fill_hole : eval_context -> exprML -> exprML
 val string_of_eval_context : eval_context -> string

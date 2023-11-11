@@ -163,11 +163,11 @@ module Make (OpLang : Interactive.WITHNUP) = struct
 
   let decompose_nf (NTerm (cn, term)) =
     match OpLang.get_callback term with
-    | Some (nn, value, ectx) -> (nn, GPair (value, NCtx (cn, ectx)))
+    | Some (nn, value, ectx) -> Some (nn, GPair (value, NCtx (cn, ectx)))
     | None -> begin
         match OpLang.get_value term with
-        | Some value -> (OpLang.inj_cont_name cn, GVal value)
-        | None ->
+        | Some value -> Some (OpLang.inj_cont_name cn, GVal value)
+        | None -> if OpLang.is_error term then None else
             failwith
               ("Error: the term " ^ OpLang.string_of_term term
              ^ " is not in canonical form. Please report.")

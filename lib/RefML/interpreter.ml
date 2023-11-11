@@ -194,6 +194,16 @@ let interpreter interpreter (expr, valenv, heap) =
             end
         | _ -> return (BinaryOp (op, nf1, expr2), valenv, heap1)
       end
+  | Assert guard ->
+    let* (guard', _, heap') = interpreter (guard, valenv, heap) in
+    begin
+      match guard' with
+      | Bool false -> return (Error, valenv, heap')
+      | Bool true -> return (Unit, valenv, heap')
+      | _ ->
+        Util.Debug.print_debug "Callback inside an assert!";
+        return (Assert guard', valenv, heap')
+    end
   | _ ->
       failwith
         ("Error: "

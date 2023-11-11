@@ -11,15 +11,19 @@ module Make (IntLTS : Bilts.INT_LTS) = struct
         let (action, pas_conf_option) = IntLTS.p_trans act_conf in
         begin
           match
-            (pas_conf_option, IntLTS.Actions.get_move_from_action action)
+            (pas_conf_option, action)
           with
-          | (_, None) ->
-              Util.Debug.print_debug "Stopping generation";
+          | (_, PDiv) ->
+            print_endline @@ "Proponent has diverged ";
               return ()
-          | (None, Some output_move) ->
-              Util.Debug.print_debug "Stopping generation";
+          | (_, PError) ->
+            print_endline @@ "Proponent has errored. Congratulation, you've found a bug! ";
+              return ()
+          | (None, Vis output_move) ->
+            print_endline @@ "Proponent has quitted the game after playing "
+            ^ IntLTS.Actions.Moves.string_of_move output_move;
               emit output_move
-          | (Some pas_conf, Some output_move) ->
+          | (Some pas_conf, Vis output_move) ->
               print_endline @@ "Proponent has played "
               ^ IntLTS.Actions.Moves.string_of_move output_move;
               let* () = emit output_move in
