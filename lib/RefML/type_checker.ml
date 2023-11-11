@@ -34,18 +34,6 @@ let rec infer_type type_ctx expr =
             ("Error: the location " ^ Syntax.string_of_loc l
            ^ " is not defined.")
     end
-  | Named (cn, e) -> begin
-      match Util.Pmap.lookup cn type_ctx.name_ctx with
-      | Some (TNeg ty) -> check_type type_ctx e ty
-      | Some ty ->
-          Util.Error.fail_error
-            ("Error: the continuation name " ^ Syntax.string_of_name cn
-           ^ " is of type " ^ string_of_typeML ty ^ ".")
-      | None ->
-          Util.Error.fail_error
-            ("Error: the continuation name " ^ Syntax.string_of_name cn
-           ^ " is not defined.")
-    end
   | Unit -> (TUnit, type_ctx)
   | Int _ -> (TInt, type_ctx)
   | Bool _ -> (TBool, type_ctx)
@@ -291,8 +279,6 @@ let rec infer_type type_ctx expr =
               ^ " : " ^ string_of_typeML ty ^ " is not equal to bool")
       end
   | Hole -> failwith "Error: The typechecker cannot type a hole"
-  | ECtx _ ->
-      failwith "Error: The typechecker cannot type an evaluation context"
 
 and check_type type_ctx expr res_ty =
   let (ty, type_ctx') = infer_type type_ctx expr in

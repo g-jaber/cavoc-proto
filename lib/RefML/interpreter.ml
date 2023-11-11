@@ -194,9 +194,6 @@ let interpreter interpreter (expr, valenv, heap) =
             end
         | _ -> return (BinaryOp (op, nf1, expr2), valenv, heap1)
       end
-  | Named (cn, expr) ->
-      let* (expr', _, heap') = interpreter (expr, valenv, heap) in
-      return (Named (cn, expr'), valenv, heap')
   | _ ->
       failwith
         ("Error: "

@@ -113,8 +113,6 @@ type exprML =
   | Assign of exprML * exprML
   | Assert of exprML
   | Hole
-  | ECtx of exprML
-  | Named of name * exprML
 
 (* TODO: We should rather use a Set rather than a list to represent set of names*)
 
@@ -131,9 +129,6 @@ let rec get_new_names lnames = function
   | Newref (_, e)
   | Deref e
   | Assert e
-  | ECtx e
-  | Named (_, e) ->
-      get_new_names lnames e
   | BinaryOp (_, e1, e2)
   | Let (_, e1, e2)
   | LetPair (_, _, e1, e2)
@@ -163,7 +158,6 @@ let rec isval = function
   | Fix _ -> true
   | Fun _ -> true
   | Pair (e1, e2) -> isval e1 && isval e2
-  | ECtx _ -> true
   | _ -> false
 
 let apply_value val1 val2 = App (val1, val2)
@@ -211,8 +205,6 @@ let rec subst expr value value' =
   | Assign (expr1, expr2) ->
       Assign (subst expr1 value value', subst expr2 value value')
   | Assert expr -> Assert (subst expr value value')
-  | ECtx ectx -> ECtx (subst ectx value value')
-  | Named (cn, expr) -> Named (cn, subst expr value value')
 
 let subst_var expr id = subst expr (Var id)
 
@@ -287,8 +279,6 @@ and string_of_exprML = function
   | Assign (e1, e2) -> string_of_exprML e1 ^ " := " ^ string_of_exprML e2
   | Assert e -> "assert " ^ string_of_exprML e
   | Hole -> "•"
-  | ECtx e -> "cont(" ^ string_of_exprML e ^ ")"
-  | Named (cn, e) -> "[" ^ string_of_name cn ^ "]" ^ string_of_exprML e
 
 let string_of_value = string_of_exprML
 
@@ -381,7 +371,6 @@ let rec extract_ctx expr =
       extract_ctx_un (fun x -> Let (var, x, expr2)) expr1
   | Seq (expr1, expr2) -> extract_ctx_un (fun x -> Seq (x, expr2)) expr1
   | While (expr1, expr2) -> extract_ctx_un (fun x -> While (x, expr2)) expr1
-  | Named (cn, expr) -> extract_ctx_un (fun x -> Named (cn, x)) expr
   | expr ->
       failwith
         ("Error: trying to extract an evaluation context from "

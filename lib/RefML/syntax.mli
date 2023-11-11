@@ -57,8 +57,6 @@ type exprML =
   | Assign of exprML * exprML
   | Assert of exprML
   | Hole
-  | ECtx of exprML
-  | Named of name * exprML
 
 type name_set = name list
 
