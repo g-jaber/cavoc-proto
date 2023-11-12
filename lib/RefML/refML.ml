@@ -31,18 +31,33 @@ module WithNup = struct
 
   type typ = Types.typeML
 
+  type typevar = Types.typevar
+  type typename = Types.id
+
   let string_of_type = Types.string_of_typeML
+
+  let string_of_typename id = id
+  let generate_typename_subst tvar_l =
+    let aux tvar = 
+      let tname = Types.fresh_typename () in
+      (tname,(tvar,Types.TName tname))
+    in 
+    let (tname_l,type_subst_l) = List.split @@ List.map aux tvar_l in
+    (tname_l,Util.Pmap.list_to_pmap type_subst_l)
+  let apply_type_subst = Types.apply_type_subst
 
   type name_ctx = (name, typ) Util.Pmap.pmap
 
   let get_input_type = function
-    | Types.TArrow (ty1, _) -> ty1
+    | Types.TArrow (ty1, _) -> ([],ty1)
+    | Types.TForall (tvar_l,TArrow(ty1,_)) -> (tvar_l,ty1)
     | ty ->
         failwith @@ "Error: the type " ^ Types.string_of_typeML ty
         ^ "is not a negative type. Please report."
 
   let get_output_type = function
     | Types.TArrow (_, ty2) -> ty2
+    | Types.TForall (_,TArrow(_,ty2)) -> ty2
     | ty ->
         failwith @@ "Error: the type " ^ Types.string_of_typeML ty
         ^ "is not a negative type. Please report."
@@ -110,7 +125,7 @@ module RefML : Lang.Focusing.INTLANG = struct
       let (val_env, heap) = Interpreter.compute_val_env comp_env in
       let (val_env', name_ctxP) =
         Declaration.get_typed_val_env val_env signature_decl_l in
-        Util.Debug.print_debug @@ "The type name context for Proponent is " ^ (Type_ctx.string_of_name_ctx name_ctxP);
+        Util.Debug.print_debug @@ "The name context for Proponent is " ^ (Type_ctx.string_of_name_ctx name_ctxP);
       ( Focusing.embed_value_env val_env',
         (val_env, heap),
         Focusing.embed_name_ctx @@ name_ctxP,

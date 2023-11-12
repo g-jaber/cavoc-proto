@@ -95,6 +95,7 @@ let get_typed_val_env var_val_env sign_decl_l =
   let aux (var, ty) =
     let value = Util.Pmap.lookup_exn var var_val_env in
     let nn = Syntax.fname_of_id var in
-    ((nn, value), (nn, Types.apply_type_env ty type_env)) in
+    let ty' = Types.generalize_type @@ Types.apply_type_env ty type_env in
+    ((nn, value), (nn, ty')) in
   let (name_val_env_l, name_ctx_l) = List.split @@ List.map aux var_ctx_l in
   (Util.Pmap.list_to_pmap name_val_env_l, Util.Pmap.list_to_pmap name_ctx_l)

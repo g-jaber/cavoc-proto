@@ -12,10 +12,12 @@ type typeML =
   | TVar of typevar
   | TForall of typevar list * typeML
   | TId of id (* Implementation is only known by Proponent.  *)
+  | TName of id (* Generated dynamically while instantiating Forall quantifiers. *)
   | TUndef
 
 val string_of_typeML : typeML -> string
 val fresh_typevar : unit -> typeML
+val fresh_typename : unit -> id
 val get_tvars : typeML -> typevar list
 
 type type_subst = (typevar, typeML) Util.Pmap.pmap
@@ -25,3 +27,4 @@ val apply_type_subst : typeML -> type_subst -> typeML
 val apply_type_env : typeML -> type_env -> typeML
 val subst_type : typevar -> typeML -> typeML -> typeML
 val unify_type : type_subst -> typeML * typeML -> (typeML * type_subst) option
+val generalize_type : typeML -> typeML

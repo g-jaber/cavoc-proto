@@ -24,12 +24,19 @@ module type TYPED = sig
 
   type typ
 
+  type typevar
+  type typename
+
   val string_of_type : typ -> string
+  val string_of_typename : typename -> string
 
   type name_ctx = (name, typ) Util.Pmap.pmap
 
-  val get_input_type : typ -> typ
+  val get_input_type : typ -> (typevar list*typ)
   val get_output_type : typ -> typ
+
+  val generate_typename_subst : typevar list -> (typename list*(typevar,typ) Util.Pmap.pmap)
+  val apply_type_subst : typ -> (typevar,typ) Util.Pmap.pmap -> typ
 end
 
 module type WITHNUP = sig

@@ -13,8 +13,9 @@ module Make (OpLang : Interactive.WITHNUP) = struct
   type abstract_val =
     | ANup of OpLang.Nup.nup
     | APair of (OpLang.Nup.nup * OpLang.cont_name)
+    | AExists of (OpLang.typename list * abstract_val)
 
-  let string_of_abstract_val = function
+  let rec string_of_abstract_val = function
     | ANup nup -> OpLang.Nup.string_of_nup nup
     | APair (nup, cn) ->
         "("
@@ -22,10 +23,17 @@ module Make (OpLang : Interactive.WITHNUP) = struct
         ^ ","
         ^ OpLang.string_of_cont_name cn
         ^ ")"
+    | AExists (tname_l, aval) ->
+        let string_l = List.map OpLang.string_of_typename tname_l in
+        "(" ^ String.concat "," string_l ^ ","
+        ^ string_of_abstract_val aval
+        ^ ")"
 
-  let names_of_abstract_val = function
+  let rec names_of_abstract_val = function
     | ANup nup -> OpLang.Nup.names_of_nup nup
     | APair (nup, cn) -> OpLang.inj_cont_name cn :: OpLang.Nup.names_of_nup nup
+    | AExists (_, aval) ->
+        names_of_abstract_val aval (* We should also add the type names !*)
 
   let string_of_interactive_val = function
     | IVal value -> OpLang.string_of_value value
@@ -57,6 +65,7 @@ module Make (OpLang : Interactive.WITHNUP) = struct
   type glue_type =
     | GType of OpLang.typ
     | GProd of OpLang.typ * interactive_type
+    | GExists of OpLang.typevar list * OpLang.typ * interactive_type
 
   type computation = NTerm of (OpLang.cont_name * OpLang.term)
 
@@ -76,7 +85,7 @@ module Make (OpLang : Interactive.WITHNUP) = struct
 
   let extract_term (NTerm (cn, term)) = (OpLang.inj_cont_name cn, term)
 
-  let generate_abstract_val name_type_ctx gtype =
+  let rec generate_abstract_val name_type_ctx gtype =
     let name_ctx = extract_name_ctx name_type_ctx in
     match gtype with
     | GType ty ->
@@ -91,6 +100,16 @@ module Make (OpLang : Interactive.WITHNUP) = struct
               (embed_name_ctx name_ctx) in
           (APair (nup, cn), name_type_ctx') in
         List.map aux @@ OpLang.Nup.generate_nup name_ctx ty
+    | GExists (tvar_l, ty1, INeg ty2) ->
+        Util.Debug.print_debug
+          "Generating an abstract value for an existential type";
+        let (tname_l, type_subst) = OpLang.generate_typename_subst tvar_l in
+        let ty1' = OpLang.apply_type_subst ty1 type_subst in
+        let ty2' = OpLang.apply_type_subst ty2 type_subst in
+        let aux (aval, name_type_ctx) =
+          (AExists (tname_l, aval), name_type_ctx) in
+        List.map aux
+        @@ generate_abstract_val name_type_ctx (GProd (ty1', INeg ty2'))
     | _ -> failwith "The glue type is not valid. Please report."
 
   let type_check_abstract_val name_type_ctxP name_type_ctxO gty aval =
@@ -167,10 +186,12 @@ module Make (OpLang : Interactive.WITHNUP) = struct
     | None -> begin
         match OpLang.get_value term with
         | Some value -> Some (OpLang.inj_cont_name cn, GVal value)
-        | None -> if OpLang.is_error term then None else
-            failwith
-              ("Error: the term " ^ OpLang.string_of_term term
-             ^ " is not in canonical form. Please report.")
+        | None ->
+            if OpLang.is_error term then None
+            else
+              failwith
+                ("Error: the term " ^ OpLang.string_of_term term
+               ^ " is not in canonical form. Please report.")
       end
 
   let val_composition ienv ival aval =
@@ -178,7 +199,8 @@ module Make (OpLang : Interactive.WITHNUP) = struct
     | (ICtx (NCtx (cn, ectx)), ANup nup) ->
         let value = OpLang.Nup.subst_names_of_nup (extract_val_env ienv) nup in
         NTerm (cn, OpLang.fill_hole ectx value)
-    | (IVal fun_val, APair (nup, cn)) ->
+    | (IVal fun_val, APair (nup, cn))
+    | (IVal fun_val, AExists (_, APair (nup, cn))) ->
         let value = OpLang.Nup.subst_names_of_nup (extract_val_env ienv) nup in
         NTerm (cn, OpLang.apply_value fun_val value)
     | _ ->
@@ -191,9 +213,13 @@ module Make (OpLang : Interactive.WITHNUP) = struct
 
   let neg_type = function
     | IType ty ->
-        let inp_ty = OpLang.get_input_type ty in
+        let (tvar_l, inp_ty) = OpLang.get_input_type ty in
         let out_ty = OpLang.get_output_type ty in
-        GProd (inp_ty, INeg out_ty)
+        begin
+          match tvar_l with
+          | [] -> GProd (inp_ty, INeg out_ty)
+          | _ -> GExists (tvar_l, inp_ty, INeg out_ty)
+        end
     | INeg ty -> GType ty
 
   let unify_abstract_val nspan aval1 aval2 =

@@ -72,6 +72,9 @@ let rec generate_nup namectxP = function
   | TId _ as ty ->
       let pn_list = Util.Pmap.select_im ty namectxP in
       List.map (fun pn -> (Name pn, Type_ctx.empty_name_ctx)) pn_list
+  | TName _ as ty ->
+    let pn = fresh_pname () in
+    [(Name pn,Util.Pmap.singleton (pn,ty))]
   | ty ->
       failwith
         ("Error generating a nup on type " ^ Types.string_of_typeML ty
@@ -108,12 +111,15 @@ let rec type_check_nup namectxP namectxO ty nup =
       | Some (TId id') when id = id' -> Some Type_ctx.empty_name_ctx
       | Some _ -> None
     end
-  | (TVar _, Name nn) ->
+  | (TId _, _) -> None
+  | (TName _, Name nn) ->
       if Util.Pmap.mem nn namectxP || Util.Pmap.mem nn namectxO then None
         (* the name nn has to be fresh to be well-typed *)
       else Some (Util.Pmap.singleton (nn, ty))
-  | (TVar _, _) | (TId _, _) | (TUndef, _) | (TRef _, _) | (TSum _, _) ->
-      failwith "not yet implemented"
+  | (TName _, _) -> None
+  | (TVar _, _) ->  failwith @@ "Error: trying to type-check a nup of type " ^ (Types.string_of_typeML ty) ^ ". Please report."
+   | (TUndef, _) | (TRef _, _) | (TSum _, _) ->
+    failwith @@ "Error: type-checking a nup of type " ^ (Types.string_of_typeML ty) ^ " is not yet supported."
 
 let rec abstract_val (value : valML) ty =
   match (value, ty) with
@@ -135,6 +141,8 @@ let rec abstract_val (value : valML) ty =
       let ienv = Util.Pmap.singleton (pn, value) in
       let lnamectx = Util.Pmap.singleton (pn, ty) in
       (Name pn, ienv, lnamectx)
+  | (Name _, TName _) ->
+    (value, Util.Pmap.empty, Type_ctx.empty_name_ctx)
   | _ ->
       failwith
         ("Error: " ^ string_of_exprML value ^ " of type " ^ string_of_typeML ty
