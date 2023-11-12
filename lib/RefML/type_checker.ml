@@ -224,20 +224,7 @@ let rec infer_type type_ctx expr =
       (TProd (ty1, ty2), type_ctx'')
   | Newref (_, e) ->
       let (ty, type_ctx') = infer_type type_ctx e in
-      begin
-        match ty with
-        | TVar a ->
-            let type_ctx'' = Type_ctx.extend_type_subst type_ctx' a TInt in
-            (TRef TInt, type_ctx'')
-        | TInt -> (TRef ty, type_ctx')
-        | _ ->
-            Util.Error.fail_error
-              ("Error typing "
-              ^ Syntax.string_of_exprML expr
-              ^ ": " ^ string_of_typeML ty
-              ^ " is not of type int. Only integers can be stored in \
-                 references.")
-      end
+      (TRef ty, type_ctx')
   | Deref e ->
       let (ty, type_ctx') = infer_type type_ctx e in
       begin
@@ -253,19 +240,15 @@ let rec infer_type type_ctx expr =
       let (ty1, type_ctx') = infer_type type_ctx e1 in
       let (ty2, type_ctx'') = infer_type type_ctx' e2 in
       begin
-        match (ty1, ty2) with
-        | (TRef ty1', _) when ty1' = ty2 -> (TUnit, type_ctx'')
-        | (TRef ty1', TVar a) ->
-            let type_ctx''' = Type_ctx.extend_type_subst type_ctx'' a ty1' in
-            (TUnit, type_ctx''')
-        | (TRef (TVar a), _) ->
-            let type_ctx''' = Type_ctx.extend_type_subst type_ctx'' a ty2 in
-            (TUnit, type_ctx''')
-        | (_, _) ->
-            Util.Error.fail_error
-              ("Error typing "
+        match unify_type type_ctx''.type_subst (ty1, TRef ty2) with
+        | Some (_, type_subst) ->
+            (TUnit, Type_ctx.update_type_subst type_ctx'' type_subst)
+        | None ->
+            Util.Error.fail_error @@
+              "Error typing "
               ^ Syntax.string_of_exprML expr
-              ^ " : " ^ string_of_typeML ty1 ^ " is not a ref type")
+              ^ " : " ^ string_of_typeML ty1 ^ " is not unifiable with ref "
+              ^ string_of_typeML ty2
       end
   | Assert e ->
       let (ty, type_ctx') = infer_type type_ctx e in
@@ -278,7 +261,7 @@ let rec infer_type type_ctx expr =
               ^ Syntax.string_of_exprML expr
               ^ " : " ^ string_of_typeML ty ^ " is not equal to bool")
       end
-  | Hole -> failwith "Error: The typechecker cannot type a hole"
+  | Hole -> failwith "Error: The typechecker cannot type a hole."
   | Error ->
       let tvar = fresh_typevar () in
       (tvar, type_ctx)
