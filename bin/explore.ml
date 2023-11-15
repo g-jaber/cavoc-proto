@@ -3,12 +3,16 @@ let () =
   let filename1 = ref "" in
   let filename2 = ref "" in
   let is_computation = ref false in
+  let enable_wb = ref true in
   let speclist =
     [
       ("-debug", Arg.Set Util.Debug.debug_mode, "Debug mode");
       ( "-comput",
         Arg.Set is_computation,
-        "Provide a computation rather than a module" );
+        "Provide a computation rather than a module." );
+      ( "-no-wb",
+        Arg.Clear enable_wb,
+        "Disable the well-bracketing enforcment of well-bracketing." );
     ] in
   let usage_msg = "Usage: cavoctree filename [options]" in
   let get_filename str =
@@ -32,32 +36,41 @@ let () =
   let module OGS_LTS = Cavoc.Ogs.OgsLtsF (Util.Monad.ListB) (Int) in
   let module WBLTS = Cavoc.Wblts.WBLTS (Int.ContNames) (Int.Actions.Moves) in
   let module ProdLTS = Cavoc.Product_lts.Make (OGS_LTS) (WBLTS) in
-  let init_conf =
-    if !is_computation then begin
-      check_number_filenames 1;
-      Util.Debug.print_debug "Getting the program";
-      let expr_buffer = open_in !filename1 in
-      let (expr, namectxO) =
-        Int.IntLang.get_typed_computation "first" expr_buffer in
-      Util.Debug.print_debug
-        ("Name contexts for Opponent: "
-        ^ Int.IntLang.Focusing.string_of_name_type_ctx namectxO);
-      let init_act_conf = ProdLTS.init_aconf expr namectxO in
-      ProdLTS.Active init_act_conf
-    end
-    else begin
-      check_number_filenames 2;
-      Util.Debug.print_debug "Getting the module declaration";
-      let decl_buffer = open_in !filename1 in
-      let signature_buffer = open_in !filename2 in
-      let (interactive_env, resources, name_type_ctxP, name_type_ctxO) =
-        Int.IntLang.get_typed_ienv decl_buffer signature_buffer in
-      let init_pas_conf =
-        ProdLTS.init_pconf resources interactive_env name_type_ctxP
-          name_type_ctxO in
-      ProdLTS.Passive init_pas_conf
-    end in
   Util.Debug.print_debug "Getting the trace";
-  let module Generate = Cavoc.Generate_trace.Make (ProdLTS) in
-  let traces = Generate.get_traces init_conf in
-  List.iter print_endline traces
+  if !is_computation then begin
+    check_number_filenames 1;
+    Util.Debug.print_debug "Getting the program";
+    let expr_buffer = open_in !filename1 in
+    let (expr, namectxO) =
+      Int.IntLang.get_typed_computation "first" expr_buffer in
+    Util.Debug.print_debug
+      ("Name contexts for Opponent: "
+      ^ Int.IntLang.Focusing.string_of_name_type_ctx namectxO);
+    let init_act_conf = ProdLTS.init_aconf expr namectxO in
+    let init_conf = ProdLTS.Active init_act_conf in
+    let module Generate = Cavoc.Generate_trace.Make (ProdLTS) in
+    let traces = Generate.get_traces init_conf in
+    List.iter print_endline traces
+  end
+  else begin
+    check_number_filenames 2;
+    Util.Debug.print_debug "Getting the module declaration";
+    let decl_buffer = open_in !filename1 in
+    let signature_buffer = open_in !filename2 in
+    let (interactive_env, resources, name_type_ctxP, name_type_ctxO) =
+      Int.IntLang.get_typed_ienv decl_buffer signature_buffer in
+    if !enable_wb then
+      let init_pas_conf =
+        ProdLTS.init_pconf resources interactive_env name_type_ctxP name_type_ctxO in
+    let init_conf = ProdLTS.Passive init_pas_conf in
+    let module Generate = Cavoc.Generate_trace.Make (ProdLTS) in
+    let traces = Generate.get_traces init_conf in
+    List.iter print_endline traces
+    else 
+      let init_pas_conf =
+        OGS_LTS.init_pconf resources interactive_env name_type_ctxP name_type_ctxO in
+      let init_conf = OGS_LTS.Passive init_pas_conf in
+      let module Generate = Cavoc.Generate_trace.Make (OGS_LTS) in
+      let traces = Generate.get_traces init_conf in
+      List.iter print_endline traces
+  end
