@@ -245,7 +245,7 @@ let rec string_par_of_exprML = function
 and string_of_exprML = function
   | Var x -> x
   | Name n -> string_of_name n
-  | Loc l -> "l" ^ string_of_int l
+  | Loc l -> string_of_loc l
   | Unit -> "()"
   | Int n -> string_of_int n
   | Bool true -> "true"
@@ -342,14 +342,14 @@ let get_consfun_from_un_cons = function
 
 type val_env = (id, exprML) pmap
 
-let string_of_val_env = string_of_pmap "ε" "->" string_of_id string_of_exprML
+let string_of_val_env = string_of_pmap "ε" "↪" string_of_id string_of_exprML
 let empty_val_env = Util.Pmap.empty
 
 type full_expr = exprML * val_env
 
-let string_of_full_expr (expr, gamma) =
+let string_of_full_expr (expr, val_env) =
   "(" ^ string_of_exprML expr ^ ",["
-  ^ string_of_pmap "ε" "->" string_of_id string_of_exprML gamma
+  ^ string_of_val_env val_env
   ^ "])"
 
 (* Evaluation Contexts *)

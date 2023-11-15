@@ -156,7 +156,7 @@ module Make (OpLang : Interactive.WITHNUP) = struct
   let list_to_ienv = Util.Pmap.list_to_pmap
 
   let string_of_interactive_env =
-    Util.Pmap.string_of_pmap "ε" " => " OpLang.string_of_name
+    Util.Pmap.string_of_pmap "ε" "↪" OpLang.string_of_name
       string_of_interactive_val
 
   let lookup_ienv = Util.Pmap.lookup

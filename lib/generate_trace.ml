@@ -5,6 +5,14 @@ module Make (IntLTS : Bilts.INT_LTS) = struct
     let show = IntLTS.Int.Actions.Moves.string_of_move
   end)
 
+  let ask_print_conf pas_conf =
+    print_endline "Do you want to print the Proponent configuration? (1/0)";
+    let i = read_int () in
+    match i with
+    | 1 -> print_endline @@ IntLTS.string_of_passive_conf pas_conf
+    | _ -> ()
+
+
   let rec generate conf =
     match conf with
     | IntLTS.Active act_conf ->
@@ -30,6 +38,7 @@ module Make (IntLTS : Bilts.INT_LTS) = struct
               generate (IntLTS.Passive pas_conf)
         end
     | IntLTS.Passive pas_conf ->
+        ask_print_conf pas_conf;
         let results_list = IntLTS.M.run (IntLTS.o_trans_gen pas_conf) in
         print_endline "The possible moves are :";
         List.iter print_endline
