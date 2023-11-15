@@ -38,7 +38,10 @@ module Make (OpLang : Interactive.WITHNUP) = struct
   let string_of_interactive_val = function
     | IVal value -> OpLang.string_of_value value
     | ICtx (NCtx (cn, ectx)) ->
-        OpLang.string_of_cont_name cn ^ OpLang.string_of_eval_ctx ectx
+        "["
+        ^ OpLang.string_of_cont_name cn
+        ^ "]"
+        ^ OpLang.string_of_eval_ctx ectx
 
   (*let embed_val value = IVal value *)
 

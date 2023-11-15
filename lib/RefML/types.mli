@@ -13,7 +13,7 @@ type typeML =
   | TForall of typevar list * typeML
   | TId of id (* Implementation is only known by Proponent.  *)
   | TName of id (* Generated dynamically while instantiating Forall quantifiers. *)
-  | TUndef
+  | TUndef (* Used to represent the absence of type annotation in fun and fix terms *)
 
 val string_of_typeML : typeML -> string
 val fresh_typevar : unit -> typeML

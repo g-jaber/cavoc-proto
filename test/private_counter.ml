@@ -6,4 +6,4 @@ type t = int
 
 let c = ref 0
 let get ()= c:=!c+1;!c 
-let check x = assert (x <> 2)
+let check x = assert ((x > 0) && (x <= !c))

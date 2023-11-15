@@ -1,4 +1,4 @@
-type t = int
+type t
 
 val get : unit -> t
 val check : t -> unit
