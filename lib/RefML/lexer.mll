@@ -41,6 +41,7 @@ rule token = parse
   | "<" { LESS }
   | "<=" { LESSEQ }
   | "<>" { NEQ }
+  | "!=" { NEQ }
 
   | "let"  { LET }
   | "rec" { REC }
