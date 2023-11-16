@@ -15,9 +15,6 @@ module type BASIC = sig
   val string_of_eval_ctx : eval_ctx -> string
   val fill_hole : eval_ctx -> value -> term
   val apply_value : value -> value -> term
-  val get_callback : term -> (name * value * eval_ctx) option
-  val get_value : term -> value option
-  val is_error : term -> bool
 end
 
 module type TYPED = sig
@@ -60,6 +57,9 @@ module type COMP = sig
   module Memory : MEMORY
 
   type opconf = term * Memory.memory
+  val get_callback : term -> (name * value * eval_ctx) option
+  val get_value : term -> value option
+  val is_error : term -> bool
 
   val compute_nf : opconf -> opconf option
   val get_typed_term : string -> in_channel -> term * typ * name_ctx

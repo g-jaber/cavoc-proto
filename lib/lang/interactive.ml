@@ -2,16 +2,8 @@ module type WITHNUP = sig
   include Language.WITHNUP include Names.CONT_NAMES with type name := name
 end
 
-(* TODO: Ideally we should be able to remove the dependency over value, term and typ*)
 module type LANG = sig
-  (* to be instantiated *)
   include Names.CONT_NAMES
-  (*
-     type value
-     type term
-     type typ
-  *)
-  (*include Language.COMP*)
 
   type interactive_val
   type abstract_val
@@ -37,19 +29,10 @@ module type LANG = sig
 
   type interactive_env
 
-  (*
-  val embed_value_env : val_env -> interactive_env*)
-
   type name_type_ctx = (name, interactive_type) Util.Pmap.pmap
 
   val empty_name_type_ctx : name_type_ctx
   val string_of_name_type_ctx : name_type_ctx -> string
-  (*
-  val embed_name_ctx : name_ctx -> name_type_ctx
-  val generate_computation : term -> typ -> computation * name_type_ctx
-  val embed_term : name * term -> computation
-  val extract_term : computation -> name * term
-  *)
 
   val generate_abstract_val :
     name_type_ctx -> glue_type -> (abstract_val * name_type_ctx) list
@@ -94,19 +77,4 @@ module type LANG = sig
 end
 
 module type LANG_F = functor (OpLang : WITHNUP) ->
-  LANG
-    with type name = OpLang.name
-(*     and type value = OpLang.value
-     and type term = OpLang.term
-     and type typ = OpLang.typ*)
-
-(*
-module type LANG = sig
-  include Language.COMP
-  module Focusing : LANG
-  with type name = name
-  and type value = value
-  and type term = term
-  and type typ = typ
-end
-*)
+  LANG with type name = OpLang.name
