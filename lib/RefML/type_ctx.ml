@@ -30,6 +30,7 @@ type type_ctx = {
   var_ctx: var_ctx;
   loc_ctx: loc_ctx;
   name_ctx: name_ctx;
+  exn_ctx: Syntax.constructor list;
   type_subst: Types.type_subst;
 }
 
@@ -58,13 +59,13 @@ let extend_type_subst type_ctx tvar ty =
   let loc_ctx = subst_ctx tvar ty type_ctx.loc_ctx in
   let name_ctx = subst_ctx tvar ty type_ctx.name_ctx in
   let type_subst = Util.Pmap.modadd_pmap (tvar,ty) type_ctx.type_subst in
-  {var_ctx; loc_ctx; name_ctx; type_subst}
+  {type_ctx with var_ctx; loc_ctx; name_ctx; type_subst}
 
 let update_type_subst type_ctx type_subst =
   let var_ctx = lsubst_ctx type_subst type_ctx.var_ctx in
   let loc_ctx = lsubst_ctx type_subst type_ctx.loc_ctx in
   let name_ctx = lsubst_ctx type_subst type_ctx.name_ctx in
-  {var_ctx; loc_ctx; name_ctx; type_subst}
+  {type_ctx with var_ctx; loc_ctx; name_ctx; type_subst}
 
 let extend_var_ctx type_ctx var ty
   = {type_ctx with var_ctx = Util.Pmap.modadd_pmap (var, ty) type_ctx.var_ctx}

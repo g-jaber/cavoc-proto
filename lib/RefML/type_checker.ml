@@ -16,6 +16,7 @@ let rec infer_type type_ctx expr =
             ^ Type_ctx.string_of_var_ctx type_ctx.var_ctx
             ^ " .")
     end
+  | Constructor _ -> (TExn, type_ctx)
   | Name n -> begin
       match Util.Pmap.lookup n type_ctx.name_ctx with
       | Some ty -> (ty, type_ctx)
@@ -244,11 +245,10 @@ let rec infer_type type_ctx expr =
         | Some (_, type_subst) ->
             (TUnit, Type_ctx.update_type_subst type_ctx'' type_subst)
         | None ->
-            Util.Error.fail_error @@
-              "Error typing "
-              ^ Syntax.string_of_exprML expr
-              ^ " : " ^ string_of_typeML ty1 ^ " is not unifiable with ref "
-              ^ string_of_typeML ty2
+            Util.Error.fail_error @@ "Error typing "
+            ^ Syntax.string_of_exprML expr
+            ^ " : " ^ string_of_typeML ty1 ^ " is not unifiable with ref "
+            ^ string_of_typeML ty2
       end
   | Assert e ->
       let (ty, type_ctx') = infer_type type_ctx e in
@@ -259,8 +259,41 @@ let rec infer_type type_ctx expr =
             Util.Error.fail_error
               ("Error typing "
               ^ Syntax.string_of_exprML expr
-              ^ " : " ^ string_of_typeML ty ^ " is not equal to bool")
+              ^ " : " ^ string_of_typeML ty ^ " is not equal to bool.")
       end
+  | Raise e ->
+      let (ty, type_ctx') = infer_type type_ctx e in
+      begin
+        match ty with
+        | TExn ->
+            let tvar = fresh_typevar () in
+            (tvar, type_ctx')
+        | _ ->
+            Util.Error.fail_error
+              ("Error typing "
+              ^ Syntax.string_of_exprML expr
+              ^ " : " ^ string_of_typeML ty ^ " is not equal to exn.")
+      end
+  | TryWith (e, handler_l) ->
+      let (ty, type_ctx') = infer_type type_ctx e in
+      let aux (ty, type_ctx) (Handler (pat, e_handler)) =
+        let (ty', type_ctx') =
+          begin
+            match pat with
+            | PatCons _ ->
+                (* TODO: We should check that the constructor exists *)
+                infer_type type_ctx e_handler
+            | PatVar id ->
+                let type_ctx' = Type_ctx.extend_var_ctx type_ctx id TExn in
+                infer_type type_ctx' e_handler
+          end in
+        begin
+          match unify_type type_ctx'.type_subst (ty, ty') with
+          | Some (ty, type_subst) ->
+              (ty, Type_ctx.update_type_subst type_ctx' type_subst)
+          | None -> failwith ""
+        end in
+      List.fold_left aux (ty, type_ctx') handler_l
   | Hole -> failwith "Error: The typechecker cannot type a hole."
   | Error ->
       let tvar = fresh_typevar () in
@@ -309,6 +342,7 @@ let typing_full type_subst expr =
       var_ctx= Type_ctx.empty_var_ctx;
       loc_ctx= Type_ctx.empty_loc_ctx;
       name_ctx;
+      exn_ctx = [];
       type_subst;
     } in
   let (ty, _) = infer_type type_ctx expr in

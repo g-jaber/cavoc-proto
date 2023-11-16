@@ -6,13 +6,19 @@ module Make (OpLang : Interactive.WITHNUP) = struct
   module Memory = OpLang.Memory
 
   type named_ectx = NCtx of (OpLang.cont_name * OpLang.eval_ctx)
-  type glue_val = GVal of OpLang.value | GPair of OpLang.value * named_ectx
+
+  type glue_val =
+    | GVal of OpLang.value
+    | GPair of OpLang.value * named_ectx
+    | GRaise of OpLang.value
+
   type interactive_val = IVal of OpLang.value | ICtx of named_ectx
 
   type abstract_val =
     | ANup of OpLang.Nup.nup
     | APair of (OpLang.Nup.nup * OpLang.cont_name)
     | AExists of (OpLang.typename list * abstract_val)
+    | ARaise of OpLang.Nup.nup
 
   let rec string_of_abstract_val = function
     | ANup nup -> OpLang.Nup.string_of_nup nup
@@ -27,9 +33,10 @@ module Make (OpLang : Interactive.WITHNUP) = struct
         "(" ^ String.concat "," string_l ^ ","
         ^ string_of_abstract_val aval
         ^ ")"
+    | ARaise nup -> "raise " ^ OpLang.Nup.string_of_nup nup
 
   let rec names_of_abstract_val = function
-    | ANup nup -> OpLang.Nup.names_of_nup nup
+    | ANup nup | ARaise nup -> OpLang.Nup.names_of_nup nup
     | APair (nup, cn) -> OpLang.inj_cont_name cn :: OpLang.Nup.names_of_nup nup
     | AExists (_, aval) ->
         names_of_abstract_val aval (* We should also add the type names !*)
@@ -179,20 +186,29 @@ module Make (OpLang : Interactive.WITHNUP) = struct
         let ienv = embed_value_env val_env in
         let name_type_ctx = embed_name_ctx name_ctx in
         (ANup nup, ienv, name_type_ctx)
+    | (GRaise value, GType _) ->
+        let (nup, val_env, name_ctx) = OpLang.Nup.abstract_val value OpLang.exception_type in
+        let ienv = embed_value_env val_env in
+        let name_type_ctx = embed_name_ctx name_ctx in
+        (ARaise nup, ienv, name_type_ctx)
     | (_, _) -> failwith "Ill-typed interactive value. Please report."
 
   let decompose_nf (NTerm (cn, term)) =
     match OpLang.get_callback term with
-    | Some (nn, value, ectx) -> Some (nn, GPair (value, NCtx (cn, ectx)))
+    | Some (fn, value, ectx) -> Some (fn, GPair (value, NCtx (cn, ectx)))
     | None -> begin
         match OpLang.get_value term with
         | Some value -> Some (OpLang.inj_cont_name cn, GVal value)
-        | None ->
-            if OpLang.is_error term then None
-            else
-              failwith
-                ("Error: the term " ^ OpLang.string_of_term term
-               ^ " is not in canonical form. Please report.")
+        | None -> begin
+            match OpLang.get_raise term with
+            | Some value -> Some (OpLang.inj_cont_name cn, GRaise value)
+            | None ->
+                if OpLang.is_error term then None
+                else
+                  failwith
+                    ("Error: the term " ^ OpLang.string_of_term term
+                   ^ " is not in canonical form. Please report.")
+          end
       end
 
   let val_composition ienv ival aval =

@@ -9,6 +9,7 @@ type typeML =
   | TProd of typeML * typeML
   | TSum of typeML * typeML
   | TRef of typeML
+  | TExn
   | TVar of typevar
   | TForall of typevar list * typeML
   | TId of id (* Implementation is only known by Proponent.  *)

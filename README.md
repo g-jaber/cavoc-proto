@@ -16,6 +16,7 @@ The language considered by the prototype is a fragment of OCaml with:
 - integer, booleans, product and sum data-types
 - dynamically generated mutable references
 - assertions that trigger uncaughtable errors
+- exception and try-with
 
 The prototype is organized modularly:
 - Our basic notion of bipartite LTS is defined by the signature INT_LTS in bilts.ml

@@ -27,6 +27,8 @@ module WithNup : Lang.Interactive.WITHNUP = struct
   let apply_value = Syntax.apply_value
   let get_callback = Syntax.get_callback
   let get_value = Syntax.get_value
+  let get_raise = Syntax.get_raise
+  let exception_type = Types.TExn
 
   (*let fresh_cname = Syntax.fresh_cname*)
   let is_error = Syntax.is_error

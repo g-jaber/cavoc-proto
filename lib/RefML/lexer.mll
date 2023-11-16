@@ -14,10 +14,10 @@ let space = [' ' '\t' '\n' '\r']
 let digit = ['0'-'9']
 let alpha = ['a'-'z' 'A'-'Z']
 let ident = ['a'-'z'] (alpha | '_' | '\'' | digit)*
-let sum = ['A'-'Z'] (alpha | '_' | '\'' | digit)*
 let name = '_' (alpha | '_' | '\'' | digit)*
 let tvar = '\'' (alpha | '_' | digit)*
 let integer = digit+
+let constructor = ['A'-'Z'] (alpha | '_' | '\'' | digit)*
 
 rule token = parse
   | '\n'  { newline lexbuf; token lexbuf }
@@ -64,9 +64,14 @@ rule token = parse
   | "then" { THEN }
   | "else" { ELSE }
 
+  | "raise" { RAISE }
+  | "try" { TRY }
+  | "|" { PIPE }
+
   | "unit" { TUNIT }
   | "int" { TINT }
   | "bool" { TBOOL }
+  | "exn" { TEXN }
 
   | "->"  { ARROW }
 
@@ -78,6 +83,7 @@ rule token = parse
   
   | "type" { TYPE }  
   | "val" { VAL } 
+  | "exception" { EXCEPTION }
 
   | eof  { EOF }
 
@@ -86,6 +92,7 @@ rule token = parse
   | ident as id  { VAR id }
   | tvar as t  { TVAR t }
   | name as nn { NAME nn }
+  | constructor as c { CONSTRUCTOR c }
 
   | _  { raise Error }
 

@@ -10,6 +10,7 @@
 %token <Syntax.id> VAR
 %token <Syntax.id> TVAR
 %token <Syntax.id> NAME
+%token <Syntax.constructor> CONSTRUCTOR
 %token EQ
 %token PLUS MINUS MULT DIV
 %token LAND LOR NOT
@@ -24,12 +25,16 @@
 %token WHILE DO DONE
 %token MATCH WITH
 %token ASSERT
+%token RAISE
+%token TRY
+%token PIPE
 
-%token TYPE VAL
+%token TYPE VAL EXCEPTION
 
 %token TUNIT
 %token TINT
 %token TBOOL
+%token TEXN
 
 %left ELSE IN ARROW
 %left SEMICOLON
@@ -65,6 +70,7 @@ signature_decl:
   | TYPE VAR { PrivateTypeDecl ($2) }  
   | TYPE VAR EQ ty { PublicTypeDecl ($2,$4) }
   | VAL VAR COLON ty { PublicValDecl ($2,$4) }
+  | EXCEPTION CONSTRUCTOR { PublicExnDecl $2 }
 
 implem_decl:
   | TYPE VAR EQ ty { TypeDecl ($2,$4) }
@@ -72,6 +78,7 @@ implem_decl:
     { ValDecl ($2, List.fold_left (fun expr var -> Fun (var,expr)) $5 $3) }
   | LET REC VAR typed_ident list_ident EQ expr
     { ValDecl ($3, Fix (($3,TUndef),$4, List.fold_left (fun expr var -> Fun (var,expr)) $7 $5)) }
+  | EXCEPTION CONSTRUCTOR { ExnDecl $2 }
 
 list_signature_decl:
   |  { [] }
@@ -81,6 +88,14 @@ list_implem_decl:
   |  { [] }
   | list_implem_decl implem_decl {$2::$1}
 
+pattern : 
+  | CONSTRUCTOR {PatCons $1}
+  | VAR {PatVar $1}
+
+handler : PIPE pattern ARROW expr {$2,$4}
+handler_list : 
+  | { [] }
+  | handler handler_list {(Handler ($1))::$2}
 
 expr:
   | app_expr { $1 }
@@ -99,6 +114,8 @@ expr:
   | REF expr         { Newref (TUndef,$2) }
   | expr ASSIGN expr { Assign ($1,$3) }
   | ASSERT expr      { Assert $2 }
+  | RAISE expr { Raise $2 }
+  | TRY e=expr WITH hl=handler_list { TryWith (e,hl) }
 (*  | MINUS expr          { UMinus (-$2) }  *)
   | expr PLUS expr     { BinaryOp (Plus, $1, $3) }
   | expr MINUS expr    { BinaryOp (Minus, $1, $3) }
@@ -120,6 +137,7 @@ app_expr:
 
 simple_expr:
   | VAR             { Var $1 }
+  | CONSTRUCTOR     { Constructor $1}
   | NAME            { Name (fname_of_id (trim_name_id $1)) }
   | UNIT            { Unit }
   | INT             { Int $1 }
@@ -148,5 +166,6 @@ ty:
   | ty ARROW ty { TArrow ($1, $3) }
   | ty MULT ty   { TProd ($1, $3) }
   | LPAR ty RPAR { $2 }
+  | TEXN { TExn }
 
 %%

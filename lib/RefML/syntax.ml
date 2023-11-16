@@ -2,6 +2,7 @@ open Util.Pmap
 
 (* id are used for both variables and names*)
 type id = string
+type constructor = string
 
 let string_of_id x = x
 
@@ -74,6 +75,8 @@ let is_callable = function
 
 (* Syntax of Expressions *)
 
+type pattern = PatCons of constructor | PatVar of id
+
 type binary_op =
   | Plus
   | Minus
@@ -90,8 +93,11 @@ type binary_op =
 
 type unary_op = Not
 
-type exprML =
+type handler = Handler of (pattern * exprML)
+
+and exprML =
   | Var of id
+  | Constructor of constructor
   | Name of name
   | Loc of loc
   | Unit
@@ -112,6 +118,8 @@ type exprML =
   | Deref of exprML
   | Assign of exprML * exprML
   | Assert of exprML
+  | Raise of exprML
+  | TryWith of (exprML * handler list)
   | Hole
   | Error
 
@@ -123,7 +131,8 @@ let empty_name_set = []
 
 let rec get_new_names lnames = function
   | Name n -> if List.mem n lnames then lnames else n :: lnames
-  | Var _ | Loc _ | Unit | Int _ | Bool _ | Hole | Error -> lnames
+  | Var _ | Constructor _ | Loc _ | Unit | Int _ | Bool _ | Hole | Error ->
+      lnames
   | UnaryOp (_, e)
   | Fun (_, e)
   | Fix (_, _, e)
@@ -145,6 +154,12 @@ let rec get_new_names lnames = function
       let lnames1 = get_new_names lnames e1 in
       let lnames2 = get_new_names lnames1 e2 in
       get_new_names lnames2 e3
+  | Raise e1 -> get_new_names lnames e1
+  | TryWith (e1, handler_l) ->
+      let lnames' = get_new_names lnames e1 in
+      List.fold_left
+        (fun lnames (Handler (_, expr)) -> get_new_names lnames expr)
+        lnames' handler_l
 
 let get_names = get_new_names empty_name_set
 
@@ -152,6 +167,7 @@ type valML = exprML
 
 let rec isval = function
   (*| Var _ -> true*)
+  | Constructor _ -> true
   | Name _ -> true
   | Loc _ -> true
   | Unit -> true
@@ -167,10 +183,13 @@ let apply_value val1 val2 = App (val1, val2)
 let rec subst expr value value' =
   match expr with
   | Var _ when expr = value -> value'
+  | Constructor _ when expr = value -> value'
   | Name _ when expr = value -> value'
   | Loc _ when expr = value -> value'
   | Hole when expr = value -> value'
-  | Var _ | Name _ | Loc _ | Hole | Unit | Int _ | Bool _ | Error -> expr
+  | Var _ | Constructor _ | Name _ | Loc _ | Hole | Unit | Int _ | Bool _
+  | Error ->
+      expr
   | BinaryOp (op, expr1, expr2) ->
       BinaryOp (op, subst expr1 value value', subst expr2 value value')
   | UnaryOp (op, expr) -> UnaryOp (op, subst expr value value')
@@ -207,6 +226,16 @@ let rec subst expr value value' =
   | Assign (expr1, expr2) ->
       Assign (subst expr1 value value', subst expr2 value value')
   | Assert expr -> Assert (subst expr value value')
+  | Raise expr -> Raise (subst expr value value')
+  | TryWith (expr, handler_l) ->
+      let expr' = subst expr value value' in
+      let aux (Handler (pat, expr_pat)) =
+        match pat with
+        | PatCons _ -> Handler (pat, subst expr_pat value value')
+        | PatVar id when Var id <> value ->
+            Handler (pat, subst expr_pat value value')
+        | PatVar _ -> Handler (pat, expr_pat) in
+      TryWith (expr', List.map aux handler_l)
 
 let subst_var expr id = subst expr (Var id)
 
@@ -214,6 +243,8 @@ let subst_list expr lsubst =
   List.fold_left
     (fun expr (var, value) -> subst expr (Var var) value)
     expr lsubst
+
+let string_of_pattern = function PatCons c -> c | PatVar id -> id
 
 let string_of_typed_var = function
   | (x, Types.TUndef) -> x
@@ -244,6 +275,7 @@ let rec string_par_of_exprML = function
 
 and string_of_exprML = function
   | Var x -> x
+  | Constructor c -> c
   | Name n -> string_of_name n
   | Loc l -> string_of_loc l
   | Unit -> "()"
@@ -280,8 +312,16 @@ and string_of_exprML = function
   | Deref e -> "!" ^ string_of_exprML e
   | Assign (e1, e2) -> string_of_exprML e1 ^ " := " ^ string_of_exprML e2
   | Assert e -> "assert " ^ string_of_exprML e
+  | Raise e -> "raise " ^ string_of_exprML e
+  | TryWith (e, handler_l) ->
+      let handler_string_l = List.map string_of_handler handler_l in
+      "try " ^ string_of_exprML e ^ " with "
+      ^ String.concat "|" handler_string_l
   | Hole -> "•"
   | Error -> "error"
+
+and string_of_handler (Handler (pat, expr)) =
+  string_of_pattern pat ^ " => " ^ string_of_exprML expr
 
 let string_of_value = string_of_exprML
 
@@ -348,9 +388,7 @@ let empty_val_env = Util.Pmap.empty
 type full_expr = exprML * val_env
 
 let string_of_full_expr (expr, val_env) =
-  "(" ^ string_of_exprML expr ^ ",["
-  ^ string_of_val_env val_env
-  ^ "])"
+  "(" ^ string_of_exprML expr ^ ",[" ^ string_of_val_env val_env ^ "])"
 
 (* Evaluation Contexts *)
 
@@ -358,7 +396,9 @@ type eval_context = exprML
 
 let rec extract_ctx expr =
   match expr with
-  | Name _ | Loc _ | Unit | Int _ | Bool _ | Fix _ | Fun _ | Error -> (expr, Hole)
+  | Constructor _ | Name _ | Loc _ | Unit | Int _ | Bool _ | Fix _ | Fun _
+  | Error ->
+      (expr, Hole)
   | BinaryOp (_, expr1, expr2)
   | App (expr1, expr2)
   | Pair (expr1, expr2)
@@ -372,12 +412,14 @@ let rec extract_ctx expr =
       extract_ctx_un (fun x -> If (x, expr2, expr3)) expr1
   | Let (var, expr1, expr2) ->
       extract_ctx_un (fun x -> Let (var, x, expr2)) expr1
-  | LetPair (var1, var2, expr1, expr2) -> 
-    extract_ctx_un (fun x -> LetPair (var1, var2, x, expr2)) expr1
+  | LetPair (var1, var2, expr1, expr2) ->
+      extract_ctx_un (fun x -> LetPair (var1, var2, x, expr2)) expr1
   | Seq (expr1, expr2) -> extract_ctx_un (fun x -> Seq (x, expr2)) expr1
   | While (expr1, expr2) -> extract_ctx_un (fun x -> While (x, expr2)) expr1
-  | Assert expr' ->
-    extract_ctx_un (fun x -> Assert x) expr'
+  | Assert expr' -> extract_ctx_un (fun x -> Assert x) expr'
+  | Raise expr' -> extract_ctx_un (fun x -> Raise x) expr'
+  | TryWith (expr', handler_l) ->
+      extract_ctx_un (fun x -> TryWith (x, handler_l)) expr'
   | Var _ | Hole ->
       failwith
         ("Error: trying to extract an evaluation context from "
@@ -426,6 +468,10 @@ let get_callback expr =
 let is_error expr =
   let (expr', _) = extract_ctx expr in
   match expr' with Error -> true | _ -> false
+
+let get_raise = function
+  | Raise v when isval v -> Some v
+  | _ -> None
 
 let fill_hole ctx expr = subst ctx Hole expr
 let string_of_eval_context ctx = string_of_exprML ctx

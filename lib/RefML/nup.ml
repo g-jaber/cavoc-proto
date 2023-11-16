@@ -2,10 +2,10 @@
 type name = Syntax.name
 type value = Syntax.valML
 type typ = Types.typeML
-(* *)
-type name_ctx = (name,typ) Util.Pmap.pmap
-type val_env = (name,value) Util.Pmap.pmap
 
+(* *)
+type name_ctx = (name, typ) Util.Pmap.pmap
+type val_env = (name, value) Util.Pmap.pmap
 type nup = Syntax.exprML
 
 let string_of_nup = Syntax.string_of_exprML
@@ -73,8 +73,12 @@ let rec generate_nup namectxP = function
       let pn_list = Util.Pmap.select_im ty namectxP in
       List.map (fun pn -> (Name pn, Type_ctx.empty_name_ctx)) pn_list
   | TName _ as ty ->
-    let pn = fresh_pname () in
-    [(Name pn,Util.Pmap.singleton (pn,ty))]
+      let pn = fresh_pname () in
+      [ (Name pn, Util.Pmap.singleton (pn, ty)) ]
+  | TExn as ty ->
+      failwith
+        ("Error: the generation of a nups on type " ^ Types.string_of_typeML ty
+       ^ " is not yet supported.")
   | ty ->
       failwith
         ("Error generating a nup on type " ^ Types.string_of_typeML ty
@@ -117,9 +121,12 @@ let rec type_check_nup namectxP namectxO ty nup =
         (* the name nn has to be fresh to be well-typed *)
       else Some (Util.Pmap.singleton (nn, ty))
   | (TName _, _) -> None
-  | (TVar _, _) ->  failwith @@ "Error: trying to type-check a nup of type " ^ (Types.string_of_typeML ty) ^ ". Please report."
-   | (TUndef, _) | (TRef _, _) | (TSum _, _) ->
-    failwith @@ "Error: type-checking a nup of type " ^ (Types.string_of_typeML ty) ^ " is not yet supported."
+  | (TVar _, _) ->
+      failwith @@ "Error: trying to type-check a nup of type "
+      ^ Types.string_of_typeML ty ^ ". Please report."
+  | (TUndef, _) | (TRef _, _) | (TSum _, _) | (TExn,_) ->
+      failwith @@ "Error: type-checking a nup of type "
+      ^ Types.string_of_typeML ty ^ " is not yet supported."
 
 let rec abstract_val (value : valML) ty =
   match (value, ty) with
@@ -141,8 +148,8 @@ let rec abstract_val (value : valML) ty =
       let ienv = Util.Pmap.singleton (pn, value) in
       let lnamectx = Util.Pmap.singleton (pn, ty) in
       (Name pn, ienv, lnamectx)
-  | (Name _, TName _) ->
-    (value, Util.Pmap.empty, Type_ctx.empty_name_ctx)
+  | (Name _, TName _) -> (value, Util.Pmap.empty, Type_ctx.empty_name_ctx)
+  | (Constructor _, TExn) -> (value,Util.Pmap.empty, Type_ctx.empty_name_ctx)
   | _ ->
       failwith
         ("Error: " ^ string_of_exprML value ^ " of type " ^ string_of_typeML ty

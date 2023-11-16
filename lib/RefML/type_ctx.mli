@@ -2,7 +2,7 @@ type name_ctx = (Syntax.name, Types.typeML) Util.Pmap.pmap
 type var_ctx = (Syntax.id, Types.typeML) Util.Pmap.pmap
 type loc_ctx = (Syntax.loc, Types.typeML) Util.Pmap.pmap
 type type_ctx =
-  {var_ctx:var_ctx; loc_ctx:loc_ctx; name_ctx:name_ctx; type_subst: Types.type_subst}
+  {var_ctx:var_ctx; loc_ctx:loc_ctx; name_ctx:name_ctx; exn_ctx: Syntax.constructor list; type_subst: Types.type_subst}
 
 val get_var_ctx : type_ctx -> var_ctx
 val get_name_ctx : type_ctx -> name_ctx

@@ -10,6 +10,7 @@ type typeML =
   | TProd of typeML * typeML
   | TSum of typeML * typeML
   | TRef of typeML
+  | TExn
   | TVar of typevar
   | TForall of typevar list * typeML
   | TId of id
@@ -27,6 +28,7 @@ let rec string_par_of_typeML = function
   | TSum (ty1, ty2) ->
       "(" ^ string_par_of_typeML ty1 ^ "+" ^ string_par_of_typeML ty2 ^ ")"
   | TRef ty -> "(ref " ^ string_of_typeML ty ^ ")"
+  | TExn -> "exn"
   | TVar typevar -> typevar
   | TForall (tvars, ty) ->
       let tvars_string = String.concat " " tvars in
@@ -44,6 +46,7 @@ and string_of_typeML = function
       string_par_of_typeML ty1 ^ "*" ^ string_par_of_typeML ty2
   | TSum (ty1, ty2) -> string_par_of_typeML ty1 ^ "+" ^ string_par_of_typeML ty2
   | TRef ty -> "ref " ^ string_of_typeML ty
+  | TExn -> "exn"
   | TVar typevar -> typevar
   | TForall (tvars, ty) ->
       let tvars_string = String.concat " " tvars in
@@ -77,7 +80,7 @@ module TVarSet = Set.Make (struct
 end)
 
 let rec get_new_tvars tvar_set = function
-  | TUnit | TInt | TBool | TId _ | TName _ | TUndef -> tvar_set
+  | TUnit | TInt | TBool | TExn | TId _ | TName _ | TUndef -> tvar_set
   | TArrow (ty1, ty2) | TProd (ty1, ty2) | TSum (ty1, ty2) ->
       let tvar_set' = get_new_tvars tvar_set ty1 in
       get_new_tvars tvar_set' ty2
@@ -97,7 +100,7 @@ type type_env = (id, typeML) Util.Pmap.pmap
 (* The following function perform parallel substitution of subst on ty *)
 let rec apply_type_subst ty subst =
   match ty with
-  | TUnit | TInt | TBool | TName _ | TRef _ -> ty
+  | TUnit | TInt | TBool | TName _ | TRef _ | TExn -> ty
   | TArrow (ty1, ty2) ->
       TArrow (apply_type_subst ty1 subst, apply_type_subst ty2 subst)
   | TProd (ty1, ty2) ->
@@ -116,7 +119,7 @@ let rec apply_type_subst ty subst =
 
 let rec apply_type_env ty type_env =
   match ty with
-  | TUnit | TInt | TBool | TRef _ | TName _ | TVar _ -> ty
+  | TUnit | TInt | TBool | TRef _ | TName _ | TVar _ | TExn -> ty
   | TArrow (ty1, ty2) ->
       TArrow (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
   | TProd (ty1, ty2) ->
@@ -131,7 +134,7 @@ let rec apply_type_env ty type_env =
 
 let rec subst_type tvar sty ty =
   match ty with
-  | TUnit | TInt | TBool | TRef _ -> ty
+  | TUnit | TInt | TBool | TRef _ | TExn -> ty
   | TArrow (ty1, ty2) ->
       TArrow (subst_type tvar sty ty1, subst_type tvar sty ty2)
   | TProd (ty1, ty2) -> TProd (subst_type tvar sty ty1, subst_type tvar sty ty2)
@@ -189,6 +192,7 @@ let rec unify_type tsubst = function
               None
           | Some (ty2, lsubst'') -> Some (TProd (ty1, ty2), lsubst''))
     end
+  | (TExn, TExn) -> Some (TExn, tsubst)
   | ((TVar tvar1 as ty1), TVar tvar2) when tvar1 = tvar2 -> Some (ty1, tsubst)
   | ((TVar _ as ty1), TVar tvar2) ->
       Some (ty1, Util.Pmap.modadd_pmap (tvar2, ty1) tsubst)

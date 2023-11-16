@@ -195,15 +195,37 @@ let interpreter interpreter (expr, valenv, heap) =
         | _ -> return (BinaryOp (op, nf1, expr2), valenv, heap1)
       end
   | Assert guard ->
-    let* (guard', _, heap') = interpreter (guard, valenv, heap) in
-    begin
-      match guard' with
-      | Bool false -> return (Error, valenv, heap')
-      | Bool true -> return (Unit, valenv, heap')
-      | _ ->
-        Util.Debug.print_debug "Callback inside an assert!";
-        return (Assert guard', valenv, heap')
-    end
+      let* (guard', _, heap') = interpreter (guard, valenv, heap) in
+      begin
+        match guard' with
+        | Bool false -> return (Error, valenv, heap')
+        | Bool true -> return (Unit, valenv, heap')
+        | _ ->
+            Util.Debug.print_debug "Callback inside an assert!";
+            return (Assert guard', valenv, heap')
+      end
+  | Raise expr ->
+    let* (nf, _, heap') = interpreter (expr, valenv, heap) in
+    return (Raise nf, valenv, heap')
+  | TryWith (expr, handler_l) ->
+      let* (nf, _, heap') = interpreter (expr, valenv, heap) in
+      if isval nf then return (nf, valenv, heap')
+      else begin
+        match nf with
+        | Raise ((Constructor c) as cons) ->
+            let rec aux = function
+              | Handler (pat, expr_pat) :: handler_l' -> begin
+                  match pat with
+                  | PatCons c' when c = c' ->
+                      interpreter (expr_pat, valenv, heap')
+                  | PatCons _ -> aux handler_l'
+                  | PatVar id -> let expr' = subst_var expr_pat id cons in
+                  interpreter (expr',valenv,heap')
+                end
+              | [] -> return (Raise cons, valenv, heap') in
+            aux handler_l
+        | _ -> return (TryWith (nf, handler_l),valenv,heap')
+      end
   | _ ->
       failwith
         ("Error: "

@@ -31,6 +31,7 @@ module type TYPED = sig
 
   val get_input_type : typ -> typevar list * typ
   val get_output_type : typ -> typ
+  val exception_type : typ
 
   val generate_typename_subst :
     typevar list -> typename list * (typevar, typ) Util.Pmap.pmap
@@ -57,10 +58,11 @@ module type COMP = sig
   module Memory : MEMORY
 
   type opconf = term * Memory.memory
+
   val get_callback : term -> (name * value * eval_ctx) option
   val get_value : term -> value option
   val is_error : term -> bool
-
+  val get_raise : term -> value option
   val compute_nf : opconf -> opconf option
   val get_typed_term : string -> in_channel -> term * typ * name_ctx
 
