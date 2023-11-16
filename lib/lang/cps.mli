@@ -1,4 +1,5 @@
-module Make : Interactive.FOCUSING_F
+module Make : Interactive.LANG_F
+
 
 module type INTLANG = sig
   include Interactive.LANG

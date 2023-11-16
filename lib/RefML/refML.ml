@@ -1,4 +1,4 @@
-module WithNup = struct
+module WithNup : Lang.Interactive.WITHNUP = struct
   type name = Syntax.name
 
   let string_of_name = Syntax.string_of_name
@@ -19,6 +19,7 @@ module WithNup = struct
 
   let string_of_value = Syntax.string_of_value
 
+  type val_env = (name, value) Util.Pmap.pmap
   type eval_ctx = Syntax.eval_context
 
   let string_of_eval_ctx = Syntax.string_of_eval_context
@@ -26,62 +27,79 @@ module WithNup = struct
   let apply_value = Syntax.apply_value
   let get_callback = Syntax.get_callback
   let get_value = Syntax.get_value
+
   (*let fresh_cname = Syntax.fresh_cname*)
   let is_error = Syntax.is_error
 
   type typ = Types.typeML
-
   type typevar = Types.typevar
   type typename = Types.id
 
   let string_of_type = Types.string_of_typeML
-
   let string_of_typename id = id
+
   let generate_typename_subst tvar_l =
-    let aux tvar = 
+    let aux tvar =
       let tname = Types.fresh_typename () in
-      (tname,(tvar,Types.TName tname))
-    in 
-    let (tname_l,type_subst_l) = List.split @@ List.map aux tvar_l in
-    (tname_l,Util.Pmap.list_to_pmap type_subst_l)
+      (tname, (tvar, Types.TName tname)) in
+    let (tname_l, type_subst_l) = List.split @@ List.map aux tvar_l in
+    (tname_l, Util.Pmap.list_to_pmap type_subst_l)
+
   let apply_type_subst = Types.apply_type_subst
 
   type name_ctx = (name, typ) Util.Pmap.pmap
 
   let get_input_type = function
-    | Types.TArrow (ty1, _) -> ([],ty1)
-    | Types.TForall (tvar_l,TArrow(ty1,_)) -> (tvar_l,ty1)
+    | Types.TArrow (ty1, _) -> ([], ty1)
+    | Types.TForall (tvar_l, TArrow (ty1, _)) -> (tvar_l, ty1)
     | ty ->
         failwith @@ "Error: the type " ^ Types.string_of_typeML ty
         ^ "is not a negative type. Please report."
 
   let get_output_type = function
     | Types.TArrow (_, ty2) -> ty2
-    | Types.TForall (_,TArrow(_,ty2)) -> ty2
+    | Types.TForall (_, TArrow (_, ty2)) -> ty2
     | ty ->
         failwith @@ "Error: the type " ^ Types.string_of_typeML ty
         ^ "is not a negative type. Please report."
+     
+  module Resources = struct
+    type resources = Syntax.val_env * Heap.heap
 
-  module Nup :
-    Lang.Nup.NUP
-      with type name = Syntax.name
-       and type value = Syntax.valML
-       and type typ = typ =
-    Nup
-end
+    let string_of_resources (valenv, heap) =
+      Syntax.string_of_val_env valenv ^ "| " ^ Heap.string_of_heap heap
 
-module RefML : Lang.Focusing.INTLANG = struct
-  include WithNup
-  module Focusing = Lang.Focusing.Make (WithNup)
+    let empty_resources = (Syntax.empty_val_env, Heap.emptyheap)
 
-  open Focusing
+    (* We trick the system by keeping the full val_env as type ctx *)
+    type resources_type_ctx = Syntax.val_env * Type_ctx.loc_ctx
 
-  let get_typed_computation nbprog inBuffer =
+    let empty_resources_type_ctx = (Syntax.empty_val_env, Type_ctx.empty_loc_ctx)
+
+    let string_of_resources_type_ctx (valenv, loc_ctx) =
+      Syntax.string_of_val_env valenv ^ "|" ^ Type_ctx.string_of_loc_ctx loc_ctx
+
+    let resources_type_ctx_of_resources (valenv, loc_ctx) =
+      (valenv, Heap.loc_ctx_of_heap loc_ctx)
+
+    let generate_resources (valenv, loc_ctx) =
+      List.map (fun heap -> (valenv, heap)) (Heap.generate_heaps loc_ctx)
+  end
+
+  type opconf = term * Resources.resources
+
+  let compute_nf (term, (val_env, heap)) =
+    match Interpreter.compute_nf (term, val_env, heap) with
+    | None -> None
+    | Some (nf', val_env', heap') -> Some (nf', (val_env', heap'))
+
+  let get_typed_term nbprog inBuffer =
     let lineBuffer = Lexing.from_channel inBuffer in
     try
       let expr = Parser.fullexpr Lexer.token lineBuffer in
       let ty = Type_checker.typing_full Util.Pmap.empty expr in
-      Focusing.generate_computation expr ty
+      (expr, ty, Util.Pmap.empty)
+      (*TODO: To be corrected*)
     with
     | Lexer.SyntaxError msg ->
         failwith ("Parsing Error in the " ^ nbprog ^ " program:" ^ msg)
@@ -92,44 +110,19 @@ module RefML : Lang.Focusing.INTLANG = struct
     | Type_checker.TypingError msg ->
         failwith ("Typing Error in the " ^ nbprog ^ " program:" ^ msg)
 
-  type resources = Syntax.val_env * Heap.heap
-
-  let string_of_resources (valenv, heap) =
-    Syntax.string_of_val_env valenv ^ "| " ^ Heap.string_of_heap heap
-
-  let empty_resources = (Syntax.empty_val_env, Heap.emptyheap)
-
-  (* We trick the system by keeping the full val_env as type ctx *)
-  type resources_type_ctx = Syntax.val_env * Type_ctx.loc_ctx
-
-  let empty_resources_type_ctx = (Syntax.empty_val_env, Type_ctx.empty_loc_ctx)
-
-  let string_of_resources_type_ctx (valenv, loc_ctx) =
-    Syntax.string_of_val_env valenv ^ "|" ^ Type_ctx.string_of_loc_ctx loc_ctx
-
-  let resources_type_ctx_of_resources (valenv, loc_ctx) =
-    (valenv, Heap.loc_ctx_of_heap loc_ctx)
-
-  let generate_resources (valenv, loc_ctx) =
-    List.map (fun heap -> (valenv, heap)) (Heap.generate_heaps loc_ctx)
-
-  type opconf = computation * resources
-
-  let get_typed_ienv inBuffer_implem inBuffer_signature =
+  let get_typed_val_env inBuffer_implem inBuffer_signature =
     let lexer_implem = Lexing.from_channel inBuffer_implem in
     let lexer_signature = Lexing.from_channel inBuffer_signature in
     try
       let implem_decl_l = Parser.prog Lexer.token lexer_implem in
       let signature_decl_l = Parser.signature Lexer.token lexer_signature in
       let (comp_env, type_ctx) = Declaration.get_typed_comp_env implem_decl_l in
-      let (val_env, heap) = Interpreter.compute_val_env comp_env in
-      let (val_env', name_ctxP) =
-        Declaration.get_typed_val_env val_env signature_decl_l in
-        Util.Debug.print_debug @@ "The name context for Proponent is " ^ (Type_ctx.string_of_name_ctx name_ctxP);
-      ( Focusing.embed_value_env val_env',
-        (val_env, heap),
-        Focusing.embed_name_ctx @@ name_ctxP,
-        Focusing.embed_name_ctx @@ Type_ctx.get_name_ctx type_ctx )
+      let (val_assign, heap) = Interpreter.compute_val_env comp_env in
+      let (val_env, name_ctxP) =
+        Declaration.get_typed_val_env val_assign signature_decl_l in
+      Util.Debug.print_debug @@ "The name context for Proponent is "
+      ^ Type_ctx.string_of_name_ctx name_ctxP;
+      (val_env, (val_assign, heap), name_ctxP, Type_ctx.get_name_ctx type_ctx)
     with
     | Lexer.SyntaxError msg -> failwith ("Parsing Error: " ^ msg)
     | Parser.Error ->
@@ -139,10 +132,12 @@ module RefML : Lang.Focusing.INTLANG = struct
         (* Need to get in which file the Parser.Error is *)
     | Type_checker.TypingError msg -> failwith ("Typing Error: " ^ msg)
 
-  let compute_nf (nterm, (valenv, heap)) =
-    let (cn, term) = Focusing.extract_term nterm in
-    match Interpreter.compute_nf (term, valenv, heap) with
-    | None -> None
-    | Some (nf, valenv', heap') ->
-        Some (Focusing.embed_term (cn, nf), (valenv', heap'))
+  module Nup :
+    Lang.Nup.NUP
+      with type name = Syntax.name
+       and type value = Syntax.valML
+       and type typ = typ =
+    Nup
 end
+
+module RefML : Lang.Interactive.LANG = Lang.Cps.Make (WithNup)

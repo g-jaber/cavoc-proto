@@ -1,10 +1,9 @@
 module Make (OpLang : Interactive.WITHNUP) = struct
   (*instantiating*)
-  type name = OpLang.name
-  type value = OpLang.value
-  type term = OpLang.term
-  type typ = OpLang.typ
+  include OpLang
   (* *)
+
+  module Resources = OpLang.Resources
 
   type named_ectx = NCtx of (OpLang.cont_name * OpLang.eval_ctx)
   type glue_val = GVal of OpLang.value | GPair of OpLang.value * named_ectx
@@ -72,6 +71,9 @@ module Make (OpLang : Interactive.WITHNUP) = struct
 
   type computation = NTerm of (OpLang.cont_name * OpLang.term)
 
+  (*We redefine opconf *)
+  type opconf = computation * Resources.resources
+
   let string_of_computation (NTerm (cn, term)) =
     "[" ^ OpLang.string_of_cont_name cn ^ "]" ^ OpLang.string_of_term term
 
@@ -79,14 +81,10 @@ module Make (OpLang : Interactive.WITHNUP) = struct
     let cn = OpLang.fresh_cname () in
     (NTerm (cn, term), Util.Pmap.singleton (OpLang.inj_cont_name cn, INeg ty))
 
-  let embed_term (nn, term) =
-    match OpLang.get_cont_name nn with
-    | Some cn -> NTerm (cn, term)
-    | None ->
-        failwith @@ "The name " ^ OpLang.string_of_name nn
-        ^ "is not a continuation name. Please report."
-
-  let extract_term (NTerm (cn, term)) = (OpLang.inj_cont_name cn, term)
+  let compute_nf (NTerm (cn, term), resources) =
+    match OpLang.compute_nf (term, resources) with
+    | None -> None
+    | Some (nf, resources') -> Some (NTerm (cn, nf), resources')
 
   let rec generate_abstract_val name_type_ctx gtype =
     let name_ctx = extract_name_ctx name_type_ctx in
@@ -239,6 +237,18 @@ module Make (OpLang : Interactive.WITHNUP) = struct
         end
     | (ANup nup1, ANup nup2) -> OpLang.Nup.unify_nup nspan nup1 nup2
     | _ -> None
+
+  let get_typed_computation nbprog inBuffer =
+    let (term, ty, _) = OpLang.get_typed_term nbprog inBuffer in
+    generate_computation term ty
+
+  let get_typed_ienv inBuffer_implem inBuffer_signature =
+    let (val_env, resources, namectxP, namectxO) =
+      OpLang.get_typed_val_env inBuffer_implem inBuffer_signature in
+    ( embed_value_env val_env,
+      resources,
+      embed_name_ctx @@ namectxP,
+      embed_name_ctx @@ namectxO )
 end
 
 module type INTLANG = sig

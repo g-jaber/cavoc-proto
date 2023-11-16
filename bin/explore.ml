@@ -45,7 +45,7 @@ let () =
       Int.IntLang.get_typed_computation "first" expr_buffer in
     Util.Debug.print_debug
       ("Name contexts for Opponent: "
-      ^ Int.IntLang.Focusing.string_of_name_type_ctx namectxO);
+      ^ Int.IntLang.string_of_name_type_ctx namectxO);
     let init_act_conf = ProdLTS.init_aconf expr namectxO in
     let init_conf = ProdLTS.Active init_act_conf in
     let module Generate = Cavoc.Generate_trace.Make (ProdLTS) in

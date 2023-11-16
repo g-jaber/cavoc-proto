@@ -2,31 +2,30 @@ module type INT = sig
   (* To be instantiated *)
   module IntLang : Lang.Interactive.LANG
   module Actions : Actions.ACTIONS with type Moves.name = IntLang.name
-
   (* *)
 
   val generate_output_action :
-    IntLang.Focusing.name_type_ctx ->
+    IntLang.name_type_ctx ->
     IntLang.name ->
-    IntLang.Focusing.glue_val ->
+    IntLang.glue_val ->
     Actions.action
-    * IntLang.Focusing.interactive_env
-    * IntLang.Focusing.name_type_ctx
+    * IntLang.interactive_env
+    * IntLang.name_type_ctx
 
   val generate_input_moves :
-    IntLang.Focusing.name_type_ctx ->
-    (Actions.Moves.move * IntLang.Focusing.name_type_ctx) list
+    IntLang.name_type_ctx ->
+    (Actions.Moves.move * IntLang.name_type_ctx) list
 
   val check_input_move :
-    IntLang.Focusing.name_type_ctx ->
-    IntLang.Focusing.name_type_ctx ->
+    IntLang.name_type_ctx ->
+    IntLang.name_type_ctx ->
     Actions.Moves.move ->
-    IntLang.Focusing.name_type_ctx option
+    IntLang.name_type_ctx option
 
   val trigger_computation :
-    IntLang.Focusing.interactive_env ->
+    IntLang.interactive_env ->
     Actions.Moves.move ->
-    IntLang.Focusing.computation
+    IntLang.computation
 
   val unify_action :
     IntLang.name Util.Namespan.namespan ->

@@ -42,9 +42,9 @@ let () =
     Int.IntLang.get_typed_ienv inBuffer2 inBuffer3 in
   Util.Debug.print_debug
     ("Name contexts for Opponent: "
-    ^ Int.IntLang.Focusing.string_of_name_type_ctx namectxO
+    ^ Int.IntLang.string_of_name_type_ctx namectxO
     ^ " and "
-    ^ Int.IntLang.Focusing.string_of_name_type_ctx namectxO');
+    ^ Int.IntLang.string_of_name_type_ctx namectxO');
   let init_aconf =
     ProdLTS.Active
       (ProdLTS.init_aconf expr1 (Util.Pmap.concat namectxO namectxO')) in

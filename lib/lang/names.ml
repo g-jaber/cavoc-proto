@@ -6,9 +6,7 @@ module type NAME = sig
 end
 
 module type CONT_NAMES = sig
-  (* to be instantiated *)
-  type name
-  (* *)
+  include NAME
 
   type cont_name
 

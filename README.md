@@ -21,7 +21,7 @@ The prototype is organized modularly:
 - Our basic notion of bipartite LTS is defined by the signature INT_LTS in bilts.ml
 - We provide a generic way to compute the product of two bipartite LTS via the functor Make of the file product_lts.ml
 - The OGS LTS is defined in ogs.ml by a functor over Interactive.INT signature
-- a functor Int_Make (CpsLang : Lang.Focusing.INTLANG) is provided in the file cps.ml 
+- a functor Int_Make (CpsLang : Lang.Cps.INTLANG) is provided in the file cps.ml 
 to build a module of signature Interactive.INT.
 - a functor Make (OpLang : Interactive.WITHNUP) is provided in the file lang/focusing.ml
 - Our language RefML instantiates the signature Interactive.WITHNUP in the file

@@ -1,18 +1,17 @@
-
 module type WITHNUP = sig
-  include Language.WITHNUP 
-  include Names.CONT_NAMES with type name := name
+  include Language.WITHNUP include Names.CONT_NAMES with type name := name
 end
 
-
 (* TODO: Ideally we should be able to remove the dependency over value, term and typ*)
-module type FOCUSING = sig
+module type LANG = sig
   (* to be instantiated *)
-  type name
-  type value
-  type term
-  type typ
-  (* *)
+  include Names.CONT_NAMES
+  (*
+     type value
+     type term
+     type typ
+  *)
+  (*include Language.COMP*)
 
   type interactive_val
   type abstract_val
@@ -22,7 +21,14 @@ module type FOCUSING = sig
 
   type glue_val
   type computation
+
   val string_of_computation : computation -> string
+
+  module Resources : Language.RESOURCES
+
+  type opconf = computation * Resources.resources
+
+  val compute_nf : opconf -> opconf option
 
   type glue_type
   type interactive_type
@@ -31,17 +37,19 @@ module type FOCUSING = sig
 
   type interactive_env
 
-  val embed_value_env : (name, value) Util.Pmap.pmap -> interactive_env
+  (*
+  val embed_value_env : val_env -> interactive_env*)
 
   type name_type_ctx = (name, interactive_type) Util.Pmap.pmap
 
   val empty_name_type_ctx : name_type_ctx
   val string_of_name_type_ctx : name_type_ctx -> string
-  val embed_name_ctx : (name, typ) Util.Pmap.pmap -> name_type_ctx
+  (*
+  val embed_name_ctx : name_ctx -> name_type_ctx
   val generate_computation : term -> typ -> computation * name_type_ctx
   val embed_term : name * term -> computation
   val extract_term : computation -> name * term
-
+  *)
 
   val generate_abstract_val :
     name_type_ctx -> glue_type -> (abstract_val * name_type_ctx) list
@@ -72,41 +80,9 @@ module type FOCUSING = sig
     abstract_val ->
     abstract_val ->
     name Util.Namespan.namespan option
-end
-
-module type FOCUSING_F = functor (OpLang : WITHNUP) ->
-  FOCUSING
-    with type name = OpLang.name
-     and type value = OpLang.value
-     and type term = OpLang.term
-     and type typ = OpLang.typ
-
-module type LANG = sig
-  include Language.TYPED
-  module Focusing : FOCUSING
-  with type name = name
-  and type value = value
-  and type term = term
-  and type typ = typ
-  open Focusing
 
   val get_typed_computation :
     string -> in_channel -> computation * name_type_ctx
-
-  type resources
-
-  val string_of_resources : resources -> string
-  val empty_resources : resources
-
-  type resources_type_ctx
-
-  val empty_resources_type_ctx : resources_type_ctx
-  val string_of_resources_type_ctx : resources_type_ctx -> string
-  val resources_type_ctx_of_resources : resources -> resources_type_ctx
-  val generate_resources : resources_type_ctx -> resources list
-
-  type opconf = computation * resources
-
 
   (* We retrive a module declaration and its signature from the two in_channel taken as input.
      We evaluate the list of computation declarations into a list of value declarations together with the resources
@@ -114,7 +90,23 @@ module type LANG = sig
   val get_typed_ienv :
     in_channel ->
     in_channel ->
-    interactive_env * resources * name_type_ctx * name_type_ctx
-
-  val compute_nf : opconf -> opconf option
+    interactive_env * Resources.resources * name_type_ctx * name_type_ctx
 end
+
+module type LANG_F = functor (OpLang : WITHNUP) ->
+  LANG
+    with type name = OpLang.name
+(*     and type value = OpLang.value
+     and type term = OpLang.term
+     and type typ = OpLang.typ*)
+
+(*
+module type LANG = sig
+  include Language.COMP
+  module Focusing : LANG
+  with type name = name
+  and type value = value
+  and type term = term
+  and type typ = typ
+end
+*)
