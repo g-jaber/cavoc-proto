@@ -6,14 +6,14 @@ module OgsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
 
   type active_conf = {
     computation: Int.IntLang.computation;
-    heap: Int.IntLang.Resources.resources;
+    heap: Int.IntLang.Memory.memory;
     ienv: Int.IntLang.interactive_env;
     namectxO: Int.IntLang.name_type_ctx;
     namectxP: Int.IntLang.name_type_ctx;
   }
 
   type passive_conf = {
-    heap: Int.IntLang.Resources.resources;
+    heap: Int.IntLang.Memory.memory;
     ienv: Int.IntLang.interactive_env;
     namectxO: Int.IntLang.name_type_ctx;
     namectxP: Int.IntLang.name_type_ctx;
@@ -25,7 +25,7 @@ module OgsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
     "<"
     ^ Int.IntLang.string_of_computation act_conf.computation
     ^ " | "
-    ^ Int.IntLang.Resources.string_of_resources act_conf.heap
+    ^ Int.IntLang.Memory.string_of_memory act_conf.heap
     ^ " | "
     ^ Int.IntLang.string_of_interactive_env act_conf.ienv
     ^ " | "
@@ -36,7 +36,7 @@ module OgsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
 
   let string_of_passive_conf pas_conf =
     "<"
-    ^ Int.IntLang.Resources.string_of_resources pas_conf.heap
+    ^ Int.IntLang.Memory.string_of_memory pas_conf.heap
     ^ " | "
     ^ Int.IntLang.string_of_interactive_env pas_conf.ienv
     ^ " | "
@@ -99,14 +99,14 @@ module OgsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
   let init_aconf computation namectxO =
     {
       computation;
-      heap= Int.IntLang.Resources.empty_resources;
+      heap= Int.IntLang.Memory.empty_memory;
       ienv= Int.IntLang.empty_ienv;
       namectxO;
       namectxP= Util.Pmap.empty;
     }
 
-  let init_pconf resources ienv namectxP namectxO =
-    { heap= resources; ienv; namectxO; namectxP }
+  let init_pconf memory ienv namectxP namectxO =
+    { heap= memory; ienv; namectxO; namectxP }
 
   let equiv_aconf act_conf aconfb =
     act_conf.computation = aconfb.computation && act_conf.heap = aconfb.heap

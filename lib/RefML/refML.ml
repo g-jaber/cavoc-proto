@@ -63,30 +63,30 @@ module WithNup : Lang.Interactive.WITHNUP = struct
         failwith @@ "Error: the type " ^ Types.string_of_typeML ty
         ^ "is not a negative type. Please report."
      
-  module Resources = struct
-    type resources = Syntax.val_env * Heap.heap
+  module Memory = struct
+    type memory = Syntax.val_env * Heap.heap
 
-    let string_of_resources (valenv, heap) =
+    let string_of_memory (valenv, heap) =
       Syntax.string_of_val_env valenv ^ "| " ^ Heap.string_of_heap heap
 
-    let empty_resources = (Syntax.empty_val_env, Heap.emptyheap)
+    let empty_memory = (Syntax.empty_val_env, Heap.emptyheap)
 
     (* We trick the system by keeping the full val_env as type ctx *)
-    type resources_type_ctx = Syntax.val_env * Type_ctx.loc_ctx
+    type memory_type_ctx = Syntax.val_env * Type_ctx.loc_ctx
 
-    let empty_resources_type_ctx = (Syntax.empty_val_env, Type_ctx.empty_loc_ctx)
+    let empty_memory_type_ctx = (Syntax.empty_val_env, Type_ctx.empty_loc_ctx)
 
-    let string_of_resources_type_ctx (valenv, loc_ctx) =
+    let string_of_memory_type_ctx (valenv, loc_ctx) =
       Syntax.string_of_val_env valenv ^ "|" ^ Type_ctx.string_of_loc_ctx loc_ctx
 
-    let resources_type_ctx_of_resources (valenv, loc_ctx) =
+    let infer_type_memory (valenv, loc_ctx) =
       (valenv, Heap.loc_ctx_of_heap loc_ctx)
 
-    let generate_resources (valenv, loc_ctx) =
+    let generate_memory (valenv, loc_ctx) =
       List.map (fun heap -> (valenv, heap)) (Heap.generate_heaps loc_ctx)
   end
 
-  type opconf = term * Resources.resources
+  type opconf = term * Memory.memory
 
   let compute_nf (term, (val_env, heap)) =
     match Interpreter.compute_nf (term, val_env, heap) with

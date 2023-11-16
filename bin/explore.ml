@@ -57,18 +57,18 @@ let () =
     Util.Debug.print_debug "Getting the module declaration";
     let decl_buffer = open_in !filename1 in
     let signature_buffer = open_in !filename2 in
-    let (interactive_env, resources, name_type_ctxP, name_type_ctxO) =
+    let (interactive_env, memory, name_type_ctxP, name_type_ctxO) =
       Int.IntLang.get_typed_ienv decl_buffer signature_buffer in
     if !enable_wb then
       let init_pas_conf =
-        ProdLTS.init_pconf resources interactive_env name_type_ctxP name_type_ctxO in
+        ProdLTS.init_pconf memory interactive_env name_type_ctxP name_type_ctxO in
     let init_conf = ProdLTS.Passive init_pas_conf in
     let module Generate = Cavoc.Generate_trace.Make (ProdLTS) in
     let traces = Generate.get_traces init_conf in
     List.iter print_endline traces
     else 
       let init_pas_conf =
-        OGS_LTS.init_pconf resources interactive_env name_type_ctxP name_type_ctxO in
+        OGS_LTS.init_pconf memory interactive_env name_type_ctxP name_type_ctxO in
       let init_conf = OGS_LTS.Passive init_pas_conf in
       let module Generate = Cavoc.Generate_trace.Make (OGS_LTS) in
       let traces = Generate.get_traces init_conf in

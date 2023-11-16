@@ -6,14 +6,14 @@ module PogsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
 
   type active_conf = {
     computation: Int.IntLang.computation;
-    heap: Int.IntLang.Resources.resources;
-    loc_ctx: Int.IntLang.Resources.resources_type_ctx;
+    heap: Int.IntLang.Memory.memory;
+    loc_ctx: Int.IntLang.Memory.memory_type_ctx;
     namectxO: Int.IntLang.name_type_ctx;
   }
 
   type passive_conf = {
     ienv: Int.IntLang.interactive_env;
-    loc_ctx: Int.IntLang.Resources.resources_type_ctx;
+    loc_ctx: Int.IntLang.Memory.memory_type_ctx;
     namectxO: Int.IntLang.name_type_ctx;
     namectxP: Int.IntLang.name_type_ctx;
   }
@@ -24,7 +24,7 @@ module PogsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
     "<"
     ^ Int.IntLang.string_of_computation aconf.computation
     ^ " | "
-    ^ Int.IntLang.Resources.string_of_resources aconf.heap
+    ^ Int.IntLang.Memory.string_of_memory aconf.heap
     ^ " | "
     ^ Int.IntLang.string_of_name_type_ctx aconf.namectxO
     ^ ">"
@@ -33,7 +33,7 @@ module PogsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
     "<"
     ^ Int.IntLang.string_of_interactive_env pconf.ienv
     ^ " | "
-    ^ Int.IntLang.Resources.string_of_resources_type_ctx pconf.loc_ctx
+    ^ Int.IntLang.Memory.string_of_memory_type_ctx pconf.loc_ctx
     ^ " | "
     ^ Int.IntLang.string_of_name_type_ctx pconf.namectxO
     ^ " | "
@@ -47,7 +47,7 @@ module PogsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
     | Some (nf, heap) -> begin
         match Int.IntLang.decompose_nf nf with
         | Some (nn, glue_val) ->
-            let loc_ctx = Int.IntLang.Resources.resources_type_ctx_of_resources heap in
+            let loc_ctx = Int.IntLang.Memory.infer_type_memory heap in
             let (move, ienv, namectxP) =
               Int.generate_output_action aconf.namectxO nn glue_val in
             (move, Some { loc_ctx; ienv; namectxP; namectxO= aconf.namectxO })
@@ -66,7 +66,7 @@ module PogsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
   let o_trans_gen pconf =
     let* (input_move, lnamectx) =
       M.para_list (Int.generate_input_moves pconf.namectxP) in
-    let* heap = M.para_list (Int.IntLang.Resources.generate_resources pconf.loc_ctx) in
+    let* heap = M.para_list (Int.IntLang.Memory.generate_memory pconf.loc_ctx) in
     let computation = Int.trigger_computation pconf.ienv input_move in
     return
       ( input_move,
@@ -80,14 +80,14 @@ module PogsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
   let init_aconf computation namectxO =
     {
       computation;
-      heap= Int.IntLang.Resources.empty_resources;
-      loc_ctx= Int.IntLang.Resources.empty_resources_type_ctx;
+      heap= Int.IntLang.Memory.empty_memory;
+      loc_ctx= Int.IntLang.Memory.empty_memory_type_ctx;
       namectxO;
     }
 
-  let init_pconf resources ienv namectxO namectxP =
-    let resouce_ctx = Int.IntLang.Resources.resources_type_ctx_of_resources resources in
-    { loc_ctx= resouce_ctx; ienv; namectxO; namectxP }
+  let init_pconf memory ienv namectxO namectxP =
+    let memory_ctx = Int.IntLang.Memory.infer_type_memory memory in
+    { loc_ctx= memory_ctx; ienv; namectxO; namectxP }
 
   let equiv_aconf aconf aconfb =
     aconf.computation = aconfb.computation && aconf.heap = aconfb.heap

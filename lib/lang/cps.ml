@@ -3,7 +3,7 @@ module Make (OpLang : Interactive.WITHNUP) = struct
   include OpLang
   (* *)
 
-  module Resources = OpLang.Resources
+  module Memory = OpLang.Memory
 
   type named_ectx = NCtx of (OpLang.cont_name * OpLang.eval_ctx)
   type glue_val = GVal of OpLang.value | GPair of OpLang.value * named_ectx
@@ -72,7 +72,7 @@ module Make (OpLang : Interactive.WITHNUP) = struct
   type computation = NTerm of (OpLang.cont_name * OpLang.term)
 
   (*We redefine opconf *)
-  type opconf = computation * Resources.resources
+  type opconf = computation * Memory.memory
 
   let string_of_computation (NTerm (cn, term)) =
     "[" ^ OpLang.string_of_cont_name cn ^ "]" ^ OpLang.string_of_term term
@@ -81,10 +81,10 @@ module Make (OpLang : Interactive.WITHNUP) = struct
     let cn = OpLang.fresh_cname () in
     (NTerm (cn, term), Util.Pmap.singleton (OpLang.inj_cont_name cn, INeg ty))
 
-  let compute_nf (NTerm (cn, term), resources) =
-    match OpLang.compute_nf (term, resources) with
+  let compute_nf (NTerm (cn, term), memory) =
+    match OpLang.compute_nf (term, memory) with
     | None -> None
-    | Some (nf, resources') -> Some (NTerm (cn, nf), resources')
+    | Some (nf, memory') -> Some (NTerm (cn, nf), memory')
 
   let rec generate_abstract_val name_type_ctx gtype =
     let name_ctx = extract_name_ctx name_type_ctx in
@@ -243,10 +243,10 @@ module Make (OpLang : Interactive.WITHNUP) = struct
     generate_computation term ty
 
   let get_typed_ienv inBuffer_implem inBuffer_signature =
-    let (val_env, resources, namectxP, namectxO) =
+    let (val_env, memory, namectxP, namectxO) =
       OpLang.get_typed_val_env inBuffer_implem inBuffer_signature in
     ( embed_value_env val_env,
-      resources,
+      memory,
       embed_name_ctx @@ namectxP,
       embed_name_ctx @@ namectxO )
 end

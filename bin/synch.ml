@@ -38,7 +38,7 @@ let () =
   Util.Debug.print_debug "Getting the module";
   let inBuffer2 = open_in !filename2 in
   let inBuffer3 = open_in !filename3 in
-  let (ienv, resources, namectxO', _) =
+  let (ienv, memory, namectxO', _) =
     Int.IntLang.get_typed_ienv inBuffer2 inBuffer3 in
   Util.Debug.print_debug
     ("Name contexts for Opponent: "
@@ -50,7 +50,7 @@ let () =
       (ProdLTS.init_aconf expr1 (Util.Pmap.concat namectxO namectxO')) in
   let init_pconf =
     ProdLTS.Passive
-      (ProdLTS.init_pconf resources ienv namectxO' Util.Pmap.empty) in
+      (ProdLTS.init_pconf memory ienv namectxO' Util.Pmap.empty) in
   let module Synchronized_LTS = Cavoc.Synchronize.Make (ProdLTS) in
   let traces = Synchronized_LTS.get_traces_check init_aconf init_pconf in
   Util.Debug.print_debug "Getting the trace";
