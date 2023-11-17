@@ -4,7 +4,7 @@
 
 module Make =
 functor
-  (IntLTS : Bilts.INT_LTS)
+  (IntLTS : Bipartite.INT_LTS)
   ->
   struct
     include Util.Monad.UserChooseWrite (struct

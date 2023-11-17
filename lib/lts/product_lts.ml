@@ -1,7 +1,7 @@
-module Make (IntLts:Bilts.INT_LTS) 
+module Make (IntLts:Bipartite.INT_LTS) 
             (HistLts:Hislts.HISLTS_INIT  
             with type move = IntLts.Int.Actions.Moves.move and type name = IntLts.Int.IntLang.name) 
-        : Bilts.INT_LTS with module Int = IntLts.Int  
+        : Bipartite.INT_LTS with module Int = IntLts.Int  
   = struct
 
   module M=IntLts.M

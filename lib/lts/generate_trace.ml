@@ -1,4 +1,4 @@
-module Make (IntLTS : Bilts.INT_LTS) = struct
+module Make (IntLTS : Bipartite.INT_LTS) = struct
   include Util.Monad.UserChooseWrite (struct
     type t = IntLTS.Int.Actions.Moves.move
 

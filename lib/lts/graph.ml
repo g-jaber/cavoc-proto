@@ -1,4 +1,4 @@
-module type GRAPH = functor (IntLTS : Bilts.INT_LTS) -> sig
+module type GRAPH = functor (IntLTS : Bipartite.INT_LTS) -> sig
   type state
 
   val string_of_state : state -> string
@@ -16,7 +16,7 @@ end
 
 module Graph : GRAPH =
 functor
-  (IntLTS : Bilts.INT_LTS)
+  (IntLTS : Bipartite.INT_LTS)
   ->
   struct
     type id_state = int
