@@ -1,7 +1,3 @@
-module type WITHNUP = sig
-  include Language.WITHNUP include Names.CONT_NAMES with type name := name
-end
-
 module type LANG = sig
   include Names.CONT_NAMES
 
@@ -110,6 +106,3 @@ module type LANG = sig
     in_channel ->
     interactive_env * Memory.memory * name_type_ctx * name_type_ctx
 end
-
-module type LANG_F = functor (OpLang : WITHNUP) ->
-  LANG with type name = OpLang.name

@@ -32,10 +32,10 @@ let () =
         ("Error: a filenames containing the programs "
        ^ "should have been provided. " ^ usage_msg) in
   Arg.parse speclist get_filename usage_msg;
-  let module Int = Cavoc.Cps.Int_Make (Refml.RefML.RefML) in
-  let module OGS_LTS = Cavoc.Ogs.OgsLtsF (Util.Monad.ListB) (Int) in
-  let module WBLTS = Cavoc.Wblts.WBLTS (Int.ContNames) (Int.Actions.Moves) in
-  let module ProdLTS = Cavoc.Product_lts.Make (OGS_LTS) (WBLTS) in
+  let module Int = Lts.Cps.Int_Make (Refml.RefML.RefML) in
+  let module OGS_LTS = Ogs.Ogslts.Make (Util.Monad.ListB) (Int) in
+  let module WBLTS = Ogs.Wblts.Make (Int.ContNames) (Int.Actions.Moves) in
+  let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
   Util.Debug.print_debug "Getting the trace";
   if !is_computation then begin
     check_number_filenames 1;
@@ -48,7 +48,7 @@ let () =
       ^ Int.IntLang.string_of_name_type_ctx namectxO);
     let init_act_conf = ProdLTS.init_aconf expr namectxO in
     let init_conf = ProdLTS.Active init_act_conf in
-    let module Generate = Cavoc.Generate_trace.Make (ProdLTS) in
+    let module Generate = Lts.Generate_trace.Make (ProdLTS) in
     let traces = Generate.get_traces init_conf in
     List.iter print_endline traces
   end
@@ -63,14 +63,14 @@ let () =
       let init_pas_conf =
         ProdLTS.init_pconf memory interactive_env name_type_ctxP name_type_ctxO in
     let init_conf = ProdLTS.Passive init_pas_conf in
-    let module Generate = Cavoc.Generate_trace.Make (ProdLTS) in
+    let module Generate = Lts.Generate_trace.Make (ProdLTS) in
     let traces = Generate.get_traces init_conf in
     List.iter print_endline traces
     else 
       let init_pas_conf =
         OGS_LTS.init_pconf memory interactive_env name_type_ctxP name_type_ctxO in
       let init_conf = OGS_LTS.Passive init_pas_conf in
-      let module Generate = Cavoc.Generate_trace.Make (OGS_LTS) in
+      let module Generate = Lts.Generate_trace.Make (OGS_LTS) in
       let traces = Generate.get_traces init_conf in
       List.iter print_endline traces
   end

@@ -1,4 +1,9 @@
-module Make (OpLang : Interactive.WITHNUP) = struct
+module type WITHNUP = sig
+  include Language.WITHNUP include Names.CONT_NAMES with type name := name
+end
+
+
+module Make (OpLang : WITHNUP) = struct
   (*instantiating*)
   include OpLang
   (* *)

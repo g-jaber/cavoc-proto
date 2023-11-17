@@ -28,10 +28,10 @@ let () =
        ^ "should have been provided. " ^ usage_msg) in
   parse speclist get_filename usage_msg;
   check_number_filenames ();
-  let module Int = Cavoc.Cps.Int_Make (Refml.RefML.RefML) in
-  let module OGS_LTS = Cavoc.Ogs.OgsLtsF (Util.Monad.ListB) (Int) in
-  let module WBLTS = Cavoc.Wblts.WBLTS (Int.ContNames) (Int.Actions.Moves) in
-  let module ProdLTS = Cavoc.Product_lts.Make (OGS_LTS) (WBLTS) in
+  let module Int = Lts.Cps.Int_Make (Refml.RefML.RefML) in
+  let module OGS_LTS = Ogs.Ogslts.Make (Util.Monad.ListB) (Int) in
+  let module WBLTS = Ogs.Wblts.Make (Int.ContNames) (Int.Actions.Moves) in
+  let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
   Util.Debug.print_debug "Getting the program";
   let inBuffer1 = open_in !filename1 in
   let (expr1, namectxO) = Int.IntLang.get_typed_computation "first" inBuffer1 in
@@ -51,7 +51,7 @@ let () =
   let init_pconf =
     ProdLTS.Passive
       (ProdLTS.init_pconf memory ienv namectxO' Util.Pmap.empty) in
-  let module Synchronized_LTS = Cavoc.Synchronize.Make (ProdLTS) in
+  let module Synchronized_LTS = Lts.Synchronize.Make (ProdLTS) in
   let traces = Synchronized_LTS.get_traces_check init_aconf init_pconf in
   Util.Debug.print_debug "Getting the trace";
   List.iter print_endline traces

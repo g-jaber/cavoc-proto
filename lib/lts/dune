@@ -1,0 +1,3 @@
+(library
+ (name lts)
+ (libraries lang util))

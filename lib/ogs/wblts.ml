@@ -1,9 +1,9 @@
 (*TODO: Reimplement it using Moves:Moves.MOVES*)
 
-module WBLTS
+module Make
     (ContNames : Lang.Names.CONT_NAMES)
-    (Moves : Moves.MOVES with type name = ContNames.name) :
-  Hislts.HISLTS_INIT with type move = Moves.move and type name = ContNames.name =
+    (Moves : Lts.Moves.MOVES with type name = ContNames.name) :
+  Lts.Hislts.HISLTS_INIT with type move = Moves.move and type name = ContNames.name =
 struct
   type move = Moves.move
   type active_conf = ContNames.cont_name list

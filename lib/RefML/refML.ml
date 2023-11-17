@@ -1,4 +1,4 @@
-module WithNup : Lang.Interactive.WITHNUP = struct
+module WithNup : Lang.Cps.WITHNUP = struct
   type name = Syntax.name
 
   let string_of_name = Syntax.string_of_name

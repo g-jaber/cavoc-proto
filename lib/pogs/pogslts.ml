@@ -1,4 +1,4 @@
-module PogsLtsF (M : Util.Monad.BRANCH) (Int : Interactive.INT) = struct
+module Make (M : Util.Monad.BRANCH) (Int : Lts.Interactive.INT) = struct
   module M = M
   include M
   module Int = Int

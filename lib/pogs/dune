@@ -1,0 +1,3 @@
+(library
+ (name pogs)
+ (libraries lang util lts))

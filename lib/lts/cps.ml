@@ -22,10 +22,7 @@ module Moves_Make (IntLang : Lang.Interactive.LANG) = struct
   let get_kind (_, k, _) = k
   let get_direction (p, _, _) = p
   let switch_direction (p, k, d) = (switch p, k, d)
-
-  let get_transmitted_names (_, _, aval) =
-    IntLang.names_of_abstract_val aval
-
+  let get_transmitted_names (_, _, aval) = IntLang.names_of_abstract_val aval
   let get_subject_names (_, nn, _) = [ nn ]
 end
 
@@ -43,7 +40,8 @@ module Int_Make (CpsLang : Lang.Cps.INTLANG) :
   module ContNames = struct
     type name = CpsLang.name
     type cont_name = CpsLang.cont_name
-    let string_of_name =  CpsLang.string_of_name
+
+    let string_of_name = CpsLang.string_of_name
     let is_callable = CpsLang.is_callable
     let inj_cont_name = CpsLang.inj_cont_name
     let get_cont_name = CpsLang.get_cont_name
@@ -56,7 +54,10 @@ module Int_Make (CpsLang : Lang.Cps.INTLANG) :
 
     type action = PDiv | PError | Vis of Moves.move
 
-    let get_move_from_action = function Vis move -> Some move | PError | PDiv -> None
+    let get_move_from_action = function
+      | Vis move -> Some move
+      | PError | PDiv -> None
+
     let inject_move move = Vis move
     let diverging_action = PDiv
     let error_action = PError
@@ -75,8 +76,7 @@ module Int_Make (CpsLang : Lang.Cps.INTLANG) :
       match ty_option with
       | Some ty ->
           let nty = CpsLang.neg_type ty in
-          let (aval, ienv, namectxP) =
-            CpsLang.abstract_glue_val glue_val nty in
+          let (aval, ienv, namectxP) = CpsLang.abstract_glue_val glue_val nty in
           (Vis (Moves.Output, nn, aval), ienv, namectxP)
       | None ->
           failwith
@@ -91,8 +91,7 @@ module Int_Make (CpsLang : Lang.Cps.INTLANG) :
     let aux (nn, ty) =
       if CpsLang.is_callable nn then
         let aval_l =
-          CpsLang.generate_abstract_val namectxP
-            (CpsLang.neg_type ty) in
+          CpsLang.generate_abstract_val namectxP (CpsLang.neg_type ty) in
         List.map
           (fun (aval, namectx') -> ((Moves.Input, nn, aval), namectx'))
           aval_l
@@ -107,8 +106,7 @@ module Int_Make (CpsLang : Lang.Cps.INTLANG) :
         | None -> None
         | Some ty ->
             CpsLang.type_check_abstract_val namectxP namectxO
-              (CpsLang.neg_type ty)
-              aval
+              (CpsLang.neg_type ty) aval
       end
     | Moves.None -> None
 
