@@ -86,17 +86,15 @@ module Int_Make (CpsLang : Lang.Cps.INTLANG) :
            ^ ". Please report.")
     end
 
+  open IntLang.M
+
   let generate_input_moves namectxP =
     Util.Debug.print_debug "Generating O-moves";
-    let aux (nn, ty) =
-      if CpsLang.is_callable nn then
-        let aval_l =
-          CpsLang.generate_abstract_val namectxP (CpsLang.neg_type ty) in
-        List.map
-          (fun (aval, namectx') -> ((Moves.Input, nn, aval), namectx'))
-          aval_l
-      else [] in
-    List.flatten (Util.Pmap.map_list aux namectxP)
+    let namectxP' = Util.Pmap.filter_dom CpsLang.is_callable namectxP in
+    let* (nn, ty) = IntLang.M.para_list @@ Util.Pmap.to_list namectxP' in
+    let* (aval, namectx) =
+      CpsLang.generate_abstract_val namectxP (CpsLang.neg_type ty) in
+    return ((Moves.Input, nn, aval), namectx)
 
   let check_input_move namectxP namectxO (dir, name, aval) =
     match dir with

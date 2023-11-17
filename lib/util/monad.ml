@@ -16,6 +16,9 @@ module type BRANCH = sig
 
   val fail : unit -> 'a m
   val para_list : 'a list -> 'a m
+  val pick_int : unit -> int m
+  (* The function pick_elem provide a way to pick an element in a list. Its first argument is a function that is used to print the various elements of the list. 
+  val pick_elem : ('a -> string) -> 'a list -> 'a*)
   val run : 'a m -> 'a list
 end
 
@@ -27,6 +30,8 @@ module ListB : BRANCH = struct
   let ( let* ) a f = List.flatten (List.map f a)
   let fail () = []
   let para_list l = l
+  let max_int = 3
+  let pick_int () = List.init max_int (fun i -> i)
   let run a = a
 end
 
@@ -39,6 +44,7 @@ module OptionB : BRANCH = struct
   let ( let* ) a f = match a with None -> None | Some x -> f x
   let fail () = None
   let para_list = function [] -> None | h :: _ -> Some h
+  let pick_int () = Some 0
   let run = function None -> [] | Some x -> [ x ]
 end
 
@@ -59,6 +65,12 @@ module UserChoose : BRANCH = struct
          ^ " or choose 0 to stop.");
         let i = read_int () in
         if i > 0 && i <= n then Some (List.nth l (i - 1)) else None
+
+  let pick_int () = 
+    print_endline
+    ("Choose an integer");
+    let i = read_int () in
+    Some i
 
   let run = function None -> [] | Some x -> [ x ]
 end

@@ -5,6 +5,7 @@ val is_empty : ('a, 'b) pmap -> bool
 val singleton : 'a * 'b -> ('a, 'b) pmap
 val concat : ('a, 'b) pmap -> ('a, 'b) pmap -> ('a, 'b) pmap
 val list_to_pmap : ('a * 'b) list -> ('a, 'b) pmap
+val to_list : ('a, 'b) pmap -> ('a * 'b) list
 val dom : ('a, 'b) pmap -> 'a list
 val codom : ('a, 'b) pmap -> 'b list
 val mem : 'a -> ('a, 'b) pmap -> bool
@@ -34,3 +35,4 @@ val filter_map : ('a * 'b -> ('c * 'd) option) -> ('a, 'b) pmap -> ('c, 'd) pmap
 val fold : ('a -> 'b * 'c -> 'a) -> 'a -> ('b, 'c) pmap -> 'a
 val disjoint : ('a, 'b) pmap -> ('a, 'b) pmap -> bool
 val select_im : 'b -> ('a, 'b) pmap -> 'a list
+val filter_dom : ('a -> bool) -> ('a, 'b) pmap -> ('a, 'b) pmap

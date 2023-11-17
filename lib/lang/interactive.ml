@@ -5,7 +5,8 @@ module type LANG = sig
 
   val string_of_computation : computation -> string
 
-  module Memory : Language.MEMORY
+  module M : Util.Monad.BRANCH
+  module Memory : Language.MEMORY with module M = M
 
   type opconf = computation * Memory.memory
 
@@ -80,7 +81,7 @@ module type LANG = sig
      Γ_P;_ ⊢ A : τ ▷ Δ
      Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
   val generate_abstract_val :
-    name_type_ctx -> glue_type -> (abstract_val * name_type_ctx) list
+    name_type_ctx -> glue_type -> (abstract_val * name_type_ctx) M.m
 
   (* From an interactive environment γ, an interactive value I and an abstract value A,
       val_composition γ I A  built the computation I ★ A{γ} *)

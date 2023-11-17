@@ -1,5 +1,5 @@
-module Make (M : Util.Monad.BRANCH) (Int : Lts.Interactive.INT) = struct
-  module M = M
+module Make (Int : Lts.Interactive.INT) = struct
+  module M = Int.IntLang.M
   include M
   module Int = Int
   module Actions = Int.Actions
@@ -65,8 +65,8 @@ module Make (M : Util.Monad.BRANCH) (Int : Lts.Interactive.INT) = struct
 
   let o_trans_gen pconf =
     let* (input_move, lnamectx) =
-      M.para_list (Int.generate_input_moves pconf.namectxP) in
-    let* heap = M.para_list (Int.IntLang.Memory.generate_memory pconf.loc_ctx) in
+      (Int.generate_input_moves pconf.namectxP) in
+    let* heap = (Int.IntLang.Memory.generate_memory pconf.loc_ctx) in
     let computation = Int.trigger_computation pconf.ienv input_move in
     return
       ( input_move,

@@ -2,7 +2,6 @@ module type WITHNUP = sig
   include Language.WITHNUP include Names.CONT_NAMES with type name := name
 end
 
-
 module Make (OpLang : WITHNUP) = struct
   (*instantiating*)
   include OpLang
@@ -98,33 +97,6 @@ module Make (OpLang : WITHNUP) = struct
     | None -> None
     | Some (nf, memory') -> Some (NTerm (cn, nf), memory')
 
-  let rec generate_abstract_val name_type_ctx gtype =
-    let name_ctx = extract_name_ctx name_type_ctx in
-    match gtype with
-    | GType ty ->
-        List.map (fun (nup, name_ctx) -> (ANup nup, embed_name_ctx name_ctx))
-        @@ OpLang.Nup.generate_nup name_ctx ty
-    | GProd (ty, (INeg _ as ity)) ->
-        let aux (nup, name_ctx) =
-          let cn = OpLang.fresh_cname () in
-          let name_type_ctx' =
-            Util.Pmap.add
-              (OpLang.inj_cont_name cn, ity)
-              (embed_name_ctx name_ctx) in
-          (APair (nup, cn), name_type_ctx') in
-        List.map aux @@ OpLang.Nup.generate_nup name_ctx ty
-    | GExists (tvar_l, ty1, INeg ty2) ->
-        Util.Debug.print_debug
-          "Generating an abstract value for an existential type";
-        let (tname_l, type_subst) = OpLang.generate_typename_subst tvar_l in
-        let ty1' = OpLang.apply_type_subst ty1 type_subst in
-        let ty2' = OpLang.apply_type_subst ty2 type_subst in
-        let aux (aval, name_type_ctx) =
-          (AExists (tname_l, aval), name_type_ctx) in
-        List.map aux
-        @@ generate_abstract_val name_type_ctx (GProd (ty1', INeg ty2'))
-    | _ -> failwith "The glue type is not valid. Please report."
-
   let type_check_abstract_val name_type_ctxP name_type_ctxO gty aval =
     match (gty, aval) with
     | (GType ty, ANup nup) -> begin
@@ -192,11 +164,39 @@ module Make (OpLang : WITHNUP) = struct
         let name_type_ctx = embed_name_ctx name_ctx in
         (ANup nup, ienv, name_type_ctx)
     | (GRaise value, GType _) ->
-        let (nup, val_env, name_ctx) = OpLang.Nup.abstract_val value OpLang.exception_type in
+        let (nup, val_env, name_ctx) =
+          OpLang.Nup.abstract_val value OpLang.exception_type in
         let ienv = embed_value_env val_env in
         let name_type_ctx = embed_name_ctx name_ctx in
         (ARaise nup, ienv, name_type_ctx)
     | (_, _) -> failwith "Ill-typed interactive value. Please report."
+
+  module M = OpLang.Nup.M
+  open M
+
+  let rec generate_abstract_val name_type_ctx gtype =
+    let name_ctx = extract_name_ctx name_type_ctx in
+    match gtype with
+    | GType ty ->
+        let* (nup, name_ctx) = OpLang.Nup.generate_nup name_ctx ty in
+        return (ANup nup, embed_name_ctx name_ctx)
+    | GProd (ty, (INeg _ as ity)) ->
+        let* (nup, name_ctx) = OpLang.Nup.generate_nup name_ctx ty in
+        let cn = OpLang.fresh_cname () in
+        let name_type_ctx' =
+          Util.Pmap.add (OpLang.inj_cont_name cn, ity) (embed_name_ctx name_ctx)
+        in
+        return (APair (nup, cn), name_type_ctx')
+    | GExists (tvar_l, ty1, INeg ty2) ->
+        Util.Debug.print_debug
+          "Generating an abstract value for an existential type";
+        let (tname_l, type_subst) = OpLang.generate_typename_subst tvar_l in
+        let ty1' = OpLang.apply_type_subst ty1 type_subst in
+        let ty2' = OpLang.apply_type_subst ty2 type_subst in
+        let* (aval, name_type_ctx) =
+          generate_abstract_val name_type_ctx (GProd (ty1', INeg ty2')) in
+        return (AExists (tname_l, aval), name_type_ctx)
+    | _ -> failwith "The glue type is not valid. Please report."
 
   let decompose_nf (NTerm (cn, term)) =
     match OpLang.get_callback term with

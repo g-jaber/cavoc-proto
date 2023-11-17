@@ -1,4 +1,4 @@
-module WithNup : Lang.Cps.WITHNUP = struct
+module WithNup (M:Util.Monad.BRANCH) : Lang.Cps.WITHNUP = struct
   type name = Syntax.name
 
   let string_of_name = Syntax.string_of_name
@@ -84,8 +84,9 @@ module WithNup : Lang.Cps.WITHNUP = struct
     let infer_type_memory (valenv, loc_ctx) =
       (valenv, Heap.loc_ctx_of_heap loc_ctx)
 
+    module M = M
     let generate_memory (valenv, loc_ctx) =
-      List.map (fun heap -> (valenv, heap)) (Heap.generate_heaps loc_ctx)
+      M.para_list @@ List.map (fun heap -> (valenv, heap)) (Heap.generate_heaps loc_ctx)
   end
 
   type opconf = term * Memory.memory
@@ -138,8 +139,9 @@ module WithNup : Lang.Cps.WITHNUP = struct
     Lang.Nup.NUP
       with type name = Syntax.name
        and type value = Syntax.valML
-       and type typ = typ =
-    Nup
+       and type typ = typ 
+       and module M = M =
+    Nup.Make(M)
 end
 
-module RefML : Lang.Interactive.LANG = Lang.Cps.Make (WithNup)
+module RefML (M:Util.Monad.BRANCH) : Lang.Interactive.LANG = Lang.Cps.Make (WithNup(M))

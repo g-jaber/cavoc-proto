@@ -1,5 +1,5 @@
-module Make (M : Util.Monad.BRANCH) (Int : Lts.Interactive.INT) = struct
-  module M = M
+module Make (Int : Lts.Interactive.INT) = struct
+  module M = Int.IntLang.M
   include M
   module Int = Int
   module Actions = Int.Actions
@@ -84,7 +84,7 @@ module Make (M : Util.Monad.BRANCH) (Int : Lts.Interactive.INT) = struct
 
   let o_trans_gen pas_conf =
     let* (input_move, lnamectx) =
-      M.para_list (Int.generate_input_moves pas_conf.namectxP) in
+      Int.generate_input_moves pas_conf.namectxP in
     let computation = Int.trigger_computation pas_conf.ienv input_move in
     return
       ( input_move,

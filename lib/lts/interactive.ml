@@ -14,7 +14,7 @@ module type INT = sig
 
   val generate_input_moves :
     IntLang.name_type_ctx ->
-    (Actions.Moves.move * IntLang.name_type_ctx) list
+    (Actions.Moves.move * IntLang.name_type_ctx) IntLang.M.m
 
   val check_input_move :
     IntLang.name_type_ctx ->

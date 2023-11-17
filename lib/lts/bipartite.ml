@@ -37,6 +37,5 @@ module type INT_LTS = sig
 end
 
 module type INT_LTS_F = functor
-  (M : Util.Monad.BRANCH)
   (Int : Interactive.INT)
-  -> INT_LTS with module Int = Int and module M = M
+  -> INT_LTS with module Int = Int and module M = Int.IntLang.M

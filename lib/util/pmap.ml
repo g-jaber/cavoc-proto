@@ -5,6 +5,7 @@ let is_empty = function [] -> true | _ -> false
 let singleton (a, b) = [ (a, b) ]
 let concat p1 p2 = p1 @ p2
 let list_to_pmap l = l
+let to_list l = l
 let dom pmap = List.map fst pmap
 let codom pmap = List.map snd pmap
 let mem = List.mem_assoc
@@ -59,3 +60,5 @@ let disjoint pmap1 pmap2 =
 let rec select_im b = function
   | [] -> []
   | (a, b') :: tl -> if b = b' then a :: select_im b tl else select_im b tl
+
+let filter_dom f = List.filter (fun (a,_) -> f a)

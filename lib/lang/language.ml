@@ -50,7 +50,11 @@ module type MEMORY = sig
   val empty_memory_type_ctx : memory_type_ctx
   val string_of_memory_type_ctx : memory_type_ctx -> string
   val infer_type_memory : memory -> memory_type_ctx
-  val generate_memory : memory_type_ctx -> memory list
+
+  module M : Util.Monad.BRANCH
+  (* *)
+
+  val generate_memory : memory_type_ctx -> memory M.m
 end
 
 module type COMP = sig
@@ -77,5 +81,9 @@ module type WITHNUP = sig
   include COMP
 
   module Nup :
-    Nup.NUP with type name = name and type value = value and type typ = typ
+    Nup.NUP
+      with type name = name
+       and type value = value
+       and type typ = typ
+       and module M = Memory.M
 end

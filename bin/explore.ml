@@ -32,8 +32,9 @@ let () =
         ("Error: a filenames containing the programs "
        ^ "should have been provided. " ^ usage_msg) in
   Arg.parse speclist get_filename usage_msg;
-  let module Int = Lts.Cps.Int_Make (Refml.RefML.RefML) in
-  let module OGS_LTS = Ogs.Ogslts.Make (Util.Monad.ListB) (Int) in
+  let module OpLang = Refml.RefML.RefML (Util.Monad.ListB) in
+  let module Int = Lts.Cps.Int_Make (OpLang) in
+  let module OGS_LTS = Ogs.Ogslts.Make (Int) in
   let module WBLTS = Ogs.Wblts.Make (Int.ContNames) (Int.Actions.Moves) in
   let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
   Util.Debug.print_debug "Getting the trace";
