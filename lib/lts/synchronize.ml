@@ -113,7 +113,9 @@ functor
             ^ IntLTS.Actions.Moves.string_of_move moveP
             ^ " and "
             ^ IntLTS.Actions.Moves.string_of_move moveO);
-          let nspan_option = IntLTS.Int.synch_move nspan moveP moveO in
+          let moveO' = IntLTS.Actions.Moves.switch_direction moveO in
+          let nspan_option =
+            IntLTS.Actions.Moves.unify_move nspan moveP moveO' in
           begin
             match nspan_option with
             | None ->

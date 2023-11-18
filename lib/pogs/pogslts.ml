@@ -49,8 +49,9 @@ module Make (Int : Lts.Interactive.INT) = struct
         | Some (nn, glue_val) ->
             let loc_ctx = Int.IntLang.Memory.infer_type_memory heap in
             let (move, ienv, namectxP) =
-              Int.generate_output_action aconf.namectxO nn glue_val in
-            (move, Some { loc_ctx; ienv; namectxP; namectxO= aconf.namectxO })
+              Int.generate_output_move aconf.namectxO nn glue_val in
+            ( Int.Actions.inject_move move,
+              Some { loc_ctx; ienv; namectxP; namectxO= aconf.namectxO } )
         | None -> (Int.Actions.error_action, None)
       end
 
@@ -64,9 +65,8 @@ module Make (Int : Lts.Interactive.INT) = struct
           "POGS o_trans cannot be implemented without moves-with-heaps !!"
 
   let o_trans_gen pconf =
-    let* (input_move, lnamectx) =
-      (Int.generate_input_moves pconf.namectxP) in
-    let* heap = (Int.IntLang.Memory.generate_memory pconf.loc_ctx) in
+    let* (input_move, lnamectx) = Int.generate_input_moves pconf.namectxP in
+    let* heap = Int.IntLang.Memory.generate_memory pconf.loc_ctx in
     let computation = Int.trigger_computation pconf.ienv input_move in
     return
       ( input_move,

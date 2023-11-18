@@ -198,6 +198,17 @@ module Make (OpLang : WITHNUP) = struct
         return (AExists (tname_l, aval), name_type_ctx)
     | _ -> failwith "The glue type is not valid. Please report."
 
+  type kind_interact = name
+
+  let string_of_kind_interact = string_of_name
+  let name_of_kind_interact kind = Some kind
+  let name_to_kind_interact nn = if OpLang.is_callable nn then Some nn else None
+
+  let is_equiv_kind_interact span kind1 kind2 =
+    Util.Namespan.is_in_dom_im (kind1, kind2) span
+
+  let kind_interact_typing = Util.Pmap.lookup
+
   let decompose_nf (NTerm (cn, term)) =
     match OpLang.get_callback term with
     | Some (fn, value, ectx) -> Some (fn, GPair (value, NCtx (cn, ectx)))

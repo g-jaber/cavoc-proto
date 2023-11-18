@@ -14,12 +14,23 @@ module type LANG = sig
      or None when we detect that the operational configuration diverges.*)
   val compute_nf : opconf -> opconf option
 
-  (* Normal forms are either decomposed into glue values and the name on which the interaction happened,
-     or into None when they corresponds to (uncatchable) error values. *)
+  (* we classify the interaction (like returning a value or performing a callbacks) using the type kind_interact *)
+  type kind_interact
+
+  val string_of_kind_interact : kind_interact -> string
+  val name_of_kind_interact : kind_interact -> name option
+  val name_to_kind_interact : name -> kind_interact option
+
+  val is_equiv_kind_interact :
+    name Util.Namespan.namespan -> kind_interact -> kind_interact -> bool
+
+  (* Normal forms are either decomposed into their kind of interaction
+      and a glue values on which the interaction happened,
+      or into None when they corresponds to (uncatchable) error values. *)
   type glue_val
   type glue_type
 
-  val decompose_nf : computation -> (name * glue_val) option
+  val decompose_nf : computation -> (kind_interact * glue_val) option
 
   (* Abstracted values correspond to the observable part of a value.
       They are also called ultimate patterns.
@@ -46,6 +57,9 @@ module type LANG = sig
 
   val empty_name_type_ctx : name_type_ctx
   val string_of_name_type_ctx : name_type_ctx -> string
+
+  val kind_interact_typing :
+    kind_interact -> name_type_ctx -> interactive_type option
 
   (* Interactive environments γ are partial maps from names to interactive values*)
   type interactive_env

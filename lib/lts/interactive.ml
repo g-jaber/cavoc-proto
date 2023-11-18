@@ -1,16 +1,18 @@
 module type INT = sig
   (* To be instantiated *)
   module IntLang : Lang.Interactive.LANG
-  module Actions : Actions.ACTIONS with type Moves.name = IntLang.name
+
+  module Actions :
+    Actions.ACTIONS
+      with type Moves.name = IntLang.name
+       and type Moves.kind = IntLang.kind_interact
   (* *)
 
-  val generate_output_action :
+  val generate_output_move :
     IntLang.name_type_ctx ->
-    IntLang.name ->
+    IntLang.kind_interact ->
     IntLang.glue_val ->
-    Actions.action
-    * IntLang.interactive_env
-    * IntLang.name_type_ctx
+    Actions.Moves.move * IntLang.interactive_env * IntLang.name_type_ctx
 
   val generate_input_moves :
     IntLang.name_type_ctx ->
@@ -23,39 +25,14 @@ module type INT = sig
     IntLang.name_type_ctx option
 
   val trigger_computation :
-    IntLang.interactive_env ->
-    Actions.Moves.move ->
-    IntLang.computation
-
-  val unify_action :
-    IntLang.name Util.Namespan.namespan ->
-    Actions.action ->
-    Actions.action ->
-    IntLang.name Util.Namespan.namespan option
-
-  val synch_move :
-    IntLang.name Util.Namespan.namespan ->
-    Actions.Moves.move ->
-    Actions.Moves.move ->
-    IntLang.name Util.Namespan.namespan option
+    IntLang.interactive_env -> Actions.Moves.move -> IntLang.computation
 end
-
-(*
-module type INT = sig
-  module Moves : Moves.MOVES
-  module Actions : ACTIONS with type move = Moves.move
-end
-*)
 
 module type INT_F = functor
   (IntLang : Lang.Interactive.LANG)
-  (Moves : Moves.MOVES with type name = IntLang.name)
+  (Moves : Moves.MOVES
+             with type name = IntLang.name
+              and type kind = IntLang.kind_interact)
   -> sig
   include INT with module IntLang = IntLang and module Actions.Moves = Moves
 end
-
-(*
-module type CPSINT_F = functor (IntLang:Language.CONTLANG) -> sig 
-  include CPSINT with module IntLang = IntLang
-end
-*)

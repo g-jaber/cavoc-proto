@@ -63,6 +63,13 @@ module type COMP = sig
 
   type opconf = term * Memory.memory
 
+  (* Evaluation of programs may produces:
+     - divergence
+     - uncatchable error
+     - raised exception that has not (yet) been caught
+     - values
+     - callbacks to function provided by another module
+  *)
   val get_callback : term -> (name * value * eval_ctx) option
   val get_value : term -> value option
   val is_error : term -> bool

@@ -52,10 +52,10 @@ module Make (Int : Lts.Interactive.INT) = struct
     | None -> (Int.Actions.diverging_action, None)
     | Some (nf, heap) -> begin
         match Int.IntLang.decompose_nf nf with
-        | Some (nn, glue_val) ->
+        | Some (kind, glue_val) ->
             let (move, ienv', namectxP') =
-              Int.generate_output_action act_conf.namectxO nn glue_val in
-            ( move,
+              Int.generate_output_move act_conf.namectxO kind glue_val in
+            ( Int.Actions.inject_move move,
               Some
                 {
                   heap;
@@ -83,8 +83,7 @@ module Make (Int : Lts.Interactive.INT) = struct
           }
 
   let o_trans_gen pas_conf =
-    let* (input_move, lnamectx) =
-      Int.generate_input_moves pas_conf.namectxP in
+    let* (input_move, lnamectx) = Int.generate_input_moves pas_conf.namectxP in
     let computation = Int.trigger_computation pas_conf.ienv input_move in
     return
       ( input_move,
