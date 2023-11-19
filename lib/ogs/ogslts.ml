@@ -60,7 +60,8 @@ module Make (Int : Lts.Interactive.INT) = struct
                 {
                   heap;
                   ienv= Int.IntLang.concat_ienv ienv' act_conf.ienv;
-                  namectxP= Util.Pmap.concat namectxP' act_conf.namectxP;
+                  namectxP=
+                    Int.IntLang.concat_name_type_ctx namectxP' act_conf.namectxP;
                   namectxO= act_conf.namectxO;
                 } )
         | None -> (Int.Actions.error_action, None)
@@ -71,27 +72,29 @@ module Make (Int : Lts.Interactive.INT) = struct
       Int.check_input_move pas_conf.namectxP pas_conf.namectxO input_move
     with
     | None -> None
-    | Some lnamectx ->
-        let computation = Int.trigger_computation pas_conf.ienv input_move in
+    | Some (_, namectxO) ->
+        let (computation, ienv) =
+          Int.trigger_computation pas_conf.ienv input_move in
         Some
           {
             computation;
             heap= pas_conf.heap;
-            ienv= pas_conf.ienv;
-            namectxO= Util.Pmap.concat lnamectx pas_conf.namectxO;
+            ienv;
+            namectxO;
             namectxP= pas_conf.namectxP;
           }
 
   let o_trans_gen pas_conf =
-    let* (input_move, lnamectx) = Int.generate_input_moves pas_conf.namectxP in
-    let computation = Int.trigger_computation pas_conf.ienv input_move in
+    let* (input_move, _, namectxO) =
+      Int.generate_input_moves pas_conf.namectxP pas_conf.namectxO in
+    let (computation, ienv) = Int.trigger_computation pas_conf.ienv input_move in
     return
       ( input_move,
         {
           computation;
           heap= pas_conf.heap;
-          ienv= pas_conf.ienv;
-          namectxO= Util.Pmap.concat lnamectx pas_conf.namectxO;
+          ienv;
+          namectxO;
           namectxP= pas_conf.namectxP;
         } )
 
@@ -101,7 +104,7 @@ module Make (Int : Lts.Interactive.INT) = struct
       heap= Int.IntLang.Memory.empty_memory;
       ienv= Int.IntLang.empty_ienv;
       namectxO;
-      namectxP= Util.Pmap.empty;
+      namectxP= Int.IntLang.empty_name_type_ctx;
     }
 
   let init_pconf memory ienv namectxP namectxO =

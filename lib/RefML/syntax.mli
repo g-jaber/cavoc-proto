@@ -105,14 +105,9 @@ val string_of_full_expr : full_expr -> string
 
 type eval_context = exprML
 
+
 (* extract_ctx decomposes an expression into its redex and the surrounding evaluation context*)
 val extract_ctx : exprML -> exprML * eval_context
-val extract_call : exprML -> id * eval_context * exprML
-val get_value : exprML -> valML option
-val get_callback : exprML -> (name * valML * eval_context) option
-val is_error : exprML -> bool
-val get_raise : exprML -> valML option
-val extract_body : exprML -> id * full_expr
 val fill_hole : eval_context -> exprML -> exprML
 val string_of_eval_context : eval_context -> string
 (* The following function should be replaced by generate_nup *)

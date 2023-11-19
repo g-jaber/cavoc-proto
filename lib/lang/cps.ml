@@ -53,8 +53,6 @@ module Make (OpLang : WITHNUP) = struct
         ^ "]"
         ^ OpLang.string_of_eval_ctx ectx
 
-  (*let embed_val value = IVal value *)
-
   type interactive_type = IType of OpLang.typ | INeg of OpLang.typ
 
   let string_of_interactive_type = function
@@ -70,6 +68,9 @@ module Make (OpLang : WITHNUP) = struct
 
   let embed_name_ctx = Util.Pmap.map_im (fun ty -> IType ty)
   let empty_name_type_ctx = Util.Pmap.empty
+  let concat_name_type_ctx = Util.Pmap.concat
+
+  let get_names_from_name_type_ctx = Util.Pmap.dom
 
   let string_of_name_type_ctx =
     Util.Pmap.string_of_pmap "ε" "::" OpLang.string_of_name
@@ -144,7 +145,7 @@ module Make (OpLang : WITHNUP) = struct
     Util.Pmap.string_of_pmap "ε" "↪" OpLang.string_of_name
       string_of_interactive_val
 
-  let lookup_ienv = Util.Pmap.lookup
+  let trigger_ienv ienv kind = Util.Pmap.lookup kind ienv
   let concat_ienv = Util.Pmap.concat
 
   let abstract_glue_val gval gty =
@@ -202,30 +203,21 @@ module Make (OpLang : WITHNUP) = struct
 
   let string_of_kind_interact = string_of_name
   let name_of_kind_interact kind = Some kind
-  let name_to_kind_interact nn = if OpLang.is_callable nn then Some nn else None
 
   let is_equiv_kind_interact span kind1 kind2 =
     Util.Namespan.is_in_dom_im (kind1, kind2) span
 
   let kind_interact_typing = Util.Pmap.lookup
 
+  let extract_kind_interact namectx = 
+    Util.Pmap.to_list @@  Util.Pmap.filter_dom OpLang.is_callable namectx
+
   let decompose_nf (NTerm (cn, term)) =
-    match OpLang.get_callback term with
-    | Some (fn, value, ectx) -> Some (fn, GPair (value, NCtx (cn, ectx)))
-    | None -> begin
-        match OpLang.get_value term with
-        | Some value -> Some (OpLang.inj_cont_name cn, GVal value)
-        | None -> begin
-            match OpLang.get_raise term with
-            | Some value -> Some (OpLang.inj_cont_name cn, GRaise value)
-            | None ->
-                if OpLang.is_error term then None
-                else
-                  failwith
-                    ("Error: the term " ^ OpLang.string_of_term term
-                   ^ " is not in canonical form. Please report.")
-          end
-      end
+    match get_kind_nf term with
+    | NFCallback (fn, value, ectx) -> Some (fn, GPair (value, NCtx (cn, ectx)))
+    | NFValue value -> Some (OpLang.inj_cont_name cn, GVal value)
+    | NFError -> None
+    | NFRaise value -> Some (OpLang.inj_cont_name cn, GRaise value)
 
   let val_composition ienv ival aval =
     match (ival, aval) with

@@ -65,16 +65,16 @@ module Make (Int : Lts.Interactive.INT) = struct
           "POGS o_trans cannot be implemented without moves-with-heaps !!"
 
   let o_trans_gen pconf =
-    let* (input_move, lnamectx) = Int.generate_input_moves pconf.namectxP in
+    let* (input_move, _,namectxO) = Int.generate_input_moves pconf.namectxP pconf.namectxO in
     let* heap = Int.IntLang.Memory.generate_memory pconf.loc_ctx in
-    let computation = Int.trigger_computation pconf.ienv input_move in
+    let (computation,_) = Int.trigger_computation pconf.ienv input_move in
     return
       ( input_move,
         {
           computation;
           heap;
           loc_ctx= pconf.loc_ctx;
-          namectxO= Util.Pmap.concat lnamectx pconf.namectxO;
+          namectxO;
         } )
 
   let init_aconf computation namectxO =

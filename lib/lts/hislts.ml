@@ -17,10 +17,3 @@ module type HISLTS_INIT = sig
   val init_aconf : name list -> active_conf
   val init_pconf : name list -> name list -> passive_conf
 end
-
-module type HISLTS_INIT_F = functor (Int : Interactive.INT) -> sig
-  include
-    HISLTS_INIT
-      with type move = Int.Actions.Moves.move
-       and type name = Int.IntLang.name
-end

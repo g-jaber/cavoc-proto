@@ -441,37 +441,6 @@ and extract_ctx_un cons_op expr =
     let (result, ctx) = extract_ctx expr in
     (result, cons_op ctx)
 
-let extract_call expr =
-  let (expr', ctx) = extract_ctx expr in
-  match expr' with
-  | App (Var f, expr'') -> (f, expr'', ctx)
-  | _ ->
-      failwith
-        ("Error : " ^ string_of_exprML expr'
-       ^ " is not a call to a function. Please report.")
-
-let extract_body = function
-  | Fun ((var, _), expr) -> (var, (expr, Util.Pmap.empty))
-  | Fix ((idfun, _), (var, _), expr) as fullexpr ->
-      (var, (expr, Util.Pmap.singleton (idfun, fullexpr)))
-  | expr ->
-      failwith
-        ("Error: " ^ string_of_exprML expr
-       ^ " is not a function. Please report.")
-
-let get_value expr = if isval expr then Some expr else None
-
-let get_callback expr =
-  let (expr', ctx) = extract_ctx expr in
-  match expr' with App (Name fn, expr'') -> Some (fn, expr'', ctx) | _ -> None
-
-let is_error expr =
-  let (expr', _) = extract_ctx expr in
-  match expr' with Error -> true | _ -> false
-
-let get_raise = function
-  | Raise v when isval v -> Some v
-  | _ -> None
 
 let fill_hole ctx expr = subst ctx Hole expr
 let string_of_eval_context ctx = string_of_exprML ctx

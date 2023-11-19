@@ -7,5 +7,5 @@ module Make : functor (OpLang : WITHNUP) ->
 
 module type INTLANG = sig
   include Interactive.LANG
-  include  Names.CONT_NAMES with type name := name
+  include Names.CONT_NAMES with type name := name
 end

@@ -70,10 +70,13 @@ module type COMP = sig
      - values
      - callbacks to function provided by another module
   *)
-  val get_callback : term -> (name * value * eval_ctx) option
-  val get_value : term -> value option
-  val is_error : term -> bool
-  val get_raise : term -> value option
+  type ('a,'b) kind_nf = 
+    | NFCallback of (name * 'a * 'b)
+    | NFValue of 'a
+    | NFError
+    | NFRaise of 'a
+  val get_kind_nf : term -> (value,eval_ctx) kind_nf
+  val map_kind_nf : ('a -> 'c) -> ('b -> 'd) -> ('a,'b) kind_nf -> ('c,'d) kind_nf
   val compute_nf : opconf -> opconf option
   val get_typed_term : string -> in_channel -> term * typ * name_ctx
 

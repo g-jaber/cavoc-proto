@@ -19,7 +19,6 @@ module type LANG = sig
 
   val string_of_kind_interact : kind_interact -> string
   val name_of_kind_interact : kind_interact -> name option
-  val name_to_kind_interact : name -> kind_interact option
 
   val is_equiv_kind_interact :
     name Util.Namespan.namespan -> kind_interact -> kind_interact -> bool
@@ -53,13 +52,20 @@ module type LANG = sig
   val neg_type : interactive_type -> glue_type
 
   (*Interactive name contexts are typing contexts mapping names to interactive types.*)
-  type name_type_ctx = (name, interactive_type) Util.Pmap.pmap
+  type name_type_ctx (*= (name, interactive_type) Util.Pmap.pmap*)
 
   val empty_name_type_ctx : name_type_ctx
+  val concat_name_type_ctx : name_type_ctx -> name_type_ctx -> name_type_ctx
   val string_of_name_type_ctx : name_type_ctx -> string
+  val get_names_from_name_type_ctx : name_type_ctx -> name list
 
+  (* kind_interact_typing provide a way to type check an interact kind within an interactive name context. 
+     It returns None if the interactive kind is not well-typed.*)
   val kind_interact_typing :
     kind_interact -> name_type_ctx -> interactive_type option
+
+
+  val extract_kind_interact : name_type_ctx -> (kind_interact*interactive_type) list
 
   (* Interactive environments γ are partial maps from names to interactive values*)
   type interactive_env
@@ -67,7 +73,7 @@ module type LANG = sig
   val empty_ienv : interactive_env
   val singleton_ienv : name * interactive_val -> interactive_env
   val list_to_ienv : (name * interactive_val) list -> interactive_env
-  val lookup_ienv : name -> interactive_env -> interactive_val option
+  val trigger_ienv : interactive_env -> kind_interact -> interactive_val option
   val concat_ienv : interactive_env -> interactive_env -> interactive_env
   val string_of_interactive_env : interactive_env -> string
 

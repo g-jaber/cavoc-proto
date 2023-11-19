@@ -47,11 +47,11 @@ let () =
     ^ " and "
     ^ Int.IntLang.string_of_name_type_ctx namectxO');
   let init_aconf =
-    ProdLTS.Active
-      (ProdLTS.init_aconf expr1 (Util.Pmap.concat namectxO namectxO')) in
+    ProdLTS.Active (* The following concatenation should be reworked *)
+      (ProdLTS.init_aconf expr1 (Int.IntLang.concat_name_type_ctx namectxO namectxO')) in
   let init_pconf =
     ProdLTS.Passive
-      (ProdLTS.init_pconf memory ienv namectxO' Util.Pmap.empty) in
+      (ProdLTS.init_pconf memory ienv namectxO' Int.IntLang.empty_name_type_ctx) in
   let module Synchronized_LTS = Lts.Synchronize.Make (ProdLTS) in
   let traces = Synchronized_LTS.get_traces_check init_aconf init_pconf in
   Util.Debug.print_debug "Getting the trace";

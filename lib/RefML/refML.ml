@@ -1,4 +1,4 @@
-module WithNup (M:Util.Monad.BRANCH) : Lang.Cps.WITHNUP = struct
+module WithNup (M : Util.Monad.BRANCH) : Lang.Cps.WITHNUP = struct
   type name = Syntax.name
 
   let string_of_name = Syntax.string_of_name
@@ -25,13 +25,42 @@ module WithNup (M:Util.Monad.BRANCH) : Lang.Cps.WITHNUP = struct
   let string_of_eval_ctx = Syntax.string_of_eval_context
   let fill_hole = Syntax.fill_hole
   let apply_value = Syntax.apply_value
-  let get_callback = Syntax.get_callback
-  let get_value = Syntax.get_value
-  let get_raise = Syntax.get_raise
-  let exception_type = Types.TExn
 
-  (*let fresh_cname = Syntax.fresh_cname*)
-  let is_error = Syntax.is_error
+  type ('a,'b) kind_nf = 
+    | NFCallback of (name * 'a * 'b)
+    | NFValue of 'a
+    | NFError
+    | NFRaise of 'a
+
+  let get_kind_nf expr =
+    if Syntax.isval expr then NFValue expr
+    else
+      let (expr', ectx) = Syntax.extract_ctx expr in
+      begin
+        match expr' with
+        | Syntax.Raise v when Syntax.isval v -> NFRaise v
+        | Syntax.Error -> NFError
+        | Syntax.App (Name fn, v) when Syntax.isval v -> NFCallback (fn, v, ectx)
+        | _ ->
+            failwith @@ "The term " ^ string_of_term expr
+            ^ " is not a valid normal form. Please report."
+      end
+
+  let map_kind_nf f_val f_ectx = function
+  | NFCallback (name,value,ectx) -> 
+    let value' = f_val value in
+    let ectx' = f_ectx ectx in 
+    NFCallback (name,value',ectx')
+  | NFValue value ->
+    let value' = f_val value in
+    NFValue value'
+  | NFError -> NFError
+  | NFRaise value ->
+    let value' = f_val value in
+    NFRaise value'
+
+
+  let exception_type = Types.TExn
 
   type typ = Types.typeML
   type typevar = Types.typevar
@@ -64,7 +93,7 @@ module WithNup (M:Util.Monad.BRANCH) : Lang.Cps.WITHNUP = struct
     | ty ->
         failwith @@ "Error: the type " ^ Types.string_of_typeML ty
         ^ "is not a negative type. Please report."
-     
+
   module Memory = struct
     type memory = Syntax.val_env * Heap.heap
 
@@ -85,8 +114,10 @@ module WithNup (M:Util.Monad.BRANCH) : Lang.Cps.WITHNUP = struct
       (valenv, Heap.loc_ctx_of_heap loc_ctx)
 
     module M = M
+
     let generate_memory (valenv, loc_ctx) =
-      M.para_list @@ List.map (fun heap -> (valenv, heap)) (Heap.generate_heaps loc_ctx)
+      M.para_list
+      @@ List.map (fun heap -> (valenv, heap)) (Heap.generate_heaps loc_ctx)
   end
 
   type opconf = term * Memory.memory
@@ -139,9 +170,10 @@ module WithNup (M:Util.Monad.BRANCH) : Lang.Cps.WITHNUP = struct
     Lang.Nup.NUP
       with type name = Syntax.name
        and type value = Syntax.valML
-       and type typ = typ 
+       and type typ = typ
        and module M = M =
-    Nup.Make(M)
+    Nup.Make (M)
 end
 
-module RefML (M:Util.Monad.BRANCH) : Lang.Interactive.LANG = Lang.Cps.Make (WithNup(M))
+module RefML (M : Util.Monad.BRANCH) : Lang.Interactive.LANG =
+  Lang.Cps.Make (WithNup (M))
