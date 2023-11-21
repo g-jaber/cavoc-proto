@@ -6,7 +6,7 @@ let () =
   let filename2 = ref "" in
   let filename3 = ref "" in
   let speclist = [ ("-debug", Set Util.Debug.debug_mode, "Debug mode") ] in
-  let usage_msg = "Usage: cavocsynch filename1 filename2 [options]" in
+  let usage_msg = "Usage: compose prog.ml module.ml module.mli" in
   let get_filename str =
     match !number_filename with
     | 0 ->
@@ -52,7 +52,7 @@ let () =
   let init_pconf =
     ProdLTS.Passive
       (ProdLTS.init_pconf memory ienv namectxO' Int.IntLang.empty_name_type_ctx) in
-  let module Synchronized_LTS = Lts.Synchronize.Make (ProdLTS) in
-  let traces = Synchronized_LTS.get_traces_check init_aconf init_pconf in
+  let module Composed_LTS = Lts.Compose.Make (ProdLTS) in
+  let traces = Composed_LTS.get_traces_check init_aconf init_pconf in
   Util.Debug.print_debug "Getting the trace";
   List.iter print_endline traces

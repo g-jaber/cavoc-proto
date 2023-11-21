@@ -1,4 +1,4 @@
 (executables
- (names tree synch explore)
- (public_names tree synch explore)
+ (names tree compose explore)
+ (public_names tree compose explore)
  (libraries refml lts ogs pogs))
