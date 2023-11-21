@@ -8,16 +8,6 @@ module type LANG = sig
   module M : Util.Monad.BRANCH
   module Memory : Language.MEMORY with module M = M
 
-  type opconf = computation * Memory.memory
-
-  (* we classify the interaction (like returning a value or performing a callbacks) using the type kind_interact *)
-  type kind_interact
-
-  (* Normal forms are either decomposed into their kind of interaction
-      and a glue values on which the interaction happened,
-      or into None when they corresponds to (uncatchable) error values. *)
-  type glue_val
-
   (* compute_nf computes the normal form of an operational configuration,
      or None when we detect that the operational configuration diverges.*)
 
@@ -25,6 +15,8 @@ module type LANG = sig
 
   val string_of_nf : normal_form -> string
 
+
+  type opconf = computation * Memory.memory
   val compute_nf : opconf -> (normal_form option * Memory.memory) option
 
   (* Abstracted values correspond to the observable part of a value.

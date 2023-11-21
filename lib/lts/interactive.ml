@@ -38,24 +38,24 @@ module type INT_F = functor
   include INT with module IntLang = IntLang and module Actions.Moves = Moves
 end
 
-module Make (CpsLang : Lang.Cps.INTLANG) :
+module Make (IntLang : Lang.Interactive.LANG) :
   INT
-    with type IntLang.name = CpsLang.name
-     and type Actions.Moves.name = CpsLang.name = struct
-  module IntLang = CpsLang
-  module Actions = Actions.Make (CpsLang)
+    with type IntLang.name = IntLang.name
+     and type Actions.Moves.name = IntLang.name = struct
+  module IntLang = IntLang
+  module Actions = Actions.Make (IntLang)
   open Actions
 
   let generate_output_move namectxO nf =
-    match CpsLang.abstract_kind nf namectxO with
+    match IntLang.abstract_kind nf namectxO with
     | Some (a_nf, ienv, namectxP) ->
         (Moves.build (Moves.Output, a_nf), ienv, namectxP)
     | None ->
         failwith
           ("Error: the normal form "
-          ^ CpsLang.string_of_nf nf
+          ^ IntLang.string_of_nf nf
           ^ " is not typeable in the name context "
-          ^ CpsLang.string_of_name_type_ctx namectxO
+          ^ IntLang.string_of_name_type_ctx namectxO
           ^ ". Please report.")
 
   open IntLang.M
@@ -72,7 +72,7 @@ module Make (CpsLang : Lang.Cps.INTLANG) :
     | Moves.Input -> begin
         let a_nf = Moves.get_kdata move in
         let lnamectx_opt =
-          CpsLang.type_check_a_nf namectxP namectxO a_nf in
+          IntLang.type_check_a_nf namectxP namectxO a_nf in
         begin
           match lnamectx_opt with
           | Some lnamectx ->
@@ -85,7 +85,7 @@ module Make (CpsLang : Lang.Cps.INTLANG) :
 
   let trigger_computation ienv input_move =
     let (kdata) = Moves.get_kdata input_move in
-    match (Moves.get_direction input_move, CpsLang.concretize_a_nf ienv kdata) with
+    match (Moves.get_direction input_move, IntLang.concretize_a_nf ienv kdata) with
     | (Moves.Input, Some (comp,ienv')) ->
         (comp, ienv')
     | (Moves.Input, None) ->
@@ -93,7 +93,7 @@ module Make (CpsLang : Lang.Cps.INTLANG) :
           ("Error: the move "
           ^ Moves.string_of_move input_move
           ^ " is ill-formed wrt the environment "
-          ^ CpsLang.string_of_interactive_env ienv
+          ^ IntLang.string_of_interactive_env ienv
           ^ ". Please report.")
     | _ ->
         failwith
