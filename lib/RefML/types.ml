@@ -195,10 +195,10 @@ let rec unify_type tsubst = function
   | (TExn, TExn) -> Some (TExn, tsubst)
   | ((TVar tvar1 as ty1), TVar tvar2) when tvar1 = tvar2 -> Some (ty1, tsubst)
   | ((TVar _ as ty1), TVar tvar2) ->
-      Some (ty1, Util.Pmap.modadd_pmap (tvar2, ty1) tsubst)
+      Some (ty1, Util.Pmap.modadd (tvar2, ty1) tsubst)
   | (TVar tvar, ty) | (ty, TVar tvar) -> begin
       match Util.Pmap.lookup tvar tsubst with
-      | None -> Some (ty, Util.Pmap.modadd_pmap (tvar, ty) tsubst)
+      | None -> Some (ty, Util.Pmap.modadd (tvar, ty) tsubst)
       | Some ty' -> begin
           match unify_type tsubst (ty, ty') with
           | None ->
@@ -207,7 +207,7 @@ let rec unify_type tsubst = function
                ^ string_of_typeML ty');
               None
           | Some (ty'', lsubst'') ->
-              Some (ty'', Util.Pmap.modadd_pmap (tvar, ty'') lsubst'')
+              Some (ty'', Util.Pmap.modadd (tvar, ty'') lsubst'')
         end
     end
   | ((TId id1 as ty), TId id2) | ((TName id1 as ty), TName id2) ->

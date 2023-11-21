@@ -8,7 +8,7 @@ let allocate heap v =
   let l = Syntax.fresh_loc () in
   (l, Util.Pmap.add (l, v) heap)
 
-let modify heap l value = Util.Pmap.modadd_pmap (l, value) heap
+let modify heap l value = Util.Pmap.modadd (l, value) heap
 let access heap l = Util.Pmap.lookup l heap
 
 let string_of_heap =

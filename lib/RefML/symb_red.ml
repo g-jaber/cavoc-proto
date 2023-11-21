@@ -276,7 +276,7 @@ let rec symbred heapPost expr =
               ( Unit,
                 Util.Pmap.empty,
                 Util.Pmap.empty,
-                modadd_pmap (l, expr2) heapPost,
+                modadd (l, expr2) heapPost,
                 Util.Pmap.empty,
                 [] );
             ],
@@ -288,7 +288,7 @@ let rec symbred heapPost expr =
               ( Unit,
                 Util.Pmap.empty,
                 heapPre,
-                modadd_pmap (l, expr2) heapPost,
+                modadd (l, expr2) heapPost,
                 Util.Pmap.singleton (x, Types.TInt),
                 [] );
             ],

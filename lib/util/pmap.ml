@@ -29,16 +29,10 @@ let add (a, b) p = (a, b) :: p
 let add_span (a, b) p =
   if is_in_dom_im (a, b) p then None else Some (add (a, b) p)
 
-let rec modadd_pmap (x, v) = function
+let rec modadd (x, v) = function
   | [] -> [ (x, v) ]
   | (y, _) :: pmap when x = y -> (y, v) :: pmap
-  | hd :: pmap -> hd :: modadd_pmap (x, v) pmap
-
-let rec modadd_pmap2 (x1, v1) (x2, v2) = function
-  | [] -> [ (x1, v1); (x2, v2) ]
-  | (y, _) :: pmap when x1 = y -> (y, v1) :: modadd_pmap (x2, v2) pmap
-  | (y, _) :: pmap when x2 = y -> (y, v2) :: modadd_pmap (x1, v1) pmap
-  | hd :: pmap -> hd :: modadd_pmap2 (x1, v1) (x2, v2) pmap
+  | hd :: pmap -> hd :: modadd (x, v) pmap
 
 let rec string_of_pmap empty sep string_of_dom string_of_im = function
   | [] -> empty
