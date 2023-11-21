@@ -203,14 +203,17 @@ module Make (OpLang : WITHNUP) = struct
   let is_equiv_kind_interact span kind1 kind2 =
     Util.Namespan.is_in_dom_im (kind1, kind2) span
 
-    (* kind_interact_typing provide a way to type check an interact kind within an interactive name context.
-     It returns None if the interactive kind is not well-typed.*)  
+  (* kind_interact_typing provide a way to type check an interact kind within an interactive name context.
+     It returns None if the interactive kind is not well-typed.*)
   let kind_interact_typing = Util.Pmap.lookup
 
   let extract_kind_interact namectx =
     Util.Pmap.to_list @@ Util.Pmap.filter_dom OpLang.is_callable namectx
 
   type normal_form = kind_interact * glue_val
+
+  let string_of_nf (kind, _) =
+    string_of_kind_interact kind 
 
   let compute_nf (NTerm (cn, term), memory) =
     match OpLang.compute_nf (term, memory) with
@@ -226,6 +229,10 @@ module Make (OpLang : WITHNUP) = struct
             | NFRaise value -> Some (OpLang.inj_cont_name cn, GRaise value)
           end in
         Some (kind_nf, memory')
+
+  
+  (* From an interactive environment γ, an interactive value I and an abstract value A,
+      val_composition γ I A  built the computation I ★ A{γ} *)
 
   let val_composition ienv ival aval =
     match (ival, aval) with
@@ -243,6 +250,11 @@ module Make (OpLang : WITHNUP) = struct
           ^ " cannot be composed with the abstract value "
           ^ string_of_abstract_val aval
           ^ ". Please report")
+
+  let concretize_a_nf ienv (kind,aval) =  match trigger_ienv ienv kind with
+  | Some ivalue ->
+      Some (val_composition ienv ivalue aval, ienv)
+  | None -> None
 
   (* The function neg_type extract from an interactive type the type of the input arguments
      expected to interact over this type. *)
@@ -262,10 +274,17 @@ module Make (OpLang : WITHNUP) = struct
     match ty_option with
     | Some ty ->
         let nty = neg_type ty in
-        Some (abstract_glue_val gval nty)
+        let (aval, ienv, lnamectx) = abstract_glue_val gval nty in
+        Some ((kind, aval), ienv, lnamectx)
     | None -> None
 
   type abstract_normal_form = kind_interact * abstract_val
+
+  let get_subject_names (kind, _) = name_of_kind_interact kind
+  let get_support (_, aval) = names_of_abstract_val aval
+
+  let string_of_a_nf dir (kind, aval) =
+    string_of_kind_interact kind ^ dir ^ string_of_abstract_val aval
 
   let generate_a_nf namectxP =
     let kind_list = extract_kind_interact namectxP in
@@ -294,6 +313,11 @@ module Make (OpLang : WITHNUP) = struct
         end
     | (ANup nup1, ANup nup2) -> OpLang.Nup.unify_nup nspan nup1 nup2
     | _ -> None
+
+  let is_equiv_a_nf span (kind1, aval1) (kind2, aval2) =
+    if is_equiv_kind_interact span kind1 kind2 then
+      unify_abstract_val span aval1 aval2
+    else None
 
   let get_typed_computation nbprog inBuffer =
     let (term, ty, _) = OpLang.get_typed_term nbprog inBuffer in

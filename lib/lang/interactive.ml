@@ -13,12 +13,6 @@ module type LANG = sig
   (* we classify the interaction (like returning a value or performing a callbacks) using the type kind_interact *)
   type kind_interact
 
-  val string_of_kind_interact : kind_interact -> string
-  val name_of_kind_interact : kind_interact -> name option
-
-  val is_equiv_kind_interact :
-    name Util.Namespan.namespan -> kind_interact -> kind_interact -> bool
-
   (* Normal forms are either decomposed into their kind of interaction
       and a glue values on which the interaction happened,
       or into None when they corresponds to (uncatchable) error values. *)
@@ -27,7 +21,9 @@ module type LANG = sig
   (* compute_nf computes the normal form of an operational configuration,
      or None when we detect that the operational configuration diverges.*)
 
-  type normal_form = kind_interact * glue_val
+  type normal_form
+
+  val string_of_nf : normal_form -> string
 
   val compute_nf : opconf -> (normal_form option * Memory.memory) option
 
@@ -38,11 +34,6 @@ module type LANG = sig
 
   val string_of_abstract_val : abstract_val -> string
   val names_of_abstract_val : abstract_val -> name list
-
-  (* Interactive values are the negative part of values,
-     that are not exchanged between players but rather interact on. *)
-  type interactive_val
-
 
   (*Interactive name contexts are typing contexts mapping names to interactive types.*)
   type name_type_ctx 
@@ -57,7 +48,6 @@ module type LANG = sig
   type interactive_env
 
   val empty_ienv : interactive_env
-  val trigger_ienv : interactive_env -> kind_interact -> interactive_val option
   val concat_ienv : interactive_env -> interactive_env -> interactive_env
   val string_of_interactive_env : interactive_env -> string
 
@@ -67,12 +57,21 @@ module type LANG = sig
        - a typed interactive environment for the negative part. *)
 
   (* Temporary *)
+  type abstract_normal_form
   val abstract_kind :
     normal_form ->
     name_type_ctx ->
-    (abstract_val * interactive_env * name_type_ctx) option
+    (abstract_normal_form * interactive_env * name_type_ctx) option
 
-  type abstract_normal_form = kind_interact * abstract_val
+  val get_subject_names : abstract_normal_form -> name option
+  val get_support : abstract_normal_form -> name list
+
+  (* The first argument is a string inserted between the kind and the abstract values *)
+  val string_of_a_nf : string -> abstract_normal_form -> string
+
+  val is_equiv_a_nf :
+    name Util.Namespan.namespan -> abstract_normal_form -> abstract_normal_form -> (name Util.Namespan.namespan) option
+
 
   (* From the interactive name context Γ_P,
      we generate all the possible pairs (A,Δ) such that
@@ -93,10 +92,7 @@ module type LANG = sig
     abstract_normal_form ->
     name_type_ctx option
 
-  (* From an interactive environment γ, an interactive value I and an abstract value A,
-      val_composition γ I A  built the computation I ★ A{γ} *)
-  val val_composition :
-    interactive_env -> interactive_val -> abstract_val -> computation
+  val concretize_a_nf : interactive_env -> abstract_normal_form -> (computation*interactive_env) option
 
   val unify_abstract_val :
     name Util.Namespan.namespan ->

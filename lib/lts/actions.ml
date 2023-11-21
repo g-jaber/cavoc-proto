@@ -24,8 +24,7 @@ end
 module Make (IntLang : Lang.Interactive.LANG) :
   ACTIONS
     with type Moves.name = IntLang.name
-     and type Moves.data = IntLang.abstract_val
-     and type Moves.kind = IntLang.kind_interact = struct
+     and type Moves.kdata = IntLang.abstract_normal_form = struct
   module Moves = Moves.Make (IntLang)
 
   type action = PDiv | PError | Vis of Moves.move
