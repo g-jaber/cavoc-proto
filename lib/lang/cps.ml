@@ -69,7 +69,6 @@ module Make (OpLang : WITHNUP) = struct
   let embed_name_ctx = Util.Pmap.map_im (fun ty -> IType ty)
   let empty_name_type_ctx = Util.Pmap.empty
   let concat_name_type_ctx = Util.Pmap.concat
-
   let get_names_from_name_type_ctx = Util.Pmap.dom
 
   let string_of_name_type_ctx =
@@ -92,11 +91,6 @@ module Make (OpLang : WITHNUP) = struct
   let generate_computation term ty =
     let cn = OpLang.fresh_cname () in
     (NTerm (cn, term), Util.Pmap.singleton (OpLang.inj_cont_name cn, INeg ty))
-
-  let compute_nf (NTerm (cn, term), memory) =
-    match OpLang.compute_nf (term, memory) with
-    | None -> None
-    | Some (nf, memory') -> Some (NTerm (cn, nf), memory')
 
   let type_check_abstract_val name_type_ctxP name_type_ctxO gty aval =
     match (gty, aval) with
@@ -138,8 +132,6 @@ module Make (OpLang : WITHNUP) = struct
       | (_, ICtx _) -> None)
 
   let empty_ienv = Util.Pmap.empty
-  let singleton_ienv = Util.Pmap.singleton
-  let list_to_ienv = Util.Pmap.list_to_pmap
 
   let string_of_interactive_env =
     Util.Pmap.string_of_pmap "ε" "↪" OpLang.string_of_name
@@ -175,6 +167,10 @@ module Make (OpLang : WITHNUP) = struct
   module M = OpLang.Nup.M
   open M
 
+  (* From the interactive name context Γ_P and a glue type τ,
+     we generate all the possible pairs (A,Δ) such that
+     Γ_P;_ ⊢ A : τ ▷ Δ
+     Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
   let rec generate_abstract_val name_type_ctx gtype =
     let name_ctx = extract_name_ctx name_type_ctx in
     match gtype with
@@ -207,17 +203,29 @@ module Make (OpLang : WITHNUP) = struct
   let is_equiv_kind_interact span kind1 kind2 =
     Util.Namespan.is_in_dom_im (kind1, kind2) span
 
+    (* kind_interact_typing provide a way to type check an interact kind within an interactive name context.
+     It returns None if the interactive kind is not well-typed.*)  
   let kind_interact_typing = Util.Pmap.lookup
 
-  let extract_kind_interact namectx = 
-    Util.Pmap.to_list @@  Util.Pmap.filter_dom OpLang.is_callable namectx
+  let extract_kind_interact namectx =
+    Util.Pmap.to_list @@ Util.Pmap.filter_dom OpLang.is_callable namectx
 
-  let decompose_nf (NTerm (cn, term)) =
-    match get_kind_nf term with
-    | NFCallback (fn, value, ectx) -> Some (fn, GPair (value, NCtx (cn, ectx)))
-    | NFValue value -> Some (OpLang.inj_cont_name cn, GVal value)
-    | NFError -> None
-    | NFRaise value -> Some (OpLang.inj_cont_name cn, GRaise value)
+  type normal_form = kind_interact * glue_val
+
+  let compute_nf (NTerm (cn, term), memory) =
+    match OpLang.compute_nf (term, memory) with
+    | None -> None
+    | Some (nf, memory') ->
+        let kind_nf =
+          begin
+            match get_kind_nf nf with
+            | NFCallback (fn, value, ectx) ->
+                Some (fn, GPair (value, NCtx (cn, ectx)))
+            | NFValue value -> Some (OpLang.inj_cont_name cn, GVal value)
+            | NFError -> None
+            | NFRaise value -> Some (OpLang.inj_cont_name cn, GRaise value)
+          end in
+        Some (kind_nf, memory')
 
   let val_composition ienv ival aval =
     match (ival, aval) with
@@ -236,6 +244,8 @@ module Make (OpLang : WITHNUP) = struct
           ^ string_of_abstract_val aval
           ^ ". Please report")
 
+  (* The function neg_type extract from an interactive type the type of the input arguments
+     expected to interact over this type. *)
   let neg_type = function
     | IType ty ->
         let (tvar_l, inp_ty) = OpLang.get_input_type ty in
@@ -246,6 +256,29 @@ module Make (OpLang : WITHNUP) = struct
           | _ -> GExists (tvar_l, inp_ty, INeg out_ty)
         end
     | INeg ty -> GType ty
+
+  let abstract_kind (kind, gval) namectxO =
+    let ty_option = kind_interact_typing kind namectxO in
+    match ty_option with
+    | Some ty ->
+        let nty = neg_type ty in
+        Some (abstract_glue_val gval nty)
+    | None -> None
+
+  type abstract_normal_form = kind_interact * abstract_val
+
+  let generate_a_nf namectxP =
+    let kind_list = extract_kind_interact namectxP in
+    let* (kind, ty) = M.para_list @@ kind_list in
+    let* (aval, lnamectx) = generate_abstract_val namectxP (neg_type ty) in
+    return ((kind, aval), lnamectx)
+
+  let type_check_a_nf namectxP namectxO (kind, aval) =
+    match kind_interact_typing kind namectxP with
+    | None -> None
+    | Some ty ->
+        let dual_ty = neg_type ty in
+        type_check_abstract_val namectxP namectxO dual_ty aval
 
   let unify_abstract_val nspan aval1 aval2 =
     match (aval1, aval2) with

@@ -46,26 +46,23 @@ module Make (Int : Lts.Interactive.INT) = struct
     ^ ">"
 
   let p_trans act_conf =
-    let opconf_option =
+    let nf_option =
       Int.IntLang.compute_nf (act_conf.computation, act_conf.heap) in
-    match opconf_option with
+    match nf_option with
     | None -> (Int.Actions.diverging_action, None)
-    | Some (nf, heap) -> begin
-        match Int.IntLang.decompose_nf nf with
-        | Some (kind, glue_val) ->
-            let (move, ienv', namectxP') =
-              Int.generate_output_move act_conf.namectxO kind glue_val in
-            ( Int.Actions.inject_move move,
-              Some
-                {
-                  heap;
-                  ienv= Int.IntLang.concat_ienv ienv' act_conf.ienv;
-                  namectxP=
-                    Int.IntLang.concat_name_type_ctx namectxP' act_conf.namectxP;
-                  namectxO= act_conf.namectxO;
-                } )
-        | None -> (Int.Actions.error_action, None)
-      end
+    | Some (None,_) -> (Int.Actions.error_action, None)
+    | Some (Some kind, heap) ->
+        let (move, ienv', namectxP') =
+          Int.generate_output_move act_conf.namectxO kind in
+        ( Int.Actions.inject_move move,
+          Some
+            {
+              heap;
+              ienv= Int.IntLang.concat_ienv ienv' act_conf.ienv;
+              namectxP=
+                Int.IntLang.concat_name_type_ctx namectxP' act_conf.namectxP;
+              namectxO= act_conf.namectxO;
+            } )
 
   let o_trans pas_conf input_move =
     match

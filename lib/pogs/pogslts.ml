@@ -41,19 +41,16 @@ module Make (Int : Lts.Interactive.INT) = struct
     ^ ">"
 
   let p_trans aconf =
-    let opconf_option = Int.IntLang.compute_nf (aconf.computation, aconf.heap) in
-    match opconf_option with
+    let nf_option = Int.IntLang.compute_nf (aconf.computation, aconf.heap) in
+    match nf_option with
     | None -> (Int.Actions.diverging_action, None)
-    | Some (nf, heap) -> begin
-        match Int.IntLang.decompose_nf nf with
-        | Some (nn, glue_val) ->
-            let loc_ctx = Int.IntLang.Memory.infer_type_memory heap in
-            let (move, ienv, namectxP) =
-              Int.generate_output_move aconf.namectxO nn glue_val in
-            ( Int.Actions.inject_move move,
-              Some { loc_ctx; ienv; namectxP; namectxO= aconf.namectxO } )
-        | None -> (Int.Actions.error_action, None)
-      end
+    | Some (None,_) -> (Int.Actions.error_action, None)
+    | Some (Some kind, heap) ->
+        let loc_ctx = Int.IntLang.Memory.infer_type_memory heap in
+        let (move, ienv, namectxP) =
+          Int.generate_output_move aconf.namectxO kind in
+        ( Int.Actions.inject_move move,
+          Some { loc_ctx; ienv; namectxP; namectxO= aconf.namectxO } )
 
   let o_trans pas_conf input_move =
     match
@@ -65,17 +62,11 @@ module Make (Int : Lts.Interactive.INT) = struct
           "POGS o_trans cannot be implemented without moves-with-heaps !!"
 
   let o_trans_gen pconf =
-    let* (input_move, _,namectxO) = Int.generate_input_moves pconf.namectxP pconf.namectxO in
+    let* (input_move, _, namectxO) =
+      Int.generate_input_moves pconf.namectxP pconf.namectxO in
     let* heap = Int.IntLang.Memory.generate_memory pconf.loc_ctx in
-    let (computation,_) = Int.trigger_computation pconf.ienv input_move in
-    return
-      ( input_move,
-        {
-          computation;
-          heap;
-          loc_ctx= pconf.loc_ctx;
-          namectxO;
-        } )
+    let (computation, _) = Int.trigger_computation pconf.ienv input_move in
+    return (input_move, { computation; heap; loc_ctx= pconf.loc_ctx; namectxO })
 
   let init_aconf computation namectxO =
     {

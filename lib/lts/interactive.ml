@@ -10,20 +10,20 @@ module type INT = sig
 
   val generate_output_move :
     IntLang.name_type_ctx ->
-    IntLang.kind_interact ->
-    IntLang.glue_val ->
+    IntLang.kind_interact * IntLang.glue_val ->
     Actions.Moves.move * IntLang.interactive_env * IntLang.name_type_ctx
 
   val generate_input_moves :
     IntLang.name_type_ctx ->
     IntLang.name_type_ctx ->
-    (Actions.Moves.move * IntLang.name_type_ctx * IntLang.name_type_ctx) IntLang.M.m
+    (Actions.Moves.move * IntLang.name_type_ctx * IntLang.name_type_ctx)
+    IntLang.M.m
 
   val check_input_move :
     IntLang.name_type_ctx ->
     IntLang.name_type_ctx ->
     Actions.Moves.move ->
-    (IntLang.name_type_ctx*IntLang.name_type_ctx) option
+    (IntLang.name_type_ctx * IntLang.name_type_ctx) option
 
   val trigger_computation :
     IntLang.interactive_env ->
@@ -40,39 +40,31 @@ module type INT_F = functor
   include INT with module IntLang = IntLang and module Actions.Moves = Moves
 end
 
-module Make (CpsLang : Lang.Cps.INTLANG) : INT
+module Make (CpsLang : Lang.Cps.INTLANG) :
+  INT
     with type IntLang.name = CpsLang.name
      and type Actions.Moves.name = CpsLang.name = struct
   module IntLang = CpsLang
-
   module Actions = Actions.Make (CpsLang)
   open Actions
 
-  let generate_output_move namectxO kind glue_val =
-    let ty_option = CpsLang.kind_interact_typing kind namectxO in
-    begin
-      match ty_option with
-      | Some ty ->
-          let nty = CpsLang.neg_type ty in
-          let (aval, ienv, namectxP) = CpsLang.abstract_glue_val glue_val nty in
-          (Moves.build (Moves.Output, kind, aval), ienv, namectxP)
-      | None ->
-          failwith
-            ("Error: the interaction kind "
-            ^ CpsLang.string_of_kind_interact kind
-            ^ " is not typeable in the name context "
-            ^ CpsLang.string_of_name_type_ctx namectxO
-            ^ ". Please report.")
-    end
+  let generate_output_move namectxO (kind, gval) =
+    match CpsLang.abstract_kind (kind, gval) namectxO with
+    | Some (a_nf, ienv, namectxP) ->
+        (Moves.build (Moves.Output, kind, a_nf), ienv, namectxP)
+    | None ->
+        failwith
+          ("Error: the interaction kind "
+          ^ CpsLang.string_of_kind_interact kind
+          ^ " is not typeable in the name context "
+          ^ CpsLang.string_of_name_type_ctx namectxO
+          ^ ". Please report.")
 
   open IntLang.M
 
   let generate_input_moves namectxP namectxO =
     Util.Debug.print_debug "Generating O-moves";
-    let kind_list = IntLang.extract_kind_interact namectxP in
-    let* (kind, ty) = IntLang.M.para_list @@ kind_list in
-    let* (aval, lnamectx) =
-      CpsLang.generate_abstract_val namectxP (CpsLang.neg_type ty) in
+    let* ((kind, aval), lnamectx) = IntLang.generate_a_nf namectxP in
     let namectxO' = IntLang.concat_name_type_ctx lnamectx namectxO in
     return (Moves.build (Moves.Input, kind, aval), lnamectx, namectxO')
 
@@ -81,21 +73,16 @@ module Make (CpsLang : Lang.Cps.INTLANG) : INT
     | Moves.Output -> None
     | Moves.Input -> begin
         let kind = Moves.get_kind move in
-        match CpsLang.kind_interact_typing kind namectxP with
-        | None -> None
-        | Some ty ->
-            let aval = Moves.get_data move in
-            let dual_ty = CpsLang.neg_type ty in
-            begin
-              match
-                CpsLang.type_check_abstract_val namectxP namectxO dual_ty aval
-              with
-              | Some lnamectx ->
-                  let namectxO' =
-                    IntLang.concat_name_type_ctx lnamectx namectxO in
-                  Some (lnamectx, namectxO')
-              | None -> None
-            end
+        let aval = Moves.get_data move in
+        let lnamectx_opt =
+          CpsLang.type_check_a_nf namectxP namectxO (kind, aval) in
+        begin
+          match lnamectx_opt with
+          | Some lnamectx ->
+              let namectxO' = IntLang.concat_name_type_ctx lnamectx namectxO in
+              Some (lnamectx, namectxO')
+          | None -> None
+        end
       end
     | Moves.None -> None
 
@@ -104,14 +91,14 @@ module Make (CpsLang : Lang.Cps.INTLANG) : INT
     let aval = Moves.get_data input_move in
     match (Moves.get_direction input_move, CpsLang.trigger_ienv ienv kind) with
     | (Moves.Input, Some ivalue) ->
-       (CpsLang.val_composition ienv ivalue aval, ienv)
-    | (Moves.Input,None) ->
-            failwith
-              ("Error: the move "
-              ^ Moves.string_of_move input_move
-              ^ " is ill-formed wrt the environment "
-              ^ CpsLang.string_of_interactive_env ienv
-              ^ ". Please report.")
+        (CpsLang.val_composition ienv ivalue aval, ienv)
+    | (Moves.Input, None) ->
+        failwith
+          ("Error: the move "
+          ^ Moves.string_of_move input_move
+          ^ " is ill-formed wrt the environment "
+          ^ CpsLang.string_of_interactive_env ienv
+          ^ ". Please report.")
     | _ ->
         failwith
           ("Error: the move "
