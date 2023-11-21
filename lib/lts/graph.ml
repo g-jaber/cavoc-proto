@@ -1,4 +1,4 @@
-module type GRAPH = functor (IntLTS : Bipartite.INT_LTS) -> sig
+module type GRAPH = functor (IntLTS : Bipartite.LTS) -> sig
   type state
 
   val string_of_state : state -> string
@@ -16,7 +16,7 @@ end
 
 module Graph : GRAPH =
 functor
-  (IntLTS : Bipartite.INT_LTS)
+  (IntLTS : Bipartite.LTS)
   ->
   struct
     type id_state = int
@@ -43,14 +43,14 @@ functor
       | ActState (_, id) | PasState (_, id) -> string_of_id_state id
 
     type transition =
-      | PublicTrans of state * IntLTS.Int.Actions.action * state
+      | PublicTrans of state * IntLTS.Actions.action * state
       | Divergent of state
 
     let string_of_transition = function
       | Divergent st -> idstring_of_state st ^ "-> Boom"
       | PublicTrans (st1, act, st2) ->
           idstring_of_state st1 ^ " -"
-          ^ IntLTS.Int.Actions.string_of_action act
+          ^ IntLTS.Actions.string_of_action act
           ^ "-> " ^ idstring_of_state st2
 
     type graph = { states: state list; edges: transition list }
