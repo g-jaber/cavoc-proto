@@ -1,4 +1,5 @@
-(* This module provides a way to synchronize the interaction between the interaction of two configurations of the same bipartite LTS.
+(* This module provides two functions to synchronize the interaction between 
+    two configurations of the same bipartite LTS.
    One of the configuration must be active, and the other one is passive.
 *)
 
@@ -15,6 +16,8 @@ functor
 
     type player = Proponent | Opponent
 
+    (* synchronize_check first retrieves the action performed by the active configuration,
+       then it checks if the dual action is a valid one for the passive configuration.*)
     let rec synchronize_check confP confO =
       Util.Debug.print_debug "One step of synchronization";
       let (act_conf, pas_conf, act_player) =
@@ -68,6 +71,10 @@ functor
                 synchronize_check confP' confO'
           end
 
+    (* synchronize_gen retrieves the action performed by the active configuration,
+       then generates all the moves performed by the passive configurations,
+       trying to synchronize them.
+       It uses a span of names to synchronize the two actions.  *)
     let rec synchronize_gen nspan confP confO =
       Util.Debug.print_debug "One step of synchronization";
       let (act_conf, pas_conf, act_player) =
@@ -131,9 +138,6 @@ functor
                 let* () = emit moveP in
                 synchronize_gen nspan' confP' confO'
           end
-
-    (* TODO: it would make more sense to synchronize by first retrieving the action performed by the active configuration,
-       then checking if the dual action is a valid one for the passive configuration. *)
 
     let get_traces_check act_conf pas_conf =
       let result = synchronize_check act_conf pas_conf in
