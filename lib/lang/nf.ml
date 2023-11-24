@@ -46,5 +46,14 @@ let get_active_name = function
   | NFError cn -> cn
   | NFRaise (cn, _) -> cn
 
-let equiv_kind_nf _ _ _ _ =
-  failwith "Equivalence of normal forms is not yet implented."
+let equiv_kind_nf unify_abstract_val span anf1 anf2 =
+  match (anf1, anf2) with
+  | (NFCallback (fn1, aval1, _), NFCallback (fn2, aval2, _))
+    when Util.Namespan.is_in_dom_im (fn1, fn2) span ->
+      unify_abstract_val span aval1 aval2
+  | (NFValue (cn1, aval1), NFValue (cn2, aval2)) when Util.Namespan.is_in_dom_im (cn1, cn2) span ->
+      unify_abstract_val span aval1 aval2
+  | (NFError cn1, NFError cn2) when Util.Namespan.is_in_dom_im (cn1, cn2) span -> Some span
+  | (NFRaise (cn1, aval1), NFRaise (cn2, aval2)) when Util.Namespan.is_in_dom_im (cn1, cn2) span ->
+      unify_abstract_val span aval1 aval2
+  | _ -> None
