@@ -16,7 +16,6 @@ module Make (M : Util.Monad.BRANCH) :
   type typevar = Types.typevar
   (* *)
 
-  
   open Syntax
   open Types
 
@@ -87,9 +86,10 @@ module Make (M : Util.Monad.BRANCH) :
         let nty = Types.force_negative_type ty in
         return (Name pn, Util.Pmap.singleton (pn, nty))
     | TExn as ty ->
-        failwith
-          ("Error: the generation of a nups on type "
-         ^ Types.string_of_typ ty ^ " is not yet supported.")
+        Util.Debug.print_debug
+          ("Error: the generation of a nups on type " ^ Types.string_of_typ ty
+         ^ " is not yet supported.");
+        fail ()
     | ty ->
         failwith
           ("Error generating a nup on type " ^ Types.string_of_typ ty
@@ -118,7 +118,9 @@ module Make (M : Util.Monad.BRANCH) :
     | (TArrow _, Name nn) | (TForall _, Name nn) ->
         if Util.Pmap.mem nn namectxP || Util.Pmap.mem nn namectxO then None
           (* the name nn has to be fresh to be well-typed *)
-        else let nty = Types.force_negative_type ty in Some (Util.Pmap.singleton (nn, nty))
+        else
+          let nty = Types.force_negative_type ty in
+          Some (Util.Pmap.singleton (nn, nty))
     | (TArrow _, _) | (TForall _, _) -> None
     | (TId id, Name nn) -> begin
         match Util.Pmap.lookup nn namectxP with
@@ -130,7 +132,9 @@ module Make (M : Util.Monad.BRANCH) :
     | (TName _, Name nn) ->
         if Util.Pmap.mem nn namectxP || Util.Pmap.mem nn namectxO then None
           (* the name nn has to be fresh to be well-typed *)
-        else let nty = Types.force_negative_type ty in Some (Util.Pmap.singleton (nn, nty))
+        else
+          let nty = Types.force_negative_type ty in
+          Some (Util.Pmap.singleton (nn, nty))
     | (TName _, _) -> None
     | (TVar _, _) ->
         failwith @@ "Error: trying to type-check a nup of type "
@@ -167,12 +171,12 @@ module Make (M : Util.Monad.BRANCH) :
     | (Constructor _, TExn) -> (value, Util.Pmap.empty, Util.Pmap.empty)
     | _ ->
         failwith
-          ("Error: " ^ string_of_term value ^ " of type "
-         ^ string_of_typ ty
+          ("Error: " ^ string_of_term value ^ " of type " ^ string_of_typ ty
          ^ " cannot be abstracted because it is not a value.")
 
   let subst_names ienv nup =
-    let aux nup (nn, nval) = Syntax.subst nup (Name nn) (embed_negative_val nval) in
+    let aux nup (nn, nval) =
+      Syntax.subst nup (Name nn) (embed_negative_val nval) in
     Util.Pmap.fold aux nup ienv
 
   let get_input_type = function

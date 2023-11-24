@@ -191,7 +191,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
       else if Name.is_cname nn then
         [
           NFValue (nn, AVal.negating_type ty);
-          NFRaise (nn, AVal.negating_type ty);
+          NFRaise (nn, exception_type);
         ]
       else [] in
     List.concat_map aux (Util.Pmap.to_list namectxP)
