@@ -20,13 +20,20 @@ The prototype currently works on a fragment of OCaml with:
 The lib/ directory contains the various subparts of the prototype:
 - util/ contains some basic utility modules for printing, monads, partial maps and span. They should eventually be replaced by proper implementation found in existing libraries.
 - lang/ contains the interfaces used to represent the programming languages:
-  * language.ml contains the various signatures to represent the core of the programming language;
-  * interactive.ml contains the signature used to represent the focusing process that decomposes normal forms.
-  * cps.ml contains the interactive continuation-passing-style transformation of a language with nominal ultimate patterns (NUPs) into a language with abstract values.
+  * language.ml contains the various signatures to represent the core of the programming language,
+  including the notion of abstracted values;
+  * nf.ml contains the definition of normal forms, that is parametrized wrt the type of values, evaluation contexts, function names and continuation names.
+  * interactive.ml contains the signature used to represent the focusing process that decomposes normal forms using the abstraction process of values.
+  * cps.ml contains the interactive continuation-passing-style transformation of normal forms and top-level terms of a language that embeds evaluation contexts into values.
 - lts/ contains the interfaces used to represent the LTSs used to represent the interaction.
-  * the signature INT_LTS in bipartite.ml is the  basic notion of bipartite LTS
+  * The signature MOVES is given in moves.ml, and represents the basic notions of moves, that carry a direction and a mix of kind and data (called kdata). We provide a functor Make (IntLang : Lang.Interactive.LANG) that defined a module Moves using
+  abstracted normal forms as kdata.
+  * The signature ACTIONS is given in actions.ml, and embeds moves into actions.
+  * The signature INT in interactive.ml provides the functions to generate moves from name contexts and normal forms,
+  and to build terms from moves and interactive environments.
+  * a functor Make (IntLang : Lang.Interactive.LANG) : INT  is provided in the file interactive.ml to build a module of signature INT.
+  * The signature INT_LTS in bipartite.ml is the  basic notion of bipartite LTS
   * We provide a generic way to compute the product of two bipartite LTS via the functor Make of the file product_lts.ml
-  * a functor Int_Make (CpsLang : Lang.Cps.INTLANG) is provided in the file cps.ml to build a module of signature Interactive.INT. The main idea is to used continuation names, so that any moves has a subject name.
 - ogs/ contains:
   * the definition of the OGS LTS in ogslts.ml, define by a functor over Interactive.INT signature 
   * including the well-bracketed part.
