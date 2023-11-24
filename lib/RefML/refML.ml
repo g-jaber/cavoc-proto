@@ -1,73 +1,55 @@
-module WithNup (M : Util.Monad.BRANCH) : Lang.Cps.WITHNUP = struct
-  type name = Syntax.name
+module Names :
+  Lang.Names.CONT_NAMES
+    with type name = Names.name
+     and type cont_name = Names.cont_name = struct
+  include Names
+end
 
-  let string_of_name = Syntax.string_of_name
-  let is_callable = Syntax.is_callable
+module Basic :
+  Lang.Language.BASIC
+    with type term = Syntax.term
+     and type value = Syntax.value
+     and type negative_val = Syntax.negative_val
+     and module Name = Names = struct
+  module Name = Names 
+  (* *)
+  include Syntax
+end
 
-  type cont_name = Syntax.id
+module Typed :
+  Lang.Language.TYPED
+    with type term = Syntax.term
+     and type value = Syntax.value
+     and type negative_val = Syntax.negative_val
+     and type typ = Types.typ
+     and type negative_type = Types.negative_type
+     and type typevar = Types.typevar
+     and module Name = Names = struct
+  include Basic
 
-  let string_of_cont_name cn = cn
-  let get_cont_name = Syntax.cname_to_id
-  let inj_cont_name = Syntax.cname_of_id
-  let fresh_cname = Syntax.fresh_cname
-
-  type term = Syntax.exprML
-
-  let string_of_term = Syntax.string_of_exprML
-
-  type value = Syntax.valML
-
-  let string_of_value = Syntax.string_of_value
-
-  type val_env = (name, value) Util.Pmap.pmap
-  type eval_ctx = Syntax.eval_context
-
-  let string_of_eval_ctx = Syntax.string_of_eval_context
-  let fill_hole = Syntax.fill_hole
-  let apply_value = Syntax.apply_value
-
-  type ('a,'b) kind_nf = 
-    | NFCallback of (name * 'a * 'b)
-    | NFValue of 'a
-    | NFError
-    | NFRaise of 'a
-
-  let get_kind_nf expr =
-    if Syntax.isval expr then NFValue expr
-    else
-      let (expr', ectx) = Syntax.extract_ctx expr in
-      begin
-        match expr' with
-        | Syntax.Raise v when Syntax.isval v -> NFRaise v
-        | Syntax.Error -> NFError
-        | Syntax.App (Name fn, v) when Syntax.isval v -> NFCallback (fn, v, ectx)
-        | _ ->
-            failwith @@ "The term " ^ string_of_term expr
-            ^ " is not a valid normal form. Please report."
-      end
-
-  let map_kind_nf f_val f_ectx = function
-  | NFCallback (name,value,ectx) -> 
-    let value' = f_val value in
-    let ectx' = f_ectx ectx in 
-    NFCallback (name,value',ectx')
-  | NFValue value ->
-    let value' = f_val value in
-    NFValue value'
-  | NFError -> NFError
-  | NFRaise value ->
-    let value' = f_val value in
-    NFRaise value'
-
-
-  let exception_type = Types.TExn
-
-  type typ = Types.typeML
+  type typ = Types.typ
   type typevar = Types.typevar
   type typename = Types.id
 
-  let string_of_type = Types.string_of_typeML
+  let string_of_type = Types.string_of_typ
   let string_of_typename id = id
+
+  type negative_type = Types.negative_type
+
+  let string_of_negative_type = Types.string_of_negative_type
+  let get_negative_type = Types.get_negative_type
+
+  type name_ctx = (Name.name, negative_type) Util.Pmap.pmap
+
+  let empty_name_ctx = Util.Pmap.empty
+  let concat_name_ctx = Util.Pmap.concat
+  let get_names_from_name_ctx = Util.Pmap.dom
+
+  let string_of_name_ctx =
+    Util.Pmap.string_of_pmap "ε" "::" Names.string_of_name
+      Types.string_of_negative_type
+
+  let exception_type = Types.TExn
 
   let generate_typename_subst tvar_l =
     let aux tvar =
@@ -77,63 +59,60 @@ module WithNup (M : Util.Monad.BRANCH) : Lang.Cps.WITHNUP = struct
     (tname_l, Util.Pmap.list_to_pmap type_subst_l)
 
   let apply_type_subst = Types.apply_type_subst
+end
 
-  type name_ctx = (name, typ) Util.Pmap.pmap
+module Memory (M : Util.Monad.BRANCH) :
+  Lang.Language.MEMORY with type memory = Interpreter.memory and module M = M =
+struct
+  type memory = Interpreter.memory
 
-  let get_input_type = function
-    | Types.TArrow (ty1, _) -> ([], ty1)
-    | Types.TForall (tvar_l, TArrow (ty1, _)) -> (tvar_l, ty1)
-    | ty ->
-        failwith @@ "Error: the type " ^ Types.string_of_typeML ty
-        ^ "is not a negative type. Please report."
+  let string_of_memory (valenv, heap) =
+    Syntax.string_of_val_env valenv ^ "| " ^ Heap.string_of_heap heap
 
-  let get_output_type = function
-    | Types.TArrow (_, ty2) -> ty2
-    | Types.TForall (_, TArrow (_, ty2)) -> ty2
-    | ty ->
-        failwith @@ "Error: the type " ^ Types.string_of_typeML ty
-        ^ "is not a negative type. Please report."
+  let empty_memory = (Syntax.empty_val_env, Heap.emptyheap)
 
-  module Memory = struct
-    type memory = Syntax.val_env * Heap.heap
+  (* We trick the system by keeping the full val_env as type ctx *)
+  type memory_type_ctx = Syntax.val_env * Type_ctx.loc_ctx
 
-    let string_of_memory (valenv, heap) =
-      Syntax.string_of_val_env valenv ^ "| " ^ Heap.string_of_heap heap
+  let empty_memory_type_ctx = (Syntax.empty_val_env, Type_ctx.empty_loc_ctx)
 
-    let empty_memory = (Syntax.empty_val_env, Heap.emptyheap)
+  let string_of_memory_type_ctx (valenv, loc_ctx) =
+    Syntax.string_of_val_env valenv ^ "|" ^ Type_ctx.string_of_loc_ctx loc_ctx
 
-    (* We trick the system by keeping the full val_env as type ctx *)
-    type memory_type_ctx = Syntax.val_env * Type_ctx.loc_ctx
+  let infer_type_memory (valenv, loc_ctx) =
+    (valenv, Heap.loc_ctx_of_heap loc_ctx)
 
-    let empty_memory_type_ctx = (Syntax.empty_val_env, Type_ctx.empty_loc_ctx)
+  module M = M
 
-    let string_of_memory_type_ctx (valenv, loc_ctx) =
-      Syntax.string_of_val_env valenv ^ "|" ^ Type_ctx.string_of_loc_ctx loc_ctx
+  let generate_memory (valenv, loc_ctx) =
+    M.para_list
+    @@ List.map (fun heap -> (valenv, heap)) (Heap.generate_heaps loc_ctx)
+end
 
-    let infer_type_memory (valenv, loc_ctx) =
-      (valenv, Heap.loc_ctx_of_heap loc_ctx)
+module Comp (M : Util.Monad.BRANCH) :
+  Lang.Language.COMP
+    with type term = Syntax.term
+     and type value = Syntax.value
+     and type negative_val = Syntax.negative_val
+     and type typ = Types.typ
+     and type negative_type = Types.negative_type
+     and type typevar = Types.typevar
+     and module Name = Names
+     and module Memory.M = M = struct
+  include Typed
+  module Memory = Memory (M)
 
-    module M = M
+  type opconf = Interpreter.opconf
 
-    let generate_memory (valenv, loc_ctx) =
-      M.para_list
-      @@ List.map (fun heap -> (valenv, heap)) (Heap.generate_heaps loc_ctx)
-  end
-
-  type opconf = term * Memory.memory
-
-  let compute_nf (term, (val_env, heap)) =
-    match Interpreter.compute_nf (term, val_env, heap) with
-    | None -> None
-    | Some (nf', val_env', heap') -> Some (nf', (val_env', heap'))
+  let normalize_opconf = Interpreter.normalize_opconf
 
   let get_typed_term nbprog inBuffer =
     let lineBuffer = Lexing.from_channel inBuffer in
     try
-      let expr = Parser.fullexpr Lexer.token lineBuffer in
-      let ty = Type_checker.typing_full Util.Pmap.empty expr in
-      (expr, ty, Util.Pmap.empty)
-      (*TODO: To be corrected*)
+      let term = Parser.fullexpr Lexer.token lineBuffer in
+      let ty = Type_checker.typing_full Util.Pmap.empty term in
+      (term, ty, Util.Pmap.empty)
+      (*TODO: The typing of Opponent names is missing, this should be corrected*)
     with
     | Lexer.SyntaxError msg ->
         failwith ("Parsing Error in the " ^ nbprog ^ " program:" ^ msg)
@@ -144,19 +123,20 @@ module WithNup (M : Util.Monad.BRANCH) : Lang.Cps.WITHNUP = struct
     | Type_checker.TypingError msg ->
         failwith ("Typing Error in the " ^ nbprog ^ " program:" ^ msg)
 
-  let get_typed_val_env inBuffer_implem inBuffer_signature =
+  let get_typed_interactive_env inBuffer_implem inBuffer_signature =
     let lexer_implem = Lexing.from_channel inBuffer_implem in
     let lexer_signature = Lexing.from_channel inBuffer_signature in
     try
       let implem_decl_l = Parser.prog Lexer.token lexer_implem in
       let signature_decl_l = Parser.signature Lexer.token lexer_signature in
-      let (comp_env, type_ctx) = Declaration.get_typed_comp_env implem_decl_l in
-      let (val_assign, heap) = Interpreter.compute_val_env comp_env in
-      let (val_env, name_ctxP) =
+      let (comp_env, namectxO) = Declaration.get_typed_comp_env implem_decl_l in
+      let namectxO' = Util.Pmap.filter_map_im Types.get_negative_type namectxO in
+      let (val_assign, heap) = Interpreter.normalize_term_env comp_env in
+      let (val_env, namectxP) =
         Declaration.get_typed_val_env val_assign signature_decl_l in
-      Util.Debug.print_debug @@ "The name context for Proponent is "
-      ^ Type_ctx.string_of_name_ctx name_ctxP;
-      (val_env, (val_assign, heap), name_ctxP, Type_ctx.get_name_ctx type_ctx)
+      let int_env = Util.Pmap.filter_map_im Syntax.filter_negative_val val_env in
+      let namectxP' = Util.Pmap.filter_map_im Types.get_negative_type namectxP in
+      (int_env, (val_assign, heap), namectxP', namectxO')
     with
     | Lexer.SyntaxError msg -> failwith ("Parsing Error: " ^ msg)
     | Parser.Error ->
@@ -165,15 +145,19 @@ module WithNup (M : Util.Monad.BRANCH) : Lang.Cps.WITHNUP = struct
           ^ string_of_int (Lexing.lexeme_start lexer_implem))
         (* Need to get in which file the Parser.Error is *)
     | Type_checker.TypingError msg -> failwith ("Typing Error: " ^ msg)
+end
 
-  module Nup :
-    Lang.Nup.NUP
-      with type name = Syntax.name
-       and type value = Syntax.valML
-       and type typ = typ
+module WithAVal (M : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT = struct
+  include Comp (M)
+
+  module AVal :
+    Lang.Abstract_val.AVAL_INOUT
+      with type name = Name.name
+       and type value = Syntax.value
+       and type negative_val = Syntax.negative_val
+       and type typ = Types.typ
+       and type typevar = Types.typevar
+       and type negative_type = Types.negative_type
        and module M = M =
     Nup.Make (M)
 end
-
-module RefML (M : Util.Monad.BRANCH) : Lang.Interactive.LANG =
-  Lang.Cps.Make (WithNup (M))

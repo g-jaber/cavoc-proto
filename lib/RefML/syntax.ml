@@ -28,51 +28,6 @@ let fresh_evar () =
   count_evar := !count_evar + 1;
   "_y" ^ string_of_int x
 
-(* We consider three kind of names:
-   - Function names
-   - Continuation names
-   - Polymorphic names
-*)
-
-(* TODO : Abstract the definition of the type name *)
-
-type name = FName of id | CName of id | PName of id
-
-let trim_name_id id =
-  if id.[0] = '_' then String.sub id 1 (String.length id - 1)
-  else failwith @@ "The id " ^ id ^ "does not start with _. It is not a name."
-
-let fname_of_id id = FName id
-let count_fname = ref 0
-
-let fresh_fname () =
-  let fn = !count_fname in
-  count_fname := !count_fname + 1;
-  FName ("f" ^ string_of_int fn)
-
-let count_cname = ref 0
-
-let fresh_cname () =
-  let cn = !count_cname in
-  count_cname := !count_cname + 1;
-  "c" ^ string_of_int cn
-
-let count_pname = ref 0
-
-let fresh_pname () =
-  let pn = !count_pname in
-  count_pname := !count_pname + 1;
-  PName ("p" ^ string_of_int pn)
-
-let string_of_name = function FName f -> f | CName c -> c | PName p -> p
-let cname_of_id id = CName id
-let cname_to_id = function CName cn -> Some cn | _ -> None
-
-let is_callable = function
-  | FName _ -> true
-  | CName _ -> true
-  | PName _ -> false
-
 (* Syntax of Expressions *)
 
 type pattern = PatCons of constructor | PatVar of id
@@ -93,39 +48,39 @@ type binary_op =
 
 type unary_op = Not
 
-type handler = Handler of (pattern * exprML)
+type handler = Handler of (pattern * term)
 
-and exprML =
+and term =
   | Var of id
   | Constructor of constructor
-  | Name of name
+  | Name of Names.name
   | Loc of loc
   | Unit
   | Int of int
   | Bool of bool
-  | BinaryOp of binary_op * exprML * exprML
-  | UnaryOp of unary_op * exprML
-  | If of exprML * exprML * exprML
-  | Fun of (id * Types.typeML) * exprML
-  | Fix of (id * Types.typeML) * (id * Types.typeML) * exprML
-  | Let of id * exprML * exprML
-  | LetPair of id * id * exprML * exprML
-  | App of exprML * exprML
-  | Seq of exprML * exprML
-  | While of exprML * exprML
-  | Pair of exprML * exprML
-  | Newref of Types.typeML * exprML
-  | Deref of exprML
-  | Assign of exprML * exprML
-  | Assert of exprML
-  | Raise of exprML
-  | TryWith of (exprML * handler list)
+  | BinaryOp of binary_op * term * term
+  | UnaryOp of unary_op * term
+  | If of term * term * term
+  | Fun of (id * Types.typ) * term
+  | Fix of (id * Types.typ) * (id * Types.typ) * term
+  | Let of id * term * term
+  | LetPair of id * id * term * term
+  | App of term * term
+  | Seq of term * term
+  | While of term * term
+  | Pair of term * term
+  | Newref of Types.typ * term
+  | Deref of term
+  | Assign of term * term
+  | Assert of term
+  | Raise of term
+  | TryWith of (term * handler list)
   | Hole
   | Error
 
 (* TODO: We should rather use a Set rather than a list to represent set of names*)
 
-type name_set = name list
+type name_set = Names.name list
 
 let empty_name_set = []
 
@@ -163,7 +118,7 @@ let rec get_new_names lnames = function
 
 let get_names = get_new_names empty_name_set
 
-type valML = exprML
+type value = term
 
 let rec isval = function
   (*| Var _ -> true*)
@@ -178,7 +133,7 @@ let rec isval = function
   | Pair (e1, e2) -> isval e1 && isval e2
   | _ -> false
 
-let apply_value val1 val2 = App (val1, val2)
+let get_value expr = if isval expr then Some expr else None
 
 let rec subst expr value value' =
   match expr with
@@ -248,7 +203,7 @@ let string_of_pattern = function PatCons c -> c | PatVar id -> id
 
 let string_of_typed_var = function
   | (x, Types.TUndef) -> x
-  | (x, ty) -> "(" ^ x ^ ":" ^ Types.string_of_typeML ty ^ ")"
+  | (x, ty) -> "(" ^ x ^ ":" ^ Types.string_of_typ ty ^ ")"
 
 let string_of_binary_op = function
   | Plus -> "+"
@@ -266,64 +221,62 @@ let string_of_binary_op = function
 
 let string_of_unary_op = function Not -> "not"
 
-let rec string_par_of_exprML = function
+let rec string_par_of_term = function
   | Var x -> x
   | Loc l -> "l" ^ string_of_int l
   | Unit -> "()"
   | Int n -> string_of_int n
-  | e -> "(" ^ string_of_exprML e ^ ")"
+  | e -> "(" ^ string_of_term e ^ ")"
 
-and string_of_exprML = function
+and string_of_term = function
   | Var x -> x
   | Constructor c -> c
-  | Name n -> string_of_name n
+  | Name n -> Names.string_of_name n
   | Loc l -> string_of_loc l
   | Unit -> "()"
   | Int n -> string_of_int n
   | Bool true -> "true"
   | Bool false -> "false"
   | BinaryOp (op, e1, e2) ->
-      "(" ^ string_of_exprML e1 ^ string_of_binary_op op ^ string_of_exprML e2
-      ^ ")"
-  | UnaryOp (op, e) -> string_of_unary_op op ^ string_of_exprML e
+      "(" ^ string_of_term e1 ^ string_of_binary_op op ^ string_of_term e2 ^ ")"
+  | UnaryOp (op, e) -> string_of_unary_op op ^ string_of_term e
   | If (e1, e2, e3) ->
-      "if " ^ string_of_exprML e1 ^ " then " ^ string_of_exprML e2 ^ " else "
-      ^ string_of_exprML e3
+      "if " ^ string_of_term e1 ^ " then " ^ string_of_term e2 ^ " else "
+      ^ string_of_term e3
   | Fun (typedvar, e) ->
-      "fun " ^ string_of_typed_var typedvar ^ " -> " ^ string_of_exprML e
+      "fun " ^ string_of_typed_var typedvar ^ " -> " ^ string_of_term e
   | Fix (typedvar1, typedvar2, e) ->
       "fix "
       ^ string_of_typed_var typedvar1
       ^ " "
       ^ string_of_typed_var typedvar2
-      ^ " -> " ^ string_of_exprML e
+      ^ " -> " ^ string_of_term e
   | Let (var, e1, e2) ->
-      "let " ^ var ^ " = " ^ string_of_exprML e1 ^ " in " ^ string_of_exprML e2
+      "let " ^ var ^ " = " ^ string_of_term e1 ^ " in " ^ string_of_term e2
   | LetPair (var1, var2, e1, e2) ->
-      "let (" ^ var1 ^ "," ^ var2 ^ ") = " ^ string_of_exprML e1 ^ " in "
-      ^ string_of_exprML e2
-  | Seq (e1, e2) -> string_of_exprML e1 ^ " ; " ^ string_of_exprML e2
+      "let (" ^ var1 ^ "," ^ var2 ^ ") = " ^ string_of_term e1 ^ " in "
+      ^ string_of_term e2
+  | Seq (e1, e2) -> string_of_term e1 ^ " ; " ^ string_of_term e2
   | While (e1, e2) ->
-      "while " ^ string_of_exprML e1 ^ " do " ^ string_of_exprML e2 ^ " done "
-  | App (e1, e2) -> string_par_of_exprML e1 ^ " " ^ string_par_of_exprML e2
-  | Pair (e1, e2) -> "(" ^ string_of_exprML e1 ^ "," ^ string_of_exprML e2 ^ ")"
-  | Newref (ty, e) ->
-      "ref_" ^ Types.string_of_typeML ty ^ " " ^ string_of_exprML e
-  | Deref e -> "!" ^ string_of_exprML e
-  | Assign (e1, e2) -> string_of_exprML e1 ^ " := " ^ string_of_exprML e2
-  | Assert e -> "assert " ^ string_of_exprML e
-  | Raise e -> "raise " ^ string_of_exprML e
+      "while " ^ string_of_term e1 ^ " do " ^ string_of_term e2 ^ " done "
+  | App (e1, e2) -> string_par_of_term e1 ^ " " ^ string_par_of_term e2
+  | Pair (e1, e2) -> "(" ^ string_of_term e1 ^ "," ^ string_of_term e2 ^ ")"
+  | Newref (ty, e) -> "ref_" ^ Types.string_of_typ ty ^ " " ^ string_of_term e
+  | Deref e -> "!" ^ string_of_term e
+  | Assign (e1, e2) -> string_of_term e1 ^ " := " ^ string_of_term e2
+  | Assert e -> "assert " ^ string_of_term e
+  | Raise e -> "raise " ^ string_of_term e
   | TryWith (e, handler_l) ->
       let handler_string_l = List.map string_of_handler handler_l in
-      "try " ^ string_of_exprML e ^ " with "
-      ^ String.concat "|" handler_string_l
+      "try " ^ string_of_term e ^ " with " ^ String.concat "|" handler_string_l
   | Hole -> "•"
   | Error -> "error"
 
 and string_of_handler (Handler (pat, expr)) =
-  string_of_pattern pat ^ " => " ^ string_of_exprML expr
+  string_of_pattern pat ^ " => " ^ string_of_term expr
 
-let string_of_value = string_of_exprML
+let string_of_value = string_of_term
+let string_of_negative_val = string_of_value
 
 (* Auxiliary functions *)
 
@@ -366,7 +319,7 @@ let get_consfun_from_bin_cons = function
   | expr ->
       failwith
         ("No binary constructor function can be extracted from "
-       ^ string_of_exprML expr)
+       ^ string_of_term expr)
 
 let get_consfun_from_un_cons = function
   | UnaryOp (op, _) -> fun x -> UnaryOp (op, x)
@@ -376,24 +329,20 @@ let get_consfun_from_un_cons = function
   | expr ->
       failwith
         ("No unary constructor function can be extracted from "
-       ^ string_of_exprML expr)
+       ^ string_of_term expr)
 
 (* Full Expressions *)
 
-type val_env = (id, exprML) pmap
+type val_env = (id, value) pmap
 
-let string_of_val_env = string_of_pmap "ε" "↪" string_of_id string_of_exprML
+let string_of_val_env = string_of_pmap "ε" "↪" string_of_id string_of_value
 let empty_val_env = Util.Pmap.empty
-
-type full_expr = exprML * val_env
-
-let string_of_full_expr (expr, val_env) =
-  "(" ^ string_of_exprML expr ^ ",[" ^ string_of_val_env val_env ^ "])"
 
 (* Evaluation Contexts *)
 
-type eval_context = exprML
+type eval_context = term
 
+(* extract_ctx decomposes an expression into its redex and the surrounding evaluation context*)
 let rec extract_ctx expr =
   match expr with
   | Constructor _ | Name _ | Loc _ | Unit | Int _ | Bool _ | Fix _ | Fun _
@@ -423,7 +372,7 @@ let rec extract_ctx expr =
   | Var _ | Hole ->
       failwith
         ("Error: trying to extract an evaluation context from "
-       ^ string_of_exprML expr ^ ". Please report.")
+       ^ string_of_term expr ^ ". Please report.")
 
 and extract_ctx_bin cons_op expr1 expr2 =
   match (isval expr1, isval expr2) with
@@ -436,17 +385,85 @@ and extract_ctx_bin cons_op expr1 expr2 =
   | (true, true) -> (cons_op (expr1, expr2), Hole)
 
 and extract_ctx_un cons_op expr =
-  if isval expr then (expr, cons_op Hole)
+  if isval expr then (cons_op expr, Hole)
   else
     let (result, ctx) = extract_ctx expr in
     (result, cons_op ctx)
 
-
 let fill_hole ctx expr = subst ctx Hole expr
-let string_of_eval_context ctx = string_of_exprML ctx
+let string_of_eval_context ctx = string_of_term ctx
+
+type negative_val = IVal of value | ICtx of eval_context
+
+let filter_negative_val = function
+  | (Fix _ | Fun _ | Name _) as value -> Some (IVal value)
+  | _ -> None
+
+let string_of_negative_val = function
+  | IVal value -> string_of_negative_val value
+  | ICtx ectx -> string_of_eval_context ectx
+
+let force_negative_val value = IVal value
+
+let embed_negative_val = function
+  | IVal value -> value
+  | ICtx _ as nval ->
+      failwith @@ "The negative value "
+      ^ string_of_negative_val nval
+      ^ " is not a value. Please report."
+
+let embed_eval_context ectx = ICtx ectx
+
+type interactive_env = (Names.name, negative_val) Util.Pmap.pmap
+
+let empty_ienv = Util.Pmap.empty
+let concat_ienv = Util.Pmap.concat
+
+let string_of_interactive_env =
+  Util.Pmap.string_of_pmap "ε" "↪" Names.string_of_name string_of_negative_val
+
+open Lang.Nf
+
+let get_kind_nf term =
+  match get_value term with
+  | Some value -> NFValue (Names.dummy_cn, value)
+  | None ->
+      let (term', ectx) = extract_ctx term in
+      begin
+        match term' with
+        | Raise v -> begin
+            match get_value v with
+            | Some value -> NFRaise (Names.dummy_cn, value)
+            | None ->
+                failwith @@ "The term " ^ string_of_term term'
+                ^ " is not a value. Please report."
+          end
+        | Error -> NFError Names.dummy_cn
+        | App (Name fn, v) -> begin
+            match get_value v with
+            | Some value -> NFCallback (fn, value, ectx)
+            | None ->
+                failwith @@ "The term " ^ string_of_term term'
+                ^ " is not a value. Please report."
+          end
+        | _ ->
+            failwith @@ "The term " ^ string_of_term term
+            ^ " is not a valid normal form. Its decomposition is"
+            ^ string_of_term term' ^ " and "
+            ^ string_of_eval_context ectx
+            ^ ". Please report."
+      end
+
+let refold_kind_nf = function
+  | NFCallback (IVal nval, value, ()) -> App (nval, value)
+  | NFValue (ICtx ectx, value) -> fill_hole ectx value
+  | NFError (ICtx ectx) -> fill_hole ectx Error
+  | NFRaise (ICtx ectx, value) -> fill_hole ectx (Raise value)
+  | _ -> failwith "Impossible to refold this nf_kind. Please report."
+
 let max_int = 1
 
-let generate_ground_value : Types.typeML -> exprML list = function
+let generate_ground_value : Types.typ -> term list = function
   | TUnit -> [ Unit ]
   | TBool -> [ Bool true; Bool false ]
   | TInt ->
@@ -454,5 +471,5 @@ let generate_ground_value : Types.typeML -> exprML list = function
       aux max_int
   | ty ->
       failwith
-        ("Error: the type" ^ Types.string_of_typeML ty
+        ("Error: the type" ^ Types.string_of_typ ty
        ^ " is not of ground type. It should not appear inside heaps.")

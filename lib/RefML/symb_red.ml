@@ -3,7 +3,7 @@ open Logic
 open Util.Pmap
 
 type symbconf =
-  Syntax.exprML
+  Syntax.term
   * Syntax.val_env
   * Logic.symbheap
   * Logic.symbheap

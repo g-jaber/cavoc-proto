@@ -6,9 +6,9 @@ module type INT_LTS = sig
      Its memory, interactive env, and name context for Proponent are all set to empty*)
   val init_aconf :
     Int.IntLang.computation ->
-    Int.IntLang.name_type_ctx ->
+    Int.IntLang.name_ctx ->
     Int.IntLang.computation ->
-    Int.IntLang.name_type_ctx ->
+    Int.IntLang.name_ctx ->
     active_conf
 end
 
@@ -24,12 +24,12 @@ module Make (IntLts : Bipartite.INT_LTS) :
   type active_conf =
     IntLts.active_conf
     * IntLts.active_conf
-    * IntLts.Int.IntLang.name Util.Namespan.namespan
+    * IntLts.Int.Name.name Util.Namespan.namespan
 
   type passive_conf =
     IntLts.passive_conf
     * IntLts.passive_conf
-    * IntLts.Int.IntLang.name Util.Namespan.namespan
+    * IntLts.Int.Name.name Util.Namespan.namespan
 
   type conf = Active of active_conf | Passive of passive_conf
 
@@ -38,14 +38,14 @@ module Make (IntLts : Bipartite.INT_LTS) :
     ^ "|"
     ^ IntLts.string_of_active_conf act_conf2
     ^ "|"
-    ^ Util.Namespan.string_of_span IntLts.Int.IntLang.string_of_name namespan
+    ^ Util.Namespan.string_of_span IntLts.Int.Name.string_of_name namespan
 
   let string_of_passive_conf (pas_conf1, pas_conf2, namespan) =
     IntLts.string_of_passive_conf pas_conf1
     ^ "|"
     ^ IntLts.string_of_passive_conf pas_conf2
     ^ "|"
-    ^ Util.Namespan.string_of_span IntLts.Int.IntLang.string_of_name namespan
+    ^ Util.Namespan.string_of_span IntLts.Int.Name.string_of_name namespan
 
   let equiv_aconf _ _ = false (*failwith "Not yet implemented"*)
 
@@ -56,9 +56,12 @@ module Make (IntLts : Bipartite.INT_LTS) :
     | (None, _) | (_, None) -> (Actions.error_action, None)
     | (Some pas_conf1, Some pas_conf2) -> begin
         match Actions.unify_action span action1 action2 with
-        | None -> 
-          Util.Debug.print_debug @@ "Cannot synchronize output actions " ^ Actions.string_of_action action1 ^ " and " ^ Actions.string_of_action action2;
-          (Actions.error_action, None)
+        | None ->
+            Util.Debug.print_debug @@ "Cannot synchronize output actions "
+            ^ Actions.string_of_action action1
+            ^ " and "
+            ^ Actions.string_of_action action2;
+            (Actions.error_action, None)
         | Some span' -> (action1, Some (pas_conf1, pas_conf2, span'))
       end
 
@@ -76,11 +79,11 @@ module Make (IntLts : Bipartite.INT_LTS) :
     | None -> fail ()
     | Some span' -> return (in_move1, (act_conf1, act_conf2, span'))
 
-    let init_aconf comp1 namectxP1 comp2 namectxP2 =
-      let init_aconf1 = IntLts.init_aconf comp1 namectxP1 in
-      let init_aconf2 = IntLts.init_aconf comp2 namectxP2 in
-      let name_l1 = IntLts.Int.IntLang.get_names_from_name_type_ctx namectxP1 in
-      let name_l2 = IntLts.Int.IntLang.get_names_from_name_type_ctx namectxP2 in
-      let span = Util.Namespan.combine (name_l1,name_l2) in
-      (init_aconf1,init_aconf2,span)
+  let init_aconf comp1 namectxP1 comp2 namectxP2 =
+    let init_aconf1 = IntLts.init_aconf comp1 namectxP1 in
+    let init_aconf2 = IntLts.init_aconf comp2 namectxP2 in
+    let name_l1 = IntLts.Int.IntLang.get_names_from_name_ctx namectxP1 in
+    let name_l2 = IntLts.Int.IntLang.get_names_from_name_ctx namectxP2 in
+    let span = Util.Namespan.combine (name_l1, name_l2) in
+    (init_aconf1, init_aconf2, span)
 end

@@ -1,37 +1,52 @@
-module Make (M : Util.Monad.BRANCH) = struct
+module Make (M : Util.Monad.BRANCH) :
+  Lang.Abstract_val.AVAL_INOUT
+    with type name = Names.name
+     and type value = Syntax.value
+     and type negative_val = Syntax.negative_val
+     and type typ = Types.typ
+     and type typevar = Types.typevar
+     and type negative_type = Types.negative_type
+     and module M = M = struct
   (* Instantiation *)
-  type name = Syntax.name
-  type value = Syntax.valML
-  type typ = Types.typeML
-
+  type name = Names.name
+  type value = Syntax.value
+  type negative_val = Syntax.negative_val
+  type typ = Types.typ
+  type negative_type = Types.negative_type
+  type typevar = Types.typevar
   (* *)
-  type name_ctx = (name, typ) Util.Pmap.pmap
-  type val_env = (name, value) Util.Pmap.pmap
-  type nup = Syntax.exprML
 
-  let string_of_nup = Syntax.string_of_exprML
-  let names_of_nup = Syntax.get_names
-
+  
   open Syntax
   open Types
 
-  let rec unify_nup nspan nup1 nup2 =
+  type name_ctx = (name, negative_type) Util.Pmap.pmap
+  type interactive_env = (name, negative_val) Util.Pmap.pmap
+  type abstract_val = Syntax.value
+
+  let string_of_abstract_val = Syntax.string_of_term
+  let names_of_abstract_val = Syntax.get_names
+
+  let rec unify_abstract_val nspan nup1 nup2 =
     match (nup1, nup2) with
     | (Unit, Unit) -> Some nspan
     | (Bool b1, Bool b2) -> if b1 = b2 then Some nspan else None
     | (Int n1, Int n2) -> if n1 = n2 then Some nspan else None
     | (Pair (nup11, nup12), Pair (nup21, nup22)) ->
-        let nspan1_option = unify_nup nspan nup11 nup21 in
+        let nspan1_option = unify_abstract_val nspan nup11 nup21 in
         begin
           match nspan1_option with
           | None -> None
-          | Some nspan1 -> unify_nup nspan1 nup12 nup22
+          | Some nspan1 -> unify_abstract_val nspan1 nup12 nup22
         end
     | (Name n1, Name n2) -> Util.Namespan.add_nspan (n1, n2) nspan
     | _ ->
         failwith
-          ("Error: one of the terms " ^ string_of_nup nup1 ^ " or "
-         ^ string_of_nup nup2 ^ " is not a NUP. Please report.")
+          ("Error: one of the terms "
+          ^ string_of_abstract_val nup1
+          ^ " or "
+          ^ string_of_abstract_val nup2
+          ^ " is not a NUP. Please report.")
 
   (* The following function is used to generate the nups associated to a given type.
      We also provide a typing context that is used to retrieve the polynorphic names of
@@ -40,17 +55,17 @@ module Make (M : Util.Monad.BRANCH) = struct
   module M = M
   open M
 
-  let rec generate_nup namectxP = function
-    | TUnit -> return (Unit, Type_ctx.empty_name_ctx)
+  let rec generate_abstract_val namectxP = function
+    | TUnit -> return (Unit, Util.Pmap.empty)
     | TBool ->
         let* b = para_list @@ [ true; false ] in
-        return (Bool b, Type_ctx.empty_name_ctx)
+        return (Bool b, Util.Pmap.empty)
     | TInt ->
         let* i = M.pick_int () in
-        return (Int i, Type_ctx.empty_name_ctx)
+        return (Int i, Util.Pmap.empty)
     | TProd (ty1, ty2) ->
-        let* (nup1, nctx1) = generate_nup namectxP ty1 in
-        let* (nup2, nctx2) = generate_nup namectxP ty2 in
+        let* (nup1, nctx1) = generate_abstract_val namectxP ty1 in
+        let* (nup2, nctx2) = generate_abstract_val namectxP ty2 in
         return (Pair (nup1, nup2), Util.Pmap.concat nctx1 nctx2)
     | TSum _ ->
         failwith "Need to add injection to the syntax of expressions"
@@ -60,36 +75,38 @@ module Make (M : Util.Monad.BRANCH) = struct
     let lnup2' = List.map (fun (nup,nctx) -> (Inj (2,nup),nctx)) lnup1 in
     lnup1'@lnup2' *)
     | TArrow _ as ty ->
-        let fn = fresh_fname () in
-        return (Name fn, Util.Pmap.singleton (fn, ty))
+        let fn = Names.fresh_fname () in
+        let nty = Types.force_negative_type ty in
+        return (Name fn, Util.Pmap.singleton (fn, nty))
     | TId _ as ty ->
         let pn_list = Util.Pmap.select_im ty namectxP in
         let* pn = para_list @@ pn_list in
-        return (Name pn, Type_ctx.empty_name_ctx)
+        return (Name pn, Util.Pmap.empty)
     | TName _ as ty ->
-        let pn = fresh_pname () in
-        return (Name pn, Util.Pmap.singleton (pn, ty))
+        let pn = Names.fresh_pname () in
+        let nty = Types.force_negative_type ty in
+        return (Name pn, Util.Pmap.singleton (pn, nty))
     | TExn as ty ->
         failwith
           ("Error: the generation of a nups on type "
-         ^ Types.string_of_typeML ty ^ " is not yet supported.")
+         ^ Types.string_of_typ ty ^ " is not yet supported.")
     | ty ->
         failwith
-          ("Error generating a nup on type " ^ Types.string_of_typeML ty
+          ("Error generating a nup on type " ^ Types.string_of_typ ty
          ^ ". Please report")
 
-  let rec type_check_nup namectxP namectxO ty nup =
+  let rec type_check_abstract_val namectxP namectxO ty nup =
     match (ty, nup) with
-    | (TUnit, Unit) -> Some Type_ctx.empty_name_ctx
+    | (TUnit, Unit) -> Some Util.Pmap.empty
     | (TUnit, _) -> None
-    | (TBool, Bool _) -> Some Type_ctx.empty_name_ctx
+    | (TBool, Bool _) -> Some Util.Pmap.empty
     | (TBool, _) -> None
-    | (TInt, Int _) -> Some Type_ctx.empty_name_ctx
+    | (TInt, Int _) -> Some Util.Pmap.empty
     | (TInt, _) -> None
     | (TProd (ty1, ty2), Pair (nup1, nup2)) -> begin
         match
-          ( type_check_nup namectxP namectxO ty1 nup1,
-            type_check_nup namectxP namectxO ty2 nup2 )
+          ( type_check_abstract_val namectxP namectxO ty1 nup1,
+            type_check_abstract_val namectxP namectxO ty2 nup2 )
         with
         | (None, _) | (_, None) -> None
         | (Some namectxO1, Some namectxO2) ->
@@ -101,58 +118,74 @@ module Make (M : Util.Monad.BRANCH) = struct
     | (TArrow _, Name nn) | (TForall _, Name nn) ->
         if Util.Pmap.mem nn namectxP || Util.Pmap.mem nn namectxO then None
           (* the name nn has to be fresh to be well-typed *)
-        else Some (Util.Pmap.singleton (nn, ty))
+        else let nty = Types.force_negative_type ty in Some (Util.Pmap.singleton (nn, nty))
     | (TArrow _, _) | (TForall _, _) -> None
     | (TId id, Name nn) -> begin
         match Util.Pmap.lookup nn namectxP with
         | None -> None
-        | Some (TId id') when id = id' -> Some Type_ctx.empty_name_ctx
+        | Some (TId id') when id = id' -> Some Util.Pmap.empty
         | Some _ -> None
       end
     | (TId _, _) -> None
     | (TName _, Name nn) ->
         if Util.Pmap.mem nn namectxP || Util.Pmap.mem nn namectxO then None
           (* the name nn has to be fresh to be well-typed *)
-        else Some (Util.Pmap.singleton (nn, ty))
+        else let nty = Types.force_negative_type ty in Some (Util.Pmap.singleton (nn, nty))
     | (TName _, _) -> None
     | (TVar _, _) ->
         failwith @@ "Error: trying to type-check a nup of type "
-        ^ Types.string_of_typeML ty ^ ". Please report."
+        ^ Types.string_of_typ ty ^ ". Please report."
     | (TUndef, _) | (TRef _, _) | (TSum _, _) | (TExn, _) ->
         failwith @@ "Error: type-checking a nup of type "
-        ^ Types.string_of_typeML ty ^ " is not yet supported."
+        ^ Types.string_of_typ ty ^ " is not yet supported."
 
-  let rec abstract_val (value : valML) ty =
+  let rec abstracting_value (value : value) ty =
     match (value, ty) with
     | (Fun _, TArrow _) | (Fix _, TArrow _) | (Name _, TArrow _) ->
-        let fn = fresh_fname () in
-        let ienv = Util.Pmap.singleton (fn, value) in
-        let lnamectx = Util.Pmap.singleton (fn, ty) in
+        let fn = Names.fresh_fname () in
+        let nval = Syntax.force_negative_val value in
+        let nty = Types.force_negative_type ty in
+        let ienv = Util.Pmap.singleton (fn, nval) in
+        let lnamectx = Util.Pmap.singleton (fn, nty) in
         (Name fn, ienv, lnamectx)
     | (Unit, TUnit) | (Bool _, TBool) | (Int _, TInt) ->
-        (value, Util.Pmap.empty, Type_ctx.empty_name_ctx)
+        (value, Util.Pmap.empty, Util.Pmap.empty)
     | (Pair (value1, value2), TProd (ty1, ty2)) ->
-        let (nup1, ienv1, lnamectx1) = abstract_val value1 ty1 in
-        let (nup2, ienv2, lnamectx2) = abstract_val value2 ty2 in
+        let (nup1, ienv1, lnamectx1) = abstracting_value value1 ty1 in
+        let (nup2, ienv2, lnamectx2) = abstracting_value value2 ty2 in
         ( Pair (nup1, nup2),
           Util.Pmap.concat ienv1 ienv2,
           Util.Pmap.concat lnamectx1 lnamectx2 )
     | (_, TId _) ->
-        let pn = fresh_pname () in
-        let ienv = Util.Pmap.singleton (pn, value) in
-        let lnamectx = Util.Pmap.singleton (pn, ty) in
+        let pn = Names.fresh_pname () in
+        let nval = Syntax.force_negative_val value in
+        let ienv = Util.Pmap.singleton (pn, nval) in
+        let nty = Types.force_negative_type ty in
+        let lnamectx = Util.Pmap.singleton (pn, nty) in
         (Name pn, ienv, lnamectx)
-    | (Name _, TName _) -> (value, Util.Pmap.empty, Type_ctx.empty_name_ctx)
-    | (Constructor _, TExn) -> (value, Util.Pmap.empty, Type_ctx.empty_name_ctx)
+    | (Name _, TName _) -> (value, Util.Pmap.empty, Util.Pmap.empty)
+    | (Constructor _, TExn) -> (value, Util.Pmap.empty, Util.Pmap.empty)
     | _ ->
         failwith
-          ("Error: " ^ string_of_exprML value ^ " of type "
-         ^ string_of_typeML ty
+          ("Error: " ^ string_of_term value ^ " of type "
+         ^ string_of_typ ty
          ^ " cannot be abstracted because it is not a value.")
 
-  let incorporate_name (nup, n) = Pair (nup, Name n)
+  let subst_names ienv nup =
+    let aux nup (nn, nval) = Syntax.subst nup (Name nn) (embed_negative_val nval) in
+    Util.Pmap.fold aux nup ienv
 
-  let subst_names_of_nup val_env nup =
-    let aux nup (nn, value) = Syntax.subst nup (Name nn) value in
-    Util.Pmap.fold aux nup val_env
+  let get_input_type = function
+    | Types.TArrow (ty1, _) -> ([], ty1)
+    | Types.TForall (tvar_l, TArrow (ty1, _)) -> (tvar_l, ty1)
+    | ty ->
+        failwith @@ "Error: the type " ^ Types.string_of_typ ty
+        ^ "is not a negative type. Please report."
+
+  let get_output_type = function
+    | Types.TArrow (_, ty2) -> ty2
+    | Types.TForall (_, TArrow (_, ty2)) -> ty2
+    | ty ->
+        failwith @@ "Error: the type " ^ Types.string_of_typ ty
+        ^ "is not a negative type. Please report."
 end

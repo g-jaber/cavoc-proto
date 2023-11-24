@@ -21,7 +21,7 @@ struct
     cstack' @ cstack
 
   let o_trans_check cstack move =
-    let subject_names = Moves.get_subject_names move in
+    let subject_names = Moves.get_subject_name move in
     let subject_cnames = List.filter_map ContNames.get_cont_name subject_names in
     match (subject_cnames, cstack) with
     | ([ cn ], cn' :: cstack') when cn = cn' ->

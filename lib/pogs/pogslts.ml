@@ -8,14 +8,14 @@ module Make (Int : Lts.Interactive.INT) = struct
     computation: Int.IntLang.computation;
     heap: Int.IntLang.Memory.memory;
     loc_ctx: Int.IntLang.Memory.memory_type_ctx;
-    namectxO: Int.IntLang.name_type_ctx;
+    namectxO: Int.IntLang.name_ctx;
   }
 
   type passive_conf = {
     ienv: Int.IntLang.interactive_env;
     loc_ctx: Int.IntLang.Memory.memory_type_ctx;
-    namectxO: Int.IntLang.name_type_ctx;
-    namectxP: Int.IntLang.name_type_ctx;
+    namectxO: Int.IntLang.name_ctx;
+    namectxP: Int.IntLang.name_ctx;
   }
 
   type conf = Active of active_conf | Passive of passive_conf
@@ -26,7 +26,7 @@ module Make (Int : Lts.Interactive.INT) = struct
     ^ " | "
     ^ Int.IntLang.Memory.string_of_memory aconf.heap
     ^ " | "
-    ^ Int.IntLang.string_of_name_type_ctx aconf.namectxO
+    ^ Int.IntLang.string_of_name_ctx aconf.namectxO
     ^ ">"
 
   let string_of_passive_conf pconf =
@@ -35,17 +35,18 @@ module Make (Int : Lts.Interactive.INT) = struct
     ^ " | "
     ^ Int.IntLang.Memory.string_of_memory_type_ctx pconf.loc_ctx
     ^ " | "
-    ^ Int.IntLang.string_of_name_type_ctx pconf.namectxO
+    ^ Int.IntLang.string_of_name_ctx pconf.namectxO
     ^ " | "
-    ^ Int.IntLang.string_of_name_type_ctx pconf.namectxP
+    ^ Int.IntLang.string_of_name_ctx pconf.namectxP
     ^ ">"
 
   let p_trans aconf =
     let nf_option = Int.IntLang.compute_nf (aconf.computation, aconf.heap) in
     match nf_option with
     | None -> (Int.Actions.diverging_action, None)
-    | Some (None,_) -> (Int.Actions.error_action, None)
-    | Some (Some kind, heap) ->
+    | Some (kind, _) when Int.IntLang.is_error kind ->
+        (Int.Actions.error_action, None)
+    | Some (kind, heap) ->
         let loc_ctx = Int.IntLang.Memory.infer_type_memory heap in
         let (move, ienv, namectxP) =
           Int.generate_output_move aconf.namectxO kind in

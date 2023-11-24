@@ -31,6 +31,7 @@ val map_im : ('a -> 'b) -> ('c, 'a) pmap -> ('c, 'b) pmap
 val map : ('a * 'b -> 'c * 'd) -> ('a, 'b) pmap -> ('c, 'd) pmap
 val map_list : ('a * 'b -> 'c) -> ('a, 'b) pmap -> 'c list
 val filter_map : ('a * 'b -> ('c * 'd) option) -> ('a, 'b) pmap -> ('c, 'd) pmap
+val filter_map_im : ('b -> 'c option) -> ('a, 'b) pmap -> ('a, 'c) pmap
 val fold : ('a -> 'b * 'c -> 'a) -> 'a -> ('b, 'c) pmap -> 'a
 val disjoint : ('a, 'b) pmap -> ('a, 'b) pmap -> bool
 val select_im : 'b -> ('a, 'b) pmap -> 'a list

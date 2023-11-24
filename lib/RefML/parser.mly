@@ -56,7 +56,7 @@
 %type <Declaration.signature_decl list> signature
 
 %start fullexpr
-%type <Syntax.exprML> fullexpr
+%type <Syntax.term> fullexpr
 
 %%
 
@@ -138,7 +138,7 @@ app_expr:
 simple_expr:
   | VAR             { Var $1 }
   | CONSTRUCTOR     { Constructor $1}
-  | NAME            { Name (fname_of_id (trim_name_id $1)) }
+  | NAME            { Name (Names.fname_of_id (Names.trim_name_id $1)) }
   | UNIT            { Unit }
   | INT             { Int $1 }
   | TRUE            { Bool true }

@@ -32,21 +32,21 @@ let () =
         ("Error: a filenames containing the programs "
        ^ "should have been provided. " ^ usage_msg) in
   Arg.parse speclist get_filename usage_msg;
-  let module OpLang = Refml.RefML.RefML (Util.Monad.ListB) in
-  let module Int = Lts.Cps.Int_Make (OpLang) in
+  let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
+  let module CpsLang = Lang.Cps.MakeComp (OpLang) in
+  let module IntLang = Lang.Interactive.Make (CpsLang) in
+  let module Int = Lts.Interactive.Make (IntLang) in
   let module OGS_LTS = Ogs.Ogslts.Make (Int) in
-  let module WBLTS = Ogs.Wblts.Make (Int.ContNames) (Int.Actions.Moves) in
+  let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.Actions.Moves) in
   let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
   Util.Debug.print_debug "Getting the trace";
   if !is_computation then begin
     check_number_filenames 1;
     Util.Debug.print_debug "Getting the program";
     let expr_buffer = open_in !filename1 in
-    let (expr, namectxO) =
-      Int.IntLang.get_typed_computation "first" expr_buffer in
+    let (expr, namectxO) = Int.IntLang.get_typed_term "first" expr_buffer in
     Util.Debug.print_debug
-      ("Name contexts for Opponent: "
-      ^ Int.IntLang.string_of_name_type_ctx namectxO);
+      ("Name contexts for Opponent: " ^ Int.IntLang.string_of_name_ctx namectxO);
     let init_act_conf = ProdLTS.init_aconf expr namectxO in
     let init_conf = ProdLTS.Active init_act_conf in
     let module Generate = Lts.Generate_trace.Make (ProdLTS) in
@@ -58,18 +58,18 @@ let () =
     Util.Debug.print_debug "Getting the module declaration";
     let decl_buffer = open_in !filename1 in
     let signature_buffer = open_in !filename2 in
-    let (interactive_env, memory, name_type_ctxP, name_type_ctxO) =
-      Int.IntLang.get_typed_ienv decl_buffer signature_buffer in
+    let (interactive_env, memory, name_ctxP, name_ctxO) =
+      Int.IntLang.get_typed_interactive_env decl_buffer signature_buffer in
     if !enable_wb then
       let init_pas_conf =
-        ProdLTS.init_pconf memory interactive_env name_type_ctxP name_type_ctxO in
-    let init_conf = ProdLTS.Passive init_pas_conf in
-    let module Generate = Lts.Generate_trace.Make (ProdLTS) in
-    let traces = Generate.get_traces init_conf in
-    List.iter print_endline traces
-    else 
+        ProdLTS.init_pconf memory interactive_env name_ctxP name_ctxO in
+      let init_conf = ProdLTS.Passive init_pas_conf in
+      let module Generate = Lts.Generate_trace.Make (ProdLTS) in
+      let traces = Generate.get_traces init_conf in
+      List.iter print_endline traces
+    else
       let init_pas_conf =
-        OGS_LTS.init_pconf memory interactive_env name_type_ctxP name_type_ctxO in
+        OGS_LTS.init_pconf memory interactive_env name_ctxP name_ctxO in
       let init_conf = OGS_LTS.Passive init_pas_conf in
       let module Generate = Lts.Generate_trace.Make (OGS_LTS) in
       let traces = Generate.get_traces init_conf in

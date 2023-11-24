@@ -22,7 +22,7 @@ let rec infer_type type_ctx expr =
       | Some ty -> (ty, type_ctx)
       | None ->
           Util.Error.fail_error
-            ("Error: the name " ^ Syntax.string_of_name n
+            ("Error: the name " ^ Names.string_of_name n
            ^ " is not defined in the environment "
             ^ Type_ctx.string_of_name_ctx type_ctx.name_ctx
             ^ " .")
@@ -46,7 +46,7 @@ let rec infer_type type_ctx expr =
       with TypingError msg ->
         Util.Error.fail_error
           ("Error typing Arithmetic Operator "
-          ^ Syntax.string_of_exprML expr
+          ^ Syntax.string_of_term expr
           ^ ": " ^ msg)
     end
   | BinaryOp (And, e1, e2) | BinaryOp (Or, e1, e2) ->
@@ -66,14 +66,14 @@ let rec infer_type type_ctx expr =
       begin
         match unify_type type_ctx3.type_subst (ty2, ty3) with
         | Some (ty, type_subst) ->
-            Util.Debug.print_debug ("Typing If:" ^ string_of_typeML ty);
+            Util.Debug.print_debug ("Typing If:" ^ string_of_typ ty);
             (ty, Type_ctx.update_type_subst type_ctx3 type_subst)
         | None ->
             Util.Error.fail_error
               ("Error typing "
-              ^ Syntax.string_of_exprML expr
-              ^ ": " ^ string_of_typeML ty2 ^ " is not equal to "
-              ^ string_of_typeML ty3)
+              ^ Syntax.string_of_term expr
+              ^ ": " ^ string_of_typ ty2 ^ " is not equal to "
+              ^ string_of_typ ty3)
       end
   | Fun ((var, TUndef), e) ->
       let tvar = fresh_typevar () in
@@ -105,9 +105,9 @@ let rec infer_type type_ctx expr =
             | None ->
                 Util.Error.fail_error
                   ("Error typing "
-                  ^ Syntax.string_of_exprML expr
-                  ^ ": " ^ string_of_typeML fty ^ " is not equal to "
-                  ^ string_of_typeML (TArrow (aty, rty)))
+                  ^ Syntax.string_of_term expr
+                  ^ ": " ^ string_of_typ fty ^ " is not equal to "
+                  ^ string_of_typ (TArrow (aty, rty)))
           end
         | _ -> failwith "Variables not found in type-checking. Please report."
       end
@@ -126,9 +126,9 @@ let rec infer_type type_ctx expr =
             | None ->
                 Util.Error.fail_error
                   ("Error typing "
-                  ^ Syntax.string_of_exprML expr
-                  ^ ": " ^ string_of_typeML fty ^ " is not equal to "
-                  ^ string_of_typeML (TArrow (aty, rty)))
+                  ^ Syntax.string_of_term expr
+                  ^ ": " ^ string_of_typ fty ^ " is not equal to "
+                  ^ string_of_typ (TArrow (aty, rty)))
           end
         | None ->
             failwith
@@ -146,9 +146,9 @@ let rec infer_type type_ctx expr =
         | None ->
             Util.Error.fail_error
               ("Error typing "
-              ^ Syntax.string_of_exprML expr
-              ^ ": " ^ string_of_typeML fty ^ " is not equal to "
-              ^ string_of_typeML (TArrow (aty, rty)))
+              ^ Syntax.string_of_term expr
+              ^ ": " ^ string_of_typ fty ^ " is not equal to "
+              ^ string_of_typ (TArrow (aty, rty)))
       end
   | Let (var, e1, e2) ->
       let (ty, type_ctx') = infer_type type_ctx e1 in
@@ -173,19 +173,19 @@ let rec infer_type type_ctx expr =
         | _ ->
             Util.Error.fail_error
               ("Error typing "
-              ^ Syntax.string_of_exprML expr
-              ^ " : " ^ string_of_typeML ty ^ " is not a product type")
+              ^ Syntax.string_of_term expr
+              ^ " : " ^ string_of_typ ty ^ " is not a product type")
       end
   | App (e1, e2) ->
       let (aty, type_ctx') = infer_type type_ctx e2 in
       let (fty, type_ctx'') = infer_type type_ctx' e1 in
       let aty' = apply_type_subst aty type_ctx''.type_subst in
-      Util.Debug.print_debug ("Typing App:" ^ Syntax.string_of_exprML expr);
+      Util.Debug.print_debug ("Typing App:" ^ Syntax.string_of_term expr);
       Util.Debug.print_debug
-        (Syntax.string_of_exprML e1 ^ " is of type " ^ string_of_typeML fty);
+        (Syntax.string_of_term e1 ^ " is of type " ^ string_of_typ fty);
       Util.Debug.print_debug
-        (Syntax.string_of_exprML e2 ^ " is of type " ^ string_of_typeML aty'
-       ^ " (was " ^ string_of_typeML aty ^ ")");
+        (Syntax.string_of_term e2 ^ " is of type " ^ string_of_typ aty'
+       ^ " (was " ^ string_of_typ aty ^ ")");
       begin
         match fty with
         | TVar a ->
@@ -203,15 +203,15 @@ let rec infer_type type_ctx expr =
             | None ->
                 Util.Error.fail_error
                   ("Error typing "
-                  ^ Syntax.string_of_exprML expr
-                  ^ ": " ^ string_of_typeML ty' ^ " is not equal to "
-                  ^ string_of_typeML aty')
+                  ^ Syntax.string_of_term expr
+                  ^ ": " ^ string_of_typ ty' ^ " is not equal to "
+                  ^ string_of_typ aty')
           end
         | _ ->
             Util.Error.fail_error
               ("Error typing "
-              ^ Syntax.string_of_exprML expr
-              ^ ": " ^ string_of_typeML fty ^ " is not an arrow type")
+              ^ Syntax.string_of_term expr
+              ^ ": " ^ string_of_typ fty ^ " is not an arrow type")
       end
   | Seq (e1, e2) ->
       let (_, type_ctx') = check_type type_ctx e1 TUnit in
@@ -234,8 +234,8 @@ let rec infer_type type_ctx expr =
         | _ ->
             Util.Error.fail_error
               ("Error typing "
-              ^ Syntax.string_of_exprML expr
-              ^ " : " ^ string_of_typeML ty ^ " is not a ref type")
+              ^ Syntax.string_of_term expr
+              ^ " : " ^ string_of_typ ty ^ " is not a ref type")
       end
   | Assign (e1, e2) ->
       let (ty1, type_ctx') = infer_type type_ctx e1 in
@@ -246,9 +246,9 @@ let rec infer_type type_ctx expr =
             (TUnit, Type_ctx.update_type_subst type_ctx'' type_subst)
         | None ->
             Util.Error.fail_error @@ "Error typing "
-            ^ Syntax.string_of_exprML expr
-            ^ " : " ^ string_of_typeML ty1 ^ " is not unifiable with ref "
-            ^ string_of_typeML ty2
+            ^ Syntax.string_of_term expr
+            ^ " : " ^ string_of_typ ty1 ^ " is not unifiable with ref "
+            ^ string_of_typ ty2
       end
   | Assert e ->
       let (ty, type_ctx') = infer_type type_ctx e in
@@ -258,8 +258,8 @@ let rec infer_type type_ctx expr =
         | _ ->
             Util.Error.fail_error
               ("Error typing "
-              ^ Syntax.string_of_exprML expr
-              ^ " : " ^ string_of_typeML ty ^ " is not equal to bool.")
+              ^ Syntax.string_of_term expr
+              ^ " : " ^ string_of_typ ty ^ " is not equal to bool.")
       end
   | Raise e ->
       let (ty, type_ctx') = infer_type type_ctx e in
@@ -271,8 +271,8 @@ let rec infer_type type_ctx expr =
         | _ ->
             Util.Error.fail_error
               ("Error typing "
-              ^ Syntax.string_of_exprML expr
-              ^ " : " ^ string_of_typeML ty ^ " is not equal to exn.")
+              ^ Syntax.string_of_term expr
+              ^ " : " ^ string_of_typ ty ^ " is not equal to exn.")
       end
   | TryWith (e, handler_l) ->
       let (ty, type_ctx') = infer_type type_ctx e in
@@ -291,7 +291,7 @@ let rec infer_type type_ctx expr =
           match unify_type type_ctx'.type_subst (ty, ty') with
           | Some (ty, type_subst) ->
               (ty, Type_ctx.update_type_subst type_ctx' type_subst)
-          | None -> failwith ""
+          | None -> failwith "Type checking of try with not fully implemented."
         end in
       List.fold_left aux (ty, type_ctx') handler_l
   | Hole -> failwith "Error: The typechecker cannot type a hole."
@@ -307,20 +307,20 @@ and check_type type_ctx expr res_ty =
   | _ ->
       Util.Error.fail_error
         ("Error typing "
-        ^ Syntax.string_of_exprML expr
-        ^ " : " ^ string_of_typeML ty ^ " is not equal to "
-        ^ string_of_typeML res_ty)
+        ^ Syntax.string_of_term expr
+        ^ " : " ^ string_of_typ ty ^ " is not equal to "
+        ^ string_of_typ res_ty)
 
 and check_type_bin type_ctx com_ty expr1 expr2 res_ty =
   let (ty1, type_ctx') = check_type type_ctx expr1 com_ty in
   let (ty2, type_ctx'') = check_type type_ctx' expr2 com_ty in
   Util.Debug.print_debug
     ("Typing binary operators "
-    ^ Syntax.string_of_exprML expr1
+    ^ Syntax.string_of_term expr1
     ^ " and "
-    ^ Syntax.string_of_exprML expr2
-    ^ " with " ^ string_of_typeML com_ty ^ ":" ^ string_of_typeML ty1 ^ " and  "
-    ^ string_of_typeML ty2);
+    ^ Syntax.string_of_term expr2
+    ^ " with " ^ string_of_typ com_ty ^ ":" ^ string_of_typ ty1 ^ " and  "
+    ^ string_of_typ ty2);
   (res_ty, type_ctx'')
 
 let infer_gen_type type_ctx expr =

@@ -28,30 +28,35 @@ let () =
        ^ "should have been provided. " ^ usage_msg) in
   parse speclist get_filename usage_msg;
   check_number_filenames ();
-  let module OpLang = Refml.RefML.RefML (Util.Monad.ListB) in
-  let module Int = Lts.Cps.Int_Make (OpLang) in
+  let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
+  let module CpsLang = Lang.Cps.MakeComp (OpLang) in
+  let module IntLang = Lang.Interactive.Make (CpsLang) in
+  let module Int = Lts.Interactive.Make (IntLang) in
   let module OGS_LTS = Ogs.Ogslts.Make (Int) in
-  let module WBLTS = Ogs.Wblts.Make (Int.ContNames) (Int.Actions.Moves) in
+  let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.Actions.Moves) in
   let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
   Util.Debug.print_debug "Getting the program";
   let inBuffer1 = open_in !filename1 in
-  let (expr1, namectxO) = Int.IntLang.get_typed_computation "first" inBuffer1 in
+  let (expr1, namectxO) = Int.IntLang.get_typed_term "first" inBuffer1 in
   Util.Debug.print_debug "Getting the module";
   let inBuffer2 = open_in !filename2 in
   let inBuffer3 = open_in !filename3 in
   let (ienv, memory, namectxO', _) =
-    Int.IntLang.get_typed_ienv inBuffer2 inBuffer3 in
+    Int.IntLang.get_typed_interactive_env inBuffer2 inBuffer3 in
   Util.Debug.print_debug
     ("Name contexts for Opponent: "
-    ^ Int.IntLang.string_of_name_type_ctx namectxO
+    ^ Int.IntLang.string_of_name_ctx namectxO
     ^ " and "
-    ^ Int.IntLang.string_of_name_type_ctx namectxO');
+    ^ Int.IntLang.string_of_name_ctx namectxO');
   let init_aconf =
-    ProdLTS.Active (* The following concatenation should be reworked *)
-      (ProdLTS.init_aconf expr1 (Int.IntLang.concat_name_type_ctx namectxO namectxO')) in
+    ProdLTS.Active
+      (* The following concatenation should be reworked *)
+      (ProdLTS.init_aconf expr1
+         (Int.IntLang.concat_name_ctx namectxO namectxO')) in
   let init_pconf =
     ProdLTS.Passive
-      (ProdLTS.init_pconf memory ienv namectxO' Int.IntLang.empty_name_type_ctx) in
+      (ProdLTS.init_pconf memory ienv namectxO' Int.IntLang.empty_name_ctx)
+  in
   let module Composed_LTS = Lts.Compose.Make (ProdLTS) in
   let traces = Composed_LTS.get_traces_check init_aconf init_pconf in
   Util.Debug.print_debug "Getting the trace";

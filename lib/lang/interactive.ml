@@ -1,5 +1,5 @@
 module type LANG = sig
-  include Names.CONT_NAMES
+  module Name : Names.CONT_NAMES
 
   type computation
 
@@ -8,33 +8,23 @@ module type LANG = sig
   module M : Util.Monad.BRANCH
   module Memory : Language.MEMORY with module M = M
 
-  (* compute_nf computes the normal form of an operational configuration,
-     or None when we detect that the operational configuration diverges.*)
-
   type normal_form
 
   val string_of_nf : normal_form -> string
+  val is_error : normal_form -> bool
 
-
-  type opconf = computation * Memory.memory
-  val compute_nf : opconf -> (normal_form option * Memory.memory) option
-
-  (* Abstracted values correspond to the observable part of a value.
-      They are also called ultimate patterns.
-  *)
-  type abstract_val
-
-  val string_of_abstract_val : abstract_val -> string
-  val names_of_abstract_val : abstract_val -> name list
+  (* compute_nf computes the normal form of an operational configuration,
+     or None when we detect that the operational configuration diverges.*)
+  val compute_nf :
+    computation * Memory.memory -> (normal_form * Memory.memory) option
 
   (*Interactive name contexts are typing contexts mapping names to interactive types.*)
-  type name_type_ctx 
+  type name_ctx
 
-  val empty_name_type_ctx : name_type_ctx
-  val concat_name_type_ctx : name_type_ctx -> name_type_ctx -> name_type_ctx
-  val string_of_name_type_ctx : name_type_ctx -> string
-  val get_names_from_name_type_ctx : name_type_ctx -> name list
-
+  val empty_name_ctx : name_ctx
+  val concat_name_ctx : name_ctx -> name_ctx -> name_ctx
+  val string_of_name_ctx : name_ctx -> string
+  val get_names_from_name_ctx : name_ctx -> Name.name list
 
   (* Interactive environments γ are partial maps from names to interactive values*)
   type interactive_env
@@ -43,65 +33,210 @@ module type LANG = sig
   val concat_ienv : interactive_env -> interactive_env -> interactive_env
   val string_of_interactive_env : interactive_env -> string
 
-  (* The typed focusing process implemented by abstract_kind
+  (* The typed focusing process implemented by abstracting_kind
       decomposes a normal form into:
        - an abstract value for the observable part,
        - a typed interactive environment for the negative part. *)
 
-  (* Temporary *)
   type abstract_normal_form
-  val abstract_kind :
-    normal_form ->
-    name_type_ctx ->
-    (abstract_normal_form * interactive_env * name_type_ctx) option
 
-  val get_subject_names : abstract_normal_form -> name option
-  val get_support : abstract_normal_form -> name list
+  val abstracting_kind :
+    normal_form ->
+    name_ctx ->
+    (abstract_normal_form * interactive_env * name_ctx) option
+
+  val get_subject_name : abstract_normal_form -> Name.name option
+  val get_support : abstract_normal_form -> Name.name list
 
   (* The first argument is a string inserted between the kind and the abstract values *)
   val string_of_a_nf : string -> abstract_normal_form -> string
 
   val is_equiv_a_nf :
-    name Util.Namespan.namespan -> abstract_normal_form -> abstract_normal_form -> (name Util.Namespan.namespan) option
-
+    Name.name Util.Namespan.namespan ->
+    abstract_normal_form ->
+    abstract_normal_form ->
+    Name.name Util.Namespan.namespan option
 
   (* From the interactive name context Γ_P,
-     we generate all the possible pairs (A,Δ) such that
+     we generate all the possible pairs (A,Δ) formed by an abstracted normal form A such that
      Γ_P;_ ⊢ A ▷ Δ
      Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
-  val generate_a_nf :
-    name_type_ctx -> (abstract_normal_form * name_type_ctx) M.m
+  val generate_a_nf : name_ctx -> (abstract_normal_form * name_ctx) M.m
 
-  (* The typing judgment of an abstracted value Γ_P;Γ_O ⊢ A : τ ▷ Δ
+  (* The typing judgment of an abstracted normal form Γ_P;Γ_O ⊢ A ▷ Δ
      produces the interactive name contexts Δ of fresh names introduced by A.
      it returns None when the type checking fails.
      The context Γ_P is used to retrieve the existing polymorphic names, and to check for freshness other names.
-     The contexts Γ_O is used to check for freshness of names *)  
+     The contexts Γ_O is used to check for freshness of names *)
 
   val type_check_a_nf :
-    name_type_ctx ->
-    name_type_ctx ->
-    abstract_normal_form ->
-    name_type_ctx option
+    name_ctx -> name_ctx -> abstract_normal_form -> name_ctx option
 
-  val concretize_a_nf : interactive_env -> abstract_normal_form -> (computation*interactive_env) option
+  val concretize_a_nf :
+    interactive_env -> abstract_normal_form -> computation * interactive_env
 
-  val unify_abstract_val :
-    name Util.Namespan.namespan ->
-    abstract_val ->
-    abstract_val ->
-    name Util.Namespan.namespan option
+  val get_typed_term : string -> in_channel -> computation * name_ctx
 
-  val get_typed_computation :
-    string -> in_channel -> computation * name_type_ctx
-
-  (* The function get_typed_ienv
+  (* The function get_typed_interactive_env
      retrive a module declaration and its signature from the two in_channel taken as input.
      It evaluates the list of computation declarations
      into a list of value declarations together with the memory
      generated by this evaluation. *)
-  val get_typed_ienv :
+  val get_typed_interactive_env :
     in_channel ->
     in_channel ->
-    interactive_env * Memory.memory * name_type_ctx * name_type_ctx
+    interactive_env * Memory.memory * name_ctx * name_ctx
+end
+
+module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
+  open OpLang
+  module Name = OpLang.Name
+  module M = AVal.M
+  module Memory = OpLang.Memory
+
+  type computation = term
+
+  let string_of_computation = string_of_term
+
+  type name_ctx = OpLang.name_ctx
+
+  let empty_name_ctx = OpLang.empty_name_ctx
+  let concat_name_ctx = OpLang.concat_name_ctx
+  let string_of_name_ctx = OpLang.string_of_name_ctx
+  let get_names_from_name_ctx = OpLang.get_names_from_name_ctx
+
+  (* Interactive environments γ are partial maps from names to interactive values*)
+  type interactive_env = OpLang.interactive_env
+
+  let empty_ienv = OpLang.empty_ienv
+  let concat_ienv = OpLang.concat_ienv
+  let string_of_interactive_env = OpLang.string_of_interactive_env
+
+  type normal_form = (value, eval_context, Name.name, Name.cont_name) Nf.kind_nf
+
+  let is_error = Nf.is_error
+
+  open Nf
+
+  let compute_nf (term, memory) =
+    match normalize_opconf (term, memory) with
+    | None -> None
+    | Some (nf_term, memory') -> Some (get_kind_nf nf_term, memory')
+
+  let string_of_nf =
+    string_of_kind_nf "" string_of_value string_of_eval_context
+      Name.string_of_name Name.string_of_cont_name
+
+  let get_type_cn cn = Util.Pmap.lookup_exn (Name.inj_cont_name cn)
+
+  let concretize_a_nf_aux ienv = function
+    | NFCallback (fn, aval, ()) ->
+        let nval = Util.Pmap.lookup_exn fn ienv in
+        let value = AVal.subst_names ienv aval in
+        NFCallback (nval, value, ())
+    | NFValue (cn, aval) ->
+        let ectx = Util.Pmap.lookup_exn cn ienv in
+        let value = AVal.subst_names ienv aval in
+        NFValue (ectx, value)
+    | NFRaise (cn, aval) ->
+        let ectx = Util.Pmap.lookup_exn cn ienv in
+        let value = AVal.subst_names ienv aval in
+        NFRaise (ectx, value)
+    | NFError cn ->
+        let ectx = Util.Pmap.lookup_exn cn ienv in
+        NFError ectx
+
+  let concretize_a_nf ienv nf =
+    let nf' = concretize_a_nf_aux ienv nf in
+    (refold_kind_nf nf', ienv)
+
+  type abstract_normal_form =
+    (AVal.abstract_val, unit, Name.name, Name.name) Nf.kind_nf
+
+  let abstracting_kind nf namectxO =
+    match nf with
+    | NFCallback (fn, value, _) ->
+        let ty = Util.Pmap.lookup_exn fn namectxO in
+        let nty = AVal.negating_type ty in
+        let (aval, ienv, lnamectx) = AVal.abstracting_value value nty in
+        (*TODO : we should do something for the ectx*)
+        Some (NFCallback (fn, aval, ()), ienv, lnamectx)
+    | NFValue (cn, value) ->
+        let ty = get_type_cn cn namectxO in
+        let nty = AVal.negating_type ty in
+        let (aval, ienv, lnamectx) = AVal.abstracting_value value nty in
+        Some (NFValue (Name.inj_cont_name cn, aval), ienv, lnamectx)
+    | NFError _ -> None
+    | NFRaise (cn, value) ->
+        let ty = get_type_cn cn namectxO in
+        let nty = AVal.negating_type ty in
+        let (aval, ienv, lnamectx) = AVal.abstracting_value value nty in
+        Some (NFRaise (Name.inj_cont_name cn, aval), ienv, lnamectx)
+
+  let get_subject_name nf = Some (Nf.get_active_name nf)
+
+  let get_support = function
+    | NFCallback (_, aval, _) | NFValue (_, aval) | NFRaise (_, aval) ->
+        AVal.names_of_abstract_val aval
+    | NFError _ -> []
+
+  let string_of_a_nf dir =
+    string_of_kind_nf dir AVal.string_of_abstract_val
+      (fun () -> "")
+      Name.string_of_name Name.string_of_name
+
+  let generate_nf_skeleton namectxP =
+    let aux (nn, ty) =
+      if Name.is_fname nn then [ NFCallback (nn, AVal.negating_type ty, ()) ]
+      else if Name.is_cname nn then
+        [
+          NFValue (nn, AVal.negating_type ty);
+          NFRaise (nn, AVal.negating_type ty);
+        ]
+      else [] in
+    List.concat_map aux (Util.Pmap.to_list namectxP)
+
+  include AVal.M
+
+  let fill_abstract_val namectxP = function
+    | NFCallback (fn, ty, ()) ->
+        let* (aval, lnamectx) = AVal.generate_abstract_val namectxP ty in
+        return (NFCallback (fn, aval, ()), lnamectx)
+    | NFValue (cn, ty) ->
+        let* (aval, lnamectx) = AVal.generate_abstract_val namectxP ty in
+        return (NFValue (cn, aval), lnamectx)
+    | NFRaise (cn, ty) ->
+        let* (aval, lnamectx) = AVal.generate_abstract_val namectxP ty in
+        return (NFRaise (cn, aval), lnamectx)
+    | NFError _ -> failwith "Error is not a valid skeleton"
+
+  let generate_a_nf namectxP =
+    let skel_list = generate_nf_skeleton namectxP in
+    let* skel = AVal.M.para_list @@ skel_list in
+    let* (a_nf, lnamectx) = fill_abstract_val namectxP skel in
+    return (a_nf, lnamectx)
+
+  let type_check_a_nf namectxP namectxO = function
+    | NFCallback (fn, aval, ()) ->
+        let ty = Util.Pmap.lookup_exn fn namectxO in
+        let nty = AVal.negating_type ty in
+        AVal.type_check_abstract_val namectxP namectxO nty aval
+    | NFValue (cn, aval) ->
+        let ty = Util.Pmap.lookup_exn cn namectxO in
+        let nty = AVal.negating_type ty in
+        AVal.type_check_abstract_val namectxP namectxO nty aval
+    | NFRaise (cn, aval) ->
+        let ty = Util.Pmap.lookup_exn cn namectxO in
+        let nty = AVal.negating_type ty in
+        AVal.type_check_abstract_val namectxP namectxO nty aval
+    | NFError _ -> Some Util.Pmap.empty
+
+  let is_equiv_a_nf span anf1 anf2 =
+    Nf.equiv_kind_nf AVal.unify_abstract_val span anf1 anf2
+
+  let get_typed_interactive_env = OpLang.get_typed_interactive_env
+
+  let get_typed_term nbprog inBuffer =
+    let (comp, _, namectxO) = get_typed_term nbprog inBuffer in
+    (comp, namectxO)
 end

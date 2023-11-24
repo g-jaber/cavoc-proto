@@ -2,55 +2,55 @@ type typevar = string
 type id = string
 
 (* Types *)
-type typeML =
+type typ =
   | TUnit
   | TInt
   | TBool
-  | TArrow of typeML * typeML
-  | TProd of typeML * typeML
-  | TSum of typeML * typeML
-  | TRef of typeML
+  | TArrow of typ * typ
+  | TProd of typ * typ
+  | TSum of typ * typ
+  | TRef of typ
   | TExn
   | TVar of typevar
-  | TForall of typevar list * typeML
+  | TForall of typevar list * typ
   | TId of id
   | TName of id
   | TUndef
 
-let rec string_par_of_typeML = function
+let rec string_par_of_typ = function
   | TUnit -> "Unit"
   | TInt -> "Int"
   | TBool -> "Bool"
   | TArrow (ty1, ty2) ->
-      "(" ^ string_par_of_typeML ty1 ^ "->" ^ string_of_typeML ty2 ^ ")"
+      "(" ^ string_par_of_typ ty1 ^ "->" ^ string_of_typ ty2 ^ ")"
   | TProd (ty1, ty2) ->
-      "(" ^ string_par_of_typeML ty1 ^ "*" ^ string_par_of_typeML ty2 ^ ")"
+      "(" ^ string_par_of_typ ty1 ^ "*" ^ string_par_of_typ ty2 ^ ")"
   | TSum (ty1, ty2) ->
-      "(" ^ string_par_of_typeML ty1 ^ "+" ^ string_par_of_typeML ty2 ^ ")"
-  | TRef ty -> "(ref " ^ string_of_typeML ty ^ ")"
+      "(" ^ string_par_of_typ ty1 ^ "+" ^ string_par_of_typ ty2 ^ ")"
+  | TRef ty -> "(ref " ^ string_of_typ ty ^ ")"
   | TExn -> "exn"
   | TVar typevar -> typevar
   | TForall (tvars, ty) ->
       let tvars_string = String.concat " " tvars in
-      "(∀" ^ tvars_string ^ "." ^ string_par_of_typeML ty ^ ")"
+      "(∀" ^ tvars_string ^ "." ^ string_par_of_typ ty ^ ")"
   | TId id -> id
   | TName id -> id
   | TUndef -> "undef"
 
-and string_of_typeML = function
+and string_of_typ = function
   | TUnit -> "Unit"
   | TInt -> "Int"
   | TBool -> "Bool"
-  | TArrow (ty1, ty2) -> string_par_of_typeML ty1 ^ "->" ^ string_of_typeML ty2
+  | TArrow (ty1, ty2) -> string_par_of_typ ty1 ^ "->" ^ string_of_typ ty2
   | TProd (ty1, ty2) ->
-      string_par_of_typeML ty1 ^ "*" ^ string_par_of_typeML ty2
-  | TSum (ty1, ty2) -> string_par_of_typeML ty1 ^ "+" ^ string_par_of_typeML ty2
-  | TRef ty -> "ref " ^ string_of_typeML ty
+      string_par_of_typ ty1 ^ "*" ^ string_par_of_typ ty2
+  | TSum (ty1, ty2) -> string_par_of_typ ty1 ^ "+" ^ string_par_of_typ ty2
+  | TRef ty -> "ref " ^ string_of_typ ty
   | TExn -> "exn"
   | TVar typevar -> typevar
   | TForall (tvars, ty) ->
       let tvars_string = String.concat " " tvars in
-      "∀" ^ tvars_string ^ "." ^ string_par_of_typeML ty
+      "∀" ^ tvars_string ^ "." ^ string_par_of_typ ty
   | TId id -> id
   | TName id -> id
   | TUndef -> "undef"
@@ -94,8 +94,8 @@ let get_tvars ty = TVarSet.elements @@ get_new_tvars TVarSet.empty ty
 
 (* Type substitutions are maps from type variables to types *)
 
-type type_subst = (typevar, typeML) Util.Pmap.pmap
-type type_env = (id, typeML) Util.Pmap.pmap
+type type_subst = (typevar, typ) Util.Pmap.pmap
+type type_env = (id, typ) Util.Pmap.pmap
 
 (* The following function perform parallel substitution of subst on ty *)
 let rec apply_type_subst ty subst =
@@ -164,15 +164,15 @@ let rec unify_type tsubst = function
       match unify_type tsubst (ty11, ty21) with
       | None ->
           Util.Debug.print_debug
-            ("Cannot unify " ^ string_of_typeML ty11 ^ " and "
-           ^ string_of_typeML ty21);
+            ("Cannot unify " ^ string_of_typ ty11 ^ " and "
+           ^ string_of_typ ty21);
           None
       | Some (ty1, tsubst') -> (
           match unify_type tsubst' (ty12, ty22) with
           | None ->
               Util.Debug.print_debug
-                ("Cannot unify " ^ string_of_typeML ty12 ^ " and "
-               ^ string_of_typeML ty22);
+                ("Cannot unify " ^ string_of_typ ty12 ^ " and "
+               ^ string_of_typ ty22);
               None
           | Some (ty2, tsubst'') -> Some (TArrow (ty1, ty2), tsubst''))
     end
@@ -180,15 +180,15 @@ let rec unify_type tsubst = function
       match unify_type tsubst (ty11, ty21) with
       | None ->
           Util.Debug.print_debug
-            ("Cannot unify " ^ string_of_typeML ty11 ^ " and "
-           ^ string_of_typeML ty21);
+            ("Cannot unify " ^ string_of_typ ty11 ^ " and "
+           ^ string_of_typ ty21);
           None
       | Some (ty1, lsubst') -> (
           match unify_type lsubst' (ty12, ty22) with
           | None ->
               Util.Debug.print_debug
-                ("Cannot unify " ^ string_of_typeML ty12 ^ " and "
-               ^ string_of_typeML ty22);
+                ("Cannot unify " ^ string_of_typ ty12 ^ " and "
+               ^ string_of_typ ty22);
               None
           | Some (ty2, lsubst'') -> Some (TProd (ty1, ty2), lsubst''))
     end
@@ -203,8 +203,8 @@ let rec unify_type tsubst = function
           match unify_type tsubst (ty, ty') with
           | None ->
               Util.Debug.print_debug
-                ("Cannot unify " ^ string_of_typeML ty ^ " and "
-               ^ string_of_typeML ty');
+                ("Cannot unify " ^ string_of_typ ty ^ " and "
+               ^ string_of_typ ty');
               None
           | Some (ty'', lsubst'') ->
               Some (ty'', Util.Pmap.modadd (tvar, ty'') lsubst'')
@@ -214,9 +214,17 @@ let rec unify_type tsubst = function
       if id1 = id2 then Some (ty, tsubst) else None
   | (ty1, ty2) ->
       Util.Debug.print_debug
-        ("Cannot unify " ^ string_of_typeML ty1 ^ " and " ^ string_of_typeML ty2);
+        ("Cannot unify " ^ string_of_typ ty1 ^ " and " ^ string_of_typ ty2);
       None
 
 let generalize_type ty =
   let tvar_l = get_tvars ty in
   TForall (tvar_l, ty)
+
+type negative_type = typ
+
+let string_of_negative_type = string_of_typ
+
+let get_negative_type ty =
+  match ty with TArrow _ | TForall _ -> Some ty | _ -> None
+let force_negative_type ty = ty

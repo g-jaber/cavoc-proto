@@ -2,29 +2,29 @@ open Type_ctx
 
 type signature_decl =
   | PrivateTypeDecl of Types.id
-  | PublicTypeDecl of (Types.id * Types.typeML)
-  | PublicValDecl of (Syntax.id * Types.typeML)
+  | PublicTypeDecl of (Types.id * Types.typ)
+  | PublicValDecl of (Syntax.id * Types.typ)
   | PublicExnDecl of Syntax.constructor
 
 let string_of_signature_decl = function
   | PrivateTypeDecl tid -> "type " ^ tid
   | PublicTypeDecl (tid, ty) ->
-      "type " ^ tid ^ " = " ^ Types.string_of_typeML ty
-  | PublicValDecl (var, ty) -> " val " ^ var ^ " : " ^ Types.string_of_typeML ty
+      "type " ^ tid ^ " = " ^ Types.string_of_typ ty
+  | PublicValDecl (var, ty) -> " val " ^ var ^ " : " ^ Types.string_of_typ ty
   | PublicExnDecl c -> "exception " ^ c
 
 let string_of_signature signature =
   String.concat "\n" ((List.map string_of_signature_decl) signature)
 
 type implem_decl =
-  | TypeDecl of (Types.id * Types.typeML)
-  | ValDecl of (Syntax.id * Syntax.exprML)
+  | TypeDecl of (Types.id * Types.typ)
+  | ValDecl of (Syntax.id * Syntax.term)
   | ExnDecl of Syntax.constructor
 
 let string_of_implem_decl = function
-  | TypeDecl (tid, ty) -> "type " ^ tid ^ " = " ^ Types.string_of_typeML ty
-  | ValDecl (var, exprML) ->
-      " let " ^ var ^ " = " ^ Syntax.string_of_exprML exprML
+  | TypeDecl (tid, ty) -> "type " ^ tid ^ " = " ^ Types.string_of_typ ty
+  | ValDecl (var, term) ->
+      " let " ^ var ^ " = " ^ Syntax.string_of_term term
   | ExnDecl c -> "exception " ^ c
 
 let string_of_prog prog =
@@ -53,7 +53,7 @@ let split_signature_decl_list signature_decl_l =
     | [] -> (val_decl_l, type_decl_l, exn_l)
     | PublicTypeDecl (tid, ty) :: signature_decl_l' ->
         Util.Debug.print_debug @@ "The type id " ^ tid
-        ^ " is implemented publicly by the type " ^ Types.string_of_typeML ty;
+        ^ " is implemented publicly by the type " ^ Types.string_of_typ ty;
         aux (val_decl_l, (tid, ty) :: type_decl_l, exn_l) signature_decl_l'
     | PrivateTypeDecl _ :: signature_decl_l' ->
         aux (val_decl_l, type_decl_l, exn_l) signature_decl_l'
@@ -63,7 +63,7 @@ let split_signature_decl_list signature_decl_l =
         aux (val_decl_l, type_decl_l, c :: exn_l) signature_decl_l' in
   aux ([], [], []) signature_decl_l
 
-type comp_env = (Syntax.id * Syntax.exprML) list
+type comp_env = (Syntax.id * Syntax.term) list
 
 let build_name_ctx comp_env =
   let name_set =
@@ -91,7 +91,10 @@ let get_typed_comp_env implem_decl_l =
       type_subst;
     } in
   let rec aux comp_env type_ctx = function
-    | [] -> (comp_env, type_ctx)
+    | [] -> 
+      let name_ctx =
+        Type_ctx.get_name_ctx type_ctx in
+      (comp_env, name_ctx)
     | (var, expr) :: val_decl_l ->
         let (ty, type_ctx') = Type_checker.infer_type type_ctx expr in
         let type_ctx'' = Type_ctx.extend_var_ctx type_ctx' var ty in
@@ -103,9 +106,11 @@ let get_typed_val_env var_val_env sign_decl_l =
   let type_env = Util.Pmap.list_to_pmap type_decl_l in
   let aux (var, ty) =
     let value = Util.Pmap.lookup_exn var var_val_env in
-    let nn = Syntax.fname_of_id var in
+    let nn = Names.fname_of_id var in
     let ty' = Types.generalize_type @@ Types.apply_type_env ty type_env in
-    ((nn, value), (nn, ty')) in
-  let (name_val_env_l, name_ctx_l) = List.split @@ List.map aux var_ctx_l in
-  (Util.Pmap.list_to_pmap name_val_env_l, Util.Pmap.list_to_pmap name_ctx_l)
+    (nn, value), (nn, ty') in
+  let (val_env_l, name_ctx_l) = List.split @@ List.map aux var_ctx_l in
+  let name_ctx = Util.Pmap.list_to_pmap name_ctx_l in
+  let val_env = Util.Pmap.list_to_pmap val_env_l in
+  (val_env, name_ctx)
   (* TODO: We should check that the signature and the implementation agree *)

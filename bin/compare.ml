@@ -24,20 +24,22 @@ let () =
        ^ "should have been provided. " ^ usage_msg) in
   parse speclist get_filename usage_msg;
   check_number_filenames ();
-  let module OpLang = Refml.RefML.RefML (Util.Monad.ListB) in
-  let module Int = Lts.Cps.Int_Make (OpLang) in
+  let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
+  let module CpsLang = Lang.Cps.MakeComp (OpLang) in
+  let module IntLang = Lang.Interactive.Make (CpsLang) in
+  let module Int = Lts.Interactive.Make (IntLang) in
   let module POGS_LTS = Pogs.Pogslts.Make (Int) in
   Util.Debug.print_debug "Getting the first program";
   let inBuffer1 = open_in !filename1 in
-  let (expr1, namectxO1) = Int.IntLang.get_typed_computation "first" inBuffer1 in
+  let (expr1, namectxO1) = Int.IntLang.get_typed_term "first" inBuffer1 in
   Util.Debug.print_debug "Getting the second program";
   let inBuffer2 = open_in !filename2 in
-  let (expr2, namectxO2) = Int.IntLang.get_typed_computation "second" inBuffer2 in
+  let (expr2, namectxO2) = Int.IntLang.get_typed_term "second" inBuffer2 in
   Util.Debug.print_debug
     ("Name contexts for Opponent: "
-    ^ Int.IntLang.string_of_name_type_ctx namectxO1
+    ^ Int.IntLang.string_of_name_ctx namectxO1
     ^ " and "
-    ^ Int.IntLang.string_of_name_type_ctx namectxO2);
+    ^ Int.IntLang.string_of_name_ctx namectxO2);
   let module Synch_LTS = Lts.Synch_lts.Make (POGS_LTS) in
   let init_aconf = Synch_LTS.init_aconf expr1 namectxO1 expr2 namectxO2 in
   let module Graph = Lts.Graph.Graph (Synch_LTS) in

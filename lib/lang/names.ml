@@ -3,6 +3,9 @@ module type NAME = sig
 
   val string_of_name : name -> string
   val is_callable : name -> bool
+
+  val is_fname : name -> bool
+  val is_cname : name -> bool
 end
 
 module type CONT_NAMES = sig

@@ -8,15 +8,15 @@ module Make (Int : Lts.Interactive.INT) = struct
     computation: Int.IntLang.computation;
     heap: Int.IntLang.Memory.memory;
     ienv: Int.IntLang.interactive_env;
-    namectxO: Int.IntLang.name_type_ctx;
-    namectxP: Int.IntLang.name_type_ctx;
+    namectxO: Int.IntLang.name_ctx;
+    namectxP: Int.IntLang.name_ctx;
   }
 
   type passive_conf = {
     heap: Int.IntLang.Memory.memory;
     ienv: Int.IntLang.interactive_env;
-    namectxO: Int.IntLang.name_type_ctx;
-    namectxP: Int.IntLang.name_type_ctx;
+    namectxO: Int.IntLang.name_ctx;
+    namectxP: Int.IntLang.name_ctx;
   }
 
   type conf = Active of active_conf | Passive of passive_conf
@@ -29,9 +29,9 @@ module Make (Int : Lts.Interactive.INT) = struct
     ^ " | "
     ^ Int.IntLang.string_of_interactive_env act_conf.ienv
     ^ " | "
-    ^ Int.IntLang.string_of_name_type_ctx act_conf.namectxO
+    ^ Int.IntLang.string_of_name_ctx act_conf.namectxO
     ^ " | "
-    ^ Int.IntLang.string_of_name_type_ctx act_conf.namectxP
+    ^ Int.IntLang.string_of_name_ctx act_conf.namectxP
     ^ ">"
 
   let string_of_passive_conf pas_conf =
@@ -40,9 +40,9 @@ module Make (Int : Lts.Interactive.INT) = struct
     ^ " | "
     ^ Int.IntLang.string_of_interactive_env pas_conf.ienv
     ^ " | "
-    ^ Int.IntLang.string_of_name_type_ctx pas_conf.namectxO
+    ^ Int.IntLang.string_of_name_ctx pas_conf.namectxO
     ^ " | "
-    ^ Int.IntLang.string_of_name_type_ctx pas_conf.namectxP
+    ^ Int.IntLang.string_of_name_ctx pas_conf.namectxP
     ^ ">"
 
   let p_trans act_conf =
@@ -50,8 +50,9 @@ module Make (Int : Lts.Interactive.INT) = struct
       Int.IntLang.compute_nf (act_conf.computation, act_conf.heap) in
     match nf_option with
     | None -> (Int.Actions.diverging_action, None)
-    | Some (None,_) -> (Int.Actions.error_action, None)
-    | Some (Some kind, heap) ->
+    | Some (kind, _) when Int.IntLang.is_error kind ->
+        (Int.Actions.error_action, None)
+    | Some (kind, heap) ->
         let (move, ienv', namectxP') =
           Int.generate_output_move act_conf.namectxO kind in
         ( Int.Actions.inject_move move,
@@ -59,8 +60,7 @@ module Make (Int : Lts.Interactive.INT) = struct
             {
               heap;
               ienv= Int.IntLang.concat_ienv ienv' act_conf.ienv;
-              namectxP=
-                Int.IntLang.concat_name_type_ctx namectxP' act_conf.namectxP;
+              namectxP= Int.IntLang.concat_name_ctx namectxP' act_conf.namectxP;
               namectxO= act_conf.namectxO;
             } )
 
@@ -101,7 +101,7 @@ module Make (Int : Lts.Interactive.INT) = struct
       heap= Int.IntLang.Memory.empty_memory;
       ienv= Int.IntLang.empty_ienv;
       namectxO;
-      namectxP= Int.IntLang.empty_name_type_ctx;
+      namectxP= Int.IntLang.empty_name_ctx;
     }
 
   let init_pconf memory ienv namectxP namectxO =

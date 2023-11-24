@@ -2,7 +2,7 @@ module Make
     (IntLts : Bipartite.INT_LTS)
     (HistLts : Hislts.HISLTS_INIT
                  with type move = IntLts.Int.Actions.Moves.move
-                  and type name = IntLts.Int.IntLang.name) :
+                  and type name = IntLts.Int.Name.name) :
   Bipartite.INT_LTS with module Int = IntLts.Int = struct
   module M = IntLts.M
   open M
@@ -55,15 +55,15 @@ module Make
   let init_aconf comp namectxP =
     let init_iconf = IntLts.init_aconf comp namectxP in
     let init_hconf =
-      HistLts.init_aconf
-        (IntLts.Int.IntLang.get_names_from_name_type_ctx namectxP) in
+      HistLts.init_aconf (IntLts.Int.IntLang.get_names_from_name_ctx namectxP)
+    in
     (init_iconf, init_hconf)
 
   let init_pconf memory ienv namectxP namectxO =
     let init_iconf = IntLts.init_pconf memory ienv namectxP namectxO in
     let init_hconf =
       HistLts.init_pconf
-        (IntLts.Int.IntLang.get_names_from_name_type_ctx namectxP)
-        (IntLts.Int.IntLang.get_names_from_name_type_ctx namectxO) in
+        (IntLts.Int.IntLang.get_names_from_name_ctx namectxP)
+        (IntLts.Int.IntLang.get_names_from_name_ctx namectxO) in
     (init_iconf, init_hconf)
 end

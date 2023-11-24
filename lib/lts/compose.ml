@@ -1,4 +1,4 @@
-(* This module provides two functions to compose the interaction between 
+(* This module provides two functions to compose the interaction between
     two configurations of the same bipartite LTS.
    One of the configuration must be active, and the other one is passive.
 *)
@@ -74,7 +74,7 @@ functor
     (* compose_gen retrieves the action performed by the active configuration,
        then generates all the moves performed by the passive configurations,
        trying to compose them.
-       It uses a span of names to compose the two actions.  *)
+       It uses a span of names to compose the two actions. *)
     let rec compose_gen nspan confP confO =
       Util.Debug.print_debug "One step of composition";
       let (act_conf, pas_conf, act_player) =
@@ -127,7 +127,7 @@ functor
             match nspan_option with
             | None ->
                 let span_string =
-                  Util.Namespan.string_of_span IntLTS.Int.IntLang.string_of_name
+                  Util.Namespan.string_of_span IntLTS.Int.Name.string_of_name
                     nspan in
                 Util.Debug.print_debug
                   ("Composing failed in namespan " ^ span_string);

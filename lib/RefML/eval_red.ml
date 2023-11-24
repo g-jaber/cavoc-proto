@@ -1,6 +1,6 @@
 open Syntax
 
-type op_conf = Syntax.exprML * Syntax.val_env * Heap.heap
+type op_conf = Syntax.term * Syntax.val_env * Heap.heap
 
 let rec red (expr, env, heap) =
   match expr with
@@ -109,6 +109,6 @@ let rec red (expr, env, heap) =
       end
   | _ -> ((expr, Util.Pmap.empty, heap), false)
 
-let rec compute_nf op_conf =
+let rec normalize_opconf op_conf =
   let (op_conf', isred) = red op_conf in
-  if isred then compute_nf op_conf' else op_conf
+  if isred then normalize_opconf op_conf' else op_conf

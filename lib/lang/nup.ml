@@ -3,11 +3,16 @@ module type NUP = sig
   type name
   type value
   type typ
-  type name_ctx = (name, typ) Util.Pmap.pmap
-  type val_env = (name, value) Util.Pmap.pmap
+  type typevar
   (* *)
 
   type nup
+
+  type negative_type
+  val get_negative_type : typ -> negative_type option
+  val string_of_negative_type : negative_type -> string
+  type name_ctx = (name, negative_type) Util.Pmap.pmap
+  type val_env = (name, value) Util.Pmap.pmap
 
   val string_of_nup : nup -> string
   val names_of_nup : nup -> name list
@@ -26,6 +31,9 @@ module type NUP = sig
     nup ->
     name Util.Namespan.namespan option
 
-  val abstract_val : value -> typ -> nup * val_env * name_ctx
-  val subst_names_of_nup : val_env -> nup -> value
+  val abstracting_value : value -> typ -> nup * val_env * name_ctx
+  val subst_names : val_env -> nup -> value
+
+  val get_input_type : negative_type -> typevar list * typ
+  val get_output_type : negative_type -> typ
 end

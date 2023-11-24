@@ -16,10 +16,10 @@ let fresh_locvar () =
 
 (* Symbolic Heaps *)
 
-type symbheap = (id, exprML) Util.Pmap.pmap
+type symbheap = (id, term) Util.Pmap.pmap
 
 let string_of_symb_heap =
-  Util.Pmap.string_of_pmap "ε" "↪" Syntax.string_of_id Syntax.string_of_exprML
+  Util.Pmap.string_of_pmap "ε" "↪" Syntax.string_of_id Syntax.string_of_term
 
 let count_lvar = ref 0
 
@@ -40,13 +40,13 @@ type arith_pred =
   | AFalse
   | AAnd of arith_pred list
   | AOr of arith_pred list
-  | AEqual of Syntax.exprML * Syntax.exprML
-  | ANEqual of Syntax.exprML * Syntax.exprML
-  | ALess of Syntax.exprML * Syntax.exprML
-  | ALessEq of Syntax.exprML * Syntax.exprML
-  | AGreat of Syntax.exprML * Syntax.exprML
-  | AGreatEq of Syntax.exprML * Syntax.exprML
-  | ARel of Syntax.id * Syntax.exprML list
+  | AEqual of Syntax.term * Syntax.term
+  | ANEqual of Syntax.term * Syntax.term
+  | ALess of Syntax.term * Syntax.term
+  | ALessEq of Syntax.term * Syntax.term
+  | AGreat of Syntax.term * Syntax.term
+  | AGreatEq of Syntax.term * Syntax.term
+  | ARel of Syntax.id * Syntax.term list
 
 let get_consfun_from_binpred = function
   | AEqual _ -> fun (x, y) -> AEqual (x, y)
@@ -117,7 +117,7 @@ let expr_to_arith_pred = function
   | BinaryOp (GreatEq, expr1, expr2) -> AGreatEq (expr1, expr2)
   | expr ->
       failwith
-        ("Error: trying to transform the expression " ^ string_of_exprML expr
+        ("Error: trying to transform the expression " ^ string_of_term expr
        ^ " into a predicate.")
 
 let rec string_of_conj sep g = function
@@ -133,14 +133,14 @@ let rec string_of_arith_pred = function
   | AFalse -> "False"
   | AAnd preds -> "(" ^ string_of_conj " ∧ " string_of_arith_pred preds ^ ")"
   | AOr preds -> "(" ^ string_of_conj " ∨ " string_of_arith_pred preds ^ ")"
-  | AEqual (e1, e2) -> string_of_exprML e1 ^ " = " ^ string_of_exprML e2
-  | ANEqual (e1, e2) -> string_of_exprML e1 ^ " ≠ " ^ string_of_exprML e2
-  | ALess (e1, e2) -> string_of_exprML e1 ^ " < " ^ string_of_exprML e2
-  | ALessEq (e1, e2) -> string_of_exprML e1 ^ " ≤ " ^ string_of_exprML e2
-  | AGreat (e1, e2) -> string_of_exprML e1 ^ " > " ^ string_of_exprML e2
-  | AGreatEq (e1, e2) -> string_of_exprML e1 ^ " ≥ " ^ string_of_exprML e2
+  | AEqual (e1, e2) -> string_of_term e1 ^ " = " ^ string_of_term e2
+  | ANEqual (e1, e2) -> string_of_term e1 ^ " ≠ " ^ string_of_term e2
+  | ALess (e1, e2) -> string_of_term e1 ^ " < " ^ string_of_term e2
+  | ALessEq (e1, e2) -> string_of_term e1 ^ " ≤ " ^ string_of_term e2
+  | AGreat (e1, e2) -> string_of_term e1 ^ " > " ^ string_of_term e2
+  | AGreatEq (e1, e2) -> string_of_term e1 ^ " ≥ " ^ string_of_term e2
   | ARel (f, lexpr) ->
-      f ^ "(" ^ String.concat "," (List.map string_of_exprML lexpr) ^ ")"
+      f ^ "(" ^ String.concat "," (List.map string_of_term lexpr) ^ ")"
 
 let rec full_arith_simplification_aux = function
   | [] -> []

@@ -23,7 +23,7 @@ end
 
 module Make (IntLang : Lang.Interactive.LANG) :
   ACTIONS
-    with type Moves.name = IntLang.name
+    with type Moves.name = IntLang.Name.name
      and type Moves.kdata = IntLang.abstract_normal_form = struct
   module Moves = Moves.Make (IntLang)
 

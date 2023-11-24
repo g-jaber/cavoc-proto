@@ -46,6 +46,11 @@ let map_im f = List.map (fun (x, v) -> (x, f v))
 let map = List.map
 let map_list = List.map
 let filter_map = List.filter_map
+
+let filter_map_im f =
+  let aux (a, b) = match f b with Some c -> Some (a, c) | None -> None in
+  filter_map aux
+
 let fold = List.fold_left
 
 let disjoint pmap1 pmap2 =
@@ -55,4 +60,4 @@ let rec select_im b = function
   | [] -> []
   | (a, b') :: tl -> if b = b' then a :: select_im b tl else select_im b tl
 
-let filter_dom f = List.filter (fun (a,_) -> f a)
+let filter_dom f = List.filter (fun (a, _) -> f a)

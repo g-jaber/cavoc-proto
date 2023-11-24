@@ -1,65 +1,148 @@
-module type WITHNUP = sig
-  include Language.WITHNUP include Names.CONT_NAMES with type name := name
-end
-
-module Make (OpLang : WITHNUP) = struct
-  (*instantiating*)
-  include OpLang
+module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
+  Language.WITHAVAL_NEG with module Name = OpLang.Name = struct
+  module Name = OpLang.Name
   (* *)
 
-  module Memory = OpLang.Memory
+  (* We consider named terms, as in the λμ-calculus *)
+  type term = NTerm of (Name.cont_name * OpLang.term)
 
-  type named_ectx = NCtx of (OpLang.cont_name * OpLang.eval_ctx)
+  let string_of_term (NTerm (cn, term)) =
+    "[" ^ OpLang.Name.string_of_cont_name cn ^ "]" ^ OpLang.string_of_term term
 
-  type glue_val =
+  type neval_context = NCtx of (Name.cont_name * OpLang.eval_context)
+
+  let string_of_neval_context (NCtx (cn, ectx)) =
+    "[" ^ Name.string_of_cont_name cn ^ "]" ^ OpLang.string_of_eval_context ectx
+
+  (* In CPS, the eval contexts are embeded in values, 
+    so that we collapse the type eval_context to unit *)  
+  type eval_context = unit
+
+  let string_of_eval_context () = ""
+
+  (*We refine the type of values to allow pairs (V,E) and (V,c) *)
+  type value =
     | GVal of OpLang.value
-    | GPair of OpLang.value * named_ectx
-    | GRaise of OpLang.value
+    | GPairIn of OpLang.value * neval_context
+    | GPairOut of OpLang.value * Name.cont_name
+    | GPackOut of OpLang.typename list * OpLang.value * Name.cont_name
+  (* Since we are in Curry-style, we could merge GPairOut and GPackOut *)
 
-  type interactive_val = IVal of OpLang.value | ICtx of named_ectx
-
-  type abstract_val =
-    | ANup of OpLang.Nup.nup
-    | APair of (OpLang.Nup.nup * OpLang.cont_name)
-    | AExists of (OpLang.typename list * abstract_val)
-    | ARaise of OpLang.Nup.nup
-
-  let rec string_of_abstract_val = function
-    | ANup nup -> OpLang.Nup.string_of_nup nup
-    | APair (nup, cn) ->
+  let string_of_value = function
+    | GVal value -> OpLang.string_of_value value
+    | GPairIn (value, nctx) ->
         "("
-        ^ OpLang.Nup.string_of_nup nup
+        ^ OpLang.string_of_value value
         ^ ","
-        ^ OpLang.string_of_cont_name cn
+        ^ string_of_neval_context nctx
         ^ ")"
-    | AExists (tname_l, aval) ->
-        let string_l = List.map OpLang.string_of_typename tname_l in
-        "(" ^ String.concat "," string_l ^ ","
-        ^ string_of_abstract_val aval
+    | GPairOut (value, cn) | GPackOut (_, value, cn) ->
+        "("
+        ^ OpLang.string_of_value value
+        ^ ","
+        ^ Name.string_of_cont_name cn
         ^ ")"
-    | ARaise nup -> "raise " ^ OpLang.Nup.string_of_nup nup
 
-  let rec names_of_abstract_val = function
-    | ANup nup | ARaise nup -> OpLang.Nup.names_of_nup nup
-    | APair (nup, cn) -> OpLang.inj_cont_name cn :: OpLang.Nup.names_of_nup nup
-    | AExists (_, aval) ->
-        names_of_abstract_val aval (* We should also add the type names !*)
+  type negative_val = IVal of OpLang.negative_val | ICtx of neval_context
 
-  let string_of_interactive_val = function
-    | IVal value -> OpLang.string_of_value value
+  let filter_negative_val = function
+    | GVal value -> begin
+        match OpLang.filter_negative_val value with
+        | Some nval -> Some (IVal nval)
+        | None -> None
+      end
+    | GPairIn _ | GPairOut _ | GPackOut _ -> None
+
+  let string_of_negative_val = function
+    | IVal value -> OpLang.string_of_negative_val value
     | ICtx (NCtx (cn, ectx)) ->
         "["
-        ^ OpLang.string_of_cont_name cn
+        ^ Name.string_of_cont_name cn
         ^ "]"
-        ^ OpLang.string_of_eval_ctx ectx
+        ^ OpLang.string_of_eval_context ectx
 
-  type interactive_type = IType of OpLang.typ | INeg of OpLang.typ
+  let embed_eval_context _ =
+    failwith
+      "Embedding an evaluation context is impossible in CPS mode. Please \
+       report."
 
-  let string_of_interactive_type = function
-    | IType ty -> OpLang.string_of_type ty
+  type interactive_env = (OpLang.Name.name, negative_val) Util.Pmap.pmap
+
+  let string_of_interactive_env =
+    Util.Pmap.string_of_pmap "ε" "↪" OpLang.Name.string_of_name
+      string_of_negative_val
+
+  let empty_ienv = Util.Pmap.empty
+  let concat_ienv = Util.Pmap.concat
+
+  open Nf
+
+  let get_kind_nf (NTerm (cn, term)) =
+    match OpLang.get_kind_nf term with
+    | NFCallback (fn, value, ectx) ->
+        NFCallback (fn, GPairIn (value, NCtx (cn, ectx)), ())
+    | NFValue (_, value) -> NFValue (cn, GVal value)
+    | NFError _ -> NFError cn
+    | NFRaise (_, value) -> NFRaise (cn, GVal value)
+
+  let refold_kind_nf_cps = function
+    | NFCallback (IVal nval, gval, ()) -> begin
+        match gval with
+        | GPairOut (value, cn) | GPackOut (_, value, cn) ->
+            (cn, NFCallback (nval, value, ()))
+        | _ ->
+            failwith @@ "Error: trying to apply a value " ^ string_of_value gval
+            ^ " to a callback. Please report."
+      end
+    | NFValue (ICtx (NCtx (cn, ectx)), GVal value) ->
+        (cn, NFValue (OpLang.embed_eval_context ectx, value))
+    | NFError (ICtx (NCtx (cn, ectx))) ->
+        (cn, NFError (OpLang.embed_eval_context ectx))
+    | NFRaise (ICtx (NCtx (cn, ectx)), GVal value) ->
+        (cn, NFRaise (OpLang.embed_eval_context ectx, value))
+    | _ -> failwith "Refolding impossible"
+
+  let refold_kind_nf nf =
+    let (cn, nf') = refold_kind_nf_cps nf in
+    let term = OpLang.refold_kind_nf nf' in
+    NTerm (cn, term)
+  (*end
+
+    module MakeType (OpLang : Language.TYPED) :
+      Language.TYPED with module Name = OpLang.Name = struct
+      include MakeBasic (OpLang)*)
+
+  type typ =
+    | GType of OpLang.typ
+    | GProd of OpLang.typ * OpLang.typ
+    | GExists of OpLang.typevar list * OpLang.typ * OpLang.typ
+    | GEmpty
+
+  type negative_type = IType of OpLang.negative_type | INeg of OpLang.typ
+  type typevar = OpLang.typevar
+  type typename = OpLang.typename
+
+  let string_of_type = function
+    | GType typ -> OpLang.string_of_type typ
+    | GExists (_, typ1, typ2) | GProd (typ1, typ2) ->
+        OpLang.string_of_type typ1 ^ "* ¬" ^ OpLang.string_of_type typ2
+    | GEmpty -> "⊥"
+
+  let string_of_typename = OpLang.string_of_typename
+
+  let get_negative_type = function
+    | GType typ -> begin
+        match OpLang.get_negative_type typ with
+        | Some ntyp -> Some (IType ntyp)
+        | None -> None
+      end
+    | GProd _ | GExists _ | GEmpty -> None
+
+  let string_of_negative_type = function
+    | IType ty -> OpLang.string_of_negative_type ty
     | INeg ty -> "¬" ^ OpLang.string_of_type ty
 
-  type name_type_ctx = (OpLang.name, interactive_type) Util.Pmap.pmap
+  type name_ctx = (Name.name, negative_type) Util.Pmap.pmap
 
   let extract_name_ctx =
     Util.Pmap.filter_map (function
@@ -67,271 +150,263 @@ module Make (OpLang : WITHNUP) = struct
       | (_, INeg _) -> None)
 
   let embed_name_ctx = Util.Pmap.map_im (fun ty -> IType ty)
-  let empty_name_type_ctx = Util.Pmap.empty
-  let concat_name_type_ctx = Util.Pmap.concat
-  let get_names_from_name_type_ctx = Util.Pmap.dom
+  let embed_name_ctx = embed_name_ctx
+  let empty_name_ctx = Util.Pmap.empty
+  let concat_name_ctx = Util.Pmap.concat
+  let get_names_from_name_ctx = Util.Pmap.dom
+  let exception_type = GType OpLang.exception_type
 
-  let string_of_name_type_ctx =
-    Util.Pmap.string_of_pmap "ε" "::" OpLang.string_of_name
-      string_of_interactive_type
+  let string_of_name_ctx =
+    Util.Pmap.string_of_pmap "ε" "::" OpLang.Name.string_of_name
+      string_of_negative_type
 
-  type glue_type =
-    | GType of OpLang.typ
-    | GProd of OpLang.typ * interactive_type
-    | GExists of OpLang.typevar list * OpLang.typ * interactive_type
+  let generate_typename_subst tvar_l =
+    let (typename_l, tvar_ctx) = OpLang.generate_typename_subst tvar_l in
+    let tvar_ctx' = Util.Pmap.map_im (fun ty -> GType ty) tvar_ctx in
+    (typename_l, tvar_ctx')
 
-  type computation = NTerm of (OpLang.cont_name * OpLang.term)
+  let apply_type_subst typ tvar_subst =
+    let tvar_subst =
+      Util.Pmap.filter_map_im
+        (function GType ty -> Some ty | _ -> None)
+        tvar_subst in
+    match typ with
+    | GType typ -> GType (OpLang.apply_type_subst typ tvar_subst)
+    | GExists (tvar_l, typ1, typ2) ->
+        (*TODO: we should take into account the fact that
+           tvar_l may bind some of the type variables
+           of the domain of tvar_subst *)
+        let typ1' = OpLang.apply_type_subst typ1 tvar_subst in
+        let typ2' = OpLang.apply_type_subst typ2 tvar_subst in
+        GExists (tvar_l, typ1', typ2')
+    | GProd (typ1, typ2) ->
+        let typ1' = OpLang.apply_type_subst typ1 tvar_subst in
+        let typ2' = OpLang.apply_type_subst typ2 tvar_subst in
+        GProd (typ1', typ2')
+    | GEmpty -> typ
 
-  (*We redefine opconf *)
-  type opconf = computation * Memory.memory
+  (*end
 
-  let string_of_computation (NTerm (cn, term)) =
-    "[" ^ OpLang.string_of_cont_name cn ^ "]" ^ OpLang.string_of_term term
+    module MakeComp (OpLang : Language.COMP) :
+      Language.TYPED with module Name = OpLang.Name = struct
+      include MakeType (OpLang)*)
+  module Memory = OpLang.Memory
 
-  let generate_computation term ty =
-    let cn = OpLang.fresh_cname () in
-    (NTerm (cn, term), Util.Pmap.singleton (OpLang.inj_cont_name cn, INeg ty))
+  type opconf = term * Memory.memory
 
-  let type_check_abstract_val name_type_ctxP name_type_ctxO gty aval =
-    match (gty, aval) with
-    | (GType ty, ANup nup) -> begin
-        match
-          OpLang.Nup.type_check_nup
-            (extract_name_ctx name_type_ctxP)
-            (extract_name_ctx name_type_ctxO)
-            ty nup
-        with
-        | None -> None
-        | Some name_ctx -> Some (embed_name_ctx name_ctx)
-      end
-    | (GProd (ty, (INeg _ as ity)), APair (nup, cn)) ->
-        let nn = OpLang.inj_cont_name cn in
-        if Util.Pmap.mem nn name_type_ctxP || Util.Pmap.mem nn name_type_ctxO
-        then None
-          (* the name cn has to be fresh for the abstract value to be well-typed *)
-        else begin
-          match
-            OpLang.Nup.type_check_nup
-              (extract_name_ctx name_type_ctxP)
-              (extract_name_ctx name_type_ctxO)
-              ty nup
-          with
-          | None -> None
-          | Some name_ctx ->
-              Some (Util.Pmap.add (nn, ity) (embed_name_ctx name_ctx))
-        end
-    | _ -> None
-
-  type interactive_env = (OpLang.name, interactive_val) Util.Pmap.pmap
+  let normalize_opconf (NTerm (cn, term), memory) =
+    match OpLang.normalize_opconf (term, memory) with
+    | Some (nfterm, memory') -> Some (NTerm (cn, nfterm), memory')
+    | None -> None
 
   let embed_value_env = Util.Pmap.map_im (fun v -> IVal v)
 
-  let extract_val_env =
+  let extract_int_env =
     Util.Pmap.filter_map (function
-      | (n, IVal v) -> Some (n, v)
+      | (n, IVal value) -> Some (n, value)
       | (_, ICtx _) -> None)
 
-  let empty_ienv = Util.Pmap.empty
+  let get_typed_term nbprog inBuffer =
+    let (term, typ, namectxO) = OpLang.get_typed_term nbprog inBuffer in
+    let cn = Name.fresh_cname () in
+    let nterm = NTerm (cn, term) in
+    let namectxO' =
+      Util.Pmap.add (Name.inj_cont_name cn, INeg typ) (embed_name_ctx namectxO)
+    in
+    (nterm, GEmpty, namectxO')
 
-  let string_of_interactive_env =
-    Util.Pmap.string_of_pmap "ε" "↪" OpLang.string_of_name
-      string_of_interactive_val
-
-  let trigger_ienv ienv kind = Util.Pmap.lookup kind ienv
-  let concat_ienv = Util.Pmap.concat
-
-  let abstract_glue_val gval gty =
-    match (gval, gty) with
-    | (GPair (value, ectx), GProd (ty_v, ty_c)) ->
-        let (nup, val_env, name_ctx) = OpLang.Nup.abstract_val value ty_v in
-        let cn = OpLang.fresh_cname () in
-        let ienv = embed_value_env val_env in
-        let ienv' = Util.Pmap.add (OpLang.inj_cont_name cn, ICtx ectx) ienv in
-        let name_type_ctx = embed_name_ctx name_ctx in
-        let name_type_ctx' =
-          Util.Pmap.add (OpLang.inj_cont_name cn, ty_c) name_type_ctx in
-        (APair (nup, cn), ienv', name_type_ctx')
-    | (GVal value, GType ty) ->
-        let (nup, val_env, name_ctx) = OpLang.Nup.abstract_val value ty in
-        let ienv = embed_value_env val_env in
-        let name_type_ctx = embed_name_ctx name_ctx in
-        (ANup nup, ienv, name_type_ctx)
-    | (GRaise value, GType _) ->
-        let (nup, val_env, name_ctx) =
-          OpLang.Nup.abstract_val value OpLang.exception_type in
-        let ienv = embed_value_env val_env in
-        let name_type_ctx = embed_name_ctx name_ctx in
-        (ARaise nup, ienv, name_type_ctx)
-    | (_, _) -> failwith "Ill-typed interactive value. Please report."
-
-  module M = OpLang.Nup.M
-  open M
-
-  (* From the interactive name context Γ_P and a glue type τ,
-     we generate all the possible pairs (A,Δ) such that
-     Γ_P;_ ⊢ A : τ ▷ Δ
-     Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
-  let rec generate_abstract_val name_type_ctx gtype =
-    let name_ctx = extract_name_ctx name_type_ctx in
-    match gtype with
-    | GType ty ->
-        let* (nup, name_ctx) = OpLang.Nup.generate_nup name_ctx ty in
-        return (ANup nup, embed_name_ctx name_ctx)
-    | GProd (ty, (INeg _ as ity)) ->
-        let* (nup, name_ctx) = OpLang.Nup.generate_nup name_ctx ty in
-        let cn = OpLang.fresh_cname () in
-        let name_type_ctx' =
-          Util.Pmap.add (OpLang.inj_cont_name cn, ity) (embed_name_ctx name_ctx)
-        in
-        return (APair (nup, cn), name_type_ctx')
-    | GExists (tvar_l, ty1, INeg ty2) ->
-        Util.Debug.print_debug
-          "Generating an abstract value for an existential type";
-        let (tname_l, type_subst) = OpLang.generate_typename_subst tvar_l in
-        let ty1' = OpLang.apply_type_subst ty1 type_subst in
-        let ty2' = OpLang.apply_type_subst ty2 type_subst in
-        let* (aval, name_type_ctx) =
-          generate_abstract_val name_type_ctx (GProd (ty1', INeg ty2')) in
-        return (AExists (tname_l, aval), name_type_ctx)
-    | _ -> failwith "The glue type is not valid. Please report."
-
-  type kind_interact = name
-
-  let string_of_kind_interact = string_of_name
-  let name_of_kind_interact kind = Some kind
-
-  let is_equiv_kind_interact span kind1 kind2 =
-    Util.Namespan.is_in_dom_im (kind1, kind2) span
-
-  (* kind_interact_typing provide a way to type check an interact kind within an interactive name context.
-     It returns None if the interactive kind is not well-typed.*)
-  let kind_interact_typing = Util.Pmap.lookup
-
-  let extract_kind_interact namectx =
-    Util.Pmap.to_list @@ Util.Pmap.filter_dom OpLang.is_callable namectx
-
-  type normal_form = kind_interact * glue_val
-
-  let string_of_nf (kind, _) =
-    string_of_kind_interact kind 
-
-  let compute_nf (NTerm (cn, term), memory) =
-    match OpLang.compute_nf (term, memory) with
-    | None -> None
-    | Some (nf, memory') ->
-        let kind_nf =
-          begin
-            match get_kind_nf nf with
-            | NFCallback (fn, value, ectx) ->
-                Some (fn, GPair (value, NCtx (cn, ectx)))
-            | NFValue value -> Some (OpLang.inj_cont_name cn, GVal value)
-            | NFError -> None
-            | NFRaise value -> Some (OpLang.inj_cont_name cn, GRaise value)
-          end in
-        Some (kind_nf, memory')
-
-  
-  (* From an interactive environment γ, an interactive value I and an abstract value A,
-      val_composition γ I A  built the computation I ★ A{γ} *)
-
-  let val_composition ienv ival aval =
-    match (ival, aval) with
-    | (ICtx (NCtx (cn, ectx)), ANup nup) ->
-        let value = OpLang.Nup.subst_names_of_nup (extract_val_env ienv) nup in
-        NTerm (cn, OpLang.fill_hole ectx value)
-    | (IVal fun_val, APair (nup, cn))
-    | (IVal fun_val, AExists (_, APair (nup, cn))) ->
-        let value = OpLang.Nup.subst_names_of_nup (extract_val_env ienv) nup in
-        NTerm (cn, OpLang.apply_value fun_val value)
-    | _ ->
-        failwith
-          ("Error: the interactive value "
-          ^ string_of_interactive_val ival
-          ^ " cannot be composed with the abstract value "
-          ^ string_of_abstract_val aval
-          ^ ". Please report")
-
-  let concretize_a_nf ienv (kind,aval) =  match trigger_ienv ienv kind with
-  | Some ivalue ->
-      Some (val_composition ienv ivalue aval, ienv)
-  | None -> None
-
-  (* The function neg_type extract from an interactive type the type of the input arguments
-     expected to interact over this type. *)
-  let neg_type = function
-    | IType ty ->
-        let (tvar_l, inp_ty) = OpLang.get_input_type ty in
-        let out_ty = OpLang.get_output_type ty in
-        begin
-          match tvar_l with
-          | [] -> GProd (inp_ty, INeg out_ty)
-          | _ -> GExists (tvar_l, inp_ty, INeg out_ty)
-        end
-    | INeg ty -> GType ty
-
-  let abstract_kind (kind, gval) namectxO =
-    let ty_option = kind_interact_typing kind namectxO in
-    match ty_option with
-    | Some ty ->
-        let nty = neg_type ty in
-        let (aval, ienv, lnamectx) = abstract_glue_val gval nty in
-        Some ((kind, aval), ienv, lnamectx)
-    | None -> None
-
-  type abstract_normal_form = kind_interact * abstract_val
-
-  let get_subject_names (kind, _) = name_of_kind_interact kind
-  let get_support (_, aval) = names_of_abstract_val aval
-
-  let string_of_a_nf dir (kind, aval) =
-    string_of_kind_interact kind ^ dir ^ string_of_abstract_val aval
-
-  let generate_a_nf namectxP =
-    let kind_list = extract_kind_interact namectxP in
-    let* (kind, ty) = M.para_list @@ kind_list in
-    let* (aval, lnamectx) = generate_abstract_val namectxP (neg_type ty) in
-    return ((kind, aval), lnamectx)
-
-  let type_check_a_nf namectxP namectxO (kind, aval) =
-    match kind_interact_typing kind namectxP with
-    | None -> None
-    | Some ty ->
-        let dual_ty = neg_type ty in
-        type_check_abstract_val namectxP namectxO dual_ty aval
-
-  let unify_abstract_val nspan aval1 aval2 =
-    match (aval1, aval2) with
-    | (APair (nup1, cn1), APair (nup2, cn2)) ->
-        let nspan1_option = OpLang.Nup.unify_nup nspan nup1 nup2 in
-        begin
-          match nspan1_option with
-          | None -> None
-          | Some nspan1 ->
-              Util.Namespan.add_nspan
-                (OpLang.inj_cont_name cn1, OpLang.inj_cont_name cn2)
-                nspan1
-        end
-    | (ANup nup1, ANup nup2) -> OpLang.Nup.unify_nup nspan nup1 nup2
-    | _ -> None
-
-  let is_equiv_a_nf span (kind1, aval1) (kind2, aval2) =
-    if is_equiv_kind_interact span kind1 kind2 then
-      unify_abstract_val span aval1 aval2
-    else None
-
-  let get_typed_computation nbprog inBuffer =
-    let (term, ty, _) = OpLang.get_typed_term nbprog inBuffer in
-    generate_computation term ty
-
-  let get_typed_ienv inBuffer_implem inBuffer_signature =
-    let (val_env, memory, namectxP, namectxO) =
-      OpLang.get_typed_val_env inBuffer_implem inBuffer_signature in
-    ( embed_value_env val_env,
+  let get_typed_interactive_env inBuffer_implem inBuffer_signature =
+    let (int_env, memory, namectxP, namectxO) =
+      OpLang.get_typed_interactive_env inBuffer_implem inBuffer_signature in
+    ( embed_value_env int_env,
       memory,
       embed_name_ctx @@ namectxP,
       embed_name_ctx @@ namectxO )
-end
 
+  type negative_type_temp = negative_type
+  type value_temp = value
+  type typ_temp = typ
+  type negative_val_temp = negative_val
+
+  module AVal :
+    Abstract_val.AVAL_NEG
+      with type name = Name.name
+       and type value = value_temp
+       and type negative_val = negative_val_temp
+       and type typ = typ_temp
+       and type typevar = OpLang.typevar
+       and type negative_type = negative_type_temp
+       and module M = Memory.M = struct
+    type name = Name.name
+    type value = value_temp
+    type negative_val = negative_val_temp
+    type typ = typ_temp
+    type typevar = OpLang.typevar
+    type negative_type = negative_type_temp
+
+    (*    type negative_type = OpLang.negative_type*)
+    type name_ctx = (name, negative_type) Util.Pmap.pmap
+    type interactive_env = (name, negative_val) Util.Pmap.pmap
+
+    type abstract_val =
+      | AVal of OpLang.AVal.abstract_val
+      | APair of OpLang.AVal.abstract_val * Name.cont_name
+      | APack of
+          OpLang.typename list * OpLang.AVal.abstract_val * Name.cont_name
+
+    let string_of_abstract_val = function
+      | AVal aval -> OpLang.AVal.string_of_abstract_val aval
+      | APair (aval, cn) ->
+          "("
+          ^ OpLang.AVal.string_of_abstract_val aval
+          ^ ","
+          ^ Name.string_of_cont_name cn
+          ^ ")"
+      | APack (tname_l, aval, cn) ->
+          let string_l = List.map OpLang.string_of_typename tname_l in
+          "(" ^ String.concat "," string_l ^ ","
+          ^ OpLang.AVal.string_of_abstract_val aval
+          ^ ","
+          ^ Name.string_of_cont_name cn
+          ^ ")"
+
+    let names_of_abstract_val = function
+      | AVal aval -> OpLang.AVal.names_of_abstract_val aval
+      | APair (aval, cn) | APack (_, aval, cn) ->
+          Name.inj_cont_name cn :: OpLang.AVal.names_of_abstract_val aval
+
+    let type_check_abstract_val namectxP namectxO gty aval =
+      match (gty, aval) with
+      | (GType ty, AVal aval) -> begin
+          match
+            OpLang.AVal.type_check_abstract_val
+              (extract_name_ctx namectxP)
+              (extract_name_ctx namectxO)
+              ty aval
+          with
+          | None -> None
+          | Some lnamectx -> Some (embed_name_ctx lnamectx)
+        end
+      | (GProd (ty, tyhole), APair (aval, cn)) ->
+          let nn = Name.inj_cont_name cn in
+          if Util.Pmap.mem nn namectxP || Util.Pmap.mem nn namectxO then None
+            (* the name cn has to be fresh for the abstract value to be well-typed *)
+          else begin
+            match
+              OpLang.AVal.type_check_abstract_val
+                (extract_name_ctx namectxP)
+                (extract_name_ctx namectxO)
+                ty aval
+            with
+            | None -> None
+            | Some lnamectx ->
+                Some (Util.Pmap.add (nn, INeg tyhole) (embed_name_ctx lnamectx))
+          end
+      | _ -> None
+
+    let abstracting_value gval gty =
+      match (gval, gty) with
+      | (GPairIn (value, ectx), GProd (ty_v, ty_c)) ->
+          let (aval, val_env, lnamectx) =
+            OpLang.AVal.abstracting_value value ty_v in
+          let cn = Name.fresh_cname () in
+          let ienv =
+            (*OpLang.AVal.embed_value_env @@*) embed_value_env val_env in
+          let ienv' = Util.Pmap.add (Name.inj_cont_name cn, ICtx ectx) ienv in
+          let lnamectx = embed_name_ctx lnamectx in
+          let lnamectx' =
+            Util.Pmap.add (Name.inj_cont_name cn, INeg ty_c) lnamectx in
+          (APair (aval, cn), ienv', lnamectx')
+      | (GVal value, GType ty) ->
+          let (aval, val_env, lnamectx) =
+            OpLang.AVal.abstracting_value value ty in
+          let ienv = embed_value_env val_env in
+          let lnamectx = embed_name_ctx lnamectx in
+          (AVal aval, ienv, lnamectx)
+      | (_, _) -> failwith "Ill-typed interactive value. Please report."
+
+    module M = OpLang.AVal.M
+    open M
+
+    (* From the interactive name context Γ_P and a glue type τ,
+       we generate all the possible pairs (A,Δ) such that
+       Γ_P;_ ⊢ A : τ ▷ Δ
+       Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
+    let generate_abstract_val lnamectx gtype =
+      let lnamectx' = extract_name_ctx lnamectx in
+      match gtype with
+      | GType ty ->
+          let* (aval, lnamectx) =
+            OpLang.AVal.generate_abstract_val lnamectx' ty in
+          return (AVal aval, embed_name_ctx lnamectx)
+      | GProd (ty, tyhole) ->
+          let* (aval, lnamectx) =
+            OpLang.AVal.generate_abstract_val lnamectx' ty in
+          let cn = Name.fresh_cname () in
+          let lnamectx' =
+            Util.Pmap.add
+              (Name.inj_cont_name cn, INeg tyhole)
+              (embed_name_ctx lnamectx) in
+          return (APair (aval, cn), lnamectx')
+      | GExists (tvar_l, ty, tyhole) ->
+          Util.Debug.print_debug
+            "Generating an abstract value for an existential type";
+          let (tname_l, type_subst) = OpLang.generate_typename_subst tvar_l in
+          let ty' = OpLang.apply_type_subst ty type_subst in
+          let tyhole' = OpLang.apply_type_subst tyhole type_subst in
+          let* (aval, lnamectx) =
+            OpLang.AVal.generate_abstract_val lnamectx' ty' in
+          let cn = Name.fresh_cname () in
+          let lnamectx' =
+            Util.Pmap.add
+              (Name.inj_cont_name cn, INeg tyhole')
+              (embed_name_ctx lnamectx) in
+          return (APack (tname_l, aval, cn), lnamectx')
+      | _ -> failwith "The glue type is not valid. Please report."
+
+    let unify_abstract_val nspan aval1 aval2 =
+      match (aval1, aval2) with
+      | (APair (aval1, cn1), APair (aval2, cn2)) ->
+          let nspan1_option = OpLang.AVal.unify_abstract_val nspan aval1 aval2 in
+          begin
+            match nspan1_option with
+            | None -> None
+            | Some nspan1 ->
+                Util.Namespan.add_nspan
+                  (OpLang.Name.inj_cont_name cn1, OpLang.Name.inj_cont_name cn2)
+                  nspan1
+          end
+      | (AVal aval1, AVal aval2) ->
+          OpLang.AVal.unify_abstract_val nspan aval1 aval2
+      | _ -> None
+
+    let subst_names ienv aval =
+      let ienv' = extract_int_env ienv in
+      match aval with
+      | AVal aval -> GVal (OpLang.AVal.subst_names ienv' aval)
+      | APair (aval, cn) ->
+          let value = OpLang.AVal.subst_names ienv' aval in
+          GPairOut (value, cn)
+      | APack (tname_l, aval, cn) ->
+          let value = OpLang.AVal.subst_names ienv' aval in
+          GPackOut (tname_l, value, cn)
+
+    (* The function negating_type extract from an interactive type the type of the input arguments
+       expected to interact over this type. *)
+    let negating_type = function
+      | IType ty ->
+          let (tvar_l, inp_ty) = OpLang.AVal.get_input_type ty in
+          let out_ty = OpLang.AVal.get_output_type ty in
+          begin
+            match tvar_l with
+            | [] -> GProd (inp_ty, out_ty)
+            | _ -> GExists (tvar_l, inp_ty, out_ty)
+          end
+      | INeg ty -> GType ty
+  end
+end
+(*
 module type INTLANG = sig
   include Interactive.LANG include Names.CONT_NAMES with type name := name
 end
+*)

@@ -1,6 +1,6 @@
 (* Concrete Heaps *)
 
-type heap = (Syntax.loc, Syntax.exprML) Util.Pmap.pmap
+type heap = (Syntax.loc, Syntax.term) Util.Pmap.pmap
 
 let emptyheap = Util.Pmap.empty
 
@@ -12,7 +12,7 @@ let modify heap l value = Util.Pmap.modadd (l, value) heap
 let access heap l = Util.Pmap.lookup l heap
 
 let string_of_heap =
-  Util.Pmap.string_of_pmap "ε" "↪" Syntax.string_of_loc Syntax.string_of_exprML
+  Util.Pmap.string_of_pmap "ε" "↪" Syntax.string_of_loc Syntax.string_of_term
 
 let loc_ctx_of_heap = Util.Pmap.map_im (fun _ -> Types.TInt)
 

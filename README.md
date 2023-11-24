@@ -31,5 +31,5 @@ The lib/ directory contains the various subparts of the prototype:
   * the definition of the OGS LTS in ogslts.ml, define by a functor over Interactive.INT signature 
   * including the well-bracketed part.
 - RefML/ contains the definition of the main instance of a programming language:
-  * refml.ml contains the instantiation of the signature Interactive.WITHNUP
+  * refml.ml contains the instantiation of the signature Interactive.WITHAVAL
   * interpreter.ml contains the monadic definitional interpreter.

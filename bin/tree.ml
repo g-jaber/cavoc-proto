@@ -21,9 +21,11 @@ let () =
   parse speclist get_filename usage_msg;
   check_number_filenames ();
   let inBuffer = open_in !filename in
-  let module OpLang = Refml.RefML.RefML (Util.Monad.ListB) in
-  let module Int = Lts.Cps.Int_Make (OpLang) in
-  let (expr, namectxO) = Int.IntLang.get_typed_computation "first" inBuffer in
+  let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
+  let module CpsLang = Lang.Cps.MakeComp (OpLang) in
+  let module IntLang = Lang.Interactive.Make (CpsLang) in
+  let module Int = Lts.Interactive.Make (IntLang) in
+  let (expr, namectxO) = Int.IntLang.get_typed_term "first" inBuffer in
   let module POGS_LTS = Pogs.Pogslts.Make (Int) in
   let init_aconf = POGS_LTS.init_aconf expr namectxO in
   let module Graph = Lts.Graph.Graph (POGS_LTS) in
