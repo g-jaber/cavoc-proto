@@ -48,12 +48,10 @@ rule token = parse
   | "in"  { IN }
   | "fun"  { FUN }
   | "fix"  { FIX }
-  | "match"  { MATCH }
   | "with"  { WITH }
   | "assert" { ASSERT }
   | "while" { WHILE }
   | "do" { DO }
-  | "done" { DONE }
 
   | "()" { UNIT }
   | "ref" { REF }

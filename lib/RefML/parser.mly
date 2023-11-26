@@ -22,8 +22,8 @@
 %token IF THEN ELSE
 %token UNIT
 %token REF ASSIGN DEREF
-%token WHILE DO DONE
-%token MATCH WITH
+%token WHILE DO
+%token WITH
 %token ASSERT
 %token RAISE
 %token TRY
@@ -110,7 +110,7 @@ expr:
     { Let ($3, Fix (($3,TUndef),$4, List.fold_left (fun expr var -> Fun (var,expr)) $7 $5), $9) }
   | LET LPAR VAR COMMA VAR RPAR EQ expr IN expr
     { LetPair ($3,$5,$8,$10)}
-  | WHILE expr DO expr DONE { While ($2,$4) }
+  | WHILE expr DO expr { While ($2,$4) }
   | REF expr         { Newref (TUndef,$2) }
   | expr ASSIGN expr { Assign ($1,$3) }
   | ASSERT expr      { Assert $2 }
