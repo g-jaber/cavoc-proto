@@ -1,0 +1,1 @@
+let f g = while true do g (); g () in f
