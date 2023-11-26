@@ -1,7 +1,6 @@
 open Syntax
 
 type memory = Syntax.val_env * Heap.heap
-
 type opconf = Syntax.term * memory
 
 let string_of_opconf (expr, (valenv, heap)) =
@@ -15,14 +14,14 @@ let empty_state = []
 
 let lookup (expr, (valenv, heap)) =
   match expr with
-  | While _ ->
+  | While _ | Fix _ ->
       let* opconf_list = get () in
       return (List.mem (expr, (valenv, heap)) opconf_list)
   | _ -> return false
 
 let add (expr, (valenv, heap)) =
   match expr with
-  | While _ ->
+  | While _ | Fix _ ->
       let* opconf_list = get () in
       set ((expr, (valenv, heap)) :: opconf_list)
   | _ -> return ()
@@ -45,6 +44,13 @@ let interpreter interpreter (expr, (valenv, heap)) =
             if isval expr2' then
               let body' = subst_var body var expr2' in
               interpreter (body', (valenv, heap''))
+            else return (App (expr1', expr2'), (valenv, heap''))
+        | Fix ((fvar, _), (var, _), body) ->
+            let* (expr2', (_, heap'')) = interpreter (expr2, (valenv, heap')) in
+            if isval expr2' then
+              let body' = subst_var body var expr2' in
+              let body'' = subst_var body' fvar expr1 in
+              interpreter (body'', (valenv, heap''))
             else return (App (expr1', expr2'), (valenv, heap''))
         | Name _ ->
             let* (expr2', (_, heap'')) = interpreter (expr2, (valenv, heap')) in
@@ -110,7 +116,7 @@ let interpreter interpreter (expr, (valenv, heap)) =
             | None ->
                 failwith
                   ("Error in the interpreter: " ^ Syntax.string_of_loc l
-                 ^ "is not in the heap " ^ Heap.string_of_heap heap)
+                 ^ " is not in the heap " ^ Heap.string_of_heap heap)
           end
         | _ -> return (Deref nf, (valenv, heap'))
       end
@@ -207,22 +213,23 @@ let interpreter interpreter (expr, (valenv, heap)) =
             return (Assert guard', (valenv, heap'))
       end
   | Raise expr ->
-    let* (nf, (_, heap')) = interpreter (expr, (valenv, heap)) in
-    return (Raise nf, (valenv, heap'))
+      let* (nf, (_, heap')) = interpreter (expr, (valenv, heap)) in
+      return (Raise nf, (valenv, heap'))
   | TryWith (expr, handler_l) ->
       let* (nf, (_, heap')) = interpreter (expr, (valenv, heap)) in
       if isval nf then return (nf, (valenv, heap'))
       else begin
         match nf with
-        | Raise ((Constructor c) as cons) ->
+        | Raise (Constructor c as cons) ->
             let rec aux = function
               | Handler (pat, expr_pat) :: handler_l' -> begin
                   match pat with
                   | PatCons c' when c = c' ->
                       interpreter (expr_pat, (valenv, heap'))
                   | PatCons _ -> aux handler_l'
-                  | PatVar id -> let expr' = subst_var expr_pat id cons in
-                  interpreter (expr', (valenv, heap'))
+                  | PatVar id ->
+                      let expr' = subst_var expr_pat id cons in
+                      interpreter (expr', (valenv, heap'))
                 end
               | [] -> return (Raise cons, (valenv, heap')) in
             aux handler_l
@@ -230,9 +237,8 @@ let interpreter interpreter (expr, (valenv, heap)) =
       end
   | _ ->
       failwith
-        ("Error: "
-        ^ Syntax.string_of_term expr
-        ^ " is outside of the fragment we consider.")
+        ("Error: " ^ Syntax.string_of_term expr
+       ^ " is outside of the fragment we consider.")
 
 let normalize_opconf_monad opconf =
   let rec aux opconf =
