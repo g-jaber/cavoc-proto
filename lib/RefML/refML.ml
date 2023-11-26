@@ -62,31 +62,10 @@ module Typed :
 end
 
 module Memory (M : Util.Monad.BRANCH) :
-  Lang.Language.MEMORY with type memory = Interpreter.memory and module M = M =
+  Lang.Language.MEMORY with type memory = Memory.memory and module M = M =
 struct
-  type memory = Interpreter.memory
+  include Memory_gen.Make(M)
 
-  let string_of_memory (valenv, heap) =
-    Syntax.string_of_val_env valenv ^ "| " ^ Heap.string_of_heap heap
-
-  let empty_memory = (Syntax.empty_val_env, Heap.emptyheap)
-
-  (* We trick the system by keeping the full val_env as type ctx *)
-  type memory_type_ctx = Syntax.val_env * Type_ctx.loc_ctx
-
-  let empty_memory_type_ctx = (Syntax.empty_val_env, Type_ctx.empty_loc_ctx)
-
-  let string_of_memory_type_ctx (valenv, loc_ctx) =
-    Syntax.string_of_val_env valenv ^ "|" ^ Type_ctx.string_of_loc_ctx loc_ctx
-
-  let infer_type_memory (valenv, loc_ctx) =
-    (valenv, Heap.loc_ctx_of_heap loc_ctx)
-
-  module M = M
-
-  let generate_memory (valenv, loc_ctx) =
-    M.para_list
-    @@ List.map (fun heap -> (valenv, heap)) (Heap.generate_heaps loc_ctx)
 end
 
 module Comp (M : Util.Monad.BRANCH) :
