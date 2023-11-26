@@ -1,5 +1,3 @@
-(*TODO: Reimplement it using Moves:Moves.MOVES*)
-
 module Make
     (ContNames : Lang.Names.CONT_NAMES)
     (Moves : Lts.Moves.MOVES with type name = ContNames.name) :
