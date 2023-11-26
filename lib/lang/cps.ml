@@ -14,8 +14,8 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   let string_of_neval_context (NCtx (cn, ectx)) =
     "[" ^ Name.string_of_cont_name cn ^ "]" ^ OpLang.string_of_eval_context ectx
 
-  (* In CPS, the eval contexts are embeded in values, 
-    so that we collapse the type eval_context to unit *)  
+  (* In CPS, the eval contexts are embeded in values,
+     so that we collapse the type eval_context to unit *)
   type eval_context = unit
 
   let string_of_eval_context () = ""
@@ -185,11 +185,6 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
         GProd (typ1', typ2')
     | GEmpty -> typ
 
-  (*end
-
-    module MakeComp (OpLang : Language.COMP) :
-      Language.TYPED with module Name = OpLang.Name = struct
-      include MakeType (OpLang)*)
   module Memory = OpLang.Memory
 
   type opconf = term * Memory.memory
@@ -310,8 +305,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
           let (aval, val_env, lnamectx) =
             OpLang.AVal.abstracting_value value ty_v in
           let cn = Name.fresh_cname () in
-          let ienv =
-            (*OpLang.AVal.embed_value_env @@*) embed_value_env val_env in
+          let ienv = embed_value_env val_env in
           let ienv' = Util.Pmap.add (Name.inj_cont_name cn, ICtx ectx) ienv in
           let lnamectx = embed_name_ctx lnamectx in
           let lnamectx' =
@@ -405,8 +399,3 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
       | INeg ty -> GType ty
   end
 end
-(*
-module type INTLANG = sig
-  include Interactive.LANG include Names.CONT_NAMES with type name := name
-end
-*)
