@@ -35,3 +35,6 @@ let generate_heaps loc_ctx =
       (fun (l, ty) -> (l, Syntax.generate_ground_value ty))
       loc_ctx in
   shuffle_heaps list_predheap
+
+let restrict loc_ctx heap =
+  Util.Pmap.filter_dom (fun l -> Util.Pmap.mem l loc_ctx) heap

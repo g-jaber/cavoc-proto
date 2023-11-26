@@ -8,3 +8,4 @@ val lookup : heap -> Syntax.loc -> Syntax.value option
 val string_of_heap : heap -> string
 val loc_ctx_of_heap : heap -> Type_ctx.loc_ctx
 val generate_heaps : Type_ctx.loc_ctx -> heap list
+val restrict : Type_ctx.loc_ctx -> heap -> heap

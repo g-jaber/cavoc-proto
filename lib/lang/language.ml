@@ -81,6 +81,8 @@ module type MEMORY = sig
   (* update_memory μ μ' is equal to μ[μ'] *)
   val update_memory : memory -> memory -> memory
 
+  val restrict :  memory_type_ctx -> memory -> memory
+
   module M : Util.Monad.BRANCH
   (* *)
 

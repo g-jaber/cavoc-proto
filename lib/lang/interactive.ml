@@ -43,7 +43,7 @@ module type LANG = sig
 
   val abstracting_kind :
     normal_form ->
-    name_ctx ->
+    name_ctx -> Memory.memory_type_ctx ->
     (abstract_normal_form * interactive_env * name_ctx) option
 
   val get_subject_name : abstract_normal_form -> Name.name option
@@ -156,25 +156,29 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   type abstract_normal_form =
     (AVal.abstract_val, unit, Name.name, Name.name) Nf.kind_nf * Memory.memory
 
-  let abstracting_kind (nf,memory) namectxO =
+  let abstracting_memory = OpLang.Memory.restrict 
+  (* Deal with the abstraction process of the heap properly *)
+
+  let abstracting_kind (nf,memory) namectxO storectx =
+    let discl_memory = abstracting_memory storectx memory in
     match nf with
     | NFCallback (fn, value, _) ->
         let ty = Util.Pmap.lookup_exn fn namectxO in
         let nty = AVal.negating_type ty in
         let (aval, ienv, lnamectx) = AVal.abstracting_value value nty in
         (*TODO : we should do something for the ectx*)
-        Some ((NFCallback (fn, aval, ()), memory), ienv, lnamectx)
+        Some ((NFCallback (fn, aval, ()), discl_memory), ienv, lnamectx)
     | NFValue (cn, value) ->
         let ty = get_type_cn cn namectxO in
         let nty = AVal.negating_type ty in
         let (aval, ienv, lnamectx) = AVal.abstracting_value value nty in
-        Some ((NFValue (Name.inj_cont_name cn, aval), memory), ienv, lnamectx)
+        Some ((NFValue (Name.inj_cont_name cn, aval), discl_memory), ienv, lnamectx)
     | NFError _ -> None
     | NFRaise (cn, value) ->
         let ty = get_type_cn cn namectxO in
         let nty = AVal.negating_type ty in
         let (aval, ienv, lnamectx) = AVal.abstracting_value value nty in
-        Some ((NFRaise (Name.inj_cont_name cn, aval), memory), ienv, lnamectx)
+        Some ((NFRaise (Name.inj_cont_name cn, aval), discl_memory), ienv, lnamectx)
 
   let get_subject_name (a_nf,_) = Some (Nf.get_active_name a_nf)
 

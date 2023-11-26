@@ -37,3 +37,7 @@ let infer_type_memory (_, heap) = Heap.loc_ctx_of_heap heap
 
 let update_memory (valenv, heap1) (_, heap2) = (valenv, Heap.update heap1 heap2)
 (*We suppose that valenv is immutable.*)
+
+let restrict loc_ctx (_,heap) = 
+  let heap' = Heap.restrict loc_ctx heap in
+  (Util.Pmap.empty,heap')

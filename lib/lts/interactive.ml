@@ -5,11 +5,7 @@ module type INT = sig
   module Actions : Actions.ACTIONS with type Moves.name = IntLang.Name.name
   (* *)
 
-  type interactive_ctx = {
-    storectx: IntLang.Memory.memory_type_ctx;
-    namectxP: IntLang.name_ctx;
-    namectxO: IntLang.name_ctx;
-  }
+  type interactive_ctx
 
   val replace_namectxP :
     interactive_ctx -> IntLang.name_ctx -> interactive_ctx
@@ -101,7 +97,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
     { storectx; namectxP; namectxO }
 
   let generate_output_move ictx nf =
-    match IntLang.abstracting_kind nf ictx.namectxO with
+    match IntLang.abstracting_kind nf ictx.namectxO ictx.storectx with
     | Some (a_nf, ienv, lnamectx) ->
       let namectxP = IntLang.concat_name_ctx lnamectx ictx.namectxP in
         (Moves.build (Moves.Output, a_nf), ienv, lnamectx, { ictx with namectxP })

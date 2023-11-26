@@ -17,3 +17,4 @@ val infer_type_memory : memory -> memory_type_ctx
 
 (* update_memory (env,h) (env',h') is equal to (env,h[h']) *)
 val update_memory : memory -> memory -> memory
+val restrict : memory_type_ctx -> memory -> memory
