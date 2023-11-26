@@ -75,7 +75,11 @@ module type MEMORY = sig
 
   val empty_memory_type_ctx : memory_type_ctx
   val string_of_memory_type_ctx : memory_type_ctx -> string
+  val concat_memory_ctx : memory_type_ctx -> memory_type_ctx -> memory_type_ctx
   val infer_type_memory : memory -> memory_type_ctx
+
+  (* update_memory μ μ' is equal to μ[μ'] *)
+  val update_memory : memory -> memory -> memory
 
   module M : Util.Monad.BRANCH
   (* *)

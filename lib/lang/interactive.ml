@@ -12,11 +12,12 @@ module type LANG = sig
 
   val string_of_nf : normal_form -> string
   val is_error : normal_form -> bool
+  val get_memory : normal_form -> Memory.memory
 
   (* compute_nf computes the normal form of an operational configuration,
      or None when we detect that the operational configuration diverges.*)
   val compute_nf :
-    computation * Memory.memory -> (normal_form * Memory.memory) option
+    computation * Memory.memory -> normal_form option
 
   (*Interactive name contexts are typing contexts mapping names to interactive types.*)
   type name_ctx
@@ -61,7 +62,7 @@ module type LANG = sig
      we generate all the possible pairs (A,Δ) formed by an abstracted normal form A such that
      Γ_P;_ ⊢ A ▷ Δ
      Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
-  val generate_a_nf : name_ctx -> (abstract_normal_form * name_ctx) M.m
+  val generate_a_nf : Memory.memory_type_ctx -> name_ctx -> (abstract_normal_form * name_ctx) M.m
 
   (* The typing judgment of an abstracted normal form Γ_P;Γ_O ⊢ A ▷ Δ
      produces the interactive name contexts Δ of fresh names introduced by A.
@@ -73,7 +74,7 @@ module type LANG = sig
     name_ctx -> name_ctx -> abstract_normal_form -> name_ctx option
 
   val concretize_a_nf :
-    interactive_env -> abstract_normal_form -> computation * interactive_env
+    interactive_env -> abstract_normal_form -> computation * Memory.memory * interactive_env
 
   val get_typed_term : string -> in_channel -> computation * name_ctx
 
@@ -112,9 +113,11 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let concat_ienv = OpLang.concat_ienv
   let string_of_interactive_env = OpLang.string_of_interactive_env
 
-  type normal_form = (value, eval_context, Name.name, Name.cont_name) Nf.kind_nf
+  type normal_form = (value, eval_context, Name.name, Name.cont_name) Nf.kind_nf * Memory.memory
 
-  let is_error = Nf.is_error
+  let is_error (nf,_) = Nf.is_error nf
+
+  let get_memory (_,memory) = memory
 
   open Nf
 
@@ -123,9 +126,9 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
     | None -> None
     | Some (nf_term, memory') -> Some (get_kind_nf nf_term, memory')
 
-  let string_of_nf =
+  let string_of_nf (nf,_) =
     string_of_kind_nf "" string_of_value string_of_eval_context
-      Name.string_of_name Name.string_of_cont_name
+      Name.string_of_name Name.string_of_cont_name nf
 
   let get_type_cn cn = Util.Pmap.lookup_exn (Name.inj_cont_name cn)
 
@@ -146,44 +149,50 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
         let ectx = Util.Pmap.lookup_exn cn ienv in
         NFError ectx
 
-  let concretize_a_nf ienv nf =
-    let nf' = concretize_a_nf_aux ienv nf in
-    (refold_kind_nf nf', ienv)
+  let concretize_a_nf ienv (a_nf,memory) =
+    let nf' = concretize_a_nf_aux ienv a_nf in
+    (refold_kind_nf nf',memory, ienv)
 
   type abstract_normal_form =
-    (AVal.abstract_val, unit, Name.name, Name.name) Nf.kind_nf
+    (AVal.abstract_val, unit, Name.name, Name.name) Nf.kind_nf * Memory.memory
 
-  let abstracting_kind nf namectxO =
+  let abstracting_kind (nf,memory) namectxO =
     match nf with
     | NFCallback (fn, value, _) ->
         let ty = Util.Pmap.lookup_exn fn namectxO in
         let nty = AVal.negating_type ty in
         let (aval, ienv, lnamectx) = AVal.abstracting_value value nty in
         (*TODO : we should do something for the ectx*)
-        Some (NFCallback (fn, aval, ()), ienv, lnamectx)
+        Some ((NFCallback (fn, aval, ()), memory), ienv, lnamectx)
     | NFValue (cn, value) ->
         let ty = get_type_cn cn namectxO in
         let nty = AVal.negating_type ty in
         let (aval, ienv, lnamectx) = AVal.abstracting_value value nty in
-        Some (NFValue (Name.inj_cont_name cn, aval), ienv, lnamectx)
+        Some ((NFValue (Name.inj_cont_name cn, aval), memory), ienv, lnamectx)
     | NFError _ -> None
     | NFRaise (cn, value) ->
         let ty = get_type_cn cn namectxO in
         let nty = AVal.negating_type ty in
         let (aval, ienv, lnamectx) = AVal.abstracting_value value nty in
-        Some (NFRaise (Name.inj_cont_name cn, aval), ienv, lnamectx)
+        Some ((NFRaise (Name.inj_cont_name cn, aval), memory), ienv, lnamectx)
 
-  let get_subject_name nf = Some (Nf.get_active_name nf)
+  let get_subject_name (a_nf,_) = Some (Nf.get_active_name a_nf)
 
-  let get_support = function
+  let get_support (a_nf,_) = match a_nf with
     | NFCallback (_, aval, _) | NFValue (_, aval) | NFRaise (_, aval) ->
         AVal.names_of_abstract_val aval
     | NFError _ -> []
+    (*TODO: take into account the memory part*)
 
-  let string_of_a_nf dir =
+  let string_of_a_nf dir (a_nf,memory) =
+    let string_kind = 
     string_of_kind_nf dir AVal.string_of_abstract_val
       (fun () -> "")
-      Name.string_of_name Name.string_of_name
+      Name.string_of_name Name.string_of_name a_nf in
+    if memory = Memory.empty_memory then string_kind
+    else let string_memory = Memory.string_of_memory memory in
+    string_kind ^ "," ^ string_memory
+
 
   let generate_nf_skeleton namectxP =
     let aux (nn, ty) =
@@ -210,13 +219,14 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
         return (NFRaise (cn, aval), lnamectx)
     | NFError _ -> failwith "Error is not a valid skeleton"
 
-  let generate_a_nf namectxP =
+  let generate_a_nf memoryctx namectxP =
     let skel_list = generate_nf_skeleton namectxP in
     let* skel = AVal.M.para_list @@ skel_list in
     let* (a_nf, lnamectx) = fill_abstract_val namectxP skel in
-    return (a_nf, lnamectx)
+    let* memory = Memory.generate_memory memoryctx in
+    return ((a_nf,memory), lnamectx)
 
-  let type_check_a_nf namectxP namectxO = function
+  let type_check_a_nf namectxP namectxO (a_nf,_) = match a_nf with
     | NFCallback (fn, aval, ()) ->
         let ty = Util.Pmap.lookup_exn fn namectxO in
         let nty = AVal.negating_type ty in
@@ -230,8 +240,12 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
         let nty = AVal.negating_type ty in
         AVal.type_check_abstract_val namectxP namectxO nty aval
     | NFError _ -> Some Util.Pmap.empty
+    (*TODO: Type check the memory part*)
 
-  let is_equiv_a_nf span anf1 anf2 =
+  (* Beware that is_equiv_a_nf does not check the equivalence of
+     the memory part of abstract normal forms.
+     This is needed for the POGS equivalence. *)  
+  let is_equiv_a_nf span (anf1,_) (anf2,_) =
     Nf.equiv_kind_nf AVal.unify_abstract_val span anf1 anf2
 
   let get_typed_interactive_env = OpLang.get_typed_interactive_env
