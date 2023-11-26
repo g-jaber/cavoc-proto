@@ -185,13 +185,13 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
         GProd (typ1', typ2')
     | GEmpty -> typ
 
-  module Memory = OpLang.Memory
+  module Store = OpLang.Store
 
-  type opconf = term * Memory.memory
+  type opconf = term * Store.store
 
-  let normalize_opconf (NTerm (cn, term), memory) =
-    match OpLang.normalize_opconf (term, memory) with
-    | Some (nfterm, memory') -> Some (NTerm (cn, nfterm), memory')
+  let normalize_opconf (NTerm (cn, term), store) =
+    match OpLang.normalize_opconf (term, store) with
+    | Some (nfterm, store') -> Some (NTerm (cn, nfterm), store')
     | None -> None
 
   let embed_value_env = Util.Pmap.map_im (fun v -> IVal v)
@@ -211,10 +211,10 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     (nterm, GEmpty, namectxO')
 
   let get_typed_interactive_env inBuffer_implem inBuffer_signature =
-    let (int_env, memory, namectxP, namectxO) =
+    let (int_env, store, namectxP, namectxO) =
       OpLang.get_typed_interactive_env inBuffer_implem inBuffer_signature in
     ( embed_value_env int_env,
-      memory,
+      store,
       embed_name_ctx @@ namectxP,
       embed_name_ctx @@ namectxO )
 
@@ -231,7 +231,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
        and type typ = typ_temp
        and type typevar = OpLang.typevar
        and type negative_type = negative_type_temp
-       and module M = Memory.M = struct
+       and module M = Store.M = struct
     type name = Name.name
     type value = value_temp
     type negative_val = negative_val_temp

@@ -11,10 +11,10 @@ module type INT = sig
     interactive_ctx -> IntLang.name_ctx -> interactive_ctx
 
   val replace_storectx :
-    interactive_ctx -> IntLang.Memory.memory_type_ctx -> interactive_ctx
+    interactive_ctx -> IntLang.Store.store_ctx -> interactive_ctx
 
   val init_interactive_ctx :
-    IntLang.Memory.memory_type_ctx ->
+    IntLang.Store.store_ctx ->
     IntLang.name_ctx ->
     IntLang.name_ctx ->
     interactive_ctx
@@ -58,7 +58,7 @@ module type INT = sig
   val trigger_computation :
     IntLang.interactive_env ->
     Actions.Moves.move ->
-    IntLang.computation * IntLang.Memory.memory * IntLang.interactive_env
+    IntLang.computation * IntLang.Store.store * IntLang.interactive_env
 end
 
 module type INT_F = functor
@@ -78,7 +78,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
   open Actions
 
   type interactive_ctx = {
-    storectx: IntLang.Memory.memory_type_ctx;
+    storectx: IntLang.Store.store_ctx;
     namectxP: IntLang.name_ctx;
     namectxO: IntLang.name_ctx;
   }
@@ -138,7 +138,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
     match
       (Moves.get_direction input_move, IntLang.concretize_a_nf ienv kdata)
     with
-    | (Moves.Input, (comp, memory, ienv')) -> (comp, memory, ienv')
+    | (Moves.Input, (comp, store, ienv')) -> (comp, store, ienv')
     | _ ->
         failwith
           ("Error: the move "

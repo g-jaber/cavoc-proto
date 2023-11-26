@@ -3,7 +3,7 @@ module type INT_LTS = sig
   include Bipartite.LTS with module Actions = Int.Actions
 
   (* init_aconf creates an configuration from two computations and a two name context for Opponent.
-     Its memory, interactive env, and name context for Proponent are all set to empty*)
+     Its store, interactive env, and name context for Proponent are all set to empty*)
   val init_aconf :
     Int.IntLang.computation ->
     Int.IntLang.name_ctx ->

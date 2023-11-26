@@ -1,10 +1,10 @@
 open Syntax
 
-type memory = Memory.memory
-type opconf = Syntax.term * memory
+type store = Store.store
+type opconf = Syntax.term * store
 
-let string_of_opconf (expr, memory) =
-  "(" ^ string_of_term expr ^ " | " ^ Memory.string_of_memory memory ^ ")"
+let string_of_opconf (expr, store) =
+  "(" ^ string_of_term expr ^ " | " ^ Store.string_of_store store ^ ")"
 
 include Util.Monad.BranchState (struct type t = opconf list end)
 
@@ -24,163 +24,163 @@ let add ((expr, _) as opconf) =
       set (opconf :: opconf_list)
   | _ -> return ()
 
-let interpreter interpreter (expr, memory) =
+let interpreter interpreter (expr, store) =
   Util.Debug.print_debug ("Interpreter on : " ^ Syntax.string_of_term expr);
   match expr with
-  | value when isval value -> return (value, memory)
+  | value when isval value -> return (value, store)
   | Var var -> begin
-      match Memory.var_lookup memory var with
-      | None -> return (expr, memory)
-      | Some value -> return (value, memory)
+      match Store.var_lookup store var with
+      | None -> return (expr, store)
+      | Some value -> return (value, store)
     end
   | App (expr1, expr2) ->
-      let* (expr1', memory') = interpreter (expr1, memory) in
+      let* (expr1', store') = interpreter (expr1, store) in
       begin
         match expr1' with
         | Fun ((var, _), body) ->
-            let* (expr2', memory'') = interpreter (expr2, memory') in
+            let* (expr2', store'') = interpreter (expr2, store') in
             if isval expr2' then
               let body' = subst_var body var expr2' in
-              interpreter (body', memory'')
-            else return (App (expr1', expr2'), memory'')
+              interpreter (body', store'')
+            else return (App (expr1', expr2'), store'')
         | Fix ((fvar, _), (var, _), body) ->
-            let* (expr2', memory'') = interpreter (expr2, memory') in
+            let* (expr2', store'') = interpreter (expr2, store') in
             if isval expr2' then
               let body' = subst_var body var expr2' in
               let body'' = subst_var body' fvar expr1 in
-              interpreter (body'', memory'')
-            else return (App (expr1', expr2'), memory'')
+              interpreter (body'', store'')
+            else return (App (expr1', expr2'), store'')
         | Name _ ->
-            let* (expr2', memory'') = interpreter (expr2, memory') in
-            return (App (expr1', expr2'), memory'')
-        | _ -> return (App (expr1', expr2), memory')
+            let* (expr2', store'') = interpreter (expr2, store') in
+            return (App (expr1', expr2'), store'')
+        | _ -> return (App (expr1', expr2), store')
       end
   | Seq (expr1, expr2) ->
-      let* (expr1', memory') = interpreter (expr1, memory) in
+      let* (expr1', store') = interpreter (expr1, store) in
       begin
         match expr1' with
-        | Unit -> interpreter (expr2, memory')
-        | _ -> return (Seq (expr1', expr2), memory')
+        | Unit -> interpreter (expr2, store')
+        | _ -> return (Seq (expr1', expr2), store')
       end
   | While (guard, body) ->
-      let* (guard', memory') = interpreter (guard, memory) in
+      let* (guard', store') = interpreter (guard, store) in
       begin
         match guard' with
         | Bool true ->
-            let* (body', memory'') = interpreter (body, memory') in
+            let* (body', store'') = interpreter (body, store') in
             begin
               match body' with
-              | Unit -> interpreter (expr, memory'')
-              | _ -> return (Seq (body', While (guard, body)), memory'')
+              | Unit -> interpreter (expr, store'')
+              | _ -> return (Seq (body', While (guard, body)), store'')
             end
-        | Bool false -> return (Unit, memory')
+        | Bool false -> return (Unit, store')
         | _ ->
             Util.Debug.print_debug "Callback inside a guard !";
-            return (While (guard', body), memory')
+            return (While (guard', body), store')
       end
   | Pair (expr1, expr2) ->
-      let* (value1, memory1) = interpreter (expr1, memory) in
-      let* (value2, memory2) = interpreter (expr2, memory1) in
-      return (Pair (value1, value2), memory2)
+      let* (value1, store1) = interpreter (expr1, store) in
+      let* (value2, store2) = interpreter (expr2, store1) in
+      return (Pair (value1, value2), store2)
   | Let (var, expr1, expr2) ->
-      let* (expr1', memory') = interpreter (expr1, memory) in
+      let* (expr1', store') = interpreter (expr1, store) in
       if isval expr1' then
         let expr' = subst_var expr2 var expr1' in
-        interpreter (expr', memory')
-      else return (Let (var, expr1', expr2), memory')
+        interpreter (expr', store')
+      else return (Let (var, expr1', expr2), store')
   | LetPair (var1, var2, expr1, expr2) ->
-      let* (nf1, memory') = interpreter (expr1, memory) in
+      let* (nf1, store') = interpreter (expr1, store) in
       begin
         match nf1 with
         | Pair (value1, value2) ->
             let expr2' = subst_var expr2 var1 value1 in
             let expr2'' = subst_var expr2' var2 value2 in
-            interpreter (expr2'', memory')
-        | _ -> return (LetPair (var1, var2, nf1, expr2), memory')
+            interpreter (expr2'', store')
+        | _ -> return (LetPair (var1, var2, nf1, expr2), store')
       end
   | Newref (ty, expr) ->
-      let* (nf, memory') = interpreter (expr, memory) in
+      let* (nf, store') = interpreter (expr, store) in
       if isval nf then
-        let (l, memory'') = Memory.loc_allocate memory' nf in
-        return (Loc l, memory'')
-      else return (Newref (ty, nf), memory')
+        let (l, store'') = Store.loc_allocate store' nf in
+        return (Loc l, store'')
+      else return (Newref (ty, nf), store')
   | Deref expr ->
-      let* (nf, memory') = interpreter (expr, memory) in
+      let* (nf, store') = interpreter (expr, store) in
       begin
         match nf with
         | Loc l -> begin
-            match Memory.loc_lookup memory' l with
-            | Some value -> return (value, memory')
+            match Store.loc_lookup store' l with
+            | Some value -> return (value, store')
             | None ->
                 failwith
                   ("Error in the interpreter: " ^ Syntax.string_of_loc l
-                 ^ " is not in the memory "
-                  ^ Memory.string_of_memory memory)
+                 ^ " is not in the store "
+                  ^ Store.string_of_store store)
           end
-        | _ -> return (Deref nf, memory')
+        | _ -> return (Deref nf, store')
       end
   | Assign (expr1, expr2) ->
-      let* (nf1, memory') = interpreter (expr1, memory) in
+      let* (nf1, store') = interpreter (expr1, store) in
       begin
         match nf1 with
         | Loc l ->
-            let* (nf2, memory'') = interpreter (expr2, memory') in
+            let* (nf2, store'') = interpreter (expr2, store') in
             if isval nf2 then
-              let memory''' = Memory.loc_modify memory'' l nf2 in
-              return (Unit, memory''')
-            else return (Assign (nf1, nf2), memory'')
-        | _ -> return (Assign (nf1, expr2), memory')
+              let store''' = Store.loc_modify store'' l nf2 in
+              return (Unit, store''')
+            else return (Assign (nf1, nf2), store'')
+        | _ -> return (Assign (nf1, expr2), store')
       end
   | If (guard, expr1, expr2) ->
-      let* (nf_guard, memory') = interpreter (guard, memory) in
+      let* (nf_guard, store') = interpreter (guard, store) in
       begin
         match nf_guard with
-        | Bool true -> interpreter (expr1, memory')
-        | Bool false -> interpreter (expr2, memory')
-        | _ -> return (If (nf_guard, expr1, expr2), memory')
+        | Bool true -> interpreter (expr1, store')
+        | Bool false -> interpreter (expr2, store')
+        | _ -> return (If (nf_guard, expr1, expr2), store')
       end
   | BinaryOp ((Plus as op), expr1, expr2)
   | BinaryOp ((Minus as op), expr1, expr2)
   | BinaryOp ((Mult as op), expr1, expr2)
   | BinaryOp ((Div as op), expr1, expr2) ->
-      let* (nf1, memory1) = interpreter (expr1, memory) in
+      let* (nf1, store1) = interpreter (expr1, store) in
       begin
         match nf1 with
         | Int n1 ->
-            let* (nf2, memory2) = interpreter (expr2, memory1) in
+            let* (nf2, store2) = interpreter (expr2, store1) in
             begin
               match nf2 with
               | Int n2 ->
                   let iop = Syntax.implement_arith_op op in
                   let n = iop n1 n2 in
-                  return (Int n, memory2)
-              | _ -> return (BinaryOp (op, nf1, nf2), memory2)
+                  return (Int n, store2)
+              | _ -> return (BinaryOp (op, nf1, nf2), store2)
             end
-        | _ -> return (BinaryOp (op, nf1, expr2), memory1)
+        | _ -> return (BinaryOp (op, nf1, expr2), store1)
       end
   | BinaryOp ((And as op), expr1, expr2) | BinaryOp ((Or as op), expr1, expr2)
     ->
-      let* (nf1, memory1) = interpreter (expr1, memory) in
+      let* (nf1, store1) = interpreter (expr1, store) in
       begin
         match nf1 with
         | Bool b1 ->
-            let* (nf2, memory2) = interpreter (expr2, memory1) in
+            let* (nf2, store2) = interpreter (expr2, store1) in
             begin
               match nf2 with
               | Bool b2 ->
                   let iop = Syntax.implement_bin_bool_op op in
                   let b = iop b1 b2 in
-                  return (Bool b, memory2)
-              | _ -> return (BinaryOp (op, nf1, nf2), memory2)
+                  return (Bool b, store2)
+              | _ -> return (BinaryOp (op, nf1, nf2), store2)
             end
-        | _ -> return (BinaryOp (op, nf1, expr2), memory1)
+        | _ -> return (BinaryOp (op, nf1, expr2), store1)
       end
   | UnaryOp (Not, expr) ->
-      let* (nf, memory') = interpreter (expr, memory) in
+      let* (nf, store') = interpreter (expr, store) in
       begin
         match nf with
-        | Bool b -> return (Bool (not b), memory')
-        | _ -> return (UnaryOp (Not, nf), memory')
+        | Bool b -> return (Bool (not b), store')
+        | _ -> return (UnaryOp (Not, nf), store')
       end
   | BinaryOp ((Equal as op), expr1, expr2)
   | BinaryOp ((NEqual as op), expr1, expr2)
@@ -188,52 +188,52 @@ let interpreter interpreter (expr, memory) =
   | BinaryOp ((LessEq as op), expr1, expr2)
   | BinaryOp ((Great as op), expr1, expr2)
   | BinaryOp ((GreatEq as op), expr1, expr2) ->
-      let* (nf1, memory1) = interpreter (expr1, memory) in
+      let* (nf1, store1) = interpreter (expr1, store) in
       begin
         match nf1 with
         | Int n1 ->
-            let* (nf2, memory2) = interpreter (expr2, memory1) in
+            let* (nf2, store2) = interpreter (expr2, store1) in
             begin
               match nf2 with
               | Int n2 ->
                   let iop = Syntax.implement_compar_op op in
                   let b = iop n1 n2 in
-                  return (Bool b, memory2)
-              | _ -> return (BinaryOp (op, nf1, nf2), memory2)
+                  return (Bool b, store2)
+              | _ -> return (BinaryOp (op, nf1, nf2), store2)
             end
-        | _ -> return (BinaryOp (op, nf1, expr2), memory1)
+        | _ -> return (BinaryOp (op, nf1, expr2), store1)
       end
   | Assert guard ->
-      let* (guard', memory') = interpreter (guard, memory) in
+      let* (guard', store') = interpreter (guard, store) in
       begin
         match guard' with
-        | Bool false -> return (Error, memory')
-        | Bool true -> return (Unit, memory')
+        | Bool false -> return (Error, store')
+        | Bool true -> return (Unit, store')
         | _ ->
             Util.Debug.print_debug "Callback inside an assert!";
-            return (Assert guard', memory')
+            return (Assert guard', store')
       end
   | Raise expr ->
-      let* (nf, memory') = interpreter (expr, memory) in
-      return (Raise nf, memory')
+      let* (nf, store') = interpreter (expr, store) in
+      return (Raise nf, store')
   | TryWith (expr, handler_l) ->
-      let* (nf, memory') = interpreter (expr, memory) in
-      if isval nf then return (nf, memory')
+      let* (nf, store') = interpreter (expr, store) in
+      if isval nf then return (nf, store')
       else begin
         match nf with
         | Raise (Constructor c as cons) ->
             let rec aux = function
               | Handler (pat, expr_pat) :: handler_l' -> begin
                   match pat with
-                  | PatCons c' when c = c' -> interpreter (expr_pat, memory')
+                  | PatCons c' when c = c' -> interpreter (expr_pat, store')
                   | PatCons _ -> aux handler_l'
                   | PatVar id ->
                       let expr' = subst_var expr_pat id cons in
-                      interpreter (expr', memory')
+                      interpreter (expr', store')
                 end
-              | [] -> return (Raise cons, memory') in
+              | [] -> return (Raise cons, store') in
             aux handler_l
-        | _ -> return (TryWith (nf, handler_l), memory')
+        | _ -> return (TryWith (nf, handler_l), store')
       end
   | _ ->
       failwith
@@ -263,20 +263,20 @@ let normalize_opconf opconf =
   | _ -> failwith "Error: non-determinism in the evaluation. Please report"
 
 let normalize_term_env comp_list =
-  let rec aux memory = function
-    | [] -> memory
+  let rec aux store = function
+    | [] -> store
     | (var, comp) :: comp_list' ->
         if isval comp then
-          let memory' = Memory.var_add memory (var, comp) in
-          aux memory' comp_list'
+          let store' = Store.var_add store (var, comp) in
+          aux store' comp_list'
         else begin
-          match normalize_opconf (comp, memory) with
+          match normalize_opconf (comp, store) with
           | None ->
               failwith @@ "The operational configuration "
-              ^ string_of_opconf (comp, memory)
+              ^ string_of_opconf (comp, store)
               ^ " is diverging."
-          | Some (value, memory') ->
-              let memory'' = Memory.var_add memory' (var, value) in
-              aux memory'' comp_list'
+          | Some (value, store') ->
+              let store'' = Store.var_add store' (var, value) in
+              aux store'' comp_list'
         end in
-  aux Memory.empty_memory comp_list
+  aux Store.empty_store comp_list

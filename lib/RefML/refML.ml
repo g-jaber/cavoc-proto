@@ -61,10 +61,10 @@ module Typed :
   let apply_type_subst = Types.apply_type_subst
 end
 
-module Memory (M : Util.Monad.BRANCH) :
-  Lang.Language.MEMORY with type memory = Memory.memory and module M = M =
+module Store (M : Util.Monad.BRANCH) :
+  Lang.Language.STORE with type store = Store.store and module M = M =
 struct
-  include Memory_gen.Make(M)
+  include Store_gen.Make(M)
 
 end
 
@@ -77,9 +77,9 @@ module Comp (M : Util.Monad.BRANCH) :
      and type negative_type = Types.negative_type
      and type typevar = Types.typevar
      and module Name = Names
-     and module Memory.M = M = struct
+     and module Store.M = M = struct
   include Typed
-  module Memory = Memory (M)
+  module Store = Store (M)
 
   type opconf = Interpreter.opconf
 

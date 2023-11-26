@@ -59,8 +59,8 @@ module Make
     in
     (init_iconf, init_hconf)
 
-  let init_pconf memory ienv namectxP namectxO =
-    let init_iconf = IntLts.init_pconf memory ienv namectxP namectxO in
+  let init_pconf store ienv namectxP namectxO =
+    let init_iconf = IntLts.init_pconf store ienv namectxP namectxO in
     let init_hconf =
       HistLts.init_pconf
         (IntLts.Int.IntLang.get_names_from_name_ctx namectxP)
