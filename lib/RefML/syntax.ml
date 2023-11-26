@@ -9,7 +9,7 @@ let string_of_id x = x
 (* loc is used for locations *)
 type loc = int
 
-let string_of_loc l = "ℓ" ^ string_of_int l
+let string_of_loc l = "l" ^ string_of_int l
 
 (* we provide a way to generate fresh locations *)
 let count_loc = ref 0
@@ -269,7 +269,7 @@ and string_of_term = function
   | TryWith (e, handler_l) ->
       let handler_string_l = List.map string_of_handler handler_l in
       "try " ^ string_of_term e ^ " with " ^ String.concat "|" handler_string_l
-  | Hole -> "•"
+  | Hole -> "<>"
   | Error -> "error"
 
 and string_of_handler (Handler (pat, expr)) =
@@ -448,7 +448,7 @@ let get_kind_nf term =
           end
         | _ ->
             failwith @@ "The term " ^ string_of_term term
-            ^ " is not a valid normal form. Its decomposition is"
+            ^ " is not a valid normal form. Its decomposition is "
             ^ string_of_term term' ^ " and "
             ^ string_of_eval_context ectx
             ^ ". Please report."
