@@ -78,6 +78,6 @@ module Make (Int : Lts.Interactive.INT) = struct
     let ictx = Int.init_interactive_ctx memory_ctx namectxP namectxO in
     { memory ;ienv; ictx }
 
-  let equiv_aconf aconf aconfb =
-    aconf.computation = aconfb.computation && aconf.memory = aconfb.memory
+  let equiv_act_conf act_conf act_confb =
+    act_conf.computation = act_confb.computation && act_conf.memory = act_confb.memory
 end

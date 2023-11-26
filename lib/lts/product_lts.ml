@@ -25,7 +25,7 @@ module Make
     ^ ";"
     ^ HistLts.string_of_passive_conf hconf
 
-  let equiv_aconf _ _ = failwith "Not yet implemented"
+  let equiv_act_conf _ _ = failwith "Not yet implemented"
 
   let p_trans (active_iconf, active_hconf) =
     let (action, passive_iconf_option) = IntLts.p_trans active_iconf in

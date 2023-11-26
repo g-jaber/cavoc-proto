@@ -11,7 +11,7 @@ module type LTS = sig
 
   val string_of_active_conf : active_conf -> string
   val string_of_passive_conf : passive_conf -> string
-  val equiv_aconf : active_conf -> active_conf -> bool
+  val equiv_act_conf : active_conf -> active_conf -> bool
   (* The Proponent transition function return None when an error or diverging action is performed*)
   val p_trans : active_conf -> Actions.action * passive_conf option
   val o_trans : passive_conf -> Actions.Moves.move -> active_conf option

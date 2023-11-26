@@ -47,7 +47,10 @@ module Make (IntLts : Bipartite.INT_LTS) :
     ^ "|"
     ^ Util.Namespan.string_of_span IntLts.Int.Name.string_of_name namespan
 
-  let equiv_aconf _ _ = false (*failwith "Not yet implemented"*)
+  let equiv_act_conf (act_conf1a, act_conf2a, _) (act_conf1b, act_conf2b, _) =
+    (IntLts.equiv_act_conf  act_conf1a act_conf1b)
+    && (IntLts.equiv_act_conf  act_conf2a act_conf2b)
+    
 
   let p_trans (act_conf1, act_conf2, span) =
     let (action1, pas_conf_opt1) = IntLts.p_trans act_conf1 in

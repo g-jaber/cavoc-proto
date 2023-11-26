@@ -91,10 +91,10 @@ module Graph (IntLTS : Bipartite.LTS) :
 
   let equiv_act_state act_conf act_state =
     match act_state with
-    | ActState (act_conf', _) -> IntLTS.equiv_aconf act_conf act_conf'
+    | ActState (act_conf', _) -> IntLTS.equiv_act_conf act_conf act_conf'
     | PasState _ -> false
 
-  let find_equiv_aconf act_conf : state option m =
+  let find_equiv_act_conf act_conf : state option m =
     let* graph = get () in
     return (List.find_opt (equiv_act_state act_conf) graph.states)
 
@@ -147,7 +147,7 @@ module Graph (IntLTS : Bipartite.LTS) :
     | PasState (pas_conf, _) as pas_state ->
         let* (input_move, act_conf) =
           para_list (IntLTS.M.run (IntLTS.o_trans_gen pas_conf)) in
-        let* act_state_option = find_equiv_aconf act_conf in
+        let* act_state_option = find_equiv_act_conf act_conf in
         begin
           match act_state_option with
           | None ->
