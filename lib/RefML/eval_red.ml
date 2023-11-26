@@ -47,7 +47,7 @@ let rec red (expr, env, heap) =
         let ((expr', env', heap'), isred) = red (expr, env, heap) in
         ((Newref (ty, expr'), env', heap'), isred)
   | Deref (Loc l) -> begin
-      match Heap.access heap l with
+      match Heap.lookup heap l with
       | Some value -> ((value, Util.Pmap.empty, heap), true)
       | None -> failwith "Small footprint  not yet implemented"
     end
@@ -55,7 +55,7 @@ let rec red (expr, env, heap) =
       let ((expr', env', heap'), isred) = red (expr, env, heap) in
       ((Deref expr', env', heap'), isred)
   | Assign (Loc l, expr) when isval expr -> begin
-      match Heap.access heap l with
+      match Heap.lookup heap l with
       | Some _ -> ((Unit, Util.Pmap.empty, Heap.modify heap l expr), true)
       | None -> failwith "Small footprint approach not yet implemented"
     end

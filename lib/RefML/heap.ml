@@ -12,13 +12,14 @@ let modify heap l value = Util.Pmap.modadd (l, value) heap
 let update heap heap' =
   Util.Pmap.fold (fun heap (l,value) -> modify heap l value) heap heap'
 
-let access heap l = Util.Pmap.lookup l heap
+let lookup heap l = Util.Pmap.lookup l heap
 
 let string_of_heap =
   Util.Pmap.string_of_pmap "[]" "->" Syntax.string_of_loc Syntax.string_of_term
 
 
 let loc_ctx_of_heap = Util.Pmap.map_im (fun _ -> Types.TInt)
+(* TODO !!! *)
 
 let rec shuffle_heaps = function
   | [] -> [ emptyheap ]
