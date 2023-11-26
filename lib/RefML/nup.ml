@@ -184,12 +184,12 @@ module Make (M : Util.Monad.BRANCH) :
     | Types.TForall (tvar_l, TArrow (ty1, _)) -> (tvar_l, ty1)
     | ty ->
         failwith @@ "Error: the type " ^ Types.string_of_typ ty
-        ^ "is not a negative type. Please report."
+        ^ " is not a negative type. Please report."
 
   let get_output_type = function
     | Types.TArrow (_, ty2) -> ty2
     | Types.TForall (_, TArrow (_, ty2)) -> ty2
     | ty ->
         failwith @@ "Error: the type " ^ Types.string_of_typ ty
-        ^ "is not a negative type. Please report."
+        ^ " is not a negative type. Please report."
 end
