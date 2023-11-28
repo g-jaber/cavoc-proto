@@ -1,4 +1,4 @@
-(lang dune 3.8)
+(lang dune 3.11)
 
 (name cavoc)
 (using menhir 2.0)
