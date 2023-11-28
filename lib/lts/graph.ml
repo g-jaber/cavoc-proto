@@ -1,13 +1,18 @@
-module type GRAPH = sig
+module type GRAPH  = functor (IntLTS : Bipartite.LTS) -> sig
   (* to be instantiated*)
-  type conf
 
   (* *)
-  type state
+  type id_state = int
+
+  type state =
+    | ActState of IntLTS.active_conf * id_state
+    | PasState of IntLTS.passive_conf * id_state
 
   val string_of_state : state -> string
 
-  type transition
+  type transition =
+    | PublicTrans of state * IntLTS.Actions.Moves.move * state
+    | Divergent of state
 
   val string_of_transition : transition -> string
 
@@ -19,12 +24,12 @@ module type GRAPH = sig
 
   val string_of_graph : graph -> string
   val empty_graph : graph
-  val compute_graph : conf -> graph
+  val compute_graph : IntLTS.active_conf -> graph
 end
 
-module Graph (IntLTS : Bipartite.LTS) :
-  GRAPH with type conf = IntLTS.active_conf = struct
-  type conf = IntLTS.active_conf
+module Graph :
+  GRAPH = functor (IntLTS : Bipartite.LTS) -> struct
+
   type id_state = int
 
   let string_of_id_state = string_of_int

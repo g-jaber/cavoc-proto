@@ -1,95 +1,76 @@
-open Syntax
-open Logic
+module type TEMPFORM = functor (Store:Lang.Language.STORE) -> sig
+type id = string
+val get_var : int -> id
+  type modality = AG | EX
+
+type formula =
+  | True
+  | False
+  | PredStore of Store.store
+  | Mod of modality * formula
+  | TAnd of formula list
+  | TImpl of formula * formula
+  | Var of id
+
+val string_of_formula : formula -> string
+
+val simplify_formula : formula -> formula
+end
+
+
+module Make : TEMPFORM = functor (Store:Lang.Language.STORE) -> struct
 
 (* Temporal Logic *)
 
-let get_svar n = "X" ^ string_of_int n
+type id = string
 
-type modality =
-  | Square
-  | SquarePub
-  | NextWB of symbheap * symbheap * symbheap * symbheap
-  | NextE of symbheap * symbheap * symbheap * symbheap
-  | NextI of symbheap * symbheap * symbheap * symbheap
+let get_var n = "X" ^ string_of_int n
 
-type temp_formula =
-  | TPred of arith_pred
-  | Mod of modality * temp_formula
-  | TAnd of temp_formula list
-  | TImpl of arith_pred list * temp_formula
-  | TForAll of (Type_ctx.var_ctx * temp_formula)
-  | GFix of id * temp_formula
-  | SVar of id
+type modality = AG | EX
 
-let string_of_modality = function
-  | Square -> "▫V"
-  | SquarePub -> "▫K"
-  | NextE (heapPre1, heapPre2, heapPost1, heapPost2) ->
-      "○e_("
-      ^ string_of_symb_heap heapPre1
-      ^ ","
-      ^ string_of_symb_heap heapPre2
-      ^ ","
-      ^ string_of_symb_heap heapPost1
-      ^ ","
-      ^ string_of_symb_heap heapPost2
-      ^ ")"
-  | NextI (heapPre1, heapPre2, heapPost1, heapPost2) ->
-      "○I_("
-      ^ string_of_symb_heap heapPre1
-      ^ ","
-      ^ string_of_symb_heap heapPre2
-      ^ ","
-      ^ string_of_symb_heap heapPost1
-      ^ ","
-      ^ string_of_symb_heap heapPost2
-      ^ ")"
-  | NextWB (heapPre1, heapPre2, heapPost1, heapPost2) ->
-      "○wb_("
-      ^ string_of_symb_heap heapPre1
-      ^ ","
-      ^ string_of_symb_heap heapPre2
-      ^ ","
-      ^ string_of_symb_heap heapPost1
-      ^ ","
-      ^ string_of_symb_heap heapPost2
-      ^ ")"
+type formula =
+  | True
+  | False
+  | PredStore of Store.store
+  | Mod of modality * formula
+  | TAnd of formula list
+  | TImpl of formula * formula
+  | Var of id
 
-let rec string_of_temp_formula = function
-  | TPred pred -> string_of_arith_pred pred
+let string_of_modality = function AG -> "AG" | EX -> "EX"
+
+let rec string_of_conj sep g = function
+  | [] -> ""
+  | [ p ] -> g p
+  | p :: preds' ->
+      let str1 = g p in
+      let str2 = string_of_conj sep g preds' in
+      str1 ^ sep ^ str2
+
+let rec string_of_formula = function
+  | True -> "True"
+  | False -> "False"
+  | PredStore (store) ->
+      "P" ^ Store.string_of_store store
   | Mod (m, formula) ->
-      string_of_modality m ^ "(" ^ string_of_temp_formula formula ^ ")"
-  | TAnd preds -> string_of_conj " /\\ " string_of_temp_formula preds
-  | TImpl (preds, formula) ->
-      string_of_conj " /\\ " string_of_arith_pred preds
-      ^ " => "
-      ^ string_of_temp_formula formula
-  | TForAll (vctx, formula) ->
-      "∀"
-      ^ Type_ctx.string_of_var_ctx vctx
-      ^ ", "
-      ^ string_of_temp_formula formula
-  | GFix (x, formula) -> "nu " ^ x ^ "." ^ string_of_temp_formula formula
-  | SVar x -> x
+      string_of_modality m ^ "(" ^ string_of_formula formula ^ ")"
+  | TAnd preds -> string_of_conj " /\\ " string_of_formula preds
+  | TImpl (formula, formula') ->
+      string_of_formula formula ^ " => " ^ string_of_formula formula'
+  | Var x -> x
 
-let rec simplify_temp_formula formula =
+let rec simplify_formula formula =
   match formula with
-  | TPred pred -> TPred (simplify_arith_pred pred)
-  | Mod (m, formula) -> Mod (m, simplify_temp_formula formula)
-  | TAnd [] -> TPred ATrue
-  | TAnd [ formula ] -> simplify_temp_formula formula
+  | True | False | PredStore _ | Var _ -> formula
+  | Mod (m, formula) -> Mod (m, simplify_formula formula)
+  | TAnd [] -> True
+  | TAnd [ formula ] -> simplify_formula formula
   | TAnd formulas ->
-      let formulas' = List.filter (fun x -> x <> TPred ATrue) formulas in
-      let formulas'' = List.map simplify_temp_formula formulas' in
+      let formulas' = List.filter (fun x -> x <> True) formulas in
+      let formulas'' = List.map simplify_formula formulas' in
       TAnd formulas''
-  | TImpl ([], formula) | TImpl ([ ATrue ], formula) ->
-      simplify_temp_formula formula
-  | TImpl ([ AFalse ], _) -> TPred ATrue
-  | TImpl (preds, formula) ->
-      let preds' = List.map simplify_arith_pred preds in
-      TImpl (preds', simplify_temp_formula formula)
-  | TForAll (vctx, formula) ->
-      let formula' = simplify_temp_formula formula in
-      if Util.Pmap.is_empty vctx then formula' else TForAll (vctx, formula')
-  | GFix (x, formula) -> GFix (x, simplify_temp_formula formula)
-  | SVar _ -> formula
+  | TImpl (True, formula) -> simplify_formula formula
+  | TImpl (False, _) -> True
+  | TImpl (formula, formula') ->
+      TImpl (simplify_formula formula, simplify_formula formula')
+  end

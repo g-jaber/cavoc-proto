@@ -21,11 +21,8 @@ module type ACTIONS = sig
     Moves.name Util.Namespan.namespan option
 end
 
-module Make (IntLang : Lang.Interactive.LANG) :
-  ACTIONS
-    with type Moves.name = IntLang.Name.name
-     and type Moves.kdata = IntLang.abstract_normal_form = struct
-  module Moves = Moves.Make (IntLang)
+module Make (Moves : Moves.MOVES) = struct
+  module Moves = Moves
 
   type action = PDiv | PError | Vis of Moves.move
 
@@ -49,3 +46,11 @@ module Make (IntLang : Lang.Interactive.LANG) :
     | (PError, PError) -> Some span
     | _ -> None
 end
+(*
+module Make (IntLang : Lang.Interactive.LANG) :
+  ACTIONS
+    (*with type Moves.name = IntLang.Name.name*)
+     (*and type Moves.kdata = IntLang.abstract_normal_form*) = struct
+     include Make'(Moves.Make (IntLang))
+end
+*)
