@@ -262,7 +262,7 @@ let normalize_opconf opconf =
   | [ nf ] -> Some nf
   | _ -> failwith "Error: non-determinism in the evaluation. Please report"
 
-let normalize_term_env comp_list =
+let normalize_term_env cons_ctx comp_list =
   let rec aux store = function
     | [] -> store
     | (var, comp) :: comp_list' ->
@@ -279,4 +279,5 @@ let normalize_term_env comp_list =
               let store'' = Store.var_add store' (var, value) in
               aux store'' comp_list'
         end in
-  aux Store.empty_store comp_list
+  let store = Store.embed_cons_ctx cons_ctx in
+  aux store comp_list

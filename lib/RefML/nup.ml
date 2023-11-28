@@ -6,14 +6,18 @@ module Make (M : Util.Monad.BRANCH) :
      and type typ = Types.typ
      and type typevar = Types.typevar
      and type negative_type = Types.negative_type
+     and type label = Syntax.label
+     and type store_ctx = Store.store_ctx
      and module M = M = struct
   (* Instantiation *)
   type name = Names.name
+  type label = Syntax.label
   type value = Syntax.value
   type negative_val = Syntax.negative_val
   type typ = Types.typ
   type negative_type = Types.negative_type
   type typevar = Types.typevar
+  type store_ctx = Store.store_ctx
   (* *)
 
   open Syntax
@@ -25,6 +29,7 @@ module Make (M : Util.Monad.BRANCH) :
 
   let string_of_abstract_val = Syntax.string_of_term
   let names_of_abstract_val = Syntax.get_names
+  let labels_of_abstract_val = Syntax.get_labels
 
   let rec unify_abstract_val nspan nup1 nup2 =
     match (nup1, nup2) with
@@ -54,7 +59,7 @@ module Make (M : Util.Monad.BRANCH) :
   module M = M
   open M
 
-  let rec generate_abstract_val namectxP = function
+  let rec generate_abstract_val ((_, cons_ctx) as storectx) namectxP = function
     | TUnit -> return (Unit, Util.Pmap.empty)
     | TBool ->
         let* b = para_list @@ [ true; false ] in
@@ -63,8 +68,8 @@ module Make (M : Util.Monad.BRANCH) :
         let* i = M.pick_int () in
         return (Int i, Util.Pmap.empty)
     | TProd (ty1, ty2) ->
-        let* (nup1, nctx1) = generate_abstract_val namectxP ty1 in
-        let* (nup2, nctx2) = generate_abstract_val namectxP ty2 in
+        let* (nup1, nctx1) = generate_abstract_val storectx namectxP ty1 in
+        let* (nup2, nctx2) = generate_abstract_val storectx namectxP ty2 in
         return (Pair (nup1, nup2), Util.Pmap.concat nctx1 nctx2)
     | TSum _ ->
         failwith "Need to add injection to the syntax of expressions"
@@ -85,11 +90,14 @@ module Make (M : Util.Monad.BRANCH) :
         let pn = Names.fresh_pname () in
         let nty = Types.force_negative_type ty in
         return (Name pn, Util.Pmap.singleton (pn, nty))
-    | TExn as ty ->
+    | TExn ->
         Util.Debug.print_debug
-          ("Error: the generation of a nups on type " ^ Types.string_of_typ ty
-         ^ " is not yet supported.");
-        fail ()
+        @@ "Generating exception abstract values in the store context "
+        ^ Store.string_of_store_ctx storectx;
+        let exn_cons_l = Util.Pmap.select_im Types.TExn cons_ctx in
+        let aval_l =
+          List.map (fun c -> (Constructor c, Util.Pmap.empty)) exn_cons_l in
+        para_list aval_l
     | ty ->
         failwith
           ("Error generating a nup on type " ^ Types.string_of_typ ty

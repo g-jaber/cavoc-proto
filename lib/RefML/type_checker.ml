@@ -342,7 +342,7 @@ let typing_full type_subst expr =
       var_ctx= Type_ctx.empty_var_ctx;
       loc_ctx= Type_ctx.empty_loc_ctx;
       name_ctx;
-      exn_ctx = [];
+      cons_ctx = Type_ctx.empty_cons_ctx;
       type_subst;
     } in
   let (ty, _) = infer_type type_ctx expr in

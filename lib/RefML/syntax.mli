@@ -3,8 +3,12 @@ type constructor = string
 type loc
 
 val string_of_id : id -> string
+val string_of_constructor : constructor -> string
 val string_of_loc : loc -> string
 val fresh_loc : unit -> loc
+
+type label = LocL of loc | ConsL of constructor
+
 val fresh_evar : unit -> id
 
 type pattern = PatCons of constructor | PatVar of id
@@ -60,6 +64,12 @@ type name_set = Names.name list
 val empty_name_set : name_set
 val get_new_names : name_set -> term -> name_set
 val get_names : term -> name_set
+
+type label_set = label list
+
+val empty_label_set : label_set
+val get_new_labels : label_set -> term -> label_set
+val get_labels : term -> label_set
 
 type value = term
 

@@ -61,14 +61,15 @@ module Typed :
   let apply_type_subst = Types.apply_type_subst
 end
 
-module Store (M : Util.Monad.BRANCH) :
-  Lang.Language.STORE with type store = Store.store and module M = M =
+module MakeStore (M : Util.Monad.BRANCH) :
+  Lang.Language.STORE with type store = Store.store 
+  and type label = Syntax.label and type store_ctx = Store.store_ctx and module M = M =
 struct
   include Store_gen.Make(M)
 
 end
 
-module Comp (M : Util.Monad.BRANCH) :
+module MakeComp (M : Util.Monad.BRANCH) :
   Lang.Language.COMP
     with type term = Syntax.term
      and type value = Syntax.value
@@ -76,10 +77,12 @@ module Comp (M : Util.Monad.BRANCH) :
      and type typ = Types.typ
      and type negative_type = Types.negative_type
      and type typevar = Types.typevar
+     and type Store.label = Syntax.label
+     and type Store.store_ctx = Store.store_ctx
      and module Name = Names
      and module Store.M = M = struct
   include Typed
-  module Store = Store (M)
+  module Store = MakeStore (M)
 
   type opconf = Interpreter.opconf
 
@@ -108,14 +111,14 @@ module Comp (M : Util.Monad.BRANCH) :
     try
       let implem_decl_l = Parser.prog Lexer.token lexer_implem in
       let signature_decl_l = Parser.signature Lexer.token lexer_signature in
-      let (comp_env, namectxO) = Declaration.get_typed_comp_env implem_decl_l in
+      let (comp_env, namectxO, cons_ctx) = Declaration.get_typed_comp_env implem_decl_l in
       let namectxO' = Util.Pmap.filter_map_im Types.get_negative_type namectxO in
-      let (val_assign, heap) = Interpreter.normalize_term_env comp_env in
+      let (val_assign, heap, cons_ctx') = Interpreter.normalize_term_env cons_ctx comp_env in
       let (val_env, namectxP) =
         Declaration.get_typed_val_env val_assign signature_decl_l in
       let int_env = Util.Pmap.filter_map_im Syntax.filter_negative_val val_env in
       let namectxP' = Util.Pmap.filter_map_im Types.get_negative_type namectxP in
-      (int_env, (val_assign, heap), namectxP', namectxO')
+      (int_env, (val_assign, heap, cons_ctx'), namectxP', namectxO')
     with
     | Lexer.SyntaxError msg -> failwith ("Parsing Error: " ^ msg)
     | Parser.Error ->
@@ -127,7 +130,7 @@ module Comp (M : Util.Monad.BRANCH) :
 end
 
 module WithAVal (M : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT = struct
-  include Comp (M)
+  include MakeComp (M)
 
   module AVal :
     Lang.Abstract_val.AVAL_INOUT
@@ -137,6 +140,8 @@ module WithAVal (M : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT = struct
        and type typ = Types.typ
        and type typevar = Types.typevar
        and type negative_type = Types.negative_type
+       and type label = Syntax.label
+       and type store_ctx = Store.store_ctx
        and module M = M =
     Nup.Make (M)
 end

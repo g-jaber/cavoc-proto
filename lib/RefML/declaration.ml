@@ -45,7 +45,7 @@ let split_implem_decl_list implem_decl_l =
     | ValDecl vd :: implem_decl_l' ->
         aux (vd :: val_decl_l, type_decl_l, exn_l) implem_decl_l'
     | ExnDecl c :: implem_decl_l' ->
-        aux (val_decl_l, type_decl_l, c :: exn_l) implem_decl_l' in
+        aux (val_decl_l, type_decl_l, (c,Types.TExn) :: exn_l) implem_decl_l' in
   aux ([], [], []) implem_decl_l
 
 let split_signature_decl_list signature_decl_l =
@@ -81,20 +81,21 @@ let get_typed_comp_env implem_decl_l =
   let (val_decl_l, type_decl_l, exn_l) = split_implem_decl_list implem_decl_l in
   let type_subst = Util.Pmap.list_to_pmap type_decl_l in
   let name_ctx = build_name_ctx val_decl_l in
+  let cons_ctx = Util.Pmap.list_to_pmap exn_l in
   (* TODO: Should we also put domain of type_subst in name_ctx ?*)
   let type_ctx =
     {
       var_ctx= Type_ctx.empty_var_ctx;
       loc_ctx= Type_ctx.empty_loc_ctx;
       name_ctx;
-      exn_ctx = exn_l;
+      cons_ctx;
       type_subst;
     } in
   let rec aux comp_env type_ctx = function
     | [] -> 
       let name_ctx =
         Type_ctx.get_name_ctx type_ctx in
-      (comp_env, name_ctx)
+      (comp_env, name_ctx, cons_ctx)
     | (var, expr) :: val_decl_l ->
         let (ty, type_ctx') = Type_checker.infer_type type_ctx expr in
         let type_ctx'' = Type_ctx.extend_var_ctx type_ctx' var ty in

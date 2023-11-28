@@ -5,6 +5,7 @@ type id = string
 type constructor = string
 
 let string_of_id x = x
+let string_of_constructor cons = cons
 
 (* loc is used for locations *)
 type loc = int
@@ -18,6 +19,8 @@ let fresh_loc () =
   let l = !count_loc in
   count_loc := !count_loc + 1;
   l
+
+type label = LocL of loc | ConsL of constructor
 
 (* we also provide fresh generation of variable identifiers,
    that is used in the parser to replace some anonymous construction like () or _ *)
@@ -117,6 +120,45 @@ let rec get_new_names lnames = function
         lnames' handler_l
 
 let get_names = get_new_names empty_name_set
+
+type label_set = label list
+
+let empty_label_set = []
+
+let rec get_new_labels label_l = function
+  | Loc l -> if List.mem (LocL l) label_l then label_l else LocL l :: label_l
+  | Constructor c ->
+      if List.mem (ConsL c) label_l then label_l else ConsL c :: label_l
+  | Name _ | Var _ | Unit | Int _ | Bool _ | Hole | Error -> label_l
+  | UnaryOp (_, e)
+  | Fun (_, e)
+  | Fix (_, _, e)
+  | Newref (_, e)
+  | Deref e
+  | Assert e ->
+      get_new_labels label_l e
+  | BinaryOp (_, e1, e2)
+  | Let (_, e1, e2)
+  | LetPair (_, _, e1, e2)
+  | Seq (e1, e2)
+  | While (e1, e2)
+  | App (e1, e2)
+  | Pair (e1, e2)
+  | Assign (e1, e2) ->
+      let label_l1 = get_new_labels label_l e1 in
+      get_new_labels label_l1 e2
+  | If (e1, e2, e3) ->
+      let label_l1 = get_new_labels label_l e1 in
+      let label_l2 = get_new_labels label_l1 e2 in
+      get_new_labels label_l2 e3
+  | Raise e1 -> get_new_labels label_l e1
+  | TryWith (e1, handler_l) ->
+      let label_l' = get_new_labels label_l e1 in
+      List.fold_left
+        (fun label_l (Handler (_, expr)) -> get_new_labels label_l expr)
+        label_l' handler_l
+
+let get_labels = get_new_labels empty_label_set
 
 type value = term
 

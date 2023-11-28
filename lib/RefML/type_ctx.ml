@@ -3,11 +3,13 @@
 type var_ctx = (Syntax.id, Types.typ) Util.Pmap.pmap
 type loc_ctx = (Syntax.loc, Types.typ) Util.Pmap.pmap
 type name_ctx = (Names.name, Types.typ) Util.Pmap.pmap
+type cons_ctx = (Syntax.constructor, Types.typ) Util.Pmap.pmap
 (*beware that names can be typed by non-negative types here !*)
 
 let empty_var_ctx = Util.Pmap.empty
 let empty_loc_ctx = Util.Pmap.empty
 let empty_name_ctx = Util.Pmap.empty
+let empty_cons_ctx = Util.Pmap.empty
 
 let string_of_var_ctx =
   let aux = function
@@ -27,11 +29,17 @@ let string_of_name_ctx =
     | ty -> "::" ^ Types.string_of_typ ty in
   Util.Pmap.string_of_pmap "ε" "" Names.string_of_name aux
 
+let string_of_cons_ctx =
+  let aux = function
+    | Types.TUndef -> "undef"
+    | ty -> "::" ^ Types.string_of_typ ty in
+  Util.Pmap.string_of_pmap "ε" "" Syntax.string_of_constructor aux
+
 type type_ctx = {
   var_ctx: var_ctx;
   loc_ctx: loc_ctx;
   name_ctx: name_ctx;
-  exn_ctx: Syntax.constructor list;
+  cons_ctx: cons_ctx;
   type_subst: Types.type_subst;
 }
 
