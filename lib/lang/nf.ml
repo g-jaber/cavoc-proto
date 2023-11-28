@@ -27,6 +27,12 @@ let map_kind_nf empty_res concat f_val f_ectx = function
       let (value', res) = f_val value in
       (NFRaise (cn, value'), res)
 
+let apply_val error_res f = function
+| NFCallback (_, value, _) | NFValue (_, value) | NFRaise (_, value) ->
+    f value
+| NFError _ -> error_res
+
+
 let string_of_kind_nf dir string_of_value string_of_ectx string_of_fname
     string_of_cname nf =
   let string_of_cname' cn =

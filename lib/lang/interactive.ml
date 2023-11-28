@@ -16,8 +16,7 @@ module type LANG = sig
 
   (* compute_nf computes the normal form of an operational configuration,
      or None when we detect that the operational configuration diverges.*)
-  val compute_nf :
-    computation * Store.store -> normal_form option
+  val compute_nf : computation * Store.store -> normal_form option
 
   (*Interactive name contexts are typing contexts mapping names to interactive types.*)
   type name_ctx
@@ -34,17 +33,18 @@ module type LANG = sig
   val concat_ienv : interactive_env -> interactive_env -> interactive_env
   val string_of_interactive_env : interactive_env -> string
 
-  (* The typed focusing process implemented by abstracting_kind
+  (* The typed focusing process implemented by abstracting_normal_form
       decomposes a normal form into:
        - an abstract value for the observable part,
        - a typed interactive environment for the negative part. *)
 
   type abstract_normal_form
 
-  val abstracting_kind :
+  val abstracting_normal_form :
     normal_form ->
-    name_ctx -> Store.store_ctx ->
-    (abstract_normal_form * interactive_env * name_ctx) option
+    name_ctx ->
+    Store.store_ctx ->
+    (abstract_normal_form * interactive_env * name_ctx * Store.store_ctx) option
 
   val get_subject_name : abstract_normal_form -> Name.name option
   val get_support : abstract_normal_form -> Name.name list
@@ -62,7 +62,8 @@ module type LANG = sig
      we generate all the possible pairs (A,Δ) formed by an abstracted normal form A such that
      Γ_P;_ ⊢ A ▷ Δ
      Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
-  val generate_a_nf : Store.store_ctx -> name_ctx -> (abstract_normal_form * name_ctx) M.m
+  val generate_a_nf :
+    Store.store_ctx -> name_ctx -> (abstract_normal_form * name_ctx) M.m
 
   (* The typing judgment of an abstracted normal form Γ_P;Γ_O ⊢ A ▷ Δ
      produces the interactive name contexts Δ of fresh names introduced by A.
@@ -74,8 +75,11 @@ module type LANG = sig
     name_ctx -> name_ctx -> abstract_normal_form -> name_ctx option
 
   val concretize_a_nf :
-    interactive_env -> abstract_normal_form -> computation * Store.store * interactive_env
+    interactive_env ->
+    abstract_normal_form ->
+    computation * Store.store * interactive_env
 
+  val get_store_of_a_nf : abstract_normal_form -> Store.store
   val get_typed_term : string -> in_channel -> computation * name_ctx
 
   (* The function get_typed_interactive_env
@@ -113,11 +117,11 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let concat_ienv = OpLang.concat_ienv
   let string_of_interactive_env = OpLang.string_of_interactive_env
 
-  type normal_form = (value, eval_context, Name.name, Name.cont_name) Nf.kind_nf * Store.store
+  type normal_form =
+    (value, eval_context, Name.name, Name.cont_name) Nf.kind_nf * Store.store
 
-  let is_error (nf,_) = Nf.is_error nf
-
-  let get_store (_,store) = store
+  let is_error (nf_term, _) = Nf.is_error nf_term
+  let get_store (_, store) = store
 
   open Nf
 
@@ -126,9 +130,9 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
     | None -> None
     | Some (nf_term, store') -> Some (get_kind_nf nf_term, store')
 
-  let string_of_nf (nf,_) =
+  let string_of_nf (nf_term, _) =
     string_of_kind_nf "" string_of_value string_of_eval_context
-      Name.string_of_name Name.string_of_cont_name nf
+      Name.string_of_name Name.string_of_cont_name nf_term
 
   let get_type_cn cn = Util.Pmap.lookup_exn (Name.inj_cont_name cn)
 
@@ -149,88 +153,104 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
         let ectx = Util.Pmap.lookup_exn cn ienv in
         NFError ectx
 
-  let concretize_a_nf ienv (a_nf,store) =
-    let nf' = concretize_a_nf_aux ienv a_nf in
-    (refold_kind_nf nf',store, ienv)
+  let concretize_a_nf ienv (a_nf, store) =
+    let nf_term' = concretize_a_nf_aux ienv a_nf in
+    (refold_kind_nf nf_term', store, ienv)
 
   type abstract_normal_form =
     (AVal.abstract_val, unit, Name.name, Name.name) Nf.kind_nf * Store.store
 
-  let abstracting_store = OpLang.Store.restrict 
+  let labels_of_a_nf_term = 
+    Nf.apply_val [] AVal.labels_of_abstract_val
+  let get_store_of_a_nf (_, store) = store
+  let abstracting_store = OpLang.Store.restrict
   (* Deal with the abstraction process of the heap properly *)
 
-  let abstracting_kind (nf,store) namectxO storectx =
-    let discl_store = abstracting_store storectx store in
-    match nf with
+  let abstracting_nf_term nf_term namectxO =
+    match nf_term with
     | NFCallback (fn, value, _) ->
         let ty = Util.Pmap.lookup_exn fn namectxO in
         let nty = AVal.negating_type ty in
         let (aval, ienv, lnamectx) = AVal.abstracting_value value nty in
         (*TODO : we should do something for the ectx*)
-        Some ((NFCallback (fn, aval, ()), discl_store), ienv, lnamectx)
+        Some (NFCallback (fn, aval, ()), ienv, lnamectx)
     | NFValue (cn, value) ->
         let ty = get_type_cn cn namectxO in
         let nty = AVal.negating_type ty in
         let (aval, ienv, lnamectx) = AVal.abstracting_value value nty in
-        Some ((NFValue (Name.inj_cont_name cn, aval), discl_store), ienv, lnamectx)
+        Some (NFValue (Name.inj_cont_name cn, aval), ienv, lnamectx)
     | NFError _ -> None
     | NFRaise (cn, value) ->
-        let ty = get_type_cn cn namectxO in
-        let nty = AVal.negating_type ty in
-        let (aval, ienv, lnamectx) = AVal.abstracting_value value nty in
-        Some ((NFRaise (Name.inj_cont_name cn, aval), discl_store), ienv, lnamectx)
+        let (aval, ienv, lnamectx) = AVal.abstracting_value value exception_type in
+        Some (NFRaise (Name.inj_cont_name cn, aval), ienv, lnamectx)
 
-  let get_subject_name (a_nf,_) = Some (Nf.get_active_name a_nf)
+  let abstracting_normal_form (nf_term, store) namectxO storectx_discl =
+    match abstracting_nf_term nf_term namectxO with
+    | Some (a_nf_term, ienv, lnamectx) ->
+        let label_l = labels_of_a_nf_term a_nf_term in
+        let storectx = OpLang.Store.infer_type_store store in
+        Util.Debug.print_debug @@ "The full store context is " ^ 
+        OpLang.Store.string_of_store_ctx storectx;
+        let storectx_discl' = OpLang.Store.restrict_ctx storectx label_l in
+        let storectx_discl'' =
+          OpLang.Store.concat_store_ctx storectx_discl storectx_discl' in
+        Util.Debug.print_debug @@ "The new diclosed store context is " ^ 
+        OpLang.Store.string_of_store_ctx storectx_discl'';
+        let store_discl = abstracting_store storectx_discl' store in
+        Some ((a_nf_term, store_discl), ienv, lnamectx, storectx_discl'')
+    | None -> None
 
-  let get_support (a_nf,_) = match a_nf with
+  let get_subject_name (a_nf, _) = Some (Nf.get_active_name a_nf)
+
+  let get_support (a_nf, _) =
+    match a_nf with
     | NFCallback (_, aval, _) | NFValue (_, aval) | NFRaise (_, aval) ->
         AVal.names_of_abstract_val aval
     | NFError _ -> []
-    (*TODO: take into account the store part*)
+  (*TODO: take into account the store part*)
 
-  let string_of_a_nf dir (a_nf,store) =
-    let string_kind = 
-    string_of_kind_nf dir AVal.string_of_abstract_val
-      (fun () -> "")
-      Name.string_of_name Name.string_of_name a_nf in
+  let string_of_a_nf dir (a_nf, store) =
+    let string_kind =
+      string_of_kind_nf dir AVal.string_of_abstract_val
+        (fun () -> "")
+        Name.string_of_name Name.string_of_name a_nf in
     if store = Store.empty_store then string_kind
-    else let string_store = Store.string_of_store store in
-    string_kind ^ "," ^ string_store
-
+    else
+      let string_store = Store.string_of_store store in
+      string_kind ^ "," ^ string_store
 
   let generate_nf_skeleton namectxP =
     let aux (nn, ty) =
       if Name.is_fname nn then [ NFCallback (nn, AVal.negating_type ty, ()) ]
       else if Name.is_cname nn then
-        [
-          NFValue (nn, AVal.negating_type ty);
-          NFRaise (nn, exception_type);
-        ]
+        [ NFValue (nn, AVal.negating_type ty); NFRaise (nn, exception_type) ]
       else [] in
     List.concat_map aux (Util.Pmap.to_list namectxP)
 
   include AVal.M
 
-  let fill_abstract_val namectxP = function
+  let fill_abstract_val storectx namectxP = function
     | NFCallback (fn, ty, ()) ->
-        let* (aval, lnamectx) = AVal.generate_abstract_val namectxP ty in
+        let* (aval, lnamectx) = AVal.generate_abstract_val storectx namectxP ty in
         return (NFCallback (fn, aval, ()), lnamectx)
     | NFValue (cn, ty) ->
-        let* (aval, lnamectx) = AVal.generate_abstract_val namectxP ty in
+        let* (aval, lnamectx) = AVal.generate_abstract_val storectx namectxP ty in
         return (NFValue (cn, aval), lnamectx)
     | NFRaise (cn, ty) ->
-        let* (aval, lnamectx) = AVal.generate_abstract_val namectxP ty in
+        Util.Debug.print_debug @@ "Filling raise skeleton on type " ^ OpLang.string_of_type ty;
+        let* (aval, lnamectx) = AVal.generate_abstract_val storectx namectxP ty in
         return (NFRaise (cn, aval), lnamectx)
     | NFError _ -> failwith "Error is not a valid skeleton"
 
   let generate_a_nf storectx namectxP =
     let skel_list = generate_nf_skeleton namectxP in
     let* skel = AVal.M.para_list @@ skel_list in
-    let* (a_nf, lnamectx) = fill_abstract_val namectxP skel in
+    let* (a_nf, lnamectx) = fill_abstract_val storectx namectxP skel in
     let* store = Store.generate_store storectx in
-    return ((a_nf,store), lnamectx)
+    return ((a_nf, store), lnamectx)
 
-  let type_check_a_nf namectxP namectxO (a_nf,_) = match a_nf with
+  let type_check_a_nf namectxP namectxO (a_nf, _) =
+    match a_nf with
     | NFCallback (fn, aval, ()) ->
         let ty = Util.Pmap.lookup_exn fn namectxO in
         let nty = AVal.negating_type ty in
@@ -239,17 +259,15 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
         let ty = Util.Pmap.lookup_exn cn namectxO in
         let nty = AVal.negating_type ty in
         AVal.type_check_abstract_val namectxP namectxO nty aval
-    | NFRaise (cn, aval) ->
-        let ty = Util.Pmap.lookup_exn cn namectxO in
-        let nty = AVal.negating_type ty in
-        AVal.type_check_abstract_val namectxP namectxO nty aval
+    | NFRaise (_, aval) ->
+        AVal.type_check_abstract_val namectxP namectxO exception_type aval
     | NFError _ -> Some Util.Pmap.empty
-    (*TODO: Type check the store part*)
+  (*TODO: Type check the store part*)
 
   (* Beware that is_equiv_a_nf does not check the equivalence of
      the store part of abstract normal forms.
-     This is needed for the POGS equivalence. *)  
-  let is_equiv_a_nf span (anf1,_) (anf2,_) =
+     This is needed for the POGS equivalence. *)
+  let is_equiv_a_nf span (anf1, _) (anf2, _) =
     Nf.equiv_kind_nf AVal.unify_abstract_val span anf1 anf2
 
   let get_typed_interactive_env = OpLang.get_typed_interactive_env

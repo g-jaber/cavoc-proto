@@ -231,13 +231,17 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
        and type typ = typ_temp
        and type typevar = OpLang.typevar
        and type negative_type = negative_type_temp
+       and type label = Store.label
+       and type store_ctx = Store.store_ctx
        and module M = Store.M = struct
     type name = Name.name
+    type label = OpLang.AVal.label
     type value = value_temp
     type negative_val = negative_val_temp
     type typ = typ_temp
     type typevar = OpLang.typevar
     type negative_type = negative_type_temp
+    type store_ctx = Store.store_ctx
 
     (*    type negative_type = OpLang.negative_type*)
     type name_ctx = (name, negative_type) Util.Pmap.pmap
@@ -269,6 +273,10 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
       | AVal aval -> OpLang.AVal.names_of_abstract_val aval
       | APair (aval, cn) | APack (_, aval, cn) ->
           Name.inj_cont_name cn :: OpLang.AVal.names_of_abstract_val aval
+
+    let labels_of_abstract_val = function
+      | AVal aval | APair (aval, _) | APack (_, aval, _) ->
+          OpLang.AVal.labels_of_abstract_val aval
 
     let type_check_abstract_val namectxP namectxO gty aval =
       match (gty, aval) with
@@ -326,16 +334,16 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
        we generate all the possible pairs (A,Δ) such that
        Γ_P;_ ⊢ A : τ ▷ Δ
        Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
-    let generate_abstract_val lnamectx gtype =
+    let generate_abstract_val storectx lnamectx gtype =
       let lnamectx' = extract_name_ctx lnamectx in
       match gtype with
       | GType ty ->
           let* (aval, lnamectx) =
-            OpLang.AVal.generate_abstract_val lnamectx' ty in
+            OpLang.AVal.generate_abstract_val storectx lnamectx' ty in
           return (AVal aval, embed_name_ctx lnamectx)
       | GProd (ty, tyhole) ->
           let* (aval, lnamectx) =
-            OpLang.AVal.generate_abstract_val lnamectx' ty in
+            OpLang.AVal.generate_abstract_val storectx lnamectx' ty in
           let cn = Name.fresh_cname () in
           let lnamectx' =
             Util.Pmap.add
@@ -349,7 +357,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
           let ty' = OpLang.apply_type_subst ty type_subst in
           let tyhole' = OpLang.apply_type_subst tyhole type_subst in
           let* (aval, lnamectx) =
-            OpLang.AVal.generate_abstract_val lnamectx' ty' in
+            OpLang.AVal.generate_abstract_val storectx lnamectx' ty' in
           let cn = Name.fresh_cname () in
           let lnamectx' =
             Util.Pmap.add

@@ -83,6 +83,10 @@ module type STORE = sig
 
   val restrict :  store_ctx -> store -> store
 
+  type label
+
+  val restrict_ctx : store_ctx -> label list -> store_ctx
+
   module M : Util.Monad.BRANCH
   (* *)
 
@@ -143,6 +147,8 @@ module type WITHAVAL_INOUT = sig
        and type typ = typ
        and type negative_type = negative_type
        and type typevar = typevar
+       and type label = Store.label
+       and type store_ctx = Store.store_ctx
        and module M = Store.M
 end
 
@@ -157,5 +163,7 @@ module type WITHAVAL_NEG = sig
        and type typ = typ
        and type negative_type = negative_type
        and type typevar = typevar
+       and type label = Store.label
+       and type store_ctx = Store.store_ctx
        and module M = Store.M
 end
