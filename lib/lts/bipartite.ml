@@ -21,7 +21,6 @@ end
 module type INT_LTS = sig
   module Int : Interactive.INT
   include LTS with module Actions = Int.Actions
-
   (* init_aconf creates an configuration from a computation and a name context for Opponent. 
      Its store, interactive env, and name context for Proponent are all set to empty*)    
   val init_aconf :

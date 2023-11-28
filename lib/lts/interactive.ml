@@ -2,13 +2,16 @@ module type INT = sig
   (* To be instantiated *)
   module IntLang : Lang.Interactive.LANG
   module Name : Lang.Names.CONT_NAMES with type name = IntLang.Name.name
-  module Actions : Actions.ACTIONS with type Moves.name = IntLang.Name.name
+
+  module Actions :
+    Actions.ACTIONS
+      with type Moves.name = IntLang.Name.name
+       and type Moves.kdata = IntLang.abstract_normal_form
   (* *)
 
   type interactive_ctx
 
-  val replace_namectxP :
-    interactive_ctx -> IntLang.name_ctx -> interactive_ctx
+  val replace_namectxP : interactive_ctx -> IntLang.name_ctx -> interactive_ctx
 
   val replace_storectx :
     interactive_ctx -> IntLang.Store.store_ctx -> interactive_ctx
@@ -61,20 +64,13 @@ module type INT = sig
     IntLang.computation * IntLang.Store.store * IntLang.interactive_env
 end
 
-module type INT_F = functor
-  (IntLang : Lang.Interactive.LANG)
-  (Moves : Moves.MOVES with type name = IntLang.Name.name)
-  -> sig
-  include INT with module IntLang = IntLang and module Actions.Moves = Moves
-end
-
 module Make (IntLang : Lang.Interactive.LANG) :
   INT
     with type IntLang.Name.name = IntLang.Name.name
      and type Actions.Moves.name = IntLang.Name.name = struct
+  module Actions = Actions.Make (Moves.Make (IntLang))
   module IntLang = IntLang
   module Name = IntLang.Name
-  module Actions = Actions.Make (IntLang)
   open Actions
 
   type interactive_ctx = {
@@ -84,7 +80,10 @@ module Make (IntLang : Lang.Interactive.LANG) :
   }
 
   let string_of_interactive_ctx ictx =
-    "<"
+    let string_storectx =
+      if ictx.storectx = IntLang.Store.empty_store_ctx then ""
+      else IntLang.Store.string_of_store_ctx ictx.storectx in
+    "<" ^ string_storectx ^ " | "
     ^ IntLang.string_of_name_ctx ictx.namectxO
     ^ " | "
     ^ IntLang.string_of_name_ctx ictx.namectxP
@@ -97,10 +96,13 @@ module Make (IntLang : Lang.Interactive.LANG) :
     { storectx; namectxP; namectxO }
 
   let generate_output_move ictx nf =
-    match IntLang.abstracting_kind nf ictx.namectxO ictx.storectx with
-    | Some (a_nf, ienv, lnamectx) ->
-      let namectxP = IntLang.concat_name_ctx lnamectx ictx.namectxP in
-        (Moves.build (Moves.Output, a_nf), ienv, lnamectx, { ictx with namectxP })
+    match IntLang.abstracting_normal_form nf ictx.namectxO ictx.storectx with
+    | Some (a_nf, ienv, lnamectx, storectx) ->
+        let namectxP = IntLang.concat_name_ctx lnamectx ictx.namectxP in
+        ( Moves.build (Moves.Output, a_nf),
+          ienv,
+          lnamectx,
+          { ictx with namectxP; storectx } )
     | None ->
         failwith
           ("Error: the normal form " ^ IntLang.string_of_nf nf
@@ -126,7 +128,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
         begin
           match lnamectx_opt with
           | Some lnamectx ->
-            let namectxO = IntLang.concat_name_ctx lnamectx ictx.namectxO in
+              let namectxO = IntLang.concat_name_ctx lnamectx ictx.namectxO in
               Some { ictx with namectxO }
           | None -> None
         end
