@@ -1,1 +1,2 @@
-val f : bool -> bool
+exception Bla
+val f : bool -> (unit -> 'a) -> 'a
