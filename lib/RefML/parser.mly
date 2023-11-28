@@ -35,8 +35,9 @@
 %token TINT
 %token TBOOL
 %token TEXN
+%right ARROW
 
-%left ELSE IN ARROW
+%left ELSE IN
 %left SEMICOLON
 %left ASSIGN
 %nonassoc NOT
