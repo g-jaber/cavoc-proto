@@ -49,7 +49,9 @@ module type LANG = sig
   val get_subject_name : abstract_normal_form -> Name.name option
   val get_support : abstract_normal_form -> Name.name list
 
-  (* The first argument is a string inserted between the kind and the abstract values *)
+  (* The first argument is a string inserted between
+     the negative part of the normal form
+     and the abstract values filling the positive parts *)
   val string_of_a_nf : string -> abstract_normal_form -> string
 
   val is_equiv_a_nf :
@@ -160,8 +162,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   type abstract_normal_form =
     (AVal.abstract_val, unit, Name.name, Name.name) Nf.nf_term * Store.store
 
-  let labels_of_a_nf_term = 
-    Nf.apply_val [] AVal.labels_of_abstract_val
+  let labels_of_a_nf_term = Nf.apply_val [] AVal.labels_of_abstract_val
   let get_store_of_a_nf (_, store) = store
   let abstracting_store = OpLang.Store.restrict
   (* Deal with the abstraction process of the heap properly *)
@@ -181,7 +182,8 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
         Some (NFValue (Name.inj_cont_name cn, aval), ienv, lnamectx)
     | NFError _ -> None
     | NFRaise (cn, value) ->
-        let (aval, ienv, lnamectx) = AVal.abstracting_value value exception_type in
+        let (aval, ienv, lnamectx) =
+          AVal.abstracting_value value exception_type in
         Some (NFRaise (Name.inj_cont_name cn, aval), ienv, lnamectx)
 
   let abstracting_normal_form (nf_term, store) namectxO storectx_discl =
@@ -189,20 +191,20 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
     | Some (a_nf_term, ienv, lnamectx) ->
         let label_l = labels_of_a_nf_term a_nf_term in
         let storectx = OpLang.Store.infer_type_store store in
-        Util.Debug.print_debug @@ "The full store context is " ^ 
-        OpLang.Store.string_of_store_ctx storectx;
+        Util.Debug.print_debug @@ "The full store context is "
+        ^ OpLang.Store.string_of_store_ctx storectx;
         let storectx_discl' = OpLang.Store.restrict_ctx storectx label_l in
         let storectx_discl'' =
           OpLang.Store.concat_store_ctx storectx_discl storectx_discl' in
-        Util.Debug.print_debug @@ "The new diclosed store context is " ^ 
-        OpLang.Store.string_of_store_ctx storectx_discl'';
+        Util.Debug.print_debug @@ "The new diclosed store context is "
+        ^ OpLang.Store.string_of_store_ctx storectx_discl'';
         let store_discl = abstracting_store storectx_discl' store in
         Some ((a_nf_term, store_discl), ienv, lnamectx, storectx_discl'')
     | None -> None
-    (* Notice that the disclosure process is in fact more complex
-       since the image of  store_discl might itself has 
-       labels that becomes diclosed.
-       This computation would necessitate an iterative process.  *)
+  (* Notice that the disclosure process is in fact more complex
+     since the image of  store_discl might itself has
+     labels that becomes diclosed.
+     This computation would necessitate an iterative process. *)
 
   let get_subject_name (a_nf, _) = Some (Nf.get_active_name a_nf)
 
@@ -214,14 +216,14 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   (*TODO: take into account the store part*)
 
   let string_of_a_nf dir (a_nf, store) =
-    let string_kind =
+    let string_nf_term =
       string_of_nf_term dir AVal.string_of_abstract_val
         (fun () -> "")
         Name.string_of_name Name.string_of_name a_nf in
-    if store = Store.empty_store then string_kind
+    if store = Store.empty_store then string_nf_term
     else
       let string_store = Store.string_of_store store in
-      string_kind ^ "," ^ string_store
+      string_nf_term ^ "," ^ string_store
 
   let generate_nf_skeleton namectxP =
     let aux (nn, ty) =
@@ -235,14 +237,18 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
 
   let fill_abstract_val storectx namectxP = function
     | NFCallback (fn, ty, ()) ->
-        let* (aval, lnamectx) = AVal.generate_abstract_val storectx namectxP ty in
+        let* (aval, lnamectx) =
+          AVal.generate_abstract_val storectx namectxP ty in
         return (NFCallback (fn, aval, ()), lnamectx)
     | NFValue (cn, ty) ->
-        let* (aval, lnamectx) = AVal.generate_abstract_val storectx namectxP ty in
+        let* (aval, lnamectx) =
+          AVal.generate_abstract_val storectx namectxP ty in
         return (NFValue (cn, aval), lnamectx)
     | NFRaise (cn, ty) ->
-        Util.Debug.print_debug @@ "Filling raise skeleton on type " ^ OpLang.string_of_type ty;
-        let* (aval, lnamectx) = AVal.generate_abstract_val storectx namectxP ty in
+        Util.Debug.print_debug @@ "Filling raise skeleton on type "
+        ^ OpLang.string_of_type ty;
+        let* (aval, lnamectx) =
+          AVal.generate_abstract_val storectx namectxP ty in
         return (NFRaise (cn, aval), lnamectx)
     | NFError _ -> failwith "Error is not a valid skeleton"
 

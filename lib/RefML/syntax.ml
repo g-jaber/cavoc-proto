@@ -501,7 +501,7 @@ let refold_nf_term = function
   | NFValue (ICtx ectx, value) -> fill_hole ectx value
   | NFError (ICtx ectx) -> fill_hole ectx Error
   | NFRaise (ICtx ectx, value) -> fill_hole ectx (Raise value)
-  | _ -> failwith "Impossible to refold this nf_kind. Please report."
+  | _ -> failwith "Impossible to refold this normal form. Please report."
 
 let max_int = 1
 
