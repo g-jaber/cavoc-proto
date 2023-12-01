@@ -466,7 +466,7 @@ let string_of_interactive_env =
 
 open Lang.Nf
 
-let get_kind_nf term =
+let get_nf_term term =
   match get_value term with
   | Some value -> NFValue (Names.dummy_cn, value)
   | None ->
@@ -496,7 +496,7 @@ let get_kind_nf term =
             ^ ". Please report."
       end
 
-let refold_kind_nf = function
+let refold_nf_term = function
   | NFCallback (IVal nval, value, ()) -> App (nval, value)
   | NFValue (ICtx ectx, value) -> fill_hole ectx value
   | NFError (ICtx ectx) -> fill_hole ectx Error

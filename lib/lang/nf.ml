@@ -6,7 +6,7 @@
    - callbacks to function provided by another module
 *)
 
-type ('value, 'ectx, 'fname, 'cname) kind_nf =
+type ('value, 'ectx, 'fname, 'cname) nf_term =
   | NFCallback of 'fname * 'value * 'ectx
   | NFValue of 'cname * 'value
   | NFError of 'cname
@@ -14,7 +14,7 @@ type ('value, 'ectx, 'fname, 'cname) kind_nf =
 
 let is_error = function NFError _ -> true | _ -> false
 
-let map_kind_nf empty_res concat f_val f_ectx = function
+let map_nf_term empty_res concat f_val f_ectx = function
   | NFCallback (fn, value, ectx) ->
       let (value', res_v) = f_val value in
       let (ectx', res_k) = f_ectx ectx in
@@ -33,7 +33,7 @@ let apply_val error_res f = function
 | NFError _ -> error_res
 
 
-let string_of_kind_nf dir string_of_value string_of_ectx string_of_fname
+let string_of_nf_term dir string_of_value string_of_ectx string_of_fname
     string_of_cname nf =
   let string_of_cname' cn =
     let cn_str = string_of_cname cn in
@@ -52,7 +52,7 @@ let get_active_name = function
   | NFError cn -> cn
   | NFRaise (cn, _) -> cn
 
-let equiv_kind_nf unify_abstract_val span anf1 anf2 =
+let equiv_nf_term unify_abstract_val span anf1 anf2 =
   match (anf1, anf2) with
   | (NFCallback (fn1, aval1, _), NFCallback (fn2, aval2, _))
     when Util.Namespan.is_in_dom_im (fn1, fn2) span ->

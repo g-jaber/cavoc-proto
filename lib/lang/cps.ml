@@ -77,15 +77,15 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   open Nf
 
-  let get_kind_nf (NTerm (cn, term)) =
-    match OpLang.get_kind_nf term with
+  let get_nf_term (NTerm (cn, term)) =
+    match OpLang.get_nf_term term with
     | NFCallback (fn, value, ectx) ->
         NFCallback (fn, GPairIn (value, NCtx (cn, ectx)), ())
     | NFValue (_, value) -> NFValue (cn, GVal value)
     | NFError _ -> NFError cn
     | NFRaise (_, value) -> NFRaise (cn, GVal value)
 
-  let refold_kind_nf_cps = function
+  let refold_nf_term_cps = function
     | NFCallback (IVal nval, gval, ()) -> begin
         match gval with
         | GPairOut (value, cn) | GPackOut (_, value, cn) ->
@@ -102,9 +102,9 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
         (cn, NFRaise (OpLang.embed_eval_context ectx, value))
     | _ -> failwith "Refolding impossible"
 
-  let refold_kind_nf nf =
-    let (cn, nf') = refold_kind_nf_cps nf in
-    let term = OpLang.refold_kind_nf nf' in
+  let refold_nf_term nf =
+    let (cn, nf') = refold_nf_term_cps nf in
+    let term = OpLang.refold_nf_term nf' in
     NTerm (cn, term)
   (*end
 

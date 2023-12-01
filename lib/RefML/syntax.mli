@@ -105,11 +105,11 @@ val embed_negative_val : negative_val -> value
 val string_of_negative_val : negative_val -> string
 val embed_eval_context : eval_context -> negative_val
 
-val get_kind_nf :
-  term -> (value, eval_context, Names.name, Names.cont_name) Lang.Nf.kind_nf
+val get_nf_term :
+  term -> (value, eval_context, Names.name, Names.cont_name) Lang.Nf.nf_term
 
-val refold_kind_nf :
-  (value, unit, negative_val, negative_val) Lang.Nf.kind_nf -> term
+val refold_nf_term :
+  (value, unit, negative_val, negative_val) Lang.Nf.nf_term -> term
 
 type interactive_env = (Names.name, negative_val) Util.Pmap.pmap
 

@@ -25,11 +25,11 @@ module type BASIC = sig
   val string_of_eval_context : eval_context -> string
   val embed_eval_context : eval_context -> negative_val
 
-  val get_kind_nf :
-    term -> (value, eval_context, Name.name, Name.cont_name) Nf.kind_nf
+  val get_nf_term :
+    term -> (value, eval_context, Name.name, Name.cont_name) Nf.nf_term
 
-  val refold_kind_nf :
-    (value, unit, negative_val, negative_val) Nf.kind_nf -> term
+  val refold_nf_term :
+    (value, unit, negative_val, negative_val) Nf.nf_term -> term
 end
 
 module type TYPED = sig

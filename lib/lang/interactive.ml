@@ -118,7 +118,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let string_of_interactive_env = OpLang.string_of_interactive_env
 
   type normal_form =
-    (value, eval_context, Name.name, Name.cont_name) Nf.kind_nf * Store.store
+    (value, eval_context, Name.name, Name.cont_name) Nf.nf_term * Store.store
 
   let is_error (nf_term, _) = Nf.is_error nf_term
   let get_store (_, store) = store
@@ -128,10 +128,10 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let compute_nf (term, store) =
     match normalize_opconf (term, store) with
     | None -> None
-    | Some (nf_term, store') -> Some (get_kind_nf nf_term, store')
+    | Some (nf_term, store') -> Some (get_nf_term nf_term, store')
 
   let string_of_nf (nf_term, _) =
-    string_of_kind_nf "" string_of_value string_of_eval_context
+    string_of_nf_term "" string_of_value string_of_eval_context
       Name.string_of_name Name.string_of_cont_name nf_term
 
   let get_type_cn cn = Util.Pmap.lookup_exn (Name.inj_cont_name cn)
@@ -155,10 +155,10 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
 
   let concretize_a_nf ienv (a_nf, store) =
     let nf_term' = concretize_a_nf_aux ienv a_nf in
-    (refold_kind_nf nf_term', store, ienv)
+    (refold_nf_term nf_term', store, ienv)
 
   type abstract_normal_form =
-    (AVal.abstract_val, unit, Name.name, Name.name) Nf.kind_nf * Store.store
+    (AVal.abstract_val, unit, Name.name, Name.name) Nf.nf_term * Store.store
 
   let labels_of_a_nf_term = 
     Nf.apply_val [] AVal.labels_of_abstract_val
@@ -199,6 +199,10 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
         let store_discl = abstracting_store storectx_discl' store in
         Some ((a_nf_term, store_discl), ienv, lnamectx, storectx_discl'')
     | None -> None
+    (* Notice that the disclosure process is in fact more complex
+       since the image of  store_discl might itself has 
+       labels that becomes diclosed.
+       This computation would necessitate an iterative process.  *)
 
   let get_subject_name (a_nf, _) = Some (Nf.get_active_name a_nf)
 
@@ -211,7 +215,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
 
   let string_of_a_nf dir (a_nf, store) =
     let string_kind =
-      string_of_kind_nf dir AVal.string_of_abstract_val
+      string_of_nf_term dir AVal.string_of_abstract_val
         (fun () -> "")
         Name.string_of_name Name.string_of_name a_nf in
     if store = Store.empty_store then string_kind
@@ -262,13 +266,14 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
     | NFRaise (_, aval) ->
         AVal.type_check_abstract_val namectxP namectxO exception_type aval
     | NFError _ -> Some Util.Pmap.empty
-  (*TODO: Type check the store part*)
+  (*TODO: Type check the store part and
+     check that the disclosure process is respected*)
 
   (* Beware that is_equiv_a_nf does not check the equivalence of
      the store part of abstract normal forms.
      This is needed for the POGS equivalence. *)
   let is_equiv_a_nf span (anf1, _) (anf2, _) =
-    Nf.equiv_kind_nf AVal.unify_abstract_val span anf1 anf2
+    Nf.equiv_nf_term AVal.unify_abstract_val span anf1 anf2
 
   let get_typed_interactive_env = OpLang.get_typed_interactive_env
 
