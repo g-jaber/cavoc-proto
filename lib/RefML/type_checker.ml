@@ -16,7 +16,33 @@ let rec infer_type type_ctx expr =
             ^ Type_ctx.string_of_var_ctx type_ctx.var_ctx
             ^ " .")
     end
-  | Constructor _ -> (TExn, type_ctx)
+  | Constructor (cons, e) -> begin
+      match Util.Pmap.lookup cons type_ctx.cons_ctx with
+      | Some (TArrow (pty, ty)) ->
+        let (pty', type_ctx') = infer_type type_ctx e in
+          begin
+            match unify_type type_ctx'.type_subst (pty, pty') with
+            | Some (_, type_subst) -> (ty, Type_ctx.update_type_subst type_ctx' type_subst)
+            | None -> 
+                Util.Error.fail_error
+                  ("Error typing "
+                  ^ Syntax.string_of_term e
+                  ^ ": " ^ string_of_typ pty' ^ " is not equal to "
+                  ^ string_of_typ pty)
+          end 
+      | Some cty -> 
+          Util.Error.fail_error
+            ("Error typing: the type of the constructor " ^
+            Syntax.string_of_constructor cons ^ " is " ^
+            string_of_typ cty ^ " when it is expected to 
+            be of the form a -> b.")
+      | None ->
+          Util.Error.fail_error
+            ("Error: the constructor " ^ Syntax.string_of_constructor cons
+            ^ " is not defined in the environment " 
+            ^ Type_ctx.string_of_name_ctx type_ctx.name_ctx
+            ^ " .")
+      end
   | Name n -> begin
       match Util.Pmap.lookup n type_ctx.name_ctx with
       | Some ty -> (ty, type_ctx)

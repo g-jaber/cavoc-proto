@@ -29,7 +29,7 @@
 %token TRY
 %token PIPE
 
-%token TYPE VAL EXCEPTION
+%token TYPE VAL EXCEPTION OF
 
 %token TUNIT
 %token TINT
@@ -71,7 +71,7 @@ signature_decl:
   | TYPE VAR { PrivateTypeDecl ($2) }  
   | TYPE VAR EQ ty { PublicTypeDecl ($2,$4) }
   | VAL VAR COLON ty { PublicValDecl ($2,$4) }
-  | EXCEPTION CONSTRUCTOR { PublicExnDecl $2 }
+  | EXCEPTION CONSTRUCTOR OF ty { PublicExnDecl ($2, $4) }
 
 implem_decl:
   | TYPE VAR EQ ty { TypeDecl ($2,$4) }
@@ -79,7 +79,7 @@ implem_decl:
     { ValDecl ($2, List.fold_left (fun expr var -> Fun (var,expr)) $5 $3) }
   | LET REC VAR typed_ident list_ident EQ expr
     { ValDecl ($3, Fix (($3,TUndef),$4, List.fold_left (fun expr var -> Fun (var,expr)) $7 $5)) }
-  | EXCEPTION CONSTRUCTOR { ExnDecl $2 }
+  | EXCEPTION CONSTRUCTOR OF ty { ExnDecl ($2, $4) }
 
 list_signature_decl:
   |  { [] }
@@ -90,7 +90,7 @@ list_implem_decl:
   | list_implem_decl implem_decl {$2::$1}
 
 pattern : 
-  | CONSTRUCTOR {PatCons $1}
+  | CONSTRUCTOR VAR {PatCons ($1, $2)}
   | VAR {PatVar $1}
 
 handler : PIPE pattern ARROW expr {$2,$4}
@@ -138,7 +138,7 @@ app_expr:
 
 simple_expr:
   | VAR             { Var $1 }
-  | CONSTRUCTOR     { Constructor $1}
+  | c=CONSTRUCTOR p=expr    { Constructor (c, p)}
   | NAME            { Name (Names.fname_of_id (Names.trim_name_id $1)) }
   | UNIT            { Unit }
   | INT             { Int $1 }

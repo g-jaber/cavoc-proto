@@ -4,14 +4,14 @@ type signature_decl =
   | PrivateTypeDecl of Types.id
   | PublicTypeDecl of (Types.id * Types.typ)
   | PublicValDecl of (Syntax.id * Types.typ)
-  | PublicExnDecl of Syntax.constructor
+  | PublicExnDecl of (Syntax.constructor * Types.typ)
 
 let string_of_signature_decl = function
   | PrivateTypeDecl tid -> "type " ^ tid
   | PublicTypeDecl (tid, ty) ->
       "type " ^ tid ^ " = " ^ Types.string_of_typ ty
   | PublicValDecl (var, ty) -> " val " ^ var ^ " : " ^ Types.string_of_typ ty
-  | PublicExnDecl c -> "exception " ^ c
+  | PublicExnDecl (c, param_ty) -> "exception " ^ Syntax.string_of_constructor c ^ " of " ^ Types.string_of_typ param_ty
 
 let string_of_signature signature =
   String.concat "\n" ((List.map string_of_signature_decl) signature)
@@ -19,13 +19,13 @@ let string_of_signature signature =
 type implem_decl =
   | TypeDecl of (Types.id * Types.typ)
   | ValDecl of (Syntax.id * Syntax.term)
-  | ExnDecl of Syntax.constructor
+  | ExnDecl of (Syntax.constructor * Types.typ)
 
 let string_of_implem_decl = function
   | TypeDecl (tid, ty) -> "type " ^ tid ^ " = " ^ Types.string_of_typ ty
   | ValDecl (var, term) ->
       " let " ^ var ^ " = " ^ Syntax.string_of_term term
-  | ExnDecl c -> "exception " ^ c
+  | ExnDecl (c, param_ty) -> "exception " ^ Syntax.string_of_constructor c ^ " of " ^ Types.string_of_typ param_ty
 
 let string_of_prog prog =
   String.concat "\n" ((List.map string_of_implem_decl) prog)
@@ -44,8 +44,8 @@ let split_implem_decl_list implem_decl_l =
         aux (val_decl_l, td :: type_decl_l, exn_l) implem_decl_l'
     | ValDecl vd :: implem_decl_l' ->
         aux (vd :: val_decl_l, type_decl_l, exn_l) implem_decl_l'
-    | ExnDecl c :: implem_decl_l' ->
-        aux (val_decl_l, type_decl_l, (c,Types.TExn) :: exn_l) implem_decl_l' in
+    | ExnDecl (c, param_ty) :: implem_decl_l' ->
+        aux (val_decl_l, type_decl_l, (c,Types.TArrow (param_ty, Types.TExn)) :: exn_l) implem_decl_l' in
   aux ([], [], []) implem_decl_l
 
 let split_signature_decl_list signature_decl_l =

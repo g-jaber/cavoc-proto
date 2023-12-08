@@ -82,6 +82,7 @@ rule token = parse
   | "type" { TYPE }  
   | "val" { VAL } 
   | "exception" { EXCEPTION }
+  | "of" { OF }
 
   | eof  { EOF }
 

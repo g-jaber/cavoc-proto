@@ -94,10 +94,14 @@ module Make (M : Util.Monad.BRANCH) :
         Util.Debug.print_debug
         @@ "Generating exception abstract values in the store context "
         ^ Store.string_of_store_ctx storectx;
-        let exn_cons_l = Util.Pmap.select_im Types.TExn cons_ctx in
-        let aval_l =
-          List.map (fun c -> (Constructor c, Util.Pmap.empty)) exn_cons_l in
-        para_list aval_l
+        let exn_cons_map = Util.Pmap.filter_map_im (fun ty -> match ty with TArrow (_, TExn) -> Some ty | _ ->  None) cons_ctx in
+        let* (c, cons_ty) = para_list @@ Util.Pmap.to_list exn_cons_map in
+        begin
+          match cons_ty with 
+          | TArrow(pty, _) -> let* (nup, nctx) = generate_abstract_val storectx namectxP pty in
+               return (Constructor (c, nup), nctx)
+          | _ -> failwith ""
+        end
     | ty ->
         failwith
           ("Error generating a nup on type " ^ Types.string_of_typ ty
@@ -143,6 +147,9 @@ module Make (M : Util.Monad.BRANCH) :
         else
           let nty = Types.force_negative_type ty in
           Some (Util.Pmap.singleton (nn, nty))
+    (* | (TExn, Constructor (c, nup')) ->  
+        let (TArrow (param_ty, _)) = Util.Pmap.lookup_exn c (Util.Pmap.concat namectxP namectxO) in 
+        type_check_abstract_val namectxP namectxO param_ty nup' *)
     | (TName _, _) -> None
     | (TVar _, _) ->
         failwith @@ "Error: trying to type-check a nup of type "

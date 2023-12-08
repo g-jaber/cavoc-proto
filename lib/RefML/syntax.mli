@@ -11,7 +11,7 @@ type label = LocL of loc | ConsL of constructor
 
 val fresh_evar : unit -> id
 
-type pattern = PatCons of constructor | PatVar of id
+type pattern = PatCons of constructor * id | PatVar of id
 
 type binary_op =
   | Plus
@@ -33,7 +33,7 @@ type handler = Handler of (pattern * term)
 
 and term =
   | Var of id
-  | Constructor of constructor
+  | Constructor of constructor * term
   | Name of Names.name
   | Loc of loc
   | Unit
