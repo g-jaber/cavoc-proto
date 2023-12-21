@@ -1,0 +1,28 @@
+
+** Conflict (shift/reduce) in state 38.
+** Token involved: MULT
+** This state is reached from prog after reading:
+
+list_decl TYPE LNAME EQ ty MULT ty
+
+** The derivations that appear below have the following common factor:
+** (The question mark symbol (?) represents the spot where the derivations begin to differ.)
+
+prog 
+list_decl EOF 
+list_decl decl 
+          TYPE LNAME EQ ty 
+                        (?)
+
+** In state 38, looking ahead at MULT, shifting is permitted
+** because of the following sub-derivation:
+
+ty MULT ty 
+        ty . MULT ty 
+
+** In state 38, looking ahead at MULT, reducing production
+** ty -> ty MULT ty
+** is permitted because of the following sub-derivation:
+
+ty MULT ty // lookahead token appears
+ty MULT ty . 
