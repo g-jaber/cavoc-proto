@@ -76,11 +76,12 @@ and handler = {
 let id_handler = let x = fresh_evar() in {ocs=[]; ret=(x, Return (Var x))}
 
 
+type eval_context =
+  | Hole
+  | ELet of id * eval_context * computation
+  | EHandle of eval_context * handler
 
 
-type name_set = Names.name list
-
-let empty_name_set = []
 
 let rec string_of_pattern = function 
   | PatVar id -> id
@@ -169,9 +170,16 @@ and string_of_ocs ocs_l =
  
 and string_of_retcs = function 
   (var, e) -> "return " ^ var ^ " ⇒ " ^ string_of_computation e 
-   
-
-
+and string_of_eval_context = function 
+  | Hole -> "[]"
+  | ELet (var, ectx, comp) ->
+     "let " ^ var ^ " = " ^ string_of_eval_context ectx 
+      ^ " in " ^ string_of_computation comp
+  | EHandle (ectx, h) -> 
+     "handle " ^ string_of_eval_context ectx 
+     ^ " with " ^ "{" ^ string_of_handler h ^ "}"
+  
+  
 (* Auxiliary functions *)
 
 let implement_arith_op = function
@@ -210,27 +218,32 @@ let implement_compar_op = function
 module NameSet = Set.Make(
   struct 
     type t = Names.name
-    let compare = Names.compare
-  end)
+    let compare = compare
+end)
 
-let rec get_names = function
+type name_set = NameSet.t
+let empty_name_set = NameSet.empty 
+let name_set_union = NameSet.union
+let name_set_fold = NameSet.fold
+
+let rec get_names_val = function
   | Name n -> NameSet.singleton n
   | Var _   | Unit | Int _ | Bool _  -> NameSet.empty
   | Constructor (_, val_l) ->
     List.fold_left 
-     (fun names value -> NameSet.union (get_names value) names)
+     (fun names value -> NameSet.union (get_names_val value) names)
       NameSet.empty val_l
   | Binop (_, val1, val2) -> 
-    NameSet.union (get_names val1) (get_names val2)
+    NameSet.union (get_names_val val1) (get_names_val val2)
   | Record labelled_vals -> 
     List.fold_left 
-     (fun names (_,value) -> NameSet.union (get_names value) names)
+     (fun names (_,value) -> NameSet.union (get_names_val value) names)
       NameSet.empty labelled_vals
-  | Variant (_, value) -> get_names value
+  | Variant (_, value) -> get_names_val value
   | Lambda (_, comp) -> get_names_comp comp
 
 and get_names_comp = function
-  | Return v -> get_names v
+  | Return v -> get_names_val v
   | Let (_, comp1, comp2) ->
      NameSet.union (get_names_comp comp1) (get_names_comp comp2)
   | Match (v, match_cases) -> 
@@ -238,15 +251,29 @@ and get_names_comp = function
      List.fold_left 
       (fun names (_,comp) -> NameSet.union (get_names_comp comp) names)
        NameSet.empty match_cases in 
-     NameSet.union (get_names v) branches_names 
-  | App (v1, v2) -> NameSet.union (get_names v1) (get_names v2)
+     NameSet.union (get_names_val v) branches_names 
+  | App (v1, v2) -> NameSet.union (get_names_val v1) (get_names_val v2)
   | Handle (comp, h) -> 
      let h_names = 
       List.fold_left 
        (fun names (_,(_, _,comp)) -> NameSet.union (get_names_comp comp) names)
         (get_names_comp (snd h.ret)) h.ocs in 
       NameSet.union (get_names_comp comp) h_names 
-  | Perform (_, v) -> get_names v
+  | Perform (_, v) -> get_names_val v
+
+  let get_names value = 
+    value |> get_names_val |> NameSet.elements
+
+module ValEnv = Map.Make(
+  struct 
+    type t = id 
+    let compare = String.compare
+end)
+
+type value_env = value ValEnv.t
+let empty_value_env = ValEnv.empty
+let extend_value_env = ValEnv.add
+let value_env_find = ValEnv.find
 
 
 (* free variables *)
@@ -269,3 +296,151 @@ let rec get_vars_pat = function
       (fun vars (_, pat) -> VarSet.union (get_vars_pat pat) vars)
        VarSet.empty lab_pat_l
   | PatVariant (_, pat) -> get_vars_pat pat
+
+
+(* Interaction *)
+
+type negative_val = 
+  | IVal of value 
+  | ICtx of eval_context 
+  | IEff of opsymbol
+
+let string_of_negative_val = function 
+  | IVal v -> string_of_value v 
+  | ICtx c -> string_of_eval_context c
+  | IEff op -> string_of_opsymbol op
+
+let filter_negative_val = function
+  | (Lambda _ | Name _) as value -> Some (IVal value)
+  | _ -> None
+
+let force_negative_val value = IVal value 
+let embed_eval_context = fun ectx -> ICtx ectx
+let embed_negative_val = function
+  | IVal value -> value
+  | ICtx _ as nval ->
+      failwith @@ "The negative value "
+      ^ string_of_negative_val nval
+      ^ " is not a value. Please report."
+  | _ -> failwith "IEff unused"
+
+
+type interactive_env = (Names.name, negative_val) Util.Pmap.pmap
+let empty_ienv = Util.Pmap.empty
+let concat_ienv = Util.Pmap.concat
+let string_of_interactive_env =
+  Util.Pmap.string_of_pmap "ε" "↪" Names.string_of_name string_of_negative_val
+
+open Langop.Nf
+
+let rec decompose_comp = function
+  | Let (id, comp1, comp2) -> 
+     let (comp1', ectx) = decompose_comp comp1 in 
+     (comp1', ELet (id, ectx, comp2))
+  | Handle (comp, handler) -> 
+     let (comp', ectx) = decompose_comp comp in 
+     (comp', EHandle (ectx, handler))
+  | _ as comp-> (comp, Hole)
+  
+let get_nf_computation comp =
+  let (comp', ectx) = decompose_comp comp in
+  match comp' with
+  | Return value -> NFValue (Names.dummy_cn, value)
+  | App (Name fn, value ) -> NFCallback (fn, value, ectx)
+  | Perform (opsym, value) -> NFPerform (Names.dummy_cn, opsym, value, ectx)
+  | _ ->
+      failwith @@ "The term " ^ string_of_computation comp
+      ^ " is not a valid normal form. Its decomposition is "
+      ^ string_of_computation comp' ^ " and "
+      ^ string_of_eval_context ectx
+      ^ ". Please report."
+
+let rec fill_hole ectx comp = 
+  match ectx with 
+  | Hole -> comp
+  | ELet (id, ectx, comp') ->
+     Let (id, fill_hole ectx comp, comp')
+  | EHandle (ectx, h) -> 
+     Handle (fill_hole ectx comp, h)
+
+let refold_nf_computation = function
+  | NFCallback (IVal nval, value, ()) -> App (nval, value)
+  | NFValue (ICtx ectx, value) -> fill_hole ectx (Return value)
+  | NFPerform (ICtx ectx, opsym, value, ()) -> 
+     fill_hole ectx (Perform (opsym, value))
+  | _ -> failwith "Impossible to refold this normal form. Please report."
+
+
+(* context *)
+
+module VarMap = Map.Make(struct 
+  type t = id
+  let compare = String.compare
+end)
+
+type val_env = value VarMap.t
+
+let string_of_vmap string_of_empty sep string_of_im vmap = 
+if VarMap.is_empty vmap then 
+  string_of_empty
+else 
+  VarMap.fold 
+   (fun var v acc -> 
+     string_of_id var ^ sep ^ string_of_im v ^ ", "
+     ^ acc) vmap ""
+let string_of_val_env = string_of_vmap "ε" "↪" string_of_value
+let empty_val_env = VarMap.empty
+
+(* value substitution *)
+
+module VarSubst = Map.Make( 
+  struct 
+    type t = id
+    let compare = String.compare
+  end)
+
+let rec subst_val_in_val value subvalue sval =
+  match value with   
+   | _ when value = subvalue -> sval
+   | Constructor (cons, l_val) -> 
+      let l_val' = List.map (fun v -> subst_val_in_val v subvalue sval) l_val in 
+      Constructor(cons, l_val')
+   | Binop (op, v1, v2) -> 
+    Binop (op, subst_val_in_val v1 subvalue sval, subst_val_in_val v2 subvalue sval)
+   | Record labelled_vals -> 
+     let l = List.map (fun (lab, v) -> (lab, subst_val_in_val v subvalue sval)) labelled_vals in 
+      Record l
+   | Variant (lab, v) -> 
+      Variant (lab, subst_val_in_val v subvalue sval)
+   | Lambda (abs, comp) -> 
+      Lambda (abs, subst_val comp subvalue sval)
+   | _ -> value
+  
+and subst_val comp subvalue sval = 
+  match comp with   
+  | Return v -> Return (subst_val_in_val v subvalue sval)
+  | Let (id, comp1, comp2) -> 
+     let comp1' = subst_val comp1 subvalue sval in 
+     let comp2' = subst_val comp2 subvalue sval in 
+     Let (id, comp1', comp2')
+  | Match (v, match_cases) -> 
+    let v' = subst_val_in_val v subvalue sval in 
+    let mcs = List.map 
+     (fun (pat, comp) -> (pat, subst_val comp subvalue sval))
+      match_cases in 
+      (* Not capture avoiding subst*)
+    Match (v', mcs)
+  | App (f, v) -> 
+     let f' = subst_val_in_val f subvalue sval in  
+     let v' = subst_val_in_val v subvalue sval in  
+     App (f', v')
+  | Handle (comp, h) -> 
+     let comp' = subst_val comp subvalue sval in 
+     let ocs = List.map 
+      (fun (op, (id1, id2, comp)) -> (op, (id1, id2, subst_val comp subvalue sval)))
+       h.ocs in 
+     let ret = (fst h.ret, subst_val (snd h.ret) subvalue sval) in 
+     Handle (comp', {ret=ret; ocs=ocs})
+  | Perform (opsym, v) -> 
+     let v' = subst_val_in_val v subvalue sval in 
+     Perform (opsym, v')

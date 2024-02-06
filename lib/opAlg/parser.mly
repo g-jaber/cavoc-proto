@@ -1,6 +1,7 @@
 %{
   open Syntax
   open Types
+  open Declaration
 
 type handler_case =
   | Retcase of id * computation
@@ -58,12 +59,21 @@ let handler_record hcs_l =
 
 %start <Syntax.computation> fullterm
 
+%start <Declaration.signature_decl list> signature
+
 %%
 
 fullterm: term; EOF  { $1 }
 
-prog: list_decl; EOF  { $1 }
+prog: list_implem_decl; EOF  { $1 }
 
+signature: list_signature_decl; EOF  { $1 }
+
+signature_decl:
+  | TYPE LNAME { PrivateTypeDecl $2 }
+  | TYPE LNAME EQ ty { PublicTypeDecl ($2,$4) }
+  | LET x=LNAME COLON typ=ty { PublicValDecl (x, typ) }
+  | OPERATION op=LNAME COLON t1=ty SARROW t2=ty { PublicOpDecl (op, Arity(t1, t2)) }
 
 decl:
   | TYPE LNAME EQ ty { TypeDecl ($2,$4) }
@@ -71,10 +81,15 @@ decl:
     { ValDecl (x, List.fold_left (fun expr var -> Return (Lambda (var,expr))) e l) }
   | OPERATION op=LNAME COLON t1=ty SARROW t2=ty { OpDecl (op, Arity(t1, t2)) }
 
-
-list_decl:
+list_signature_decl:
   |  { [] }
-  | list_decl decl {$2::$1}
+  | list_signature_decl signature_decl {$2::$1}
+
+list_implem_decl:
+  |  { [] }
+  | list_implem_decl decl {$2::$1}
+
+
 
 subvalue: 
   | x=LNAME {Var x}
@@ -192,9 +207,9 @@ ty:
   | ty MULT ty   { TProd ($1, $3) }
   | LPAR ty RPAR { $2 } 
   | LBRACE l=labelled(SEMICOLON, ty) RBRACE { TRecord l }
-(*  
-  | ty ARROW cty { TArrow ($1, $3) }
+  | ty ARROW ty { TArrow ($1, TComp ($3, effpure)) }
 
+(*
 cty: 
   | typ=ty BANG LBRACE r=row RBRACE { Tcomp (typ, r) }
 

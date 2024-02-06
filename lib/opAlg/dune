@@ -4,6 +4,6 @@
  (modules parser))
 
 (library
- (name algop)
- (libraries lang util))
+ (name opalg)
+ (libraries langop util))
 

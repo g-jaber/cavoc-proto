@@ -5,7 +5,7 @@ exception TypingError of string
 
 let rec infer_vtype type_ctx = function
   | Var id -> begin
-      match VarCtx.find_opt id type_ctx.var_ctx with 
+      match Util.Pmap.lookup id type_ctx.var_ctx with 
       | Some ty -> (ty, type_ctx)
       | None ->     
         failwith 
@@ -17,7 +17,7 @@ let rec infer_vtype type_ctx = function
       end
   | Constructor (cons, _) -> begin
     (* must type_check values *) 
-    match ConsCtx.find_opt cons type_ctx.cons_ctx with
+    match Util.Pmap.lookup cons type_ctx.cons_ctx with
       | Some Tcons (_, ty) -> (ty, type_ctx)
       | Some _ -> failwith "Constructor must be of type ..." 
       | None -> 
@@ -29,7 +29,7 @@ let rec infer_vtype type_ctx = function
           ^ " .")
   end
   | Name n -> begin
-      match NameCtx.find_opt n type_ctx.name_ctx with 
+      match Util.Pmap.lookup n type_ctx.name_ctx with 
       | Some ty -> (ty, type_ctx)
       | None ->     
         failwith 
@@ -78,7 +78,7 @@ and infer_ptype type_ctx = function
   | PatVar id -> 
       let ty = fresh_typevar() in (ty, Types.extend_var_ctx type_ctx id ty)
   | PatCons (cons, _) -> begin 
-    match ConsCtx.find_opt cons type_ctx.cons_ctx with
+    match Util.Pmap.lookup cons type_ctx.cons_ctx with
       | Some Tcons (_, ty) -> (ty, type_ctx)
       | Some _ -> failwith "Constructor must be of type ..." 
       | None -> 
@@ -90,7 +90,7 @@ and infer_ptype type_ctx = function
           ^ " .")
   end
   | PatName n -> begin
-      match NameCtx.find_opt n type_ctx.name_ctx with 
+      match Util.Pmap.lookup n type_ctx.name_ctx with 
       | Some ty -> (ty, type_ctx)
       | None ->     
         failwith 
@@ -183,7 +183,7 @@ and infer_ctype type_ctx = function
       infer_ctype type_ctx'' comp')     
   | Perform (opsym, _) -> 
      (* not type checking the value here*)
-    match ConsCtx.find_opt opsym type_ctx.cons_ctx with 
+    match Util.Pmap.lookup opsym type_ctx.cons_ctx with 
       | Some (Arity (_, vty)) -> (TComp (vty, effpure), type_ctx)
       | Some _ -> failwith (string_of_opsymbol opsym ^ " is not a constructor") 
       | None -> failwith (string_of_opsymbol opsym ^ " is not defined") 
@@ -234,11 +234,11 @@ and check_type_bin type_ctx com_vty v1 v2 res_vty =
 let typing_full type_subst term =
   let names = Syntax.get_names_comp term in
   let name_ctx = NameSet.fold 
-   (fun n nctx -> NameCtx.add n (fresh_typevar()) nctx)
-    names NameCtx.empty in
+   (fun n nctx -> Util.Pmap.add (n, fresh_typevar()) nctx)
+    names Util.Pmap.empty in
   let type_ctx =
-    {var_ctx= VarCtx.empty;
+    {var_ctx= Util.Pmap.empty;
      name_ctx;
-     cons_ctx = ConsCtx.empty;
+     cons_ctx = Util.Pmap.empty;
      type_subst} in
   let (cty, _) = infer_ctype type_ctx term in cty

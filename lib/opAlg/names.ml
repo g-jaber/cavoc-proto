@@ -57,3 +57,46 @@ let is_callable = function
   | FName _ -> true
   | CName _ -> true
   | PName _ -> false
+
+
+(* Name manipulations *)
+
+(*module NameSet = Set.Make(
+  struct 
+    type t = name
+    let compare = compare
+  end)
+*)
+
+module NameMap = Map.Make(
+  struct 
+    type t = name
+    let compare = compare
+end)
+  
+type 'a nmap = 'a NameMap.t
+
+let nmap_empty = NameMap.empty
+let nmap_mem = NameMap.mem
+let nmap_union = fun nmap1 nmap2 -> 
+  NameMap.union (fun _ v _ -> Some v) nmap1 nmap2 
+let nmap_map = NameMap.map 
+let nmap_add = NameMap.add
+let nmap_find = NameMap.find
+let nmap_find_opt = NameMap.find_opt
+let nmap_filter = fun f_opt -> NameMap.filter_map (fun _ a -> f_opt a)
+let nmap_to_list = NameMap.bindings
+let nmap_of_list = fun l ->
+  List.fold_left
+   (fun nmap (n, a) -> 
+     NameMap.add n a nmap) 
+   NameMap.empty l
+
+let string_of_nmap string_of_empty sep string_of_im nmap = 
+  if NameMap.is_empty nmap then 
+    string_of_empty
+  else 
+    NameMap.fold 
+     (fun name v acc -> 
+       string_of_name name ^ sep ^ string_of_im v ^ ", "
+       ^ acc) nmap ""

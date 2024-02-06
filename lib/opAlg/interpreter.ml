@@ -50,10 +50,10 @@ let rec subst_var_in_val value id svalue =
 and subst_var comp id svalue = 
   match comp with   
   | Return v -> Return (subst_var_in_val v id svalue)
-  | Let (id, comp1, comp2) -> 
+  | Let (id', comp1, comp2) -> 
      let comp1' = subst_var comp1 id svalue in 
      let comp2' = subst_var comp2 id svalue in 
-     Let (id, comp1', comp2')
+     Let (id', comp1', comp2')
   | Match (v, match_cases) -> 
     let v' = subst_var_in_val v id svalue in 
     let mcs = List.map 
@@ -84,7 +84,7 @@ let subst_gen comp vsubst =
    (fun id svalue comp -> subst_var comp id svalue) 
     vsubst comp
 
-let rec unify_with_pattern_aux value pat subst = 
+(*let rec unify_with_pattern_aux value pat subst = 
   match subst with
   | None -> None
   | Some vsubst -> begin  
@@ -107,8 +107,35 @@ let rec unify_with_pattern_aux value pat subst =
      | _ -> None
     end
 
+(*let unify_with_pattern value pat = 
+  unify_with_pattern_aux value pat (Some (VarSubst.empty)) *)
+*)
+
+let rec unify_with_pattern_aux value pat subst = 
+  match (value, pat) with 
+  | (_, PatVar id') -> Some (VarSubst.add id' value subst)
+  | (Constructor (cons, lval), PatCons (cons', lpat)) when cons=cons' -> 
+      List.fold_left2 
+       (fun acc v p -> match acc with 
+         | Some vsubst -> unify_with_pattern_aux v p vsubst
+         | None -> None)
+         (Some subst) lval lpat 
+  | (Name n, PatName n') when n=n' -> Some subst
+  | (Unit, PatUnit) -> Some subst
+  | (Int i, PatInt i') when i=i' -> Some subst
+  | (Bool b, PatBool b') when b=b'-> Some subst
+  | (Record lab_vals, PatRecord lab_pats) -> 
+      List.fold_left2
+       (fun acc (lab, v) (lab', p) -> 
+         match acc with 
+          | Some vsubst -> if lab=lab' 
+             then unify_with_pattern_aux v p vsubst else None
+          | None -> None) (Some subst) lab_vals lab_pats 
+  | (Variant (lab, v), PatVariant (lab', p)) when lab=lab' -> 
+      unify_with_pattern_aux v p subst
+  | _ -> None
 let unify_with_pattern value pat = 
-  unify_with_pattern_aux value pat (Some (VarSubst.empty))
+  unify_with_pattern_aux value pat VarSubst.empty
 
 (* handler functions *)
 let apply_hret hret value =
@@ -161,7 +188,8 @@ let rec abstract_machine conf =
     match f with 
      | Var id -> begin 
         match DelCont.find_opt id conf.del_cont with 
-          | Some k -> abstract_machine {conf with cont= k @ conf.cont}
+          | Some k -> 
+             abstract_machine {conf with term = Return v; cont = k@conf.cont}
           | _ -> conf
         end
      | Lambda ((id, _), comp) -> 
@@ -179,15 +207,37 @@ let rec abstract_machine conf =
            let del_cont = 
              DelCont.add r (conf.fwd @ [(pk, h)]) conf.del_cont in 
            let fwd = [([], id_handler)] in
-           abstract_machine {conf with term; del_cont; fwd}
+           abstract_machine {term; cont=k; del_cont; fwd}
         | None -> 
            let fwd = conf.fwd @ [(pk, h)] in 
            abstract_machine {conf with fwd; cont=k}
         end
       | [] -> conf
       end
+  (* TODO:  should depend on cons context*)
 
+let string_of_conf conf = Syntax.string_of_computation conf.term
+let normalize_conf = fun conf -> Some (abstract_machine conf)
 
+let normalize_term_env cons_ctx comp_list =
+  let rec aux acc = function
+    | [] -> acc
+    | (var, comp) :: comp_list' -> begin
+          match normalize_conf (inj_config comp) with
+          | None ->
+              failwith @@ "The operational configuration "
+              ^ string_of_conf (inj_config comp)
+              ^ " is diverging."
+          | Some conf-> begin
+            match conf.term with 
+              | Return v -> 
+                let acc' = Syntax.extend_value_env var v acc in
+                 aux acc' comp_list' 
+              | _ -> failwith "The declared computation is not a returner"
+              end
+        end in
+  (aux Syntax.empty_value_env comp_list, cons_ctx)
+  (* TODO: fix it when cons context is taken into account*)
       
 
        

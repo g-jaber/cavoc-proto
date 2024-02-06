@@ -1,8 +1,8 @@
-type typevar = string
 type rowvar = string
 type id = string
 type label = string
 type opsymbol = string
+type typevar = string
 
 
 (* Types of expressions and operation symbols signatures*)
@@ -82,6 +82,8 @@ and string_of_sig lab_vtyp_l =
   List.fold_left 
    (fun acc (lab, ty) -> acc ^ "; " ^ lab ^ ":" ^ string_of_vtyp ty) String.empty lab_vtyp_l
 
+let extract_return_type = function (TComp (vty, _)) -> vty
+
 (* We provide a way to generate fresh type variables,
    that are used in the type checker *)
 let count_typevar = ref 0
@@ -103,20 +105,33 @@ let fresh_typename () =
 
 (* Typing contexts *)
 
-module VarCtx = Map.Make(
+(*module VarCtx = Map.Make(
   struct 
     type t = typevar
     let compare = String.compare
 end)
 
+(*type var_ctx = vtyp VarCtx.t *)
+let empty_var_ctx = VarCtx.empty
+
+
 module ConsCtx = Map.Make(String)
 
-module NameCtx = Map.Make(
+type cons_ctx = cons_sig ConsCtx.t
+let empty_cons_ctx = ConsCtx.empty
+let cons_ctx_of_list = fun l ->
+  List.fold_left
+    (fun tsubst (tvar, a) -> 
+      ConsCtx.add tvar a tsubst) 
+    ConsCtx.empty l
+
+
+(* module NameCtx = Map.Make(
   struct 
     type t = Names.name
     let compare n n' = 
      String.compare (Names.string_of_name n) (Names.string_of_name n')
-end)
+end) *)
 
 module TypeSubst = Map.Make(
   struct 
@@ -124,11 +139,45 @@ module TypeSubst = Map.Make(
     let compare = String.compare
 end)
 
+type 'a typesubst = 'a TypeSubst.t
+
+let typesubst_empty = TypeSubst.empty
+let typesubst_map = TypeSubst.map
+let typesubst_filter_map = fun f_opt -> TypeSubst.filter_map (fun _ a -> f_opt a)
+let typesubst_list_to_map = fun tsubst_l -> 
+  List.fold_left
+    (fun tsubst (tvar, a) -> 
+      TypeSubst.add tvar a tsubst) 
+    TypeSubst.empty
+    tsubst_l
+*)
+
+type var_ctx = (id, vtyp) Util.Pmap.pmap
+type name_ctx = (Names.name, vtyp) Util.Pmap.pmap
+type cons_ctx = (label, cons_sig) Util.Pmap.pmap
+let cons_ctx_of_list = fun l ->
+  List.fold_left
+    (fun tsubst (tvar, a) -> 
+      Util.Pmap.add (tvar, a) tsubst) 
+    Util.Pmap.empty l
+
+type type_subst = (typevar, vtyp) Util.Pmap.pmap
+let typesubst_list_to_map = fun tsubst_l -> 
+  List.fold_left
+    (fun tsubst (tvar, a) -> 
+      Util.Pmap.add (tvar, a) tsubst) 
+    Util.Pmap.empty
+    tsubst_l
+
+type type_env = (typevar, vtyp) Util.Pmap.pmap
+
 type type_ctx = { 
-  var_ctx: vtyp VarCtx.t; 
-  cons_ctx:cons_sig ConsCtx.t; 
-  name_ctx: vtyp NameCtx.t;
-  type_subst: vtyp TypeSubst.t}
+  var_ctx: var_ctx;
+  cons_ctx: cons_ctx ; 
+  name_ctx: name_ctx;
+  type_subst: type_subst}
+
+let get_name_ctx typectx = typectx.name_ctx
 
 let rec subst_vtype tvar sty ty =
   match ty with
@@ -148,33 +197,32 @@ and subst_ctype tvar sty cty =
 
 (* The following function perform nested substitution of subst on ty *)
 let lsubst_type type_subst ty =
-  TypeSubst.fold
-    (fun tvar sty ty -> subst_vtype tvar sty ty)
-    type_subst ty
+  Util.Pmap.fold
+    (fun ty (tvar, sty) -> subst_vtype tvar sty ty)
+    ty type_subst
 
 let lsubst_vctx type_subst =
-  VarCtx.map (fun vty -> lsubst_type type_subst vty)
+  Util.Pmap.map_im (fun vty -> lsubst_type type_subst vty)
 
 let lsubst_nctx type_subst =
-  NameCtx.map (fun vty -> lsubst_type type_subst vty)
+  Util.Pmap.map_im (fun vty -> lsubst_type type_subst vty)
 
 (* let lsubst_vctx lsubst = Util.Pmap.map_im (fun ty -> lsubst_type lsubst ty)
-
 *)
 let subst_vctx tvar sty =
-  VarCtx.map (fun ty -> subst_vtype tvar sty ty)
+  Util.Pmap.map_im (fun ty -> subst_vtype tvar sty ty)
 
 let subst_nctx tvar sty =
-  NameCtx.map (fun ty -> subst_vtype tvar sty ty)
+  Util.Pmap.map_im (fun ty -> subst_vtype tvar sty ty)
 
 let extend_type_subst type_ctx tvar ty =
   let var_ctx = subst_vctx tvar ty type_ctx.var_ctx in
   let name_ctx = subst_nctx tvar ty type_ctx.name_ctx in
-  let type_subst = TypeSubst.add tvar ty type_ctx.type_subst in
+  let type_subst = Util.Pmap.add (tvar, ty) type_ctx.type_subst in
   { type_ctx with var_ctx; name_ctx; type_subst}
 
 let extend_var_ctx type_ctx var ty =
-  { type_ctx with var_ctx= VarCtx.add var ty type_ctx.var_ctx }
+  { type_ctx with var_ctx= Util.Pmap.add (var, ty) type_ctx.var_ctx }
 
 
 let update_type_subst type_ctx type_subst =
@@ -224,10 +272,10 @@ let rec unify_type tsubst = function
     end
   | ((TVar tvar1 as ty1), TVar tvar2) when tvar1 = tvar2 -> Some (ty1, tsubst)
   | ((TVar _ as ty1), TVar tvar2) ->
-      Some (ty1, TypeSubst.add tvar2 ty1 tsubst)
+      Some (ty1, Util.Pmap.add (tvar2, ty1) tsubst)
   | (TVar tvar, ty) | (ty, TVar tvar) -> begin
-      match TypeSubst.find_opt tvar tsubst with
-      | None -> Some (ty, TypeSubst.add tvar ty tsubst)
+      match Util.Pmap.lookup tvar tsubst with
+      | None -> Some (ty, Util.Pmap.add (tvar, ty) tsubst)
       | Some ty' -> begin
           match unify_type tsubst (ty, ty') with
           | None ->
@@ -236,7 +284,7 @@ let rec unify_type tsubst = function
                ^ string_of_vtyp ty');
               None
           | Some (ty'', lsubst'') ->
-              Some (ty'', TypeSubst.add tvar ty'' lsubst'')
+              Some (ty'', Util.Pmap.add (tvar, ty'') lsubst'')
         end
     end
   | (ty1, ty2) ->
@@ -262,7 +310,7 @@ let rec apply_vtype_subst ty subst =
   | TProd (ty1, ty2) ->
       TProd (apply_vtype_subst ty1 subst, apply_vtype_subst ty2 subst)
   | TVar tvar -> begin
-      match TypeSubst.find_opt tvar subst with Some ty' -> ty' | None -> ty
+      match Util.Pmap.lookup tvar subst with Some ty' -> ty' | None -> ty
     end
   | TVariant labelled_types -> TVariant
       (List.map
@@ -282,69 +330,34 @@ and apply_ctype_subst cty subst =
   match cty with TComp (vty, effty) -> 
     TComp (apply_vtype_subst vty subst, effty)
 
+(* Interaction *)
 
-(* Typing contexts for variables, locations and names *)
+type negative_type = vtyp
 
-
-(*
-let rec get_new_tvars tvar_set = function
-  | TUnit | TInt | TBool | TExn | TId _ | TName _ | TUndef -> tvar_set
-  | TArrow (ty1, ty2) | TProd (ty1, ty2) | TSum (ty1, ty2) ->
-      let tvar_set' = get_new_tvars tvar_set ty1 in
-      get_new_tvars tvar_set' ty2
-  | TRef ty -> get_new_tvars tvar_set ty
-  | TVar typevar -> TVarSet.add typevar tvar_set
-  | TForall (tvars, ty) ->
-      let tvar_set' = List.fold_left (Fun.flip TVarSet.remove) tvar_set tvars in
-      get_new_tvars tvar_set' ty
-
-let get_tvars ty = TVarSet.elements @@ get_new_tvars TVarSet.empty ty
-
-(* Type substitutions are maps from type variables to types *)
-
-type type_subst = (typevar, typ) Util.Pmap.pmap
-type type_env = (id, typ) Util.Pmap.pmap
-
-let rec apply_type_env ty type_env =
-  match ty with
-  | TUnit | TInt | TBool | TRef _ | TName _ | TVar _ | TExn -> ty
-  | TArrow (ty1, ty2) ->
-      TArrow (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
-  | TProd (ty1, ty2) ->
-      TProd (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
-  | TSum (ty1, ty2) ->
-      TSum (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
-  | TId id -> begin
-      match Util.Pmap.lookup id type_env with Some ty' -> ty' | None -> ty
-    end
-  | TForall (tvar_l, ty') -> TForall (tvar_l, apply_type_env ty' type_env)
-  | TUndef -> failwith "Error: undefined type, please report."
-
-let rec subst_type tvar sty ty =
-  match ty with
-  | TUnit | TInt | TBool | TRef _ | TExn -> ty
-  | TArrow (ty1, ty2) ->
-      TArrow (subst_type tvar sty ty1, subst_type tvar sty ty2)
-  | TProd (ty1, ty2) -> TProd (subst_type tvar sty ty1, subst_type tvar sty ty2)
-  | TSum (ty1, ty2) -> TSum (subst_type tvar sty ty1, subst_type tvar sty ty2)
-  | TVar tvar' when tvar = tvar' -> sty
-  | TVar _ -> ty
-  | TId _ | TName _ -> ty
-  | TForall (tvars, ty') when List.mem tvar tvars ->
-      TForall (tvars, subst_type tvar sty ty')
-  | TForall _ -> ty
-  | TUndef -> failwith "Error: undefined type, please report."
-
-
-let generalize_type ty =
-  let tvar_l = get_tvars ty in
-  TForall (tvar_l, ty)
-
-type negative_type = typ
-
-let string_of_negative_type = string_of_typ
+let string_of_negative_type = string_of_vtyp
 
 let get_negative_type ty =
   match ty with TArrow _ | TForall _ -> Some ty | _ -> None
+
+let get_negative_ctype cty =
+  match cty with TComp (vty, _) -> 
+    match get_negative_type vty with 
+      | Some vty -> Some (TComp (vty, effpure))
+      | None -> None
 let force_negative_type ty = ty
-*)
+
+let rec apply_vtype_env ty type_env =
+  match ty with
+  | TUnit | TInt | TBool | TName _ | TVar _  -> ty
+  | TArrow (ty1, ty2) ->
+      TArrow (apply_vtype_env ty1 type_env, apply_ctype_env ty2 type_env)
+  | TProd (ty1, ty2) ->
+      TProd (apply_vtype_env ty1 type_env, apply_vtype_env ty2 type_env)
+  | TForall (tvar_l, ty') -> TForall (tvar_l, apply_vtype_env ty' type_env)
+  | TId id -> begin
+      match Util.Pmap.lookup id type_env with Some ty' -> ty' | None -> ty
+    end
+  | _ -> failwith "Error: undefined type, please report."
+
+and apply_ctype_env cty type_env = 
+  match cty with TComp (vty, eff) -> TComp (apply_vtype_env vty type_env, eff)
