@@ -34,11 +34,14 @@ let () =
   Arg.parse speclist get_filename usage_msg;
   let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
   let module CpsLang = Lang.Cps.MakeComp (OpLang) in
-  let module IntLang = Lang.Direct.Make (OpLang) in
+  let module IntLang = Lang.Interactive.Make (CpsLang) in
+(*  let module IntLang = Lang.Direct.Make (OpLang) in*)
   let module Int = Lts.Interactive.Make (IntLang) in
   let module OGS_LTS = Ogs.Ogslts.Make (Int) in
-  let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.Actions.Moves) in
-  let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
+  let module VisLTS = Ogs.Vis_lts.Make (Int.Name) (Int.Actions.Moves) in
+  let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (VisLTS) in
+  (*let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.Actions.Moves) in
+  let module ProdLTS = Lts.Product_lts.Make (ProdLTS) (WBLTS) in*)
   Util.Debug.print_debug "Getting the trace";
   if !is_computation then begin
     check_number_filenames 1;

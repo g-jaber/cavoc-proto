@@ -14,12 +14,6 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   let string_of_neval_context (NCtx (cn, ectx)) =
     "[" ^ Name.string_of_cont_name cn ^ "]" ^ OpLang.string_of_eval_context ectx
 
-  (* In CPS, the eval contexts are embeded in values,
-     so that we collapse the type eval_context to unit *)
-  type eval_context = unit
-
-  let string_of_eval_context () = ""
-
   (*We refine the type of values to allow pairs (V,E) and (V,c) *)
   type value =
     | GVal of OpLang.value
@@ -61,11 +55,6 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
         ^ "]"
         ^ OpLang.string_of_eval_context ectx
 
-  let embed_eval_context _ =
-    failwith
-      "Embedding an evaluation context is impossible in CPS mode. Please \
-       report."
-
   type interactive_env = (OpLang.Name.name, negative_val) Util.Pmap.pmap
 
   let string_of_interactive_env =
@@ -75,60 +64,21 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   let empty_ienv = Util.Pmap.empty
   let concat_ienv = Util.Pmap.concat
 
-  open Nf
-
-  let get_nf_term (NTerm (cn, term)) =
-    match OpLang.get_nf_term term with
-    | NFCallback (fn, value, ectx) ->
-        NFCallback (fn, GPairIn (value, NCtx (cn, ectx)), ())
-    | NFValue (_, value) -> NFValue (cn, GVal value)
-    | NFError _ -> NFError cn
-    | NFRaise (_, value) -> NFRaise (cn, GVal value)
-
-  let refold_nf_term_cps = function
-    | NFCallback (IVal nval, gval, ()) -> begin
-        match gval with
-        | GPairOut (value, cn) | GPackOut (_, value, cn) ->
-            (cn, NFCallback (nval, value, ()))
-        | _ ->
-            failwith @@ "Error: trying to apply a value " ^ string_of_value gval
-            ^ " to a callback. Please report."
-      end
-    | NFValue (ICtx (NCtx (cn, ectx)), GVal value) ->
-        (cn, NFValue (OpLang.embed_eval_context ectx, value))
-    | NFError (ICtx (NCtx (cn, ectx))) ->
-        (cn, NFError (OpLang.embed_eval_context ectx))
-    | NFRaise (ICtx (NCtx (cn, ectx)), GVal value) ->
-        (cn, NFRaise (OpLang.embed_eval_context ectx, value))
-    | _ -> failwith "Refolding impossible"
-
-  let refold_nf_term nf =
-    let (cn, nf') = refold_nf_term_cps nf in
-    let term = OpLang.refold_nf_term nf' in
-    NTerm (cn, term)
-  (*end
-
-    module MakeType (OpLang : Language.TYPED) :
-      Language.TYPED with module Name = OpLang.Name = struct
-      include MakeBasic (OpLang)*)
-
   type typ =
     | GType of OpLang.typ
     | GProd of OpLang.typ * OpLang.typ
     | GExists of OpLang.typevar list * OpLang.typ * OpLang.typ
     | GEmpty
 
+  let exception_type = GType OpLang.exception_type
+
   type negative_type = IType of OpLang.negative_type | INeg of OpLang.typ
-  type typevar = OpLang.typevar
-  type typename = OpLang.typename
 
   let string_of_type = function
     | GType typ -> OpLang.string_of_type typ
     | GExists (_, typ1, typ2) | GProd (typ1, typ2) ->
         OpLang.string_of_type typ1 ^ "* ¬" ^ OpLang.string_of_type typ2
     | GEmpty -> "⊥"
-
-  let string_of_typename = OpLang.string_of_typename
 
   let get_negative_type = function
     | GType typ -> begin
@@ -150,40 +100,13 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
       | (_, INeg _) -> None)
 
   let embed_name_ctx = Util.Pmap.map_im (fun ty -> IType ty)
-  let embed_name_ctx = embed_name_ctx
   let empty_name_ctx = Util.Pmap.empty
   let concat_name_ctx = Util.Pmap.concat
   let get_names_from_name_ctx = Util.Pmap.dom
-  let exception_type = GType OpLang.exception_type
 
   let string_of_name_ctx =
     Util.Pmap.string_of_pmap "ε" "::" OpLang.Name.string_of_name
       string_of_negative_type
-
-  let generate_typename_subst tvar_l =
-    let (typename_l, tvar_ctx) = OpLang.generate_typename_subst tvar_l in
-    let tvar_ctx' = Util.Pmap.map_im (fun ty -> GType ty) tvar_ctx in
-    (typename_l, tvar_ctx')
-
-  let apply_type_subst typ tvar_subst =
-    let tvar_subst =
-      Util.Pmap.filter_map_im
-        (function GType ty -> Some ty | _ -> None)
-        tvar_subst in
-    match typ with
-    | GType typ -> GType (OpLang.apply_type_subst typ tvar_subst)
-    | GExists (tvar_l, typ1, typ2) ->
-        (*TODO: we should take into account the fact that
-           tvar_l may bind some of the type variables
-           of the domain of tvar_subst *)
-        let typ1' = OpLang.apply_type_subst typ1 tvar_subst in
-        let typ2' = OpLang.apply_type_subst typ2 tvar_subst in
-        GExists (tvar_l, typ1', typ2')
-    | GProd (typ1, typ2) ->
-        let typ1' = OpLang.apply_type_subst typ1 tvar_subst in
-        let typ2' = OpLang.apply_type_subst typ2 tvar_subst in
-        GProd (typ1', typ2')
-    | GEmpty -> typ
 
   module Store = OpLang.Store
 
@@ -218,18 +141,79 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
       embed_name_ctx @@ namectxP,
       embed_name_ctx @@ namectxO )
 
+  module Nf :
+    Language.NF
+      with type ('value, 'ectx, 'fname, 'cname) nf_term =
+        ('value, 'ectx, 'fname, 'cname) OpLang.Nf.nf_term
+       and module M = OpLang.AVal.M =
+    OpLang.Nf
+
+  (* The function negating_type extract from an interactive type the type of the input arguments
+     expected to interact over this type. *)
+  let negating_type = function
+    | IType ty ->
+        let (tvar_l, inp_ty) = OpLang.get_input_type ty in
+        let out_ty = OpLang.get_output_type ty in
+        begin
+          match tvar_l with
+          | [] -> GProd (inp_ty, out_ty)
+          | _ -> GExists (tvar_l, inp_ty, out_ty)
+        end
+    | INeg ty -> GType ty
+
+  type normal_form_term = (value, unit, Name.name, Name.name) Nf.nf_term
+
+  let insert_cn cn nf_term =
+    let f_cn () = OpLang.Name.inj_cont_name cn in
+    let f_fn fn = fn in
+    let f_val value = value in
+    let f_ectx ectx = NCtx (cn, ectx) in
+    OpLang.Nf.map ~f_cn ~f_fn ~f_val ~f_ectx nf_term
+
+  let get_nf_term (NTerm (cn, term)) =
+    let nf_term = insert_cn cn @@ OpLang.get_nf_term term in
+    let f_val v = GVal v in
+    let f_merge (v, e) = GPairIn (v, e) in
+    OpLang.Nf.merge_val_ectx ~f_val ~f_merge nf_term
+
+  let extract_cn nf_term =
+    let f_call (fn, v, cn) = ((fn, v, ()), cn) in
+    let f_ret (NCtx (cn, ectx), v) = ((ectx, v), cn) in
+    let f_exn (NCtx (cn, ectx), v) = ((ectx, v), cn) in
+    let f_error (NCtx (cn, ectx)) = (ectx, cn) in
+    OpLang.Nf.map_cons ~f_call ~f_ret ~f_exn ~f_error nf_term
+
+  let expel_ectx nf_term =
+    let f_call (nval, gval, ()) =
+      match (nval, gval) with
+      | (IVal nval, GPairOut (value, cn)) | (IVal nval, GPackOut (_, value, cn))
+        ->
+          ((nval, value, cn), ())
+      | (_, gval) ->
+          failwith @@ "Error: trying to apply a value " ^ string_of_value gval
+          ^ " to a callback. Please report." in
+    let[@warning "-8"] f_ret (ICtx nctx, GVal value) = ((nctx, value), ()) in
+    let f_exn = f_ret in
+    let[@warning "-8"] f_error (ICtx nctx) = (nctx, ()) in
+    fst @@ OpLang.Nf.map_cons ~f_call ~f_ret ~f_exn ~f_error nf_term
+
+  let refold_nf_term nf_term =
+    let nf_term = expel_ectx nf_term in
+    let (nf_term, cn) = extract_cn nf_term in
+    let term = OpLang.refold_nf_term nf_term in
+    NTerm (cn, term)
+
   type negative_type_temp = negative_type
   type value_temp = value
   type typ_temp = typ
   type negative_val_temp = negative_val
 
   module AVal :
-    Abstract_val.AVAL_NEG
+    Abstract_val.AVAL
       with type name = Name.name
        and type value = value_temp
        and type negative_val = negative_val_temp
        and type typ = typ_temp
-       and type typevar = OpLang.typevar
        and type negative_type = negative_type_temp
        and type label = Store.label
        and type store_ctx = Store.store_ctx
@@ -239,7 +223,6 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     type value = value_temp
     type negative_val = negative_val_temp
     type typ = typ_temp
-    type typevar = OpLang.typevar
     type negative_type = negative_type_temp
     type store_ctx = Store.store_ctx
 
@@ -392,18 +375,5 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
       | APack (tname_l, aval, cn) ->
           let value = OpLang.AVal.subst_names ienv' aval in
           GPackOut (tname_l, value, cn)
-
-    (* The function negating_type extract from an interactive type the type of the input arguments
-       expected to interact over this type. *)
-    let negating_type = function
-      | IType ty ->
-          let (tvar_l, inp_ty) = OpLang.AVal.get_input_type ty in
-          let out_ty = OpLang.AVal.get_output_type ty in
-          begin
-            match tvar_l with
-            | [] -> GProd (inp_ty, out_ty)
-            | _ -> GExists (tvar_l, inp_ty, out_ty)
-          end
-      | INeg ty -> GType ty
   end
 end

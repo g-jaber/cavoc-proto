@@ -5,34 +5,18 @@ module Names :
   include Names
 end
 
-module Basic :
-  Lang.Language.BASIC
-    with type term = Syntax.term
-     and type value = Syntax.value
-     and type negative_val = Syntax.negative_val
-     and module Name = Names = struct
-  module Name = Names 
-  (* *)
-  include Syntax
-end
-
 module Typed :
   Lang.Language.TYPED
-    with type term = Syntax.term
-     and type value = Syntax.value
-     and type negative_val = Syntax.negative_val
-     and type typ = Types.typ
+    with type typ = Types.typ
      and type negative_type = Types.negative_type
-     and type typevar = Types.typevar
      and module Name = Names = struct
-  include Basic
+  module Name = Names
 
   type typ = Types.typ
-  type typevar = Types.typevar
-  type typename = Types.id
+
+  let exception_type = Types.TExn
 
   let string_of_type = Types.string_of_typ
-  let string_of_typename id = id
 
   type negative_type = Types.negative_type
 
@@ -46,27 +30,17 @@ module Typed :
   let get_names_from_name_ctx = Util.Pmap.dom
 
   let string_of_name_ctx =
-    Util.Pmap.string_of_pmap "ε" "::" Names.string_of_name
+    Util.Pmap.string_of_pmap "[]" "::" Names.string_of_name
       Types.string_of_negative_type
-
-  let exception_type = Types.TExn
-
-  let generate_typename_subst tvar_l =
-    let aux tvar =
-      let tname = Types.fresh_typename () in
-      (tname, (tvar, Types.TName tname)) in
-    let (tname_l, type_subst_l) = List.split @@ List.map aux tvar_l in
-    (tname_l, Util.Pmap.list_to_pmap type_subst_l)
-
-  let apply_type_subst = Types.apply_type_subst
 end
 
 module MakeStore (M : Util.Monad.BRANCH) :
-  Lang.Language.STORE with type store = Store.store 
-  and type label = Syntax.label and type store_ctx = Store.store_ctx and module M = M =
-struct
-  include Store_gen.Make(M)
-
+  Lang.Language.STORE
+    with type store = Store.store
+     and type label = Syntax.label
+     and type store_ctx = Store.store_ctx
+     and module M = M = struct
+  include Store_gen.Make (M)
 end
 
 module MakeComp (M : Util.Monad.BRANCH) :
@@ -76,11 +50,11 @@ module MakeComp (M : Util.Monad.BRANCH) :
      and type negative_val = Syntax.negative_val
      and type typ = Types.typ
      and type negative_type = Types.negative_type
-     and type typevar = Types.typevar
      and type Store.label = Syntax.label
      and type Store.store_ctx = Store.store_ctx
      and module Name = Names
      and module Store.M = M = struct
+  include Syntax
   include Typed
   module Store = MakeStore (M)
 
@@ -111,9 +85,11 @@ module MakeComp (M : Util.Monad.BRANCH) :
     try
       let implem_decl_l = Parser.prog Lexer.token lexer_implem in
       let signature_decl_l = Parser.signature Lexer.token lexer_signature in
-      let (comp_env, namectxO, cons_ctx) = Declaration.get_typed_comp_env implem_decl_l in
+      let (comp_env, namectxO, cons_ctx) =
+        Declaration.get_typed_comp_env implem_decl_l in
       let namectxO' = Util.Pmap.filter_map_im Types.get_negative_type namectxO in
-      let (val_assign, heap, cons_ctx') = Interpreter.normalize_term_env cons_ctx comp_env in
+      let (val_assign, heap, cons_ctx') =
+        Interpreter.normalize_term_env cons_ctx comp_env in
       let (val_env, namectxP) =
         Declaration.get_typed_val_env val_assign signature_decl_l in
       let int_env = Util.Pmap.filter_map_im Syntax.filter_negative_val val_env in
@@ -132,13 +108,65 @@ end
 module WithAVal (M : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT = struct
   include MakeComp (M)
 
+  type eval_context = Syntax.eval_context
+
+  let string_of_eval_context = Syntax.string_of_eval_context
+
+  type typevar = Types.typevar
+  type typename = Types.id
+
+  let string_of_typename id = id
+
+  let generate_typename_subst tvar_l =
+    let aux tvar =
+      let tname = Types.fresh_typename () in
+      (tname, (tvar, Types.TName tname)) in
+    let (tname_l, type_subst_l) = List.split @@ List.map aux tvar_l in
+    (tname_l, Util.Pmap.list_to_pmap type_subst_l)
+
+  let apply_type_subst = Types.apply_type_subst
+
+  let get_input_type = function
+    | Types.TArrow (ty1, _) -> ([], ty1)
+    | Types.TForall (tvar_l, TArrow (ty1, _)) -> (tvar_l, ty1)
+    | ty ->
+        failwith @@ "Error retrieving an input type: the type " ^ Types.string_of_typ ty
+        ^ " is not a negative type. Please report."
+
+  let get_output_type = function
+    | Types.TArrow (_, ty2) -> ty2
+    | Types.TForall (_, TArrow (_, ty2)) -> ty2
+    | ty ->
+        failwith @@ "Error retrieving an output type: the type " ^ Types.string_of_typ ty
+        ^ " is not a negative type. Please report."
+
+  module Nf = struct 
+    include Nf
+    module M = M
+    module Nf_gen = Nf.Make (M)
+    let generate_nf_term = Nf_gen.generate_nf_term
+    let abstract_nf_term_m = Nf_gen.abstract_nf_term_m
+  end
+
+  type normal_form_term = (value, eval_context, Name.name, unit) Nf.nf_term
+
+  let refold_nf_term = Syntax.refold_nf_term
+  let get_nf_term = Syntax.get_nf_term
+
+
+  
+(*
+  let generate_nf_skeleton = Nf_gen.generate_nf_skeleton
+  let fill_nf_skeleton = Nf_gen.fill_nf_skeleton*)
+
+  
+
   module AVal :
-    Lang.Abstract_val.AVAL_INOUT
+    Lang.Abstract_val.AVAL
       with type name = Name.name
        and type value = Syntax.value
        and type negative_val = Syntax.negative_val
        and type typ = Types.typ
-       and type typevar = Types.typevar
        and type negative_type = Types.negative_type
        and type label = Syntax.label
        and type store_ctx = Store.store_ctx

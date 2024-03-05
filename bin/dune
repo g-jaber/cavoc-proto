@@ -1,4 +1,4 @@
 (executables
- (names tree compose explore compare)
- (public_names tree compose explore compare)
+ (names tree compose explore explore_cps compare)
+ (public_names tree compose explore explore_cps compare)
  (libraries refml lang lts ogs pogs))

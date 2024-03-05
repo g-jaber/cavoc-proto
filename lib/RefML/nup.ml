@@ -1,10 +1,9 @@
 module Make (M : Util.Monad.BRANCH) :
-  Lang.Abstract_val.AVAL_INOUT
+  Lang.Abstract_val.AVAL
     with type name = Names.name
      and type value = Syntax.value
      and type negative_val = Syntax.negative_val
      and type typ = Types.typ
-     and type typevar = Types.typevar
      and type negative_type = Types.negative_type
      and type label = Syntax.label
      and type store_ctx = Store.store_ctx
@@ -16,7 +15,6 @@ module Make (M : Util.Monad.BRANCH) :
   type negative_val = Syntax.negative_val
   type typ = Types.typ
   type negative_type = Types.negative_type
-  type typevar = Types.typevar
   type store_ctx = Store.store_ctx
   (* *)
 
@@ -186,18 +184,4 @@ module Make (M : Util.Monad.BRANCH) :
     let aux nup (nn, nval) =
       Syntax.subst nup (Name nn) (embed_negative_val nval) in
     Util.Pmap.fold aux nup ienv
-
-  let get_input_type = function
-    | Types.TArrow (ty1, _) -> ([], ty1)
-    | Types.TForall (tvar_l, TArrow (ty1, _)) -> (tvar_l, ty1)
-    | ty ->
-        failwith @@ "Error: the type " ^ Types.string_of_typ ty
-        ^ " is not a negative type. Please report."
-
-  let get_output_type = function
-    | Types.TArrow (_, ty2) -> ty2
-    | Types.TForall (_, TArrow (_, ty2)) -> ty2
-    | ty ->
-        failwith @@ "Error: the type " ^ Types.string_of_typ ty
-        ^ " is not a negative type. Please report."
 end

@@ -1,5 +1,54 @@
-module type BASIC = sig
+module type TYPED = sig
   module Name : Names.CONT_NAMES
+
+  type typ
+
+  val string_of_type : typ -> string
+
+  type negative_type
+
+  val exception_type : typ
+  val get_negative_type : typ -> negative_type option
+  val string_of_negative_type : negative_type -> string
+
+  type name_ctx = (Name.name, negative_type) Util.Pmap.pmap
+
+  val empty_name_ctx : name_ctx
+  val concat_name_ctx : name_ctx -> name_ctx -> name_ctx
+  val string_of_name_ctx : name_ctx -> string
+  val get_names_from_name_ctx : name_ctx -> Name.name list
+end
+
+module type STORE = sig
+  type store
+
+  val string_of_store : store -> string
+  val empty_store : store
+
+  type store_ctx
+
+  val empty_store_ctx : store_ctx
+  val string_of_store_ctx : store_ctx -> string
+  val concat_store_ctx : store_ctx -> store_ctx -> store_ctx
+  val infer_type_store : store -> store_ctx
+
+  (* update_store μ μ' is equal to μ[μ'] *)
+  val update_store : store -> store -> store
+  val restrict : store_ctx -> store -> store
+
+  type label
+
+  val restrict_ctx : store_ctx -> label list -> store_ctx
+
+  module M : Util.Monad.BRANCH
+  (* *)
+
+  val generate_store : store_ctx -> store M.m
+end
+
+module type COMP = sig
+  include TYPED
+  module Store : STORE
 
   type term
 
@@ -19,84 +68,6 @@ module type BASIC = sig
   val empty_ienv : interactive_env
   val concat_ienv : interactive_env -> interactive_env -> interactive_env
   val string_of_interactive_env : interactive_env -> string
-
-  type eval_context
-
-  val string_of_eval_context : eval_context -> string
-  val embed_eval_context : eval_context -> negative_val
-
-  val get_nf_term :
-    term -> (value, eval_context, Name.name, Name.cont_name) Nf.nf_term
-
-  val refold_nf_term :
-    (value, unit, negative_val, negative_val) Nf.nf_term -> term
-end
-
-module type TYPED = sig
-  include BASIC
-
-  (*module Name : Names.NAME*)
-  type typ
-  type typevar
-  type typename
-
-  val string_of_type : typ -> string
-  val string_of_typename : typename -> string
-
-  type negative_type
-
-  val get_negative_type : typ -> negative_type option
-  val string_of_negative_type : negative_type -> string
-
-  type name_ctx = (Name.name, negative_type) Util.Pmap.pmap
-
-  val empty_name_ctx : name_ctx
-
-  val concat_name_ctx :
-    name_ctx -> name_ctx -> name_ctx
-
-  val string_of_name_ctx : name_ctx -> string
-  val get_names_from_name_ctx : name_ctx -> Name.name list
-  val exception_type : typ
-
-  val generate_typename_subst :
-    typevar list -> typename list * (typevar, typ) Util.Pmap.pmap
-
-  val apply_type_subst : typ -> (typevar, typ) Util.Pmap.pmap -> typ
-end
-
-module type STORE = sig
-  type store
-
-  val string_of_store : store -> string
-  val empty_store : store
-
-  type store_ctx
-
-  val empty_store_ctx : store_ctx
-  val string_of_store_ctx : store_ctx -> string
-  val concat_store_ctx : store_ctx -> store_ctx -> store_ctx
-  val infer_type_store : store -> store_ctx
-
-  (* update_store μ μ' is equal to μ[μ'] *)
-  val update_store : store -> store -> store
-
-  val restrict :  store_ctx -> store -> store
-
-  type label
-
-  val restrict_ctx : store_ctx -> label list -> store_ctx
-
-  module M : Util.Monad.BRANCH
-  (* *)
-
-  val generate_store : store_ctx -> store M.m
-end
-
-module type COMP = sig
-  include BASIC
-  include TYPED
-  module Store : STORE
 
   type opconf = term * Store.store
 
@@ -122,8 +93,93 @@ module type COMP = sig
     interactive_env * Store.store * name_ctx * name_ctx
 end
 
-module type WITHAVAL = sig
+module type NF = sig
+  type ('value, 'ectx, 'fname, 'cname) nf_term
+
+  val is_error : ('value, 'ectx, 'fname, 'cname) nf_term -> bool
+
+  val map_cons :
+    f_call:('fname * 'value * 'ectx -> ('fnameb * 'valueb * 'ectxb) * 'a) ->
+    f_ret:('cname * 'value -> ('cnameb * 'valueb) * 'a) ->
+    f_exn:('cname * 'value -> ('cnameb * 'valueb) * 'a) ->
+    f_error:('cname -> 'cnameb * 'a) ->
+    ('value, 'ectx, 'fname, 'cname) nf_term ->
+    ('valueb, 'ectxb, 'fnameb, 'cnameb) nf_term * 'a
+
+  val map :
+    f_cn:('cname -> 'cnameb) ->
+    f_fn:('fname -> 'fnameb) ->
+    f_val:('value -> 'valueb) ->
+    f_ectx:('ectx -> 'ectxb) ->
+    ('value, 'ectx, 'fname, 'cname) nf_term ->
+    ('valueb, 'ectxb, 'fnameb, 'cnameb) nf_term
+
+  val merge_val_ectx :
+    f_val:('value -> 'valueb) ->
+    f_merge:('value * 'ectx -> 'valueb) ->
+    ('value, 'ectx, 'fname, 'cname) nf_term ->
+    ('valueb, unit, 'fname, 'cname) nf_term
+
+  val apply_val :
+    'a -> ('value -> 'a) -> ('value, 'ectx, 'fname, 'cname) nf_term -> 'a
+
+  val apply_cons :
+    f_call:('fname * 'value * 'ectx -> 'a) ->
+    f_ret:('cname * 'value -> 'a) ->
+    f_exn:('cname * 'value -> 'a) ->
+    f_error:('cname -> 'a) ->
+    ('value, 'ectx, 'fname, 'cname) nf_term ->
+    'a
+
+  module M : Util.Monad.BRANCH
+
+  val generate_nf_term :
+    fname_ctx:('fname, 'value * 'ectx) Util.Pmap.pmap ->
+    cname_ctx:('cname, 'value) Util.Pmap.pmap ->
+    exn_ctx:('cname, 'value) Util.Pmap.pmap ->
+    ('value, 'ectx, 'fname, 'cname) nf_term M.m
+
+  val abstract_nf_term_m :
+    f_fn:('fname * 'value * 'ectx -> ('avalue * 'res) M.m) ->
+    f_cn:('cname * 'value -> ('avalue * 'res) M.m) ->
+    ('value, 'ectx, 'fname, 'cname) nf_term ->
+    (('avalue, unit, 'fname, 'cname) nf_term * 'res) M.m
+
+  val equiv_nf_term :
+    ('name Util.Namespan.namespan ->
+    'value ->
+    'value ->
+    'name Util.Namespan.namespan option) ->
+    'name Util.Namespan.namespan ->
+    ('value, 'ectx, 'name, 'name) nf_term ->
+    ('value, 'ectx, 'name, 'name) nf_term ->
+    'name Util.Namespan.namespan option
+end
+
+module type WITHAVAL_INOUT = sig
   include COMP
+  module Nf : NF with module M = Store.M
+
+  type eval_context
+  type typevar
+  type typename
+
+  val string_of_typename : typename -> string
+
+  val generate_typename_subst :
+    typevar list -> typename list * (typevar, typ) Util.Pmap.pmap
+
+  val apply_type_subst : typ -> (typevar, typ) Util.Pmap.pmap -> typ
+  val get_input_type : negative_type -> typevar list * typ
+  val get_output_type : negative_type -> typ
+  val string_of_eval_context : eval_context -> string
+
+  type normal_form_term = (value, eval_context, Name.name, unit) Nf.nf_term
+
+  val get_nf_term : term -> normal_form_term
+
+  val refold_nf_term :
+    (value, unit, negative_val, eval_context) Nf.nf_term -> term
 
   module AVal :
     Abstract_val.AVAL
@@ -132,21 +188,6 @@ module type WITHAVAL = sig
        and type negative_val = negative_val
        and type typ = typ
        and type negative_type = negative_type
-       and type typevar = typevar
-       and module M = Store.M
-end
-
-module type WITHAVAL_INOUT = sig
-  include COMP
-
-  module AVal :
-    Abstract_val.AVAL_INOUT
-      with type name = Name.name
-       and type value = value
-       and type negative_val = negative_val
-       and type typ = typ
-       and type negative_type = negative_type
-       and type typevar = typevar
        and type label = Store.label
        and type store_ctx = Store.store_ctx
        and module M = Store.M
@@ -154,15 +195,24 @@ end
 
 module type WITHAVAL_NEG = sig
   include COMP
+  module Nf : NF with module M = Store.M
+
+  val negating_type : negative_type -> typ
+
+  type normal_form_term = (value, unit, Name.name, Name.name) Nf.nf_term
+
+  val get_nf_term : term -> normal_form_term
+
+  val refold_nf_term :
+    (value, unit, negative_val, negative_val) Nf.nf_term -> term
 
   module AVal :
-    Abstract_val.AVAL_NEG
+    Abstract_val.AVAL
       with type name = Name.name
        and type value = value
        and type negative_val = negative_val
        and type typ = typ
        and type negative_type = negative_type
-       and type typevar = typevar
        and type label = Store.label
        and type store_ctx = Store.store_ctx
        and module M = Store.M

@@ -1,5 +1,5 @@
 (* To be tested with
-   ./_build/default/bin/explore.exe test/wbsc.ml test/wbsc.mli 
+   ./_build/default/bin/explore_cps.exe test/wbsc.ml test/wbsc.mli 
    
 in order to study non well-bracketed interaction. *)
 

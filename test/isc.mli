@@ -1,1 +1,1 @@
-val g : (unit -> 'a) -> unit
+val g : (unit -> unit) -> unit

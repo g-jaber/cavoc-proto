@@ -318,7 +318,6 @@ and string_of_handler (Handler (pat, expr)) =
   string_of_pattern pat ^ " => " ^ string_of_term expr
 
 let string_of_value = string_of_term
-let string_of_negative_val = string_of_value
 
 (* Auxiliary functions *)
 
@@ -435,26 +434,17 @@ and extract_ctx_un cons_op expr =
 let fill_hole ctx expr = subst ctx Hole expr
 let string_of_eval_context ctx = string_of_term ctx
 
-type negative_val = IVal of value | ICtx of eval_context
+type negative_val = value
+
+let string_of_negative_val = string_of_value
 
 let filter_negative_val = function
-  | (Fix _ | Fun _ | Name _) as value -> Some (IVal value)
+  | (Fix _ | Fun _ | Name _) as value -> Some value
   | _ -> None
 
-let string_of_negative_val = function
-  | IVal value -> string_of_negative_val value
-  | ICtx ectx -> string_of_eval_context ectx
+let force_negative_val value = value
 
-let force_negative_val value = IVal value
-
-let embed_negative_val = function
-  | IVal value -> value
-  | ICtx _ as nval ->
-      failwith @@ "The negative value "
-      ^ string_of_negative_val nval
-      ^ " is not a value. Please report."
-
-let embed_eval_context ectx = ICtx ectx
+let embed_negative_val value = value
 
 type interactive_env = (Names.name, negative_val) Util.Pmap.pmap
 
@@ -464,23 +454,23 @@ let concat_ienv = Util.Pmap.concat
 let string_of_interactive_env =
   Util.Pmap.string_of_pmap "ε" "↪" Names.string_of_name string_of_negative_val
 
-open Lang.Nf
+open Nf
 
 let get_nf_term term =
   match get_value term with
-  | Some value -> NFValue (Names.dummy_cn, value)
+  | Some value -> NFValue ((), value)
   | None ->
       let (term', ectx) = extract_ctx term in
       begin
         match term' with
         | Raise v -> begin
             match get_value v with
-            | Some value -> NFRaise (Names.dummy_cn, value)
+            | Some value -> NFRaise ((), value)
             | None ->
                 failwith @@ "The term " ^ string_of_term term'
                 ^ " is not a value. Please report."
           end
-        | Error -> NFError Names.dummy_cn
+        | Error -> NFError ()
         | App (Name fn, v) -> begin
             match get_value v with
             | Some value -> NFCallback (fn, value, ectx)
@@ -497,11 +487,10 @@ let get_nf_term term =
       end
 
 let refold_nf_term = function
-  | NFCallback (IVal nval, value, ()) -> App (nval, value)
-  | NFValue (ICtx ectx, value) -> fill_hole ectx value
-  | NFError (ICtx ectx) -> fill_hole ectx Error
-  | NFRaise (ICtx ectx, value) -> fill_hole ectx (Raise value)
-  | _ -> failwith "Impossible to refold this normal form. Please report."
+  | NFCallback (nval, value, ()) -> App (nval, value)
+  | NFValue (ectx, value) -> fill_hole ectx value
+  | NFError (ectx) -> fill_hole ectx Error
+  | NFRaise (ectx, value) -> fill_hole ectx (Raise value)
 
 let max_int = 1
 

@@ -47,8 +47,6 @@ let string_of_cont_name cn = cn
 let get_cont_name = cname_to_id
 let inj_cont_name = cname_of_id
 
-let dummy_cn = fresh_cname ()
-
 let is_callable = function
   | FName _ -> true
   | CName _ -> true

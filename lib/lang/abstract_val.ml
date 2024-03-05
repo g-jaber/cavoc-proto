@@ -10,7 +10,6 @@ module type AVAL = sig
   type typ
     (* The names appearing in abstracted values are types by negative types *)
   type negative_type
-  type typevar
   type name_ctx = (name, negative_type) Util.Pmap.pmap
   type store_ctx
     (* Interactive environments γ are partial maps from names to interactive values*)
@@ -57,17 +56,4 @@ module type AVAL = sig
     abstract_val ->
     abstract_val ->
     name Util.Namespan.namespan option
-end
-
-module type AVAL_INOUT = sig
-  include AVAL
-
-  val get_input_type : negative_type -> typevar list * typ
-  val get_output_type : negative_type -> typ
-end
-
-module type AVAL_NEG = sig
-  include AVAL
-
-  val negating_type : negative_type -> typ
 end

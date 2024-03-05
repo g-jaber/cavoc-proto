@@ -5,7 +5,8 @@ module Make (IntLTS : Bipartite.INT_LTS) = struct
     let show = IntLTS.Int.Actions.Moves.string_of_move
   end)
 
-  let ask_print_conf pas_conf =
+  let ask_print_conf (*_ = ()*)
+  pas_conf = 
     print_endline "Do you want to print the Proponent configuration? (1/0)";
     let i = read_int () in
     match i with
