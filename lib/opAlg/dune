@@ -1,0 +1,9 @@
+(ocamllex lexer)
+
+(menhir
+ (modules parser))
+
+(library
+ (name opalg)
+ (libraries langop util))
+

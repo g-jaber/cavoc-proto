@@ -15,9 +15,10 @@ let digit = ['0'-'9']
 let alpha = ['a'-'z' 'A'-'Z']
 let ident = ['a'-'z'] (alpha | '_' | '\'' | digit)*
 let name = '_' (alpha | '_' | '\'' | digit)*
-let tvar = '\'' (alpha | '_' | digit)*
+let rvar = '\'' (alpha | '_' | digit)*
 let integer = digit+
-let constructor = ['A'-'Z'] (alpha | '_' | '\'' | digit)*
+let upper = ['A'-'Z'] (alpha | '_' | '\'' | digit)*
+let lower = ['a'-'z'] (alpha | '_' | '\'' | digit)*
 
 rule token = parse
   | '\n'  { newline lexbuf; token lexbuf }
@@ -44,54 +45,45 @@ rule token = parse
   | "!=" { NEQ }
 
   | "let"  { LET }
-  | "rec" { REC }
   | "in"  { IN }
   | "fun"  { FUN }
-  | "fix"  { FIX }
+  | "match" { MATCH }
   | "with"  { WITH }
-  | "assert" { ASSERT }
-  | "while" { WHILE }
-  | "do" { DO }
+  | "handle" { HANDLE }
+  | "|" { PIPE }
+  | "return" { RETURN }
+  | "perform" { PERFORM }
 
   | "()" { UNIT }
-  | "ref" { REF }
-  | ":=" { ASSIGN }
-  | "!" { DEREF }
 
-  | "if" { IF }
-  | "then" { THEN }
-  | "else" { ELSE }
-
-  | "raise" { RAISE }
-  | "try" { TRY }
-  | "|" { PIPE }
 
   | "unit" { TUNIT }
   | "int" { TINT }
   | "bool" { TBOOL }
-  | "exn" { TEXN }
 
   | "->"  { ARROW }
+  | "~>"  { SARROW }
 
   | '('  { LPAR }
   | ')'  { RPAR }
+  | '{'  { LBRACE }
+  | '}'  { RBRACE }
   | ','  { COMMA }
   | ':'  { COLON }
   | ';'  { SEMICOLON }
   
   | "type" { TYPE }  
-  | "val" { VAL } 
-  | "exception" { EXCEPTION }
+  | "operation" { OPERATION }
   | "of" { OF }
 
   | eof  { EOF }
 
 
   | integer as n  { INT (int_of_string n) }
-  | ident as id  { VAR id }
-  | tvar as t  { TVAR t }
-  | name as nn { NAME nn }
-  | constructor as c { CONSTRUCTOR c }
+  | rvar as t  { RVAR t }
+  | upper as un { UNAME un }
+  | lower as ln { LNAME ln }
+
 
   | _  { raise Error }
 

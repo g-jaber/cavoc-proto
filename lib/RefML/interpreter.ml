@@ -33,6 +33,9 @@ let interpreter interpreter (expr, store) =
       | None -> return (expr, store)
       | Some value -> return (value, store)
     end
+  | Constructor (cons, expr') -> 
+    let* (expr'', store') = interpreter (expr', store) in 
+    return (Constructor (cons, expr''), store')
   | App (expr1, expr2) ->
       let* (expr1', store') = interpreter (expr1, store) in
       begin
@@ -221,11 +224,13 @@ let interpreter interpreter (expr, store) =
       if isval nf then return (nf, store')
       else begin
         match nf with
-        | Raise (Constructor c as cons) ->
+        | Raise (Constructor (c, nf') as cons) ->
             let rec aux = function
               | Handler (pat, expr_pat) :: handler_l' -> begin
                   match pat with
-                  | PatCons c' when c = c' -> interpreter (expr_pat, store')
+                  | PatCons (c', id) when c = c' -> 
+                      let expr' = subst_var expr_pat id nf' in
+                      interpreter (expr', store')
                   | PatCons _ -> aux handler_l'
                   | PatVar id ->
                       let expr' = subst_var expr_pat id cons in

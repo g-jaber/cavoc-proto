@@ -4,7 +4,7 @@ type signature_decl =
   | PrivateTypeDecl of Types.id
   | PublicTypeDecl of (Types.id * Types.typ)
   | PublicValDecl of (Syntax.id * Types.typ)
-  | PublicExnDecl of Syntax.constructor
+  | PublicExnDecl of (Syntax.constructor * Types.typ)
 
 val string_of_signature_decl : signature_decl -> string
 val string_of_signature : signature_decl list -> string
@@ -12,7 +12,7 @@ val string_of_signature : signature_decl list -> string
 type implem_decl =
   | TypeDecl of (Types.id * Types.typ)
   | ValDecl of (Syntax.id * Syntax.term)
-  | ExnDecl of Syntax.constructor
+  | ExnDecl of (Syntax.constructor * Types.typ)
 
 val string_of_implem_decl : implem_decl -> string
 val string_of_prog : implem_decl list -> string
