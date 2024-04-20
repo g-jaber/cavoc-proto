@@ -1,24 +1,21 @@
 module Make (M : Util.Monad.BRANCH) :
-  Langop.Abstract_val.AVAL_INOUT
+  Lang.Abstract_val.AVAL
     with type name = Names.name
      and type value = Syntax.value
      and type negative_val = Syntax.negative_val
-     and type vtyp = Types.vtyp
-     and type ctyp = Types.ctyp
+     and type typ = Types.vtyp
      and type negative_type = Types.negative_type
-     and type typevar = Types.typevar
-     and type interactive_env = Syntax.interactive_env
-     and type name_ctx = Types.name_ctx
+     and type label = Syntax.label
+     and type store_ctx = unit
      and module M = M = struct
   (* Instantiation *)
   type name = Names.name
   type label = Syntax.label
   type value = Syntax.value
   type negative_val = Syntax.negative_val
-  type vtyp = Types.vtyp
-  type ctyp = Types.ctyp
+  type typ = Types.vtyp
   type negative_type = Types.negative_type
-  type typevar = Types.typevar
+  type store_ctx = unit
   (* *)
 
   open Syntax
@@ -30,30 +27,31 @@ module Make (M : Util.Monad.BRANCH) :
 
   let string_of_abstract_val = Syntax.string_of_value
   let names_of_abstract_val = Syntax.get_names
-  (*let labels_of_abstract_val = Syntax.get_labels *)
+  let labels_of_abstract_val = failwith "Undefined"
 
   let rec unify_abstract_val nspan nup1 nup2 =
     match (nup1, nup2) with
     | (Name n1, Name n2) -> Util.Namespan.add_nspan (n1, n2) nspan
     | (Unit, Unit) -> Some nspan
     | (Bool b1, Bool b2) -> if b1 = b2 then Some nspan else None
-    | (Constructor (cons, lnup1), Constructor (cons', lnup2)) when cons=cons' -> 
-        List.fold_left2 
-         (fun acc nup1 nup2 -> 
-          match acc with 
-           | Some nspan' -> unify_abstract_val nspan' nup1 nup2
-           | None -> None)  
-        (Some nspan) lnup1 lnup2
-     | (Record lab_nups, Record lab_nups') -> 
-         List.fold_left2
-         (fun acc (lab, nup) (lab', nup') -> 
-          match acc with 
-           | Some nspan' -> 
-              if lab=lab' then unify_abstract_val nspan' nup nup' 
-              else None
-           | None -> None) (Some nspan) lab_nups lab_nups'   
-     | (Variant (lab, nup), Variant (lab', nup')) when lab=lab' -> 
-      unify_abstract_val nspan nup nup'
+    | (Constructor (cons, lnup1), Constructor (cons', lnup2)) when cons = cons'
+      ->
+        List.fold_left2
+          (fun acc nup1 nup2 ->
+            match acc with
+            | Some nspan' -> unify_abstract_val nspan' nup1 nup2
+            | None -> None)
+          (Some nspan) lnup1 lnup2
+    | (Record lab_nups, Record lab_nups') ->
+        List.fold_left2
+          (fun acc (lab, nup) (lab', nup') ->
+            match acc with
+            | Some nspan' ->
+                if lab = lab' then unify_abstract_val nspan' nup nup' else None
+            | None -> None)
+          (Some nspan) lab_nups lab_nups'
+    | (Variant (lab, nup), Variant (lab', nup')) when lab = lab' ->
+        unify_abstract_val nspan nup nup'
     | _ ->
         failwith
           ("Error: one of the terms "
@@ -69,7 +67,7 @@ module Make (M : Util.Monad.BRANCH) :
   module M = M
   open M
 
-  let rec generate_abstract_val namectxP = function
+  let rec generate_abstract_val () namectxP = function
     | TUnit -> return (Unit, Util.Pmap.empty)
     | TBool ->
         let* b = para_list @@ [ true; false ] in
@@ -85,22 +83,20 @@ module Make (M : Util.Monad.BRANCH) :
         let fn = Names.fresh_fname () in
         let nty = Types.force_negative_type ty in
         return (Name fn, Util.Pmap.add (fn, nty) Util.Pmap.empty)
-    | TRecord labelled_typs -> 
-        let* (labelled_nups, gamma) = 
-        List.fold_left 
-          (fun acc (lab, ty) -> 
-            let* (lab_nups, g) = acc in
-            let* (nup, g') = 
-             generate_abstract_val namectxP ty in 
-             return (lab_nups @ [(lab, nup)],
-             Util.Pmap.concat g g')) 
-           (return ([], Util.Pmap.empty)) labelled_typs in 
-          return (Record labelled_nups, gamma)
-    | TVariant labelled_typs -> 
-        let* (lab, ty) = para_list labelled_typs in 
-        let* (nup, gamma) = 
-         generate_abstract_val namectxP ty in 
-         return (Variant (lab, nup), gamma)
+    | TRecord labelled_typs ->
+        let* (labelled_nups, gamma) =
+          List.fold_left
+            (fun acc (lab, ty) ->
+              let* (lab_nups, g) = acc in
+              let* (nup, g') = generate_abstract_val () namectxP ty in
+              return (lab_nups @ [ (lab, nup) ], Util.Pmap.concat g g'))
+            (return ([], Util.Pmap.empty))
+            labelled_typs in
+        return (Record labelled_nups, gamma)
+    | TVariant labelled_typs ->
+        let* (lab, ty) = para_list labelled_typs in
+        let* (nup, gamma) = generate_abstract_val () namectxP ty in
+        return (Variant (lab, nup), gamma)
     | TId _ as ty ->
         let pn_list = Util.Pmap.select_im ty namectxP in
         let* pn = para_list @@ pn_list in
@@ -141,20 +137,20 @@ module Make (M : Util.Monad.BRANCH) :
           let nty = Types.force_negative_type ty in
           Some (Util.Pmap.add (nn, nty) Util.Pmap.empty)
     | (TArrow _, _) | (TForall _, _) -> None
-    | (TVariant lab_vtyp_l, Variant (lab, nup')) -> 
-        let (_, vty) = List.find (fun x -> fst x = lab) lab_vtyp_l in 
+    | (TVariant lab_vtyp_l, Variant (lab, nup')) ->
+        let (_, vty) = List.find (fun x -> fst x = lab) lab_vtyp_l in
         type_check_abstract_val namectxP namectxO vty nup'
     | (TRecord lab_vtyp_l, Record lab_nup_l) ->
-       List.fold_left2
-        (fun acc_namectx (_,vty) (_,nup') -> 
-          match type_check_abstract_val namectxP namectxO vty nup' with 
-          | None -> acc_namectx
-          | Some nctx -> begin 
-            match acc_namectx with 
-             | None -> None 
-             | Some acc -> Some (Util.Pmap.concat nctx acc)
-          end)
-         None lab_vtyp_l lab_nup_l
+        List.fold_left2
+          (fun acc_namectx (_, vty) (_, nup') ->
+            match type_check_abstract_val namectxP namectxO vty nup' with
+            | None -> acc_namectx
+            | Some nctx -> begin
+                match acc_namectx with
+                | None -> None
+                | Some acc -> Some (Util.Pmap.concat nctx acc)
+              end)
+          None lab_vtyp_l lab_nup_l
     | (TRecord _, _) | (TVariant _, _) -> None
     | (TId id, Name nn) -> begin
         match Util.Pmap.lookup nn namectxP with
@@ -169,14 +165,14 @@ module Make (M : Util.Monad.BRANCH) :
         else
           let nty = Types.force_negative_type ty in
           Some (Util.Pmap.add (nn, nty) Util.Pmap.empty)
-    (* | (TExn, Constructor (c, nup')) ->  
-        let (TArrow (param_ty, _)) = Util.Pmap.lookup_exn c (Util.Pmap.concat namectxP namectxO) in 
+    (* | (TExn, Constructor (c, nup')) ->
+        let (TArrow (param_ty, _)) = Util.Pmap.lookup_exn c (Util.Pmap.concat namectxP namectxO) in
         type_check_abstract_val namectxP namectxO param_ty nup' *)
     | (TName _, _) -> None
     | (TVar _, _) ->
         failwith @@ "Error: trying to type-check a nup of type "
         ^ Types.string_of_vtyp ty ^ ". Please report."
-    | (TUndef, _)  ->
+    | (TUndef, _) ->
         failwith @@ "Error: type-checking a nup of type "
         ^ Types.string_of_vtyp ty ^ " is not yet supported."
 
@@ -197,22 +193,22 @@ module Make (M : Util.Monad.BRANCH) :
         ( Pair (nup1, nup2),
           Util.Pmap.concat ienv1 ienv2,
           Util.Pmap.concat lnamectx1 lnamectx2 ) *)
-    | (Variant (lab, value'), TVariant lab_vtyp_l) -> 
-        let (_, vty) = List.find (fun x -> fst x = lab) lab_vtyp_l in 
+    | (Variant (lab, value'), TVariant lab_vtyp_l) ->
+        let (_, vty) = List.find (fun x -> fst x = lab) lab_vtyp_l in
         let (aval, ienv, lnamectx) = abstracting_value value' vty in
-        (Variant (lab, aval), ienv, lnamectx) 
+        (Variant (lab, aval), ienv, lnamectx)
     | (Record lab_val_l, TRecord lab_vtyp_l) ->
-      let (lab_aval_l, ienv', lnamectx') = 
-       List.fold_left2
-        (fun acc_ctx (lab, vty) (_,value') -> 
-          let (lab_aval_l, ienv'', lnamectx'') = acc_ctx in
-          let (aval, ienv, lnamectx) = abstracting_value value' vty in
-          (lab_aval_l @[(lab, aval)],
-           Util.Pmap.concat ienv ienv'',
-           Util.Pmap.concat lnamectx lnamectx''))
-          ([], Util.Pmap.empty, Util.Pmap.empty) 
-          lab_vtyp_l lab_val_l in 
-         (Record lab_aval_l, ienv', lnamectx')
+        let (lab_aval_l, ienv', lnamectx') =
+          List.fold_left2
+            (fun acc_ctx (lab, vty) (_, value') ->
+              let (lab_aval_l, ienv'', lnamectx'') = acc_ctx in
+              let (aval, ienv, lnamectx) = abstracting_value value' vty in
+              ( lab_aval_l @ [ (lab, aval) ],
+                Util.Pmap.concat ienv ienv'',
+                Util.Pmap.concat lnamectx lnamectx'' ))
+            ([], Util.Pmap.empty, Util.Pmap.empty)
+            lab_vtyp_l lab_val_l in
+        (Record lab_aval_l, ienv', lnamectx')
     | (_, TId _) ->
         let pn = Names.fresh_pname () in
         let nval = Syntax.force_negative_val value in
@@ -226,13 +222,15 @@ module Make (M : Util.Monad.BRANCH) :
         failwith
           ("Error: " ^ string_of_value value ^ " of type " ^ string_of_vtyp ty
          ^ " cannot be abstracted because it is not a value.")
-     (* TODO: add cons_ctx as param and implement case (Constructor _, ty )*)
+  (* TODO: add cons_ctx as param and implement case (Constructor _, ty )*)
 
   let subst_names ienv nup =
     let aux nup (nn, nval) =
-      Syntax.subst_val_in_val nup (Name nn) (Syntax.embed_negative_val nval) in
+      Syntax.subst_val_in_val nup (Name nn) (Syntax.embed_negative_val nval)
+    in
     Util.Pmap.fold aux nup ienv
 
+(*
   let get_input_type = function
     | Types.TArrow (ty1, _) -> ([], ty1)
     | Types.TForall (tvar_l, TArrow (ty1, _)) -> (tvar_l, ty1)
@@ -241,10 +239,10 @@ module Make (M : Util.Monad.BRANCH) :
         ^ " is not a negative type. Please report."
 
   let get_output_type = function
-    | Types.TArrow (_, TComp(ty2,_)) -> ty2
-    | Types.TForall (_, TArrow (_, TComp(ty2, _))) -> ty2
+    | Types.TArrow (_, TComp (ty2, _)) -> ty2
+    | Types.TForall (_, TArrow (_, TComp (ty2, _))) -> ty2
     | ty ->
         failwith @@ "Error: the type " ^ Types.string_of_vtyp ty
         ^ " is not a negative type. Please report."
-  
+*)
 end

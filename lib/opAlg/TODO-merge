@@ -1,0 +1,10 @@
+opconf est différent de term*store
+term versus configuration
+pas de distinction entre vtyp et ctyp dans la définition de language
+store pour stocker les labels ?
+Understand if we could remove exception_type from OpLang.TYPED 
+Extract interactive.ml from Lang/ directory
+Give a more detailled explanation of:
+- Interactive.Make,which takes an OpLang : Language.WITHAVAL_NEG and return an Interactive.LANG
+- Direct.Make which take an OpLang : Language.WITHAVAL_INOUT  and return an Interactive.LANG
+- Cps.MakeComp, which takes an OpLang:Language.WITHAVAL_INOUT and return an Language.WITHAVAL_NEG

@@ -331,7 +331,7 @@ let concat_ienv = Util.Pmap.concat
 let string_of_interactive_env =
   Util.Pmap.string_of_pmap "ε" "↪" Names.string_of_name string_of_negative_val
 
-open Langop.Nf
+open Nf
 
 let rec decompose_comp = function
   | Let (id, comp1, comp2) -> 

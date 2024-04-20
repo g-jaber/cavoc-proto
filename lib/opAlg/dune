@@ -1,9 +1,8 @@
-(ocamllex lexer)
+;;(ocamllex lexer)
 
-(menhir
- (modules parser))
+;;(menhir
+;; (modules parser))
 
-(library
- (name opalg)
- (libraries langop util))
-
+;;(library
+;; (name opalg)
+;; (libraries lang util))
