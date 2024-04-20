@@ -78,8 +78,8 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
             stackctx in
         String.concat "::" string_l
 
-  let string_of_interactive_env (namectx, stackctx) =
-    string_of_stack stackctx ^ " | "  ^OpLang.string_of_interactive_env namectx
+  let string_of_ienv (namectx, stackctx) =
+    string_of_stack stackctx ^ " | "  ^OpLang.string_of_ienv namectx
 
   type normal_form =
     (value, eval_context, Name.name, unit) OpLang.Nf.nf_term * Store.store
@@ -155,7 +155,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     let f_error () = ((), (empty_ienv, empty_name_ctx)) in
     OpLang.Nf.map_cons ~f_call ~f_ret ~f_exn ~f_error nf_term
 
-  let abstracting_normal_form (nf_term, store) namectxO storectx_discl =
+  let abstracting_nf (nf_term, store) namectxO storectx_discl =
     let (a_nf_term, (ienv, lnamectx)) = abstracting_nf_term nf_term namectxO in
     if OpLang.Nf.is_error a_nf_term then None
     else
@@ -277,9 +277,9 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
      This is needed for the POGS equivalence. *)
   let is_equiv_a_nf _ (_, _) (_, _) = failwith "Not yet implemented"
 
-  let get_typed_interactive_env inBuffer_implem inBuffer_signature =
+  let get_typed_ienv inBuffer_implem inBuffer_signature =
     let (ienv, store, namectxP, namectxO) =
-      OpLang.get_typed_interactive_env inBuffer_implem inBuffer_signature in
+      OpLang.get_typed_ienv inBuffer_implem inBuffer_signature in
     ((ienv, []), store, PropCtx (namectxP, []), OpCtx (None, namectxO))
 
   let get_typed_term nbprog inBuffer =

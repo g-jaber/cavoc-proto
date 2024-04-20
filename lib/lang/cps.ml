@@ -1,3 +1,7 @@
+(* This functor transform a module OpLang of signature Language.WITHAVAL_INOUT
+   into a module of signature Language.WITHAVAL_NEG.
+   This is done by introducing named terms, and by
+   embedding evaluation contexts in values. *)
 module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   Language.WITHAVAL_NEG with module Name = OpLang.Name = struct
   module Name = OpLang.Name
@@ -57,7 +61,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   type interactive_env = (OpLang.Name.name, negative_val) Util.Pmap.pmap
 
-  let string_of_interactive_env =
+  let string_of_ienv =
     Util.Pmap.string_of_pmap "ε" "↪" OpLang.Name.string_of_name
       string_of_negative_val
 
@@ -133,9 +137,9 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     in
     (nterm, GEmpty, namectxO')
 
-  let get_typed_interactive_env inBuffer_implem inBuffer_signature =
+  let get_typed_ienv inBuffer_implem inBuffer_signature =
     let (int_env, store, namectxP, namectxO) =
-      OpLang.get_typed_interactive_env inBuffer_implem inBuffer_signature in
+      OpLang.get_typed_ienv inBuffer_implem inBuffer_signature in
     ( embed_value_env int_env,
       store,
       embed_name_ctx @@ namectxP,

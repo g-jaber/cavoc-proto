@@ -328,7 +328,7 @@ let embed_negative_val = function
 type interactive_env = (Names.name, negative_val) Util.Pmap.pmap
 let empty_ienv = Util.Pmap.empty
 let concat_ienv = Util.Pmap.concat
-let string_of_interactive_env =
+let string_of_ienv =
   Util.Pmap.string_of_pmap "ε" "↪" Names.string_of_name string_of_negative_val
 
 open Nf

@@ -25,7 +25,7 @@ module Make (Int : Lts.Interactive.INT) = struct
     ^ " | "
     ^ Int.IntLang.Store.string_of_store act_conf.store
     ^ " | "
-    ^ Int.IntLang.string_of_interactive_env act_conf.ienv
+    ^ Int.IntLang.string_of_ienv act_conf.ienv
     ^ " > | "
     ^ Int.string_of_interactive_ctx act_conf.ictx
 
@@ -33,7 +33,7 @@ module Make (Int : Lts.Interactive.INT) = struct
     "<"
     ^ Int.IntLang.Store.string_of_store pas_conf.store
     ^ " | "
-    ^ Int.IntLang.string_of_interactive_env pas_conf.ienv
+    ^ Int.IntLang.string_of_ienv pas_conf.ienv
     ^ " > | "
     ^ Int.string_of_interactive_ctx pas_conf.ictx
 

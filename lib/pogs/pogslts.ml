@@ -28,7 +28,7 @@ module Make (Int : Lts.Interactive.INT) = struct
 
   let string_of_passive_conf pas_conf =
     "<"
-    ^ Int.IntLang.string_of_interactive_env pas_conf.ienv
+    ^ Int.IntLang.string_of_ienv pas_conf.ienv
     ^ " | "
     ^ Int.IntLang.Store.string_of_store pas_conf.store
     ^ " > | "

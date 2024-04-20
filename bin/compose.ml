@@ -42,7 +42,7 @@ let () =
   let inBuffer2 = open_in !filename2 in
   let inBuffer3 = open_in !filename3 in
   let (ienv, store, namectxO', _) =
-    Int.IntLang.get_typed_interactive_env inBuffer2 inBuffer3 in
+    Int.IntLang.get_typed_ienv inBuffer2 inBuffer3 in
   Util.Debug.print_debug
     ("Name contexts for Opponent: "
     ^ Int.IntLang.string_of_name_ctx namectxO

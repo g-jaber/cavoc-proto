@@ -62,7 +62,7 @@ let () =
     let decl_buffer = open_in !filename1 in
     let signature_buffer = open_in !filename2 in
     let (interactive_env, store, name_ctxP, name_ctxO) =
-      Int.IntLang.get_typed_interactive_env decl_buffer signature_buffer in
+      Int.IntLang.get_typed_ienv decl_buffer signature_buffer in
     if !enable_wb then
       let init_pas_conf =
         ProdLTS.init_pconf store interactive_env name_ctxP name_ctxO in

@@ -96,7 +96,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
     { storectx; namectxP; namectxO }
 
   let generate_output_move ictx nf =
-    match IntLang.abstracting_normal_form nf ictx.namectxO ictx.storectx with
+    match IntLang.abstracting_nf nf ictx.namectxO ictx.storectx with
     | Some (a_nf, ienv, lnamectx, storectx) ->
         let namectxP = IntLang.concat_name_ctx lnamectx ictx.namectxP in
         ( Moves.build (Moves.Output, a_nf),

@@ -102,7 +102,7 @@ module MakeComp (M : Util.Monad.BRANCH) :
     | Type_checker.TypingError msg ->
         failwith ("Typing Error in the " ^ nbprog ^ " program:" ^ msg)
 
-  let get_typed_interactive_env inBuffer_implem inBuffer_signature =
+  let get_typed_ienv inBuffer_implem inBuffer_signature =
     let lexer_implem = Lexing.from_channel inBuffer_implem in
     let lexer_signature = Lexing.from_channel inBuffer_signature in
     try

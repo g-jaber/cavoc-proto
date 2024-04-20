@@ -114,7 +114,7 @@ type interactive_env = (Names.name, negative_val) Util.Pmap.pmap
 
 val empty_ienv : interactive_env
 val concat_ienv : interactive_env -> interactive_env -> interactive_env
-val string_of_interactive_env : interactive_env -> string
+val string_of_ienv : interactive_env -> string
 
 (* The following function should be replaced by generate_nup *)
 val generate_ground_value : Types.typ -> value list
