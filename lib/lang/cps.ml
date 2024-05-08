@@ -1,7 +1,7 @@
 (* This functor transform a module OpLang of signature Language.WITHAVAL_INOUT
    into a module of signature Language.WITHAVAL_NEG.
-   This is done by introducing named terms, and by
-   embedding evaluation contexts in values. *)
+   This is done by introducing named terms and named evaluation contexts,
+   and by embedding named evaluation contexts in values. *)
 module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   Language.WITHAVAL_NEG with module Name = OpLang.Name = struct
   module Name = OpLang.Name
@@ -123,7 +123,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   let embed_value_env = Util.Pmap.map_im (fun v -> IVal v)
 
-  let extract_int_env =
+  let extract_ienv =
     Util.Pmap.filter_map (function
       | (n, IVal value) -> Some (n, value)
       | (_, ICtx _) -> None)
@@ -191,7 +191,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     let f_call (nval, gval, ()) =
       match (nval, gval) with
       | (IVal nval, GPairOut (value, cn)) | (IVal nval, GPackOut (_, value, cn))
-        ->
+        -> 
           ((nval, value, cn), ())
       | (_, gval) ->
           failwith @@ "Error: trying to apply a value " ^ string_of_value gval
@@ -370,7 +370,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
       | _ -> None
 
     let subst_names ienv aval =
-      let ienv' = extract_int_env ienv in
+      let ienv' = extract_ienv ienv in
       match aval with
       | AVal aval -> GVal (OpLang.AVal.subst_names ienv' aval)
       | APair (aval, cn) ->

@@ -106,14 +106,14 @@ end
 (* The following functor create a module of type Interactive.LANG
    from a module OpLang of type Language.WITHAVAL_NEG *)
 module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
-  open OpLang
+  (*open OpLang*)
   module Name = OpLang.Name
-  module M = AVal.M
+  module M = OpLang.AVal.M
   module Store = OpLang.Store
 
-  type computation = term
+  type computation = OpLang.term
 
-  let string_of_computation = string_of_term
+  let string_of_computation = OpLang.string_of_term
 
   type name_ctx = OpLang.name_ctx
 
@@ -135,7 +135,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let get_store (_, store) = store
 
   let compute_nf (term, store) =
-    match normalize_opconf (term, store) with
+    match OpLang.normalize_opconf (term, store) with
     | None -> None
     | Some (nf_term, store') -> Some (OpLang.get_nf_term nf_term, store')
 
@@ -148,21 +148,21 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
     let f_error cn = Name.string_of_name cn ^ dir ^ "error" in
     OpLang.Nf.apply_cons ~f_call ~f_ret ~f_exn ~f_error nf_term
 
-  let string_of_nf (nf_term, _) = string_of_nf_term "" string_of_value nf_term
+  let string_of_nf (nf_term, _) = string_of_nf_term "" OpLang.string_of_value nf_term
 
   let concretize_a_nf ienv (a_nf_term, store) =
-    let f_val = AVal.subst_names ienv in
+    let f_val = OpLang.AVal.subst_names ienv in
     let f_fn nn = Util.Pmap.lookup_exn nn ienv in
     let f_cn = f_fn in
     let f_ectx () = () in
     let nf_term' = OpLang.Nf.map ~f_val ~f_fn ~f_cn ~f_ectx a_nf_term in
-    (refold_nf_term nf_term', store, ienv)
+    (OpLang.refold_nf_term nf_term', store, ienv)
 
   type abstract_normal_form =
-    (AVal.abstract_val, unit, Name.name, Name.name) OpLang.Nf.nf_term
+    (OpLang.AVal.abstract_val, unit, Name.name, Name.name) OpLang.Nf.nf_term
     * Store.store
 
-  let labels_of_a_nf_term = OpLang.Nf.apply_val [] AVal.labels_of_abstract_val
+  let labels_of_a_nf_term = OpLang.Nf.apply_val [] OpLang.AVal.labels_of_abstract_val
   let get_store_of_a_nf (_, store) = store
   let abstracting_store = OpLang.Store.restrict
   (* TODO Deal with the abstraction process of the heap properly *)
@@ -170,17 +170,17 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let abstracting_nf_term nf_term namectxO =
     let f_call (nn, value, ()) =
       let ty = Util.Pmap.lookup_exn nn namectxO in
-      let nty = negating_type ty in
-      let (aval, ienv, lnamectx) = AVal.abstracting_value value nty in
+      let nty = OpLang.negating_type ty in
+      let (aval, ienv, lnamectx) = OpLang.AVal.abstracting_value value nty in
       ((nn, aval, ()), (ienv, lnamectx)) in
     let f_ret (nn, value) =
       let ty = Util.Pmap.lookup_exn nn namectxO in
-      let nty = negating_type ty in
-      let (aval, ienv, lnamectx) = AVal.abstracting_value value nty in
+      let nty = OpLang.negating_type ty in
+      let (aval, ienv, lnamectx) = OpLang.AVal.abstracting_value value nty in
       ((nn, aval), (ienv, lnamectx)) in
     let f_exn (nn, value) =
       let (aval, ienv, lnamectx) =
-        AVal.abstracting_value value OpLang.exception_type in
+        OpLang.AVal.abstracting_value value OpLang.exception_type in
       ((nn, aval), (ienv, lnamectx)) in
     let f_error nn = (nn, (empty_ienv, empty_name_ctx)) in
     OpLang.Nf.map_cons ~f_call ~f_ret ~f_exn ~f_error nf_term
@@ -214,18 +214,18 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
     Some (OpLang.Nf.apply_cons ~f_call ~f_ret ~f_exn ~f_error a_nf_term)
 
   let get_support (a_nf_term, _) =
-    OpLang.Nf.apply_val [] AVal.names_of_abstract_val a_nf_term
+    OpLang.Nf.apply_val [] OpLang.AVal.names_of_abstract_val a_nf_term
   (*TODO: take into account the store part*)
 
   let string_of_a_nf dir (a_nf_term, store) =
     let string_nf_term =
-      string_of_nf_term dir AVal.string_of_abstract_val a_nf_term in
+      string_of_nf_term dir OpLang.AVal.string_of_abstract_val a_nf_term in
     if store = Store.empty_store then string_nf_term
     else
       let string_store = Store.string_of_store store in
       string_nf_term ^ "," ^ string_store
 
-  include AVal.M
+  include OpLang.AVal.M
 
   let generate_nf_skeleton namectxP =
     let fname_ctx =
@@ -243,8 +243,8 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
     OpLang.Nf.generate_nf_term ~fname_ctx ~cname_ctx ~exn_ctx
 
   let fill_abstract_val storectx namectxP nf_skeleton =
-    let f_fn (_, ty, _) = AVal.generate_abstract_val storectx namectxP ty in
-    let f_cn (_, ty) = AVal.generate_abstract_val storectx namectxP ty in
+    let f_fn (_, ty, _) = OpLang.AVal.generate_abstract_val storectx namectxP ty in
+    let f_cn (_, ty) = OpLang.AVal.generate_abstract_val storectx namectxP ty in
     OpLang.Nf.abstract_nf_term_m ~f_fn ~f_cn nf_skeleton
 
   let generate_a_nf storectx namectxP =
@@ -256,12 +256,12 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let type_check_a_nf namectxP namectxO (a_nf, _) =
     let aux nn aval =
       let nty = Util.Pmap.lookup_exn nn namectxO in
-      let ty = negating_type nty in
-      AVal.type_check_abstract_val namectxP namectxO ty aval in
+      let ty = OpLang.negating_type nty in
+      OpLang.AVal.type_check_abstract_val namectxP namectxO ty aval in
     let f_call (fn, aval, ()) = aux fn aval in
     let f_ret (cn, aval) = aux cn aval in
     let f_exn (_, aval) =
-      AVal.type_check_abstract_val namectxP namectxO OpLang.exception_type aval
+      OpLang.AVal.type_check_abstract_val namectxP namectxO OpLang.exception_type aval
     in
     let f_error _ = Some Util.Pmap.empty in
     match OpLang.Nf.apply_cons ~f_call ~f_ret ~f_exn ~f_error a_nf with
@@ -274,11 +274,11 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
      the store part of abstract normal forms.
      This is needed for the POGS equivalence. *)
   let is_equiv_a_nf span (anf1, _) (anf2, _) =
-    OpLang.Nf.equiv_nf_term AVal.unify_abstract_val span anf1 anf2
+    OpLang.Nf.equiv_nf_term OpLang.AVal.unify_abstract_val span anf1 anf2
 
   let get_typed_ienv = OpLang.get_typed_ienv
 
   let get_typed_term nbprog inBuffer =
-    let (comp, _, namectxO) = get_typed_term nbprog inBuffer in
+    let (comp, _, namectxO) = OpLang.get_typed_term nbprog inBuffer in
     (comp, namectxO)
 end

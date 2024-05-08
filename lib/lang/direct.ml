@@ -68,18 +68,16 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
   let concat_ienv (fnamectx1, cstack1) (fnamectx2, cstack2) =
     (OpLang.concat_ienv fnamectx1 fnamectx2, cstack1 @ cstack2)
 
-    let string_of_stack = function
+  let string_of_stack = function
     | [] -> ""
     | stackctx ->
         let string_l =
-          List.map
-            (fun ectx ->
-              OpLang.string_of_eval_context ectx)
-            stackctx in
+          List.map (fun ectx -> OpLang.string_of_eval_context ectx) stackctx
+        in
         String.concat "::" string_l
 
   let string_of_ienv (namectx, stackctx) =
-    string_of_stack stackctx ^ " | "  ^OpLang.string_of_ienv namectx
+    string_of_stack stackctx ^ " | " ^ OpLang.string_of_ienv namectx
 
   type normal_form =
     (value, eval_context, Name.name, unit) OpLang.Nf.nf_term * Store.store
@@ -106,24 +104,25 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     OpLang.Nf.apply_cons ~f_call ~f_ret ~f_exn ~f_error nf_term
 
   let concretize_a_nf ((fname_env, stack_ctx) as ienv) (a_nf_term, store) =
-    let get_ectx () = match stack_ctx with
-    | ectx :: stack_ctx' -> (ectx,(fname_env,stack_ctx'))
-    | [] ->
-        failwith
-          "Error: trying to concretize a returning abstract normal form in \
-           an empty stack. Please report"
-  in
-    let f_call (fn,aval,()) = 
-      let funval =  Util.Pmap.lookup_exn fn fname_env in
+    let get_ectx () =
+      match stack_ctx with
+      | ectx :: stack_ctx' -> (ectx, (fname_env, stack_ctx'))
+      | [] ->
+          failwith
+            "Error: trying to concretize a returning abstract normal form in \
+             an empty stack. Please report" in
+    let f_call (fn, aval, ()) =
+      let funval = Util.Pmap.lookup_exn fn fname_env in
       let value = AVal.subst_names fname_env aval in
-      ((funval,value,()),ienv)
-    in
-    let f_ret ((),aval) = 
-      let value = AVal.subst_names fname_env aval in 
-      let (ectx,ienv') = get_ectx () in ((ectx,value),ienv') in
+      ((funval, value, ()), ienv) in
+    let f_ret ((), aval) =
+      let value = AVal.subst_names fname_env aval in
+      let (ectx, ienv') = get_ectx () in
+      ((ectx, value), ienv') in
     let f_exn = f_ret in
     let f_error = get_ectx in
-    let (nf_term',ienv') = OpLang.Nf.map_cons ~f_call ~f_ret ~f_exn ~f_error a_nf_term in
+    let (nf_term', ienv') =
+      OpLang.Nf.map_cons ~f_call ~f_ret ~f_exn ~f_error a_nf_term in
     (refold_nf_term nf_term', store, ienv')
 
   type abstract_normal_form =
