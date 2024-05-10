@@ -228,3 +228,17 @@ let string_of_negative_type = string_of_typ
 let get_negative_type ty =
   match ty with TArrow _ | TForall _ -> Some ty | _ -> None
 let force_negative_type ty = ty
+
+let get_input_type = function
+| TArrow (ty1, _) -> ([], ty1)
+| TForall (tvar_l, TArrow (ty1, _)) -> (tvar_l, ty1)
+| ty ->
+    failwith @@ "Error retrieving an input type: the type " ^ string_of_typ ty
+    ^ " is not a negative type. Please report."
+
+let get_output_type = function
+| TArrow (_, ty2) -> ty2
+| TForall (_, TArrow (_, ty2)) -> ty2
+| ty ->
+    failwith @@ "Error retrieving an output type: the type " ^ string_of_typ ty
+    ^ " is not a negative type. Please report."

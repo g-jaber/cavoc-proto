@@ -7,7 +7,6 @@ module type TYPED = sig
 
   type negative_type
 
-  val exception_type : typ
   val get_negative_type : typ -> negative_type option
   val string_of_negative_type : negative_type -> string
 
@@ -96,15 +95,19 @@ end
 module type NF = sig
   type ('value, 'ectx, 'fname, 'cname) nf_term
 
-  val is_error : ('value, 'ectx, 'fname, 'cname) nf_term -> bool
-
-  val map_cons :
-    f_call:('fname * 'value * 'ectx -> ('fnameb * 'valueb * 'ectxb) * 'a) ->
-    f_ret:('cname * 'value -> ('cnameb * 'valueb) * 'a) ->
-    f_exn:('cname * 'value -> ('cnameb * 'valueb) * 'a) ->
-    f_error:('cname -> 'cnameb * 'a) ->
+  (* The first argument is a string inserted between
+     the negative part of the normal form
+     and the values filling the positive parts *)
+  val string_of_nf_term :
+    string ->
+    ('value -> string) ->
+    ('ectx -> string) ->
+    ('fname -> string) ->
+    ('cname -> string) ->
     ('value, 'ectx, 'fname, 'cname) nf_term ->
-    ('valueb, 'ectxb, 'fnameb, 'cnameb) nf_term * 'a
+    string
+
+  val is_error : ('value, 'ectx, 'fname, 'cname) nf_term -> bool
 
   val map :
     f_cn:('cname -> 'cnameb) ->
@@ -115,33 +118,42 @@ module type NF = sig
     ('valueb, 'ectxb, 'fnameb, 'cnameb) nf_term
 
   val merge_val_ectx :
-    f_val:('value -> 'valueb) ->
-    f_merge:('value * 'ectx -> 'valueb) ->
+    f_ret:('value -> 'valueb) ->
+    f_call:('value * 'ectx -> 'valueb) ->
     ('value, 'ectx, 'fname, 'cname) nf_term ->
     ('valueb, unit, 'fname, 'cname) nf_term
 
   val apply_val :
     'a -> ('value -> 'a) -> ('value, 'ectx, 'fname, 'cname) nf_term -> 'a
 
-  val apply_cons :
-    f_call:('fname * 'value * 'ectx -> 'a) ->
-    f_ret:('cname * 'value -> 'a) ->
-    f_exn:('cname * 'value -> 'a) ->
-    f_error:('cname -> 'a) ->
+  val map_val :
+    'res ->
+    ('value -> 'valueb * 'res) ->
     ('value, 'ectx, 'fname, 'cname) nf_term ->
-    'a
+    ('valueb, 'ectx, 'fname, 'cname) nf_term * 'res
+
+  val map_ectx :
+    'res ->
+    ('ectx -> 'ectxb * 'res) ->
+    ('value, 'ectx, 'fname, 'cname) nf_term ->
+    ('value, 'ectxb, 'fname, 'cname) nf_term * 'res
+
+  val map_cn :
+    'res ->
+    ('cname -> 'cnameb * 'res) ->
+    ('value, 'ectx, 'fname, 'cname) nf_term ->
+    ('value, 'ectx, 'fname, 'cnameb) nf_term * 'res
+
+  val map_fn :
+    'res ->
+    ('fname -> 'fnameb * 'res) ->
+    ('value, 'ectx, 'fname, 'cname) nf_term ->
+    ('value, 'ectx, 'fnameb, 'cname) nf_term * 'res
 
   module M : Util.Monad.BRANCH
 
-  val generate_nf_term :
-    fname_ctx:('fname, 'value * 'ectx) Util.Pmap.pmap ->
-    cname_ctx:('cname, 'value) Util.Pmap.pmap ->
-    exn_ctx:('cname, 'value) Util.Pmap.pmap ->
-    ('value, 'ectx, 'fname, 'cname) nf_term M.m
-
   val abstract_nf_term_m :
-    f_fn:('fname * 'value * 'ectx -> ('avalue * 'res) M.m) ->
-    f_cn:('cname * 'value -> ('avalue * 'res) M.m) ->
+    gen_val:('value -> ('avalue * 'res) M.m) ->
     ('value, 'ectx, 'fname, 'cname) nf_term ->
     (('avalue, unit, 'fname, 'cname) nf_term * 'res) M.m
 
@@ -167,6 +179,38 @@ module type WITHAVAL_INOUT = sig
   type eval_context
   type typevar
   type typename
+
+  val type_annotating_val :
+    inj_ty:(typ -> 'ty) ->
+    fname_ctx:('fname, 'ty) Util.Pmap.pmap ->
+    cname_ctx:('cname, 'ty) Util.Pmap.pmap ->
+    ('value, 'ectx, 'fname, 'cname) Nf.nf_term ->
+    ('value * 'ty, 'ectx, 'fname, 'cname) Nf.nf_term
+
+  val type_annotating_ectx :
+    ('fname, typ) Util.Pmap.pmap ->
+    typ ->
+    ('value, 'ectx, 'fname, 'cname) Nf.nf_term ->
+    ('value, 'ectx * (typ * typ), 'fname, 'cname) Nf.nf_term
+
+  val type_check_nf_term :
+    inj_ty:(typ -> 'ty) ->
+    empty_res:'res ->
+    fname_ctx:('fname, 'nty) Util.Pmap.pmap ->
+    cname_ctx:('cname, 'ty * 'ty) Util.Pmap.pmap ->
+    type_check_call:('value -> 'nty -> 'res option) ->
+    type_check_ret:('value -> 'ty -> 'ty -> 'res option) ->
+    ('value, 'ectx, 'fname, 'cname) Nf.nf_term ->
+    'res option
+
+  val generate_nf_term_call :
+    ('fname, 'typ * 'typ) Util.Pmap.pmap ->
+    (('typ, unit, 'fname, 'cname) Nf.nf_term * 'typ) Nf.M.m
+
+  val generate_nf_term_ret :
+    (typ -> 'ty) ->
+    ('cname, 'ty * 'ty) Util.Pmap.pmap ->
+    (('ty, 'ectx, 'fname, 'cname) Nf.nf_term * 'ty) Nf.M.m
 
   val string_of_typename : typename -> string
 
@@ -206,7 +250,26 @@ module type WITHAVAL_NEG = sig
   include COMP
   module Nf : NF with module M = Store.M
 
+  val type_annotating_val :
+    (Name.name, typ) Util.Pmap.pmap ->
+    ('value, 'ectx, Name.name, Name.name) Nf.nf_term ->
+    ('value * typ, 'ectx, Name.name, Name.name) Nf.nf_term
+
+  val type_check_nf_term :
+    empty_res:'res ->
+    name_ctx:(Name.name, negative_type) Util.Pmap.pmap ->
+    type_check_val:('value -> negative_type -> 'res option) ->
+    ('value, 'ectx, Name.name, Name.name) Nf.nf_term ->
+    'res option
+
+  val generate_nf_term :
+    (Name.name, typ) Util.Pmap.pmap ->
+    (typ, unit, Name.name, Name.name) Nf.nf_term Nf.M.m
+
   val negating_type : negative_type -> typ
+
+  (*conf_type is ⊥*)
+  val conf_type : typ
 
   type normal_form_term = (value, unit, Name.name, Name.name) Nf.nf_term
 

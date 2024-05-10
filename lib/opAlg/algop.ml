@@ -14,8 +14,6 @@ module Typed :
 
   type typ = Types.vtyp
 
-  let exception_type = failwith "exception_type not defined"
-
   let string_of_type = Types.string_of_vtyp
 
   type negative_type = Types.negative_type

@@ -28,21 +28,6 @@ let cps_nf_term cn f_val f_valctx = function
       NFRaise (cn, value')
   | NFPerform _ -> failwith "NFPerform not yet implemented"
 
-let map_cons ~f_call ~f_ret ~f_exn ~f_error = function
-  | NFCallback (fn, value, ectx) ->
-      let ((fn', value', ectx'), res) = f_call (fn, value, ectx) in
-      (NFCallback (fn', value', ectx'), res)
-  | NFValue (cn, value) ->
-      let ((cn', value'), res) = f_ret (cn, value) in
-      (NFValue (cn', value'), res)
-  | NFError cn ->
-      let (cn', res) = f_error cn in
-      (NFError cn', res)
-  | NFRaise (cn, value) ->
-      let ((cn', value'), res) = f_exn (cn, value) in
-      (NFRaise (cn', value'), res)
-  | NFPerform _ -> failwith "NFPerform not yet implemented"
-
 let map ~f_cn ~f_fn ~f_val ~f_ectx = function
   | NFCallback (fn, value, ectx) ->
       NFCallback (f_fn fn, f_val value, f_ectx ectx)
@@ -54,42 +39,46 @@ let map ~f_cn ~f_fn ~f_val ~f_ectx = function
 module Make (M : Util.Monad.BRANCH) = struct
   open M
 
-  let generate_nf_term ~fname_ctx ~cname_ctx ~exn_ctx =
+  let generate_nf_term_call cname_ctx =
     let callback_l =
       List.map
         (fun (fn, (value, ectx)) -> NFCallback (fn, value, ectx))
         (Util.Pmap.to_list fname_ctx) in
+    M.para_list @@ callback_l
+
+  let generate_nf_term_ret fname_ctx =
     let return_l =
       List.map
         (fun (cn, value) -> NFValue (cn, value))
         (Util.Pmap.to_list cname_ctx) in
     let exn_l =
+      let exn_ctx = Util.Pmap.map_im (fun _ -> Types.exception_type) cname_ctx in
       List.map
         (fun (cn, value) -> NFRaise (cn, value))
         (Util.Pmap.to_list exn_ctx) in
-    M.para_list @@ callback_l @ return_l @ exn_l
+    M.para_list @ return_l @ exn_l
 
-  let abstract_nf_term_m ~f_fn ~f_cn = function
-    | NFCallback (fn, value, ectx) ->
-        let* (value', res) = f_fn (fn, value, ectx) in
+  let abstract_nf_term_m ~gen_val = function
+    | NFCallback (fn, value, _) ->
+        let* (value', res) = gen_val value in
         return (NFCallback (fn, value', ()), res)
     | NFValue (cn, value) ->
-        let* (value', res) = f_cn (cn, value) in
+        let* (value', res) = gen_val value in
         return (NFValue (cn, value'), res)
     | NFError _ -> fail ()
     | NFRaise (cn, value) ->
-        let* (value', res) = f_cn (cn, value) in
+        let* (value', res) = gen_val value in
         return (NFRaise (cn, value'), res)
     | NFPerform _ -> failwith "NFPerform not yet implemented"
 end
 
-let merge_val_ectx ~f_val ~f_merge = function
+let merge_val_ectx ~f_ret ~f_call = function
   | NFCallback (fn, value, ectx) ->
-      let value' = f_merge (value, ectx) in
+      let value' = f_call (value, ectx) in
       NFCallback (fn, value', ())
-  | NFValue (cn, value) -> NFValue (cn, f_val value)
+  | NFValue (cn, value) -> NFValue (cn, f_ret value)
   | NFError cn -> NFError cn
-  | NFRaise (cn, value) -> NFRaise (cn, f_val value)
+  | NFRaise (cn, value) -> NFRaise (cn, f_ret value)
   | NFPerform _ -> failwith "NFPerform not yet implemented"
 
 let apply_val error_res f = function
@@ -98,12 +87,6 @@ let apply_val error_res f = function
   | NFError _ -> error_res
   | NFPerform _ -> failwith "NFPerform not yet implemented"
 
-let apply_cons ~f_call ~f_ret ~f_exn ~f_error = function
-  | NFCallback (fn, value, ectx) -> f_call (fn, value, ectx)
-  | NFValue (cn, value) -> f_ret (cn, value)
-  | NFError cn -> f_error cn
-  | NFRaise (cn, value) -> f_exn (cn, value)
-  | NFPerform _ -> failwith "NFPerform not yet implemented"
 
 let equiv_nf_term unify_abstract_val span anf1 anf2 =
   match (anf1, anf2) with

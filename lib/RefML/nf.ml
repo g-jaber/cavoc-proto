@@ -12,6 +12,15 @@ type ('value, 'ectx, 'fname, 'cname) nf_term =
   | NFError of 'cname
   | NFRaise of 'cname * 'value
 
+let string_of_nf_term dir f_val f_ectx f_fn f_cn = function
+  | NFCallback (fn, value, ectx) ->
+      let string_ectx = f_ectx ectx in
+      let string_ectx' = if string_ectx = "" then "" else  ("," ^ string_ectx) in
+      f_fn fn ^ dir ^ "(" ^ f_val value ^ string_ectx' ^ ")"
+  | NFValue (cn, value) -> f_cn cn ^ dir ^ "(" ^ f_val value ^ ")"
+  | NFError cn -> f_cn cn ^ dir ^ "(error)"
+  | NFRaise (cn, value) -> f_cn cn ^ dir ^ "(raise" ^ f_val value ^ ")"
+
 let is_error = function NFError _ -> true | _ -> false
 
 let cps_nf_term cn f_val f_valctx = function
@@ -26,20 +35,6 @@ let cps_nf_term cn f_val f_valctx = function
       let value' = f_val value in
       NFRaise (cn, value')
 
-let map_cons ~f_call ~f_ret ~f_exn ~f_error = function
-  | NFCallback (fn, value, ectx) ->
-      let ((fn', value', ectx'), res) = f_call (fn, value, ectx) in
-      (NFCallback (fn', value', ectx'), res)
-  | NFValue (cn, value) ->
-      let ((cn', value'), res) = f_ret (cn, value) in
-      (NFValue (cn', value'), res)
-  | NFError cn ->
-      let (cn', res) = f_error cn in
-      (NFError cn', res)
-  | NFRaise (cn, value) ->
-      let ((cn', value'), res) = f_exn (cn, value) in
-      (NFRaise (cn', value'), res)
-
 let map ~f_cn ~f_fn ~f_val ~f_ectx = function
   | NFCallback (fn, value, ectx) ->
       NFCallback (f_fn fn, f_val value, f_ectx ectx)
@@ -47,56 +42,129 @@ let map ~f_cn ~f_fn ~f_val ~f_ectx = function
   | NFError cn -> NFError (f_cn cn)
   | NFRaise (cn, value) -> NFRaise (f_cn cn, f_val value)
 
+let map_val empty_res f_val = function
+  | NFCallback (fn, value, ectx) ->
+      let (value', res) = f_val value in
+      (NFCallback (fn, value', ectx), res)
+  | NFValue (cn, value) ->
+      let (value', res) = f_val value in
+      (NFValue (cn, value'), res)
+  | NFError cn -> (NFError cn, empty_res)
+  | NFRaise (cn, value) ->
+      let (value', res) = f_val value in
+      (NFRaise (cn, value'), res)
+
+let map_ectx empty_res f_ectx = function
+  | NFCallback (fn, value, ectx) ->
+      let (ectx', res) = f_ectx ectx in
+      (NFCallback (fn, value, ectx'), res)
+  | NFValue (cn, value) -> (NFValue (cn, value), empty_res)
+  | NFError cn -> (NFError cn, empty_res)
+  | NFRaise (cn, value) -> (NFRaise (cn, value), empty_res)
+
+let map_fn empty_res f_fn = function
+  | NFCallback (fn, value, ectx) ->
+      let (fn', res) = f_fn fn in
+      (NFCallback (fn', value, ectx), res)
+  | NFValue (cn, value) -> (NFValue (cn, value), empty_res)
+  | NFError cn -> (NFError cn, empty_res)
+  | NFRaise (cn, value) -> (NFRaise (cn, value), empty_res)
+
+let map_cn empty_res f_cn = function
+  | NFCallback (fn, value, ectx) -> (NFCallback (fn, value, ectx), empty_res)
+  | NFValue (cn, value) ->
+      let (cn', res) = f_cn cn in
+      (NFValue (cn', value), res)
+  | NFError cn ->
+      let (cn', res) = f_cn cn in
+      (NFError cn', res)
+  | NFRaise (cn, value) ->
+      let (cn', res) = f_cn cn in
+      (NFRaise (cn', value), res)
+
+let type_annotating_val ~inj_ty ~fname_ctx ~cname_ctx = function
+  | NFCallback (fn, value, ectx) ->
+      let ty_arg = Util.Pmap.lookup_exn fn fname_ctx in
+      NFCallback (fn, (value, ty_arg), ectx)
+  | NFValue (cn, value) ->
+      let ty = Util.Pmap.lookup_exn cn cname_ctx in
+      NFValue (cn, (value, ty))
+  | NFError _ as res -> res
+  | NFRaise (cn, value) -> NFRaise (cn, (value, inj_ty Types.TExn))
+
+let type_annotating_ectx fname_ctx ty_out = function
+  | NFCallback (fn, value, ectx) ->
+      let ty_hole = Util.Pmap.lookup_exn fn fname_ctx in
+      NFCallback (fn, value, (ectx, (ty_hole, ty_out)))
+  | NFValue (cn, value) -> NFValue (cn, value)
+  | NFError _ as res -> res
+  | NFRaise (cn, value) -> NFRaise (cn, value)
+
+let type_check_nf_term ~inj_ty ~empty_res ~fname_ctx ~cname_ctx ~type_check_call
+    ~type_check_ret = function
+  | NFCallback (fn, value, _) ->
+      let nty = Util.Pmap.lookup_exn fn fname_ctx in
+      type_check_call value nty
+  | NFValue (cn, value) ->
+      let (ty_in, ty_out) = Util.Pmap.lookup_exn cn cname_ctx in
+      type_check_ret value ty_in ty_out
+  | NFError _ -> Some empty_res
+  | NFRaise (cn, value) ->
+      let (_, ty_out) = Util.Pmap.lookup_exn cn cname_ctx in
+      let ty_in = inj_ty Types.TExn in
+      type_check_ret value ty_in ty_out
+
 module Make (M : Util.Monad.BRANCH) = struct
   open M
 
-  let generate_nf_term ~fname_ctx ~cname_ctx ~exn_ctx =
+  (* the following function is in general called with cname=unit*)
+  let generate_nf_term_call fname_ctx =
     let callback_l =
       List.map
-        (fun (fn, (value, ectx)) -> NFCallback (fn, value, ectx))
+        (fun (fn, (ty_in, ty_out)) -> (NFCallback (fn, ty_in, ()), ty_out))
         (Util.Pmap.to_list fname_ctx) in
+    M.para_list @@ callback_l
+
+  let generate_nf_term_ret inj_ty cname_ctx =
     let return_l =
       List.map
-        (fun (cn, value) -> NFValue (cn, value))
+        (fun (cn, (ty_in, ty_out)) -> (NFValue (cn, ty_in), ty_out))
         (Util.Pmap.to_list cname_ctx) in
     let exn_l =
+      let exn_ctx =
+        Util.Pmap.map_im
+          (fun (_, ty_out) -> (inj_ty Types.TExn, ty_out))
+          cname_ctx in
       List.map
-        (fun (cn, value) -> NFRaise (cn, value))
+        (fun (cn, (ty_in, ty_out)) -> (NFRaise (cn, ty_in), ty_out))
         (Util.Pmap.to_list exn_ctx) in
-    M.para_list @@ callback_l @ return_l @ exn_l
+    M.para_list @@ return_l @ exn_l
 
-  let abstract_nf_term_m ~f_fn ~f_cn = function
-    | NFCallback (fn, value, ectx) ->
-        let* (value', res) = f_fn (fn, value, ectx) in
+  let abstract_nf_term_m ~gen_val = function
+    | NFCallback (fn, value, _) ->
+        let* (value', res) = gen_val value in
         return (NFCallback (fn, value', ()), res)
     | NFValue (cn, value) ->
-        let* (value', res) = f_cn (cn, value) in
+        let* (value', res) = gen_val value in
         return (NFValue (cn, value'), res)
     | NFError _ -> fail ()
     | NFRaise (cn, value) ->
-        let* (value', res) = f_cn (cn, value) in
+        let* (value', res) = gen_val value in
         return (NFRaise (cn, value'), res)
 end
 
-let merge_val_ectx ~f_val ~f_merge = function
+let merge_val_ectx ~f_ret ~f_call = function
   | NFCallback (fn, value, ectx) ->
-      let value' = f_merge (value, ectx) in
+      let value' = f_call (value, ectx) in
       NFCallback (fn, value', ())
-  | NFValue (cn, value) -> NFValue (cn, f_val value)
+  | NFValue (cn, value) -> NFValue (cn, f_ret value)
   | NFError cn -> NFError cn
-  | NFRaise (cn, value) -> NFRaise (cn, f_val value)
-
+  | NFRaise (cn, value) -> NFRaise (cn, f_ret value)
 
 let apply_val error_res f = function
   | NFCallback (_, value, _) | NFValue (_, value) | NFRaise (_, value) ->
       f value
   | NFError _ -> error_res
-
-let apply_cons ~f_call ~f_ret ~f_exn ~f_error = function
-  | NFCallback (fn, value, ectx) -> f_call (fn, value, ectx)
-  | NFValue (cn, value) -> f_ret (cn, value)
-  | NFError cn -> f_error cn
-  | NFRaise (cn, value) -> f_exn (cn, value)
 
 let equiv_nf_term unify_abstract_val span anf1 anf2 =
   match (anf1, anf2) with

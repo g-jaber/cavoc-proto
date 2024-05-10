@@ -15,6 +15,8 @@ module type BRANCH = sig
   include MONAD
 
   val fail : unit -> 'a m
+
+  val para_pair : 'a m -> 'a m -> 'a m
   val para_list : 'a list -> 'a m
   val pick_int : unit -> int m
   (* The function pick_elem provide a way to pick an element in a list. Its first argument is a function that is used to print the various elements of the list. 
@@ -29,24 +31,14 @@ module ListB : BRANCH = struct
   let return x = [ x ]
   let ( let* ) a f = List.flatten (List.map f a)
   let fail () = []
+
+  let para_pair a b = a@b
   let para_list l = l
   let max_int = 3
   let pick_int () = List.init max_int (fun i -> i)
   let run a = a
 end
 
-(*** Option implementation of the Branching monad ***)
-(*** Not used !! ***)
-module OptionB : BRANCH = struct
-  type 'a m = 'a option
-
-  let return x = Some x
-  let ( let* ) a f = match a with None -> None | Some x -> f x
-  let fail () = None
-  let para_list = function [] -> None | h :: _ -> Some h
-  let pick_int () = Some 0
-  let run = function None -> [] | Some x -> [ x ]
-end
 
 (*** An implementation of the Branching monad with user input to decide how to branch ***)
 module UserChoose : BRANCH = struct
@@ -55,6 +47,14 @@ module UserChoose : BRANCH = struct
   let return x = Some x
   let ( let* ) a f = match a with None -> None | Some x -> f x
   let fail () = None
+
+  let para_pair a b =
+      print_endline
+        ("Choose an integer between 1 and 2, or choose any other integer to stop.");
+      match read_int () with
+        | 1 -> a
+        | 2 -> b
+        | _ -> None
 
   let para_list = function
     | [] -> None

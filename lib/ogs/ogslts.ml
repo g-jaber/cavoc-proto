@@ -63,6 +63,7 @@ module Make (Int : Lts.Interactive.INT) = struct
     let* (input_move, ictx) = Int.generate_input_moves pas_conf.ictx in
     let (computation, store', ienv) =
       Int.trigger_computation pas_conf.ienv input_move in
+    Util.Debug.print_debug "Updating the store";
     let store = Int.IntLang.Store.update_store pas_conf.store store' in
     return (input_move, { computation; store; ienv; ictx })
 

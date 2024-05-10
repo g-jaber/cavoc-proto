@@ -74,8 +74,6 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     | GExists of OpLang.typevar list * OpLang.typ * OpLang.typ
     | GEmpty
 
-  let exception_type = GType OpLang.exception_type
-
   type negative_type = IType of OpLang.negative_type | INeg of OpLang.typ
 
   let string_of_type = function
@@ -152,6 +150,66 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
        and module M = OpLang.AVal.M =
     OpLang.Nf
 
+  let type_annotating_val name_ctx =
+    let inj_ty ty = GType ty in
+    let fname_ctx = Util.Pmap.filter_dom Name.is_fname name_ctx in
+    let cname_ctx = Util.Pmap.filter_dom Name.is_cname name_ctx in
+    OpLang.type_annotating_val ~inj_ty ~fname_ctx ~cname_ctx
+
+  let conf_type = GEmpty
+
+  let[@warning "-27"] type_check_nf_term ~empty_res ~name_ctx ~type_check_val nf
+      =
+    let inj_ty ty = GType ty in
+    let fname_ctx =
+      Util.Pmap.filter_map
+        (fun (nn, nty) ->
+          if OpLang.Name.is_fname nn then Some (nn, nty) else None)
+        name_ctx in
+    let cname_ctx =
+      Util.Pmap.filter_map
+        (fun (nn, nty) ->
+          if OpLang.Name.is_cname nn then
+            match nty with
+            | INeg ty_hole -> Some (nn, (GType ty_hole, GEmpty))
+            | IType _ ->
+                failwith
+                  "Error: a continuation name is typed with a non-negated \
+                   type. Please report."
+          else None)
+        name_ctx in
+    let type_check_call = type_check_val in
+    let type_check_ret value ty_hole ty_out =
+      match (ty_hole, ty_out) with
+      | (GType ty_hole', GEmpty) -> type_check_val value (INeg ty_hole')
+      | _ ->
+          failwith
+            "Error: tring to type an evaluation context with a return type \
+             different of ⊥. Please report." in
+    OpLang.type_check_nf_term ~inj_ty ~empty_res ~fname_ctx ~cname_ctx
+      ~type_check_call ~type_check_ret nf
+
+  open OpLang.AVal.M
+
+  let generate_nf_term namectx =
+    let inj_ty ty = GType ty in
+    let fname_ctx =
+      Util.Pmap.filter_map
+        (fun (fn, ty) ->
+          if Name.is_fname fn then Some (fn, (ty, GEmpty)) else None)
+        namectx in
+    let cname_ctx =
+      Util.Pmap.filter_map
+        (fun (cn, ty) ->
+          if Name.is_cname cn then Some (cn, (ty, GEmpty)) else None)
+        namectx in
+    (* For both, the type provided must be ⊥, but we do not check it.*)
+    let* (a, _) =
+      para_pair
+        (OpLang.generate_nf_term_call fname_ctx)
+        (OpLang.generate_nf_term_ret inj_ty cname_ctx) in
+    return a
+
   (* The function negating_type extract from an interactive type the type of the input arguments
      expected to interact over this type. *)
   let negating_type = function
@@ -176,36 +234,33 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   let get_nf_term (NTerm (cn, term)) =
     let nf_term = insert_cn cn @@ OpLang.get_nf_term term in
-    let f_val v = GVal v in
-    let f_merge (v, e) = GPairIn (v, e) in
-    OpLang.Nf.merge_val_ectx ~f_val ~f_merge nf_term
-
-  let extract_cn nf_term =
-    let f_call (fn, v, cn) = ((fn, v, ()), cn) in
-    let f_ret (NCtx (cn, ectx), v) = ((ectx, v), cn) in
-    let f_exn (NCtx (cn, ectx), v) = ((ectx, v), cn) in
-    let f_error (NCtx (cn, ectx)) = (ectx, cn) in
-    OpLang.Nf.map_cons ~f_call ~f_ret ~f_exn ~f_error nf_term
-
-  let expel_ectx nf_term =
-    let f_call (nval, gval, ()) =
-      match (nval, gval) with
-      | (IVal nval, GPairOut (value, cn)) | (IVal nval, GPackOut (_, value, cn))
-        -> 
-          ((nval, value, cn), ())
-      | (_, gval) ->
-          failwith @@ "Error: trying to apply a value " ^ string_of_value gval
-          ^ " to a callback. Please report." in
-    let[@warning "-8"] f_ret (ICtx nctx, GVal value) = ((nctx, value), ()) in
-    let f_exn = f_ret in
-    let[@warning "-8"] f_error (ICtx nctx) = (nctx, ()) in
-    fst @@ OpLang.Nf.map_cons ~f_call ~f_ret ~f_exn ~f_error nf_term
+    let f_ret v = GVal v in
+    let f_call (v, e) = GPairIn (v, e) in
+    OpLang.Nf.merge_val_ectx ~f_call ~f_ret nf_term
 
   let refold_nf_term nf_term =
-    let nf_term = expel_ectx nf_term in
-    let (nf_term, cn) = extract_cn nf_term in
-    let term = OpLang.refold_nf_term nf_term in
-    NTerm (cn, term)
+    let empty_res = None in
+    let[@warning "-8"] f_val = function
+      | GPairOut (value, cn) -> (value, Some cn)
+      | GPackOut (_, value, cn) -> (value, Some cn)
+      | GVal value -> (value, None) in
+    let (nf_term', cn_opt) = Nf.map_val empty_res f_val nf_term in
+    let[@warning "-8"] f_cn = function
+      | ICtx (NCtx (cn, ectx)) -> (ectx, Some cn) in
+    let (nf_term'', cn_opt') = Nf.map_cn empty_res f_cn nf_term' in
+    let[@warning "-8"] f_fn = function IVal nval -> (nval, None) in
+    let (nf_term''', _) = Nf.map_fn empty_res f_fn nf_term'' in
+    let term = OpLang.refold_nf_term nf_term''' in
+    match (cn_opt, cn_opt') with
+    | (Some cn, None) | (None, Some cn) -> NTerm (cn, term)
+    | (None, None) ->
+        failwith
+          "Error: no continuation name can be extracted during the cps. Please \
+           report"
+    | (Some _, Some _) ->
+        failwith
+          "Error: two continuation names can be extracted during the cps. \
+           Please report"
 
   type negative_type_temp = negative_type
   type value_temp = value

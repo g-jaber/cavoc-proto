@@ -140,15 +140,12 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
     | Some (nf_term, store') -> Some (OpLang.get_nf_term nf_term, store')
 
   let string_of_nf_term dir string_of_val nf_term =
-    let f_call (fn, value, ()) =
-      OpLang.Name.string_of_name fn ^ dir ^ string_of_val value in
-    let f_ret (cn, value) = Name.string_of_name cn ^ dir ^ string_of_val value in
-    let f_exn (cn, value) =
-      Name.string_of_name cn ^ dir ^ "raise" ^ string_of_val value in
-    let f_error cn = Name.string_of_name cn ^ dir ^ "error" in
-    OpLang.Nf.apply_cons ~f_call ~f_ret ~f_exn ~f_error nf_term
+    OpLang.Nf.string_of_nf_term dir string_of_val
+      (fun () -> "")
+      OpLang.Name.string_of_name OpLang.Name.string_of_name nf_term
 
-  let string_of_nf (nf_term, _) = string_of_nf_term "" OpLang.string_of_value nf_term
+  let string_of_nf (nf_term, _) =
+    string_of_nf_term "" OpLang.string_of_value nf_term
 
   let concretize_a_nf ienv (a_nf_term, store) =
     let f_val = OpLang.AVal.subst_names ienv in
@@ -162,13 +159,24 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
     (OpLang.AVal.abstract_val, unit, Name.name, Name.name) OpLang.Nf.nf_term
     * Store.store
 
-  let labels_of_a_nf_term = OpLang.Nf.apply_val [] OpLang.AVal.labels_of_abstract_val
+  let labels_of_a_nf_term =
+    OpLang.Nf.apply_val [] OpLang.AVal.labels_of_abstract_val
+
   let get_store_of_a_nf (_, store) = store
   let abstracting_store = OpLang.Store.restrict
   (* TODO Deal with the abstraction process of the heap properly *)
 
   let abstracting_nf_term nf_term namectxO =
-    let f_call (nn, value, ()) =
+    let namectxO' = Util.Pmap.map_im OpLang.negating_type namectxO in
+    let nf_typed_term =
+      OpLang.type_annotating_val namectxO' nf_term in
+    let f_val (value, nty) =
+      let (aval, ienv, lnamectx) = OpLang.AVal.abstracting_value value nty in
+      (aval, (ienv, lnamectx)) in
+    let empty_res = (Util.Pmap.empty, Util.Pmap.empty) in
+    OpLang.Nf.map_val empty_res f_val nf_typed_term
+  (*
+    let f_call (nn, value, ()) = 
       let ty = Util.Pmap.lookup_exn nn namectxO in
       let nty = OpLang.negating_type ty in
       let (aval, ienv, lnamectx) = OpLang.AVal.abstracting_value value nty in
@@ -183,7 +191,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
         OpLang.AVal.abstracting_value value OpLang.exception_type in
       ((nn, aval), (ienv, lnamectx)) in
     let f_error nn = (nn, (empty_ienv, empty_name_ctx)) in
-    OpLang.Nf.map_cons ~f_call ~f_ret ~f_exn ~f_error nf_term
+    OpLang.Nf.map_cons ~f_call ~f_ret ~f_exn ~f_error nf_term*)
 
   let abstracting_nf (nf_term, store) namectxO storectx_discl =
     let (a_nf_term, (ienv, lnamectx)) = abstracting_nf_term nf_term namectxO in
@@ -207,11 +215,11 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
      This computation would necessitate an iterative process. *)
 
   let get_subject_name (a_nf_term, _) =
-    let f_call (nn, _, _) = nn in
-    let f_ret (nn, _) = nn in
-    let f_exn (nn, _) = nn in
-    let f_error nn = nn in
-    Some (OpLang.Nf.apply_cons ~f_call ~f_ret ~f_exn ~f_error a_nf_term)
+    let f_fn nn = (nn,Some nn) in
+    let f_cn nn = (nn,Some nn) in
+    match snd @@ OpLang.Nf.map_fn None f_fn a_nf_term with
+      | None -> snd @@ OpLang.Nf.map_cn None f_cn a_nf_term
+      | Some _ as res -> res
 
   let get_support (a_nf_term, _) =
     OpLang.Nf.apply_val [] OpLang.AVal.names_of_abstract_val a_nf_term
@@ -227,48 +235,52 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
 
   include OpLang.AVal.M
 
-  let generate_nf_skeleton namectxP =
-    let fname_ctx =
-      Util.Pmap.filter_map
-        (fun (fn, ty) ->
-          if Name.is_fname fn then Some (fn, (OpLang.negating_type ty, ()))
-          else None)
-        namectxP in
-    let cname_ctx =
-      Util.Pmap.filter_map
-        (fun (cn, ty) ->
-          if Name.is_cname cn then Some (cn, OpLang.negating_type ty) else None)
-        namectxP in
-    let exn_ctx = Util.Pmap.map_im (fun _ -> OpLang.exception_type) cname_ctx in
-    OpLang.Nf.generate_nf_term ~fname_ctx ~cname_ctx ~exn_ctx
 
   let fill_abstract_val storectx namectxP nf_skeleton =
-    let f_fn (_, ty, _) = OpLang.AVal.generate_abstract_val storectx namectxP ty in
-    let f_cn (_, ty) = OpLang.AVal.generate_abstract_val storectx namectxP ty in
-    OpLang.Nf.abstract_nf_term_m ~f_fn ~f_cn nf_skeleton
+    let gen_val ty =
+      OpLang.AVal.generate_abstract_val storectx namectxP ty in
+    OpLang.Nf.abstract_nf_term_m ~gen_val nf_skeleton
 
   let generate_a_nf storectx namectxP =
-    let* skel = generate_nf_skeleton namectxP in
+    let namectxP' = Util.Pmap.map_im OpLang.negating_type namectxP in
+    let* _ = return @@ Util.Debug.print_debug @@ "Generating the skeleton " in
+    let* skel = OpLang.generate_nf_term namectxP' in
+    let* _ = return @@ Util.Debug.print_debug @@ "Filling the skeleton " in
     let* (a_nf_term, lnamectx) = fill_abstract_val storectx namectxP skel in
     let* store = Store.generate_store storectx in
     return ((a_nf_term, store), lnamectx, namectxP)
 
-  let type_check_a_nf namectxP namectxO (a_nf, _) =
-    let aux nn aval =
-      let nty = Util.Pmap.lookup_exn nn namectxO in
+  let type_check_a_nf namectxP namectxO (nf_term, _) =
+    let name_ctx = namectxO in
+    let type_check_val aval nty =
       let ty = OpLang.negating_type nty in
       OpLang.AVal.type_check_abstract_val namectxP namectxO ty aval in
-    let f_call (fn, aval, ()) = aux fn aval in
-    let f_ret (cn, aval) = aux cn aval in
-    let f_exn (_, aval) =
-      OpLang.AVal.type_check_abstract_val namectxP namectxO OpLang.exception_type aval
-    in
-    let f_error _ = Some Util.Pmap.empty in
-    match OpLang.Nf.apply_cons ~f_call ~f_ret ~f_exn ~f_error a_nf with
+    let empty_res = Util.Pmap.empty in
+    match
+      OpLang.type_check_nf_term ~empty_res ~name_ctx ~type_check_val nf_term
+    with
     | None -> None
     | Some lnamectx -> Some (lnamectx, namectxP)
+
   (*TODO: Type check the store part and
      check that the disclosure process is respected*)
+
+  (*
+     let type_check_a_nf namectxP namectxO (a_nf, _) =
+       let aux nn aval =
+         let nty = Util.Pmap.lookup_exn nn namectxO in
+         let ty = OpLang.negating_type nty in
+         OpLang.AVal.type_check_abstract_val namectxP namectxO ty aval in
+       let f_call (fn, aval, ()) = aux fn aval in
+       let f_ret (cn, aval) = aux cn aval in
+       let f_exn (_, aval) =
+         OpLang.AVal.type_check_abstract_val namectxP namectxO
+           OpLang.exception_type aval in
+       let f_error _ = Some Util.Pmap.empty in
+       match OpLang.Nf.apply_cons ~f_call ~f_ret ~f_exn ~f_error a_nf with
+       | None -> None
+       | Some lnamectx -> Some (lnamectx, namectxP)
+  *)
 
   (* Beware that is_equiv_a_nf does not check the equivalence of
      the store part of abstract normal forms.

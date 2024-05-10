@@ -13,6 +13,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
      with σi the type of the hole and τi the return type )*)
   type stack_ctx = (OpLang.typ * OpLang.typ) list
 
+  (* The active context PropCtx have a type for the toplevel term*)
   type name_ctx =
     | OpCtx of OpLang.typ option * OpLang.name_ctx
     | PropCtx of OpLang.name_ctx * stack_ctx
@@ -91,17 +92,10 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     | Some (nf_term, store') -> Some (OpLang.get_nf_term nf_term, store')
 
   let string_of_nf (nf_term, _) =
-    let f_call (fn, value, ectx) =
-      OpLang.Name.string_of_name fn
-      ^ "("
-      ^ OpLang.string_of_value value
-      ^ ","
-      ^ OpLang.string_of_eval_context ectx
-      ^ ")" in
-    let f_ret ((), value) = "ret(" ^ OpLang.string_of_value value ^ ")" in
-    let f_exn ((), value) = "raise(" ^ OpLang.string_of_value value ^ ")" in
-    let f_error () = "error" in
-    OpLang.Nf.apply_cons ~f_call ~f_ret ~f_exn ~f_error nf_term
+    OpLang.Nf.string_of_nf_term "" OpLang.string_of_value
+      OpLang.string_of_eval_context OpLang.Name.string_of_name
+      (fun () -> "ret")
+      nf_term
 
   let concretize_a_nf ((fname_env, stack_ctx) as ienv) (a_nf_term, store) =
     let get_ectx () =
@@ -111,19 +105,13 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
           failwith
             "Error: trying to concretize a returning abstract normal form in \
              an empty stack. Please report" in
-    let f_call (fn, aval, ()) =
-      let funval = Util.Pmap.lookup_exn fn fname_env in
-      let value = AVal.subst_names fname_env aval in
-      ((funval, value, ()), ienv) in
-    let f_ret ((), aval) =
-      let value = AVal.subst_names fname_env aval in
-      let (ectx, ienv') = get_ectx () in
-      ((ectx, value), ienv') in
-    let f_exn = f_ret in
-    let f_error = get_ectx in
-    let (nf_term', ienv') =
-      OpLang.Nf.map_cons ~f_call ~f_ret ~f_exn ~f_error a_nf_term in
-    (refold_nf_term nf_term', store, ienv')
+    let f_val aval = (AVal.subst_names fname_env aval, ()) in
+    let f_fn fn = (Util.Pmap.lookup_exn fn fname_env, ()) in
+    let f_cn () = get_ectx () in
+    let (nf_term, _) = OpLang.Nf.map_val () f_val a_nf_term in
+    let (nf_term', _) = OpLang.Nf.map_fn () f_fn nf_term in
+    let (nf_term'', ienv') = OpLang.Nf.map_cn ienv f_cn nf_term' in
+    (refold_nf_term nf_term'', store, ienv')
 
   type abstract_normal_form =
     (AVal.abstract_val, unit, Name.name, unit) OpLang.Nf.nf_term * Store.store
@@ -135,24 +123,26 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
 
   let[@warning "-8"] abstracting_nf_term nf_term
       (OpCtx (Some ty_out, fnamectxO)) =
-    let f_call (fn, value, ectx) =
-      let ty = Util.Pmap.lookup_exn fn fnamectxO in
-      let (_, ty_in) = get_input_type ty in
-      let (aval, ienv, lnamectx) = AVal.abstracting_value value ty_in in
-      let ty_hole = get_output_type ty in
-      (* TODO: we should something with the tvar_l *)
-      let res = ((ienv, [ ectx ]), PropCtx (lnamectx, [ (ty_hole, ty_out) ])) in
-      ((fn, aval, ()), res) in
-    let f_ret ((), value) =
-      let (aval, ienv, lnamectx) = AVal.abstracting_value value ty_out in
-      let res = ((ienv, []), PropCtx (lnamectx, [])) in
-      (((), aval), res) in
-    let f_exn ((), value) =
-      let (aval, ienv, lnamectx) =
-        AVal.abstracting_value value OpLang.exception_type in
-      (((), aval), ((ienv, []), PropCtx (lnamectx, []))) in
-    let f_error () = ((), (empty_ienv, empty_name_ctx)) in
-    OpLang.Nf.map_cons ~f_call ~f_ret ~f_exn ~f_error nf_term
+    let inj_ty ty = ty in
+    let fname_ctx =
+      Util.Pmap.map_im (fun nty -> snd @@ get_input_type nty) fnamectxO in
+            (* TODO: we should do something with the tvar_l *)
+    let cname_ctx = Util.Pmap.singleton ((), ty_out) in
+    let nf_typed_term =
+      OpLang.type_annotating_val ~inj_ty ~fname_ctx ~cname_ctx nf_term in
+    let nf_typed_term' =
+      OpLang.type_annotating_ectx fname_ctx ty_out nf_typed_term in
+    let f_val (value, nty) =
+      let (aval, ienv, lnamectx) = OpLang.AVal.abstracting_value value nty in
+      (aval, (ienv, lnamectx)) in
+    let f_ectx (ectx, (ty_hole, ty_out)) =
+      ((), ([ ectx ], [ (ty_hole, ty_out) ])) in
+    let empty_res = (Util.Pmap.empty, Util.Pmap.empty) in
+    let (a_nf_term, (ienv, lnamectx)) =
+      OpLang.Nf.map_val empty_res f_val nf_typed_term' in
+    let (a_nf_term', (stack, stack_ctx)) =
+      OpLang.Nf.map_ectx ([], []) f_ectx a_nf_term in
+    (a_nf_term', ((ienv, stack), PropCtx (lnamectx, stack_ctx)))
 
   let abstracting_nf (nf_term, store) namectxO storectx_discl =
     let (a_nf_term, (ienv, lnamectx)) = abstracting_nf_term nf_term namectxO in
@@ -169,35 +159,26 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
       ^ OpLang.Store.string_of_store_ctx storectx_discl'';
       let store_discl = abstracting_store storectx_discl' store in
       Some ((a_nf_term, store_discl), ienv, lnamectx, storectx_discl'')
+
   (* Notice that the disclosure process is in fact more complex
      since the image of  store_discl might itself has
      labels that becomes diclosed.
      This computation would necessitate an iterative process. *)
-
   let get_subject_name (a_nf_term, _) =
-    let f_call (fn, _, _) = Some fn in
-    let f_ret _ = None in
-    let f_exn _ = None in
-    let f_error _ = None in
-    OpLang.Nf.apply_cons ~f_call ~f_ret ~f_exn ~f_error a_nf_term
+    let f_fn nn = (nn, Some nn) in
+    snd @@ OpLang.Nf.map_fn None f_fn a_nf_term
 
   let get_support (a_nf_term, _) =
     OpLang.Nf.apply_val [] AVal.names_of_abstract_val a_nf_term
   (*TODO: take into account the store part*)
 
   let string_of_a_nf dir (nf_term, store) =
-    let f_call (fn, aval, ()) =
-      OpLang.Name.string_of_name fn
-      ^ dir ^ "("
-      ^ OpLang.AVal.string_of_abstract_val aval
-      ^ ")" in
-    let f_ret ((), aval) =
-      "ret" ^ dir ^ "(" ^ OpLang.AVal.string_of_abstract_val aval ^ ")" in
-    let f_exn ((), aval) =
-      "raise" ^ dir ^ "(" ^ OpLang.AVal.string_of_abstract_val aval ^ ")" in
-    let f_error _ = "error" in
     let string_nf_term =
-      OpLang.Nf.apply_cons ~f_call ~f_ret ~f_exn ~f_error nf_term in
+      OpLang.Nf.string_of_nf_term dir OpLang.AVal.string_of_abstract_val
+        (fun () -> "")
+        OpLang.Name.string_of_name
+        (fun () -> "ret")
+        nf_term in
     if store = Store.empty_store then string_nf_term
     else
       let string_store = Store.string_of_store store in
@@ -206,70 +187,72 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
   include AVal.M
 
   let fill_abstract_val storectx fnamectxP nf_skeleton =
-    let f_val ((_, in_ty), out_ty, namectxP') =
+    let gen_val in_ty =
       (*TODO: We should take into account the type var list*)
-      let* (aval, lnamectx) =
-        AVal.generate_abstract_val storectx fnamectxP in_ty in
-      return (aval, (OpCtx (Some out_ty, lnamectx), namectxP')) in
-    let f_fn (_, ty, ()) = f_val ty in
-    let f_cn ((), ty) = f_val ty in
-    OpLang.Nf.abstract_nf_term_m ~f_fn ~f_cn nf_skeleton
+      AVal.generate_abstract_val storectx fnamectxP in_ty in
+    OpLang.Nf.abstract_nf_term_m ~gen_val nf_skeleton
 
-  let[@warning "-8"] generate_a_nf storectx
-      (PropCtx (fnamectx, stackctx) as namectxP) =
+  let[@warning "-8"] generate_a_nf_call storectx
+      (PropCtx (fnamectx, _) as namectxP) =
     let fname_ctx =
       Util.Pmap.filter_map
         (fun (nn, ty) ->
           if OpLang.Name.is_fname nn then
-            Some
-              ( nn,
-                ( (OpLang.get_input_type ty, OpLang.get_output_type ty, namectxP),
-                  () ) )
+            let (_, in_ty) = OpLang.get_input_type ty in
+            Some (nn, (in_ty, OpLang.get_output_type ty))
           else None)
         fnamectx in
-    let (exn_ctx, cname_ctx) =
-      match stackctx with
-      | [] -> (Util.Pmap.empty, Util.Pmap.empty)
-      | (ty1, ty2) :: stackctx' ->
-          let namectxP' = PropCtx (fnamectx, stackctx') in
-          ( Util.Pmap.singleton
-              ((), (([], OpLang.exception_type), ty2, namectxP')),
-            Util.Pmap.singleton ((), (([], ty1), ty2, namectxP')) ) in
-    let* skel = OpLang.Nf.generate_nf_term ~fname_ctx ~exn_ctx ~cname_ctx in
-    let* (a_nf_term, (lnamectx, namectxP')) =
-      fill_abstract_val storectx fnamectx skel in
+    let* (skel, typ) = OpLang.generate_nf_term_call fname_ctx in
+    let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx skel in
     let* store = Store.generate_store storectx in
-    return ((a_nf_term, store), lnamectx, namectxP')
+    let namectxO = OpCtx (Some typ, lnamectx) in
+    return ((a_nf_term, store), namectxO, namectxP)
+
+  let[@warning "-8"] generate_a_nf_ret storectx = function
+    | PropCtx (_, []) -> fail ()
+    | PropCtx (fnamectx, (ty1, ty2) :: stackctx') ->
+        let cname_ctx = Util.Pmap.singleton ((), (ty1, ty2)) in
+        let inj_ty ty = ty in
+        let* (skel, typ) = OpLang.generate_nf_term_ret inj_ty cname_ctx in
+        let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx skel in
+        let* store = Store.generate_store storectx in
+        let namectxP' = PropCtx (fnamectx, stackctx') in
+        let namectxO = OpCtx (Some typ, lnamectx) in
+        return ((a_nf_term, store), namectxO, namectxP')
+
+  let generate_a_nf storectx namectxP =
+    para_pair
+      (generate_a_nf_call storectx namectxP)
+      (generate_a_nf_ret storectx namectxP)
 
   let[@warning "-8"] type_check_a_nf
-      (PropCtx (fnamectxP, stack_ctx) as namectxP) (OpCtx (_, fnamectxO))
-      (a_nf, _) =
+      (PropCtx (fnamectxP, stack_ctx) as namectxP) (OpCtx (None, fnamectxO))
+      (nf_term, _) =
+    let inj_ty ty = ty in
+    let empty_res = (empty_name_ctx, namectxP) in
+    let fname_ctx = fnamectxP in
+    let cname_ctx =
+      match stack_ctx with
+      | [] -> Util.Pmap.empty
+      | (ty_hole, ty_out) :: _ -> Util.Pmap.singleton ((), (ty_hole, ty_out))
+    in
     let lift_lnamectx namectxP' ty_out = function
       | None -> None
       | Some lnamectx -> Some (OpCtx (Some ty_out, lnamectx), namectxP') in
-    let f_call (fn, aval, ()) =
-      let nty = Util.Pmap.lookup_exn fn fnamectxO in
-      let (_, ty) = get_input_type nty in
-      let ty_out = get_output_type nty in
+    let type_check_call aval nty =
+      let (_, ty_arg) = OpLang.get_input_type nty in
+      let ty_out = OpLang.get_output_type nty in
       lift_lnamectx namectxP ty_out
-      @@ AVal.type_check_abstract_val fnamectxP fnamectxO ty aval in
-    let f_ret ((), aval) =
+      @@ AVal.type_check_abstract_val fnamectxP fnamectxO ty_arg aval in
+    let type_check_ret aval ty_hole ty_out =
       match stack_ctx with
       | [] -> None
-      | (ty_hole, ty_out) :: stack_ctx' ->
+      | _ :: stack_ctx' ->
           let namectxP' = PropCtx (fnamectxP, stack_ctx') in
           lift_lnamectx namectxP' ty_out
           @@ AVal.type_check_abstract_val fnamectxP fnamectxO ty_hole aval in
-    let f_exn ((), aval) =
-      match stack_ctx with
-      | [] -> None
-      | (_, ty_out) :: stack_ctx' ->
-          let namectxP' = PropCtx (fnamectxP, stack_ctx') in
-          lift_lnamectx namectxP' ty_out
-          @@ AVal.type_check_abstract_val fnamectxP fnamectxO
-               OpLang.exception_type aval in
-    let f_error () = Some (empty_name_ctx, namectxP) in
-    OpLang.Nf.apply_cons ~f_call ~f_ret ~f_exn ~f_error a_nf
+    OpLang.type_check_nf_term ~inj_ty ~empty_res ~fname_ctx ~cname_ctx
+      ~type_check_call ~type_check_ret nf_term
 
   (* Beware that is_equiv_a_nf does not check the equivalence of
      the store part of abstract normal forms.

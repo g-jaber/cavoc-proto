@@ -37,3 +37,6 @@ type negative_type = typ
 val get_negative_type : typ -> negative_type option
 val force_negative_type : typ -> negative_type
 val string_of_negative_type : negative_type -> string
+
+val get_input_type : negative_type -> typevar list * typ
+val get_output_type : negative_type -> typ

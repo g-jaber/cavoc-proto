@@ -14,8 +14,6 @@ module Typed :
 
   type typ = Types.typ
 
-  let exception_type = Types.TExn
-
   let string_of_type = Types.string_of_typ
 
   type negative_type = Types.negative_type
@@ -126,27 +124,23 @@ module WithAVal (M : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT = struct
 
   let apply_type_subst = Types.apply_type_subst
 
-  let get_input_type = function
-    | Types.TArrow (ty1, _) -> ([], ty1)
-    | Types.TForall (tvar_l, TArrow (ty1, _)) -> (tvar_l, ty1)
-    | ty ->
-        failwith @@ "Error retrieving an input type: the type " ^ Types.string_of_typ ty
-        ^ " is not a negative type. Please report."
+  let get_input_type = Types.get_input_type
+  let get_output_type = Types.get_output_type
 
-  let get_output_type = function
-    | Types.TArrow (_, ty2) -> ty2
-    | Types.TForall (_, TArrow (_, ty2)) -> ty2
-    | ty ->
-        failwith @@ "Error retrieving an output type: the type " ^ Types.string_of_typ ty
-        ^ " is not a negative type. Please report."
+  module Nf_gen = Nf.Make (M)
 
   module Nf = struct 
     include Nf
     module M = M
-    module Nf_gen = Nf.Make (M)
-    let generate_nf_term = Nf_gen.generate_nf_term
     let abstract_nf_term_m = Nf_gen.abstract_nf_term_m
   end
+
+  let type_annotating_val = Nf.type_annotating_val
+  let type_annotating_ectx = Nf.type_annotating_ectx
+  let type_check_nf_term = Nf.type_check_nf_term
+  let generate_nf_term_call = Nf_gen.generate_nf_term_call
+
+  let generate_nf_term_ret = Nf_gen.generate_nf_term_ret
 
   type normal_form_term = (value, eval_context, Name.name, unit) Nf.nf_term
 

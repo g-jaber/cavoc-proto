@@ -138,7 +138,9 @@ module Make (IntLang : Lang.Interactive.LANG) :
     | Moves.None -> None
 
   let trigger_computation ienv input_move =
+    Util.Debug.print_debug "Triggering a new computation.";
     let kdata = Moves.get_kdata input_move in
+    Util.Debug.print_debug "Retrieved the kdata.";
     match
       (Moves.get_direction input_move, IntLang.concretize_a_nf ienv kdata)
     with
