@@ -127,11 +127,13 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     let fname_ctx =
       Util.Pmap.map_im (fun nty -> snd @@ get_input_type nty) fnamectxO in
             (* TODO: we should do something with the tvar_l *)
+    let fname_ctx_hole =
+      Util.Pmap.map_im (fun nty -> get_output_type nty) fnamectxO in
     let cname_ctx = Util.Pmap.singleton ((), ty_out) in
     let nf_typed_term =
       OpLang.type_annotating_val ~inj_ty ~fname_ctx ~cname_ctx nf_term in
     let nf_typed_term' =
-      OpLang.type_annotating_ectx fname_ctx ty_out nf_typed_term in
+      OpLang.type_annotating_ectx fname_ctx_hole ty_out nf_typed_term in
     let f_val (value, nty) =
       let (aval, ienv, lnamectx) = OpLang.AVal.abstracting_value value nty in
       (aval, (ienv, lnamectx)) in
@@ -172,17 +174,19 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     OpLang.Nf.apply_val [] AVal.names_of_abstract_val a_nf_term
   (*TODO: take into account the store part*)
 
+  let string_of_a_nf_term dir nf_term =
+    OpLang.Nf.string_of_nf_term dir OpLang.AVal.string_of_abstract_val
+    (fun () -> "")
+    OpLang.Name.string_of_name
+    (fun () -> "ret")
+    nf_term
+  
   let string_of_a_nf dir (nf_term, store) =
-    let string_nf_term =
-      OpLang.Nf.string_of_nf_term dir OpLang.AVal.string_of_abstract_val
-        (fun () -> "")
-        OpLang.Name.string_of_name
-        (fun () -> "ret")
-        nf_term in
-    if store = Store.empty_store then string_nf_term
+    let nf_term_string = string_of_a_nf_term dir nf_term in
+    if store = Store.empty_store then  nf_term_string
     else
       let string_store = Store.string_of_store store in
-      string_nf_term ^ "," ^ string_store
+      nf_term_string ^ "," ^ string_store
 
   include AVal.M
 
@@ -210,8 +214,8 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
 
   let[@warning "-8"] generate_a_nf_ret storectx = function
     | PropCtx (_, []) -> fail ()
-    | PropCtx (fnamectx, (ty1, ty2) :: stackctx') ->
-        let cname_ctx = Util.Pmap.singleton ((), (ty1, ty2)) in
+    | PropCtx (fnamectx, (ty_hole, ty_out) :: stackctx') ->
+        let cname_ctx = Util.Pmap.singleton ((), (ty_hole, ty_out)) in
         let inj_ty ty = ty in
         let* (skel, typ) = OpLang.generate_nf_term_ret inj_ty cname_ctx in
         let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx skel in
