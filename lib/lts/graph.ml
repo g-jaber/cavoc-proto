@@ -128,7 +128,7 @@ module Graph :
     set { graph with edges= edge :: graph.edges }
 
   (* The computation of the graph is always called on an active state*)
-
+  (* TODO: Why ? *)
   let rec compute_graph_monad = function
     | ActState (act_conf, _) as act_state ->
         let (action, pas_conf_option) = IntLTS.p_trans act_conf in

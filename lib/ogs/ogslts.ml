@@ -37,6 +37,10 @@ module Make (Int : Lts.Interactive.INT) = struct
     ^ " > | "
     ^ Int.string_of_interactive_ctx pas_conf.ictx
 
+  let extract_interactive_ctx = function
+    | Active a_iconf -> a_iconf.ictx
+    | Passive p_iconf -> p_iconf.ictx
+
   let p_trans act_conf =
     let nf_option =
       Int.IntLang.compute_nf (act_conf.computation, act_conf.store) in
@@ -44,8 +48,7 @@ module Make (Int : Lts.Interactive.INT) = struct
     | None -> (Int.Actions.diverging_action, None)
     | Some nf when Int.IntLang.is_error nf -> (Int.Actions.error_action, None)
     | Some nf ->
-        let (move, ienv', _,ictx) =
-          Int.generate_output_move act_conf.ictx nf in
+        let (move, ienv', _, ictx) = Int.generate_output_move act_conf.ictx nf in
         let ienv = Int.IntLang.concat_ienv ienv' act_conf.ienv in
         let store = Int.IntLang.get_store nf in
         (Int.Actions.inject_move move, Some { store; ienv; ictx })
@@ -81,11 +84,10 @@ module Make (Int : Lts.Interactive.INT) = struct
   let init_pconf store ienv namectxP namectxO =
     let store_ctx = Int.IntLang.Store.empty_store_ctx in
     (* we suppose that the initial store is not shared *)
-    let ictx =
-      Int.init_interactive_ctx store_ctx namectxP
-        namectxO in
-    { store= store; ienv; ictx }
+    let ictx = Int.init_interactive_ctx store_ctx namectxP namectxO in
+    { store; ienv; ictx }
 
-    let equiv_act_conf act_conf act_confb =
-      act_conf.computation = act_confb.computation && act_conf.store = act_confb.store
+  let equiv_act_conf act_conf act_confb =
+    act_conf.computation = act_confb.computation
+    && act_conf.store = act_confb.store
 end

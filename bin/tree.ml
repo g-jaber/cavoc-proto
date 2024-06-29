@@ -4,7 +4,7 @@ let () =
   let number_filename = ref 0 in
   let filename = ref "" in
   let speclist = [ ("-debug", Set Util.Debug.debug_mode, "Debug mode") ] in
-  let usage_msg = "Usage: cavoctree filename [options]" in
+  let usage_msg = "Usage: tree filename [options]" in
   let get_filename str =
     match !number_filename with
     | 0 ->

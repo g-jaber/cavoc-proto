@@ -34,6 +34,8 @@ module type INT_LTS = sig
     Int.IntLang.name_ctx ->
     Int.IntLang.name_ctx ->
     passive_conf
+
+  val extract_interactive_ctx : conf -> Int.interactive_ctx
 end
 
 module type INT_LTS_F = functor

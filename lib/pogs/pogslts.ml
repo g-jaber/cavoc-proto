@@ -34,6 +34,10 @@ module Make (Int : Lts.Interactive.INT) = struct
     ^ " > | "
     ^ Int.string_of_interactive_ctx pas_conf.ictx
 
+  let extract_interactive_ctx = function
+    | Active a_iconf -> a_iconf.ictx
+    | Passive p_iconf -> p_iconf.ictx
+
   let p_trans act_conf =
     let nf_option =
       Int.IntLang.compute_nf (act_conf.computation, act_conf.store) in
@@ -42,10 +46,10 @@ module Make (Int : Lts.Interactive.INT) = struct
     | Some nf when Int.IntLang.is_error nf -> (Int.Actions.error_action, None)
     | Some nf ->
         let store = Int.IntLang.get_store nf in
-                (* All the store is supposed to be disclosed*)
+        (* All the store is supposed to be disclosed*)
         let storectx = Int.IntLang.Store.infer_type_store store in
         let ictx = Int.replace_storectx act_conf.ictx storectx in
-        let (move, ienv, lnamectx,ictx) = Int.generate_output_move ictx nf in
+        let (move, ienv, lnamectx, ictx) = Int.generate_output_move ictx nf in
         (* We reset the P-name context of ictx using lnamectx*)
         let ictx = Int.replace_namectxP ictx lnamectx in
         (Int.Actions.inject_move move, Some { ienv; store; ictx })
@@ -76,8 +80,9 @@ module Make (Int : Lts.Interactive.INT) = struct
   let init_pconf store ienv namectxP namectxO =
     let store_ctx = Int.IntLang.Store.infer_type_store store in
     let ictx = Int.init_interactive_ctx store_ctx namectxP namectxO in
-    { store ;ienv; ictx }
+    { store; ienv; ictx }
 
   let equiv_act_conf act_conf act_confb =
-    act_conf.computation = act_confb.computation && act_conf.store = act_confb.store
+    act_conf.computation = act_confb.computation
+    && act_conf.store = act_confb.store
 end
