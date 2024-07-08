@@ -1,13 +1,15 @@
-module Make (IntLTS : Bipartite.INT_LTS) = struct
+module Make (IntLTS : Bipartite.LTS) = struct
+  type conf = IntLTS.conf
+
   type event =
-    | Trans of IntLTS.Int.interactive_ctx * IntLTS.Int.Actions.Moves.move
-    | Leaf of IntLTS.Int.interactive_ctx
+    | Trans of IntLTS.conf * IntLTS.Actions.Moves.move
+    | Leaf of IntLTS.conf
 
   let string_of_event = function
     | Trans (_, move) ->
         (*IntLTS.Int.string_of_interactive_ctx ictx
-        ^ " -" ^*)
-        IntLTS.Int.Actions.Moves.string_of_move move
+          ^ " -" ^*)
+        IntLTS.Actions.Moves.string_of_move move
         (*^ "-> "*)
     | Leaf _ -> "" (*IntLTS.Int.string_of_interactive_ctx ictx*)
 
@@ -32,23 +34,21 @@ module Make (IntLTS : Bipartite.INT_LTS) = struct
           match (pas_conf_option, action) with
           | (_, PDiv) ->
               print_endline @@ "Proponent has diverged ";
-              let* () = emit @@ Leaf (IntLTS.extract_interactive_ctx conf) in
+              let* () = emit @@ Leaf conf in
               return ()
           | (_, PError) ->
               print_endline
               @@ "Proponent has errored. Congratulation, you've found a bug! ";
-              let* () = emit @@ Leaf (IntLTS.extract_interactive_ctx conf) in
+              let* () = emit @@ Leaf conf in
               return ()
           | (None, Vis output_move) ->
               print_endline @@ "Proponent has quitted the game after playing "
               ^ IntLTS.Actions.Moves.string_of_move output_move;
-              emit @@ Trans (IntLTS.extract_interactive_ctx conf, output_move)
+              emit @@ Trans (conf, output_move)
           | (Some pas_conf, Vis output_move) ->
               print_endline @@ "Proponent has played "
               ^ IntLTS.Actions.Moves.string_of_move output_move;
-              let* () =
-                emit @@ Trans (IntLTS.extract_interactive_ctx conf, output_move)
-              in
+              let* () = emit @@ Trans (conf, output_move) in
               generate (IntLTS.Passive pas_conf)
         end
     | IntLTS.Passive pas_conf ->
@@ -56,20 +56,24 @@ module Make (IntLTS : Bipartite.INT_LTS) = struct
         let results_list = IntLTS.M.run (IntLTS.o_trans_gen pas_conf) in
         print_endline "The possible moves are :";
         List.iter print_endline
-          (List.map
-             (fun (m, _) -> IntLTS.Actions.Moves.string_of_move m)
+          (List.mapi
+             (fun i (m, _) ->
+               string_of_int (i + 1)
+               ^ ": "
+               ^ IntLTS.Actions.Moves.string_of_move m)
              results_list);
         let* (input_move, act_conf) = para_list results_list in
         print_endline @@ "You have played "
         ^ IntLTS.Actions.Moves.string_of_move input_move;
-        let* () =
-          emit @@ Trans (IntLTS.extract_interactive_ctx conf, input_move) in
+        let* () = emit @@ Trans (conf, input_move) in
         generate (IntLTS.Active act_conf)
 
-  let string_of_trace trace_list = List.map string_of_trace trace_list
+  type graph = trace list
 
-  let get_traces act_conf =
+  let string_of_graph trace_list =
+    String.concat "\n" @@ List.map string_of_trace trace_list
+
+  let compute_graph act_conf =
     let result = generate act_conf in
-    let trace_list = get_trace result in
-    string_of_trace trace_list
+    get_trace result
 end

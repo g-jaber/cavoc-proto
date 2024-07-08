@@ -1,5 +1,5 @@
 module Make (IntLTS : Lts.Bipartite.INT_LTS) = struct
-  module Graph = Lts.Graph.Graph(IntLTS)
+  module Graph = Lts.Graph.Make(IntLTS)
 
   (* Work in progress*)
 

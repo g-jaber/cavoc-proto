@@ -28,7 +28,7 @@ let () =
   let (expr, namectxO) = Int.IntLang.get_typed_term "first" inBuffer in
   let module POGS_LTS = Pogs.Pogslts.Make (Int) in
   let init_aconf = POGS_LTS.init_aconf expr namectxO in
-  let module Graph = Lts.Graph.Graph (POGS_LTS) in
-  let graph = Graph.compute_graph init_aconf in
+  let module Graph = Lts.Graph.Make (POGS_LTS) in
+  let graph = Graph.compute_graph (POGS_LTS.Active init_aconf) in
   let graph_string = Graph.string_of_graph graph in
   print_string graph_string

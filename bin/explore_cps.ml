@@ -53,8 +53,9 @@ let () =
     let init_act_conf = ProdLTS.init_aconf expr namectxO in
     let init_conf = ProdLTS.Active init_act_conf in
     let module Generate = Lts.Generate_trace.Make (ProdLTS) in
-    let traces = Generate.get_traces init_conf in
-    List.iter print_endline traces
+    let graph = Generate.compute_graph init_conf in
+    let graph_string = Generate.string_of_graph graph in
+    print_string graph_string
   end
   else begin
     check_number_filenames 2;
@@ -68,13 +69,15 @@ let () =
         ProdLTS.init_pconf store interactive_env name_ctxP name_ctxO in
       let init_conf = ProdLTS.Passive init_pas_conf in
       let module Generate = Lts.Generate_trace.Make (ProdLTS) in
-      let traces = Generate.get_traces init_conf in
-      List.iter print_endline traces
+      let graph = Generate.compute_graph init_conf in
+      let graph_string = Generate.string_of_graph graph in
+      print_string graph_string
     else
       let init_pas_conf =
         OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO in
       let init_conf = OGS_LTS.Passive init_pas_conf in
       let module Generate = Lts.Generate_trace.Make (OGS_LTS) in
-      let traces = Generate.get_traces init_conf in
-      List.iter print_endline traces
+      let graph = Generate.compute_graph init_conf in
+      let graph_string = Generate.string_of_graph graph in
+      print_string graph_string
   end

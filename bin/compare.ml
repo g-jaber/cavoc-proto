@@ -42,7 +42,7 @@ let () =
     ^ Int.IntLang.string_of_name_ctx namectxO2);
   let module Synch_LTS = Lts.Synch_lts.Make (POGS_LTS) in
   let init_aconf = Synch_LTS.init_aconf expr1 namectxO1 expr2 namectxO2 in
-  let module Graph = Lts.Graph.Graph (Synch_LTS) in
-  let graph = Graph.compute_graph init_aconf in
+  let module Graph = Lts.Graph.Make (Synch_LTS) in
+  let graph = Graph.compute_graph (Synch_LTS.Active init_aconf) in
   let graph_string = Graph.string_of_graph graph in
   print_string graph_string
