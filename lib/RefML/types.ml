@@ -18,9 +18,6 @@ type typ =
   | TUndef
 
 let rec string_par_of_typ = function
-  | TUnit -> "Unit"
-  | TInt -> "Int"
-  | TBool -> "Bool"
   | TArrow (ty1, ty2) ->
       "(" ^ string_par_of_typ ty1 ^ "->" ^ string_of_typ ty2 ^ ")"
   | TProd (ty1, ty2) ->
@@ -28,19 +25,15 @@ let rec string_par_of_typ = function
   | TSum (ty1, ty2) ->
       "(" ^ string_par_of_typ ty1 ^ "+" ^ string_par_of_typ ty2 ^ ")"
   | TRef ty -> "(ref " ^ string_of_typ ty ^ ")"
-  | TExn -> "exn"
-  | TVar typevar -> typevar
   | TForall (tvars, ty) ->
       let tvars_string = String.concat " " tvars in
       "(∀" ^ tvars_string ^ "." ^ string_par_of_typ ty ^ ")"
-  | TId id -> id
-  | TName id -> id
-  | TUndef -> "undef"
+  | typ -> string_of_typ typ
 
 and string_of_typ = function
-  | TUnit -> "Unit"
-  | TInt -> "Int"
-  | TBool -> "Bool"
+  | TUnit -> "unit"
+  | TInt -> "int"
+  | TBool -> "bool"
   | TArrow (ty1, ty2) -> string_par_of_typ ty1 ^ "->" ^ string_of_typ ty2
   | TProd (ty1, ty2) ->
       string_par_of_typ ty1 ^ "*" ^ string_par_of_typ ty2
@@ -56,6 +49,7 @@ and string_of_typ = function
   | TId id -> id
   | TName id -> id
   | TUndef -> "undef"
+
 
 (* We provide a way to generate fresh type variables,
    that are used in the type checker *)
