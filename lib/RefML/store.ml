@@ -1,12 +1,13 @@
 type store = Syntax.val_env * Heap.heap * Type_ctx.cons_ctx
 
 let string_of_store (_, heap, _) = Heap.string_of_heap heap
-  (*let heap_string = Heap.string_of_heap heap in
+(*let heap_string = Heap.string_of_heap heap in
   if valenv = Util.Pmap.empty then heap_string
   else
     let valenv_string = Syntax.string_of_val_env valenv in
     heap_string ^ "| " ^ valenv_string*)
 
+let pp_store _ _ = failwith "Not yet implemented"
 let empty_store = (Syntax.empty_val_env, Heap.emptyheap, Type_ctx.empty_cons_ctx)
 let loc_lookup (_, heap, _) loc = Heap.lookup heap loc
 let var_lookup (varenv, _, _) var = Util.Pmap.lookup var varenv
@@ -38,6 +39,8 @@ let string_of_store_ctx (loc_ctx, cons_ctx) =
   Type_ctx.string_of_loc_ctx loc_ctx
   ^ ","
   ^ Type_ctx.string_of_cons_ctx cons_ctx
+
+let pp_store_ctx _ _ = failwith "Not yet implemented"
 
 let concat_store_ctx (loc_ctx1, cons_ctx1) (loc_ctx2, cons_ctx2) =
   let loc_ctx = Util.Pmap.concat loc_ctx1 loc_ctx2 in

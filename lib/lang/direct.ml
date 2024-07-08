@@ -40,6 +40,8 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     | PropCtx (fnamectx, stackctx) ->
         string_of_stack_ctx stackctx ^ "|" ^ OpLang.string_of_name_ctx fnamectx
 
+  let pp_name_ctx _ _ = failwith "Not yet implemented"
+
   let concat_name_ctx namectx1 namectx2 =
     match (namectx1, namectx2) with
     | (PropCtx (fnamectx1, stackctx1), PropCtx (fnamectx2, stackctx2)) ->
@@ -79,6 +81,8 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
 
   let string_of_ienv (namectx, stackctx) =
     string_of_stack stackctx ^ " | " ^ OpLang.string_of_ienv namectx
+
+  let pp_ienv _ _ = failwith "Not yet implemented"
 
   type normal_form =
     (value, eval_context, Name.name, unit) OpLang.Nf.nf_term * Store.store
@@ -126,7 +130,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     let inj_ty ty = ty in
     let fname_ctx =
       Util.Pmap.map_im (fun nty -> snd @@ get_input_type nty) fnamectxO in
-            (* TODO: we should do something with the tvar_l *)
+    (* TODO: we should do something with the tvar_l *)
     let fname_ctx_hole =
       Util.Pmap.map_im (fun nty -> get_output_type nty) fnamectxO in
     let cname_ctx = Util.Pmap.singleton ((), ty_out) in
@@ -176,14 +180,14 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
 
   let string_of_a_nf_term dir nf_term =
     OpLang.Nf.string_of_nf_term dir OpLang.AVal.string_of_abstract_val
-    (fun () -> "")
-    OpLang.Name.string_of_name
-    (fun () -> "ret")
-    nf_term
-  
+      (fun () -> "")
+      OpLang.Name.string_of_name
+      (fun () -> "ret")
+      nf_term
+
   let string_of_a_nf dir (nf_term, store) =
     let nf_term_string = string_of_a_nf_term dir nf_term in
-    if store = Store.empty_store then  nf_term_string
+    if store = Store.empty_store then nf_term_string
     else
       let string_store = Store.string_of_store store in
       nf_term_string ^ "," ^ string_store

@@ -25,6 +25,8 @@ module Make
     ^ ";"
     ^ HistLts.string_of_passive_conf hconf
 
+  let pp_passive_conf _ (_, _) = failwith "Not yet implemented"
+
   let extract_interactive_ctx = function
     | Active (a_iconf, _) -> IntLts.extract_interactive_ctx (Active a_iconf)
     | Passive (p_iconf, _) -> IntLts.extract_interactive_ctx (Passive p_iconf)

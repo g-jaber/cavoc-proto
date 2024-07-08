@@ -89,8 +89,7 @@ let empty_name_set = []
 
 let rec get_new_names lnames = function
   | Name n -> if List.mem n lnames then lnames else n :: lnames
-  | Var _  | Loc _ | Unit | Int _ | Bool _ | Hole | Error ->
-      lnames
+  | Var _ | Loc _ | Unit | Int _ | Bool _ | Hole | Error -> lnames
   | Constructor (_, e)
   | UnaryOp (_, e)
   | Fun (_, e)
@@ -185,10 +184,8 @@ let rec subst expr value value' =
   | Name _ when expr = value -> value'
   | Loc _ when expr = value -> value'
   | Hole when expr = value -> value'
-  | Var _ | Name _ | Loc _ | Hole | Unit | Int _ | Bool _
-  | Error ->
-      expr
-  | Constructor (cons, expr') -> Constructor (cons, subst expr' value value')  
+  | Var _ | Name _ | Loc _ | Hole | Unit | Int _ | Bool _ | Error -> expr
+  | Constructor (cons, expr') -> Constructor (cons, subst expr' value value')
   | BinaryOp (op, expr1, expr2) ->
       BinaryOp (op, subst expr1 value value', subst expr2 value value')
   | UnaryOp (op, expr) -> UnaryOp (op, subst expr value value')
@@ -243,7 +240,9 @@ let subst_list expr lsubst =
     (fun expr (var, value) -> subst expr (Var var) value)
     expr lsubst
 
-let string_of_pattern = function PatCons (c, id) -> c ^ " " ^ id | PatVar id -> id
+let string_of_pattern = function
+  | PatCons (c, id) -> c ^ " " ^ id
+  | PatVar id -> id
 
 let string_of_typed_var = function
   | (x, Types.TUndef) -> x
@@ -274,7 +273,7 @@ let rec string_par_of_term = function
 
 and string_of_term = function
   | Var x -> x
-  | Constructor (c, e) -> c ^ " " ^string_of_term e
+  | Constructor (c, e) -> c ^ " " ^ string_of_term e
   | Name n -> Names.string_of_name n
   | Loc l -> string_of_loc l
   | Unit -> "()"
@@ -388,8 +387,8 @@ type eval_context = term
 (* extract_ctx decomposes an expression into its redex and the surrounding evaluation context*)
 let rec extract_ctx expr =
   match expr with
-  | Name _ | Loc _ | Unit | Int _ | Bool _ | Fix _ | Fun _
-  | Error -> (expr, Hole)
+  | Name _ | Loc _ | Unit | Int _ | Bool _ | Fix _ | Fun _ | Error ->
+      (expr, Hole)
   | BinaryOp (_, expr1, expr2)
   | App (expr1, expr2)
   | Pair (expr1, expr2)
@@ -409,7 +408,8 @@ let rec extract_ctx expr =
   | While (expr1, expr2) -> extract_ctx_un (fun x -> While (x, expr2)) expr1
   | Assert expr' -> extract_ctx_un (fun x -> Assert x) expr'
   | Raise expr' -> extract_ctx_un (fun x -> Raise x) expr'
-  | Constructor (cons, expr') -> extract_ctx_un (fun x -> Constructor (cons, x)) expr'
+  | Constructor (cons, expr') ->
+      extract_ctx_un (fun x -> Constructor (cons, x)) expr'
   | TryWith (expr', handler_l) ->
       extract_ctx_un (fun x -> TryWith (x, handler_l)) expr'
   | Var _ | Hole ->
@@ -445,7 +445,6 @@ let filter_negative_val = function
   | _ -> None
 
 let force_negative_val value = value
-
 let embed_negative_val value = value
 
 type interactive_env = (Names.name, negative_val) Util.Pmap.pmap
@@ -455,6 +454,8 @@ let concat_ienv = Util.Pmap.concat
 
 let string_of_ienv =
   Util.Pmap.string_of_pmap "ε" "↪" Names.string_of_name string_of_negative_val
+
+let pp_ienv _ _ = failwith "Not yet implemented"
 
 open Nf
 
@@ -491,7 +492,7 @@ let get_nf_term term =
 let refold_nf_term = function
   | NFCallback (nval, value, ()) -> App (nval, value)
   | NFValue (ectx, value) -> fill_hole ectx value
-  | NFError (ectx) -> fill_hole ectx Error
+  | NFError ectx -> fill_hole ectx Error
   | NFRaise (ectx, value) -> fill_hole ectx (Raise value)
 
 let max_int = 1

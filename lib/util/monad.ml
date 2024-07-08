@@ -62,7 +62,7 @@ module UserChoose : BRANCH = struct
         let n = List.length l in
         print_endline
           ("Choose an integer between 1 and " ^ string_of_int n
-         ^ " or choose 0 to stop.");
+         ^ " to decide what to do, or choose 0 to stop.");
         let i = read_int () in
         if i > 0 && i <= n then Some (List.nth l (i - 1)) else None
 

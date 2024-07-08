@@ -26,6 +26,7 @@ module type LANG = sig
   val empty_name_ctx : name_ctx
   val concat_name_ctx : name_ctx -> name_ctx -> name_ctx
   val string_of_name_ctx : name_ctx -> string
+  val pp_name_ctx : Format.formatter -> name_ctx -> unit
   val get_names_from_name_ctx : name_ctx -> Name.name list
 
   (* Interactive environments γ are partial maps from names to interactive values*)
@@ -34,6 +35,7 @@ module type LANG = sig
   val empty_ienv : interactive_env
   val concat_ienv : interactive_env -> interactive_env -> interactive_env
   val string_of_ienv : interactive_env -> string
+  val pp_ienv : Format.formatter -> interactive_env -> unit
 
   (* The typed focusing process implemented by abstracting_nf
       decomposes a normal form into:
@@ -120,6 +122,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let empty_name_ctx = OpLang.empty_name_ctx
   let concat_name_ctx = OpLang.concat_name_ctx
   let string_of_name_ctx = OpLang.string_of_name_ctx
+  let pp_name_ctx _ _ = failwith "Not yet implemented"
   let get_names_from_name_ctx = OpLang.get_names_from_name_ctx
 
   (* Interactive environments γ are partial maps from names to interactive values*)
@@ -128,6 +131,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let empty_ienv = OpLang.empty_ienv
   let concat_ienv = OpLang.concat_ienv
   let string_of_ienv = OpLang.string_of_ienv
+  let pp_ienv = OpLang.pp_ienv
 
   type normal_form = OpLang.normal_form_term * OpLang.Store.store
 
@@ -167,9 +171,11 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   (* TODO Deal with the abstraction process of the heap properly *)
 
   let abstracting_nf_term nf_term namectxO =
-    let namectxO' = Util.Pmap.map_im OpLang.negating_type namectxO in
+    let namectxO' = Util.Pmap.filter_dom (fun n -> Name.is_fname n || Name.is_cname n) namectxO in
+    let namectxO'' = Util.Pmap.map_im OpLang.negating_type namectxO' in
+    (* This is bugged, we should first *)
     let nf_typed_term =
-      OpLang.type_annotating_val namectxO' nf_term in
+      OpLang.type_annotating_val namectxO'' nf_term in
     let f_val (value, nty) =
       let (aval, ienv, lnamectx) = OpLang.AVal.abstracting_value value nty in
       (aval, (ienv, lnamectx)) in
@@ -242,9 +248,10 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
     OpLang.Nf.abstract_nf_term_m ~gen_val nf_skeleton
 
   let generate_a_nf storectx namectxP =
-    let namectxP' = Util.Pmap.map_im OpLang.negating_type namectxP in
+    let namectxP' = Util.Pmap.filter_dom (fun n -> Name.is_fname n || Name.is_cname n) namectxP in
+    let namectxP'' = Util.Pmap.map_im OpLang.negating_type namectxP' in
     let* _ = return @@ Util.Debug.print_debug @@ "Generating the skeleton " in
-    let* skel = OpLang.generate_nf_term namectxP' in
+    let* skel = OpLang.generate_nf_term namectxP'' in
     let* _ = return @@ Util.Debug.print_debug @@ "Filling the skeleton " in
     let* (a_nf_term, lnamectx) = fill_abstract_val storectx namectxP skel in
     let* store = Store.generate_store storectx in

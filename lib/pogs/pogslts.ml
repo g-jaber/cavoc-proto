@@ -34,6 +34,8 @@ module Make (Int : Lts.Interactive.INT) = struct
     ^ " > | "
     ^ Int.string_of_interactive_ctx pas_conf.ictx
 
+  let pp_passive_conf _ _ = failwith "Not yet implemented"
+
   let extract_interactive_ctx = function
     | Active a_iconf -> a_iconf.ictx
     | Passive p_iconf -> p_iconf.ictx

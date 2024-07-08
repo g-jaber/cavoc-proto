@@ -1,6 +1,7 @@
 type store = Syntax.val_env * Heap.heap * Type_ctx.cons_ctx
 
 val string_of_store : store -> string
+val pp_store : Format.formatter -> store -> unit
 val empty_store : store
 val loc_lookup :  store -> Syntax.loc -> Syntax.value option
 val var_lookup :  store -> Syntax.id -> Syntax.value option
@@ -16,6 +17,7 @@ type store_ctx = Type_ctx.loc_ctx * Type_ctx.cons_ctx
 
 val empty_store_ctx : store_ctx
 val string_of_store_ctx : store_ctx -> string
+val pp_store_ctx : Format.formatter -> store_ctx -> unit
 val concat_store_ctx : store_ctx -> store_ctx -> store_ctx
 val infer_type_store : store -> store_ctx
 

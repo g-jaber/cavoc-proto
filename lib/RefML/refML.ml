@@ -30,6 +30,8 @@ module Typed :
   let string_of_name_ctx =
     Util.Pmap.string_of_pmap "[]" "::" Names.string_of_name
       Types.string_of_negative_type
+
+  let pp_name_ctx _ _ = failwith "Not yet implemented"
 end
 
 module MakeStore (M : Util.Monad.BRANCH) :
@@ -123,15 +125,15 @@ module WithAVal (M : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT = struct
     (tname_l, Util.Pmap.list_to_pmap type_subst_l)
 
   let apply_type_subst = Types.apply_type_subst
-
   let get_input_type = Types.get_input_type
   let get_output_type = Types.get_output_type
 
   module Nf_gen = Nf.Make (M)
 
-  module Nf = struct 
+  module Nf = struct
     include Nf
     module M = M
+
     let abstract_nf_term_m = Nf_gen.abstract_nf_term_m
   end
 
@@ -139,7 +141,6 @@ module WithAVal (M : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT = struct
   let type_annotating_ectx = Nf.type_annotating_ectx
   let type_check_nf_term = Nf.type_check_nf_term
   let generate_nf_term_call = Nf_gen.generate_nf_term_call
-
   let generate_nf_term_ret = Nf_gen.generate_nf_term_ret
 
   type normal_form_term = (value, eval_context, Name.name, unit) Nf.nf_term
@@ -147,13 +148,9 @@ module WithAVal (M : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT = struct
   let refold_nf_term = Syntax.refold_nf_term
   let get_nf_term = Syntax.get_nf_term
 
-
-  
-(*
+  (*
   let generate_nf_skeleton = Nf_gen.generate_nf_skeleton
   let fill_nf_skeleton = Nf_gen.fill_nf_skeleton*)
-
-  
 
   module AVal :
     Lang.Abstract_val.AVAL

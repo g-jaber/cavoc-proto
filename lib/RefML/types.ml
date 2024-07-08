@@ -48,6 +48,8 @@ and string_of_typ = function
   | TRef ty -> "ref " ^ string_of_typ ty
   | TExn -> "exn"
   | TVar typevar -> typevar
+  | TForall ([], ty) ->
+    string_par_of_typ ty
   | TForall (tvars, ty) ->
       let tvars_string = String.concat " " tvars in
       "∀" ^ tvars_string ^ "." ^ string_par_of_typ ty

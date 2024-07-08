@@ -37,6 +37,9 @@ module Make (Int : Lts.Interactive.INT) = struct
     ^ " > | "
     ^ Int.string_of_interactive_ctx pas_conf.ictx
 
+  let pp_passive_conf fmt aconf = 
+    Format.fprintf fmt "⟨%a | %a | %a⟩" Int.IntLang.Store.pp_store aconf.store Int.IntLang.pp_ienv aconf.ienv Int.pp_interactive_ctx aconf.ictx
+
   let extract_interactive_ctx = function
     | Active a_iconf -> a_iconf.ictx
     | Passive p_iconf -> p_iconf.ictx

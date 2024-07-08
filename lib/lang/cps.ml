@@ -65,6 +65,8 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     Util.Pmap.string_of_pmap "ε" "↪" OpLang.Name.string_of_name
       string_of_negative_val
 
+  let pp_ienv _ _ = failwith "Not yet implemented"
+
   let empty_ienv = Util.Pmap.empty
   let concat_ienv = Util.Pmap.concat
 
@@ -109,6 +111,8 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   let string_of_name_ctx =
     Util.Pmap.string_of_pmap "ε" "::" OpLang.Name.string_of_name
       string_of_negative_type
+
+  let pp_name_ctx _ _ = failwith "Not yet implemented"
 
   module Store = OpLang.Store
 
@@ -214,6 +218,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
      expected to interact over this type. *)
   let negating_type = function
     | IType ty ->
+      Util.Debug.print_debug ("Negating the type " ^ OpLang.string_of_negative_type ty);
         let (tvar_l, inp_ty) = OpLang.get_input_type ty in
         let out_ty = OpLang.get_output_type ty in
         begin

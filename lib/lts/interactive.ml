@@ -23,6 +23,7 @@ module type INT = sig
     interactive_ctx
 
   val string_of_interactive_ctx : interactive_ctx -> string
+  val pp_interactive_ctx : Format.formatter -> interactive_ctx -> unit
 
   (* generate_output_move Δ nf returns a triple (m,γ,Γ,Δ')
       where the output move m is formed by
@@ -89,6 +90,10 @@ module Make (IntLang : Lang.Interactive.LANG) :
     ^ IntLang.string_of_name_ctx ictx.namectxP
     ^ ">"
 
+  let pp_interactive_ctx fmt ictx =
+    Format.fprintf fmt "⟨%a | %a | %a⟩" IntLang.Store.pp_store_ctx
+      ictx.storectx IntLang.pp_name_ctx ictx.namectxO IntLang.pp_name_ctx ictx.namectxP
+
   let replace_namectxP ictx namectxP = { ictx with namectxP }
   let replace_storectx ictx storectx = { ictx with storectx }
 
@@ -114,9 +119,12 @@ module Make (IntLang : Lang.Interactive.LANG) :
 
   let generate_input_moves ictx =
     Util.Debug.print_debug "Generating O-moves";
-    let* (a_nf, lnamectx, namectxP) = IntLang.generate_a_nf ictx.storectx ictx.namectxP in
+    let* (a_nf, lnamectx, namectxP) =
+      IntLang.generate_a_nf ictx.storectx ictx.namectxP in
     let namectxO = IntLang.concat_name_ctx lnamectx ictx.namectxO in
-    Util.Debug.print_debug @@ "New name context :" ^ IntLang.string_of_name_ctx namectxP ^ " and " 
+    Util.Debug.print_debug @@ "New name context :"
+    ^ IntLang.string_of_name_ctx namectxP
+    ^ " and "
     ^ IntLang.string_of_name_ctx namectxO;
     return (Moves.build (Moves.Input, a_nf), { ictx with namectxP; namectxO })
 
@@ -129,7 +137,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
           IntLang.type_check_a_nf ictx.namectxP ictx.namectxO a_nf in
         begin
           match lnamectx_opt with
-          | Some (lnamectx,namectxP) ->
+          | Some (lnamectx, namectxP) ->
               let namectxO = IntLang.concat_name_ctx lnamectx ictx.namectxO in
               Some { ictx with namectxO; namectxP }
           | None -> None

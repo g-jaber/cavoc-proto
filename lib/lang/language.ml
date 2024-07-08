@@ -15,6 +15,7 @@ module type TYPED = sig
   val empty_name_ctx : name_ctx
   val concat_name_ctx : name_ctx -> name_ctx -> name_ctx
   val string_of_name_ctx : name_ctx -> string
+  val pp_name_ctx : Format.formatter -> name_ctx -> unit
   val get_names_from_name_ctx : name_ctx -> Name.name list
 end
 
@@ -22,12 +23,14 @@ module type STORE = sig
   type store
 
   val string_of_store : store -> string
+  val pp_store : Format.formatter -> store -> unit
   val empty_store : store
 
   type store_ctx
 
   val empty_store_ctx : store_ctx
   val string_of_store_ctx : store_ctx -> string
+  val pp_store_ctx : Format.formatter -> store_ctx -> unit
   val concat_store_ctx : store_ctx -> store_ctx -> store_ctx
   val infer_type_store : store -> store_ctx
 
@@ -67,6 +70,7 @@ module type COMP = sig
   val empty_ienv : interactive_env
   val concat_ienv : interactive_env -> interactive_env -> interactive_env
   val string_of_ienv : interactive_env -> string
+  val pp_ienv : Format.formatter -> interactive_env -> unit
 
   type opconf = term * Store.store
 
