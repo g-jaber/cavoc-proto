@@ -84,6 +84,14 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
         OpLang.string_of_type typ1 ^ "* ¬" ^ OpLang.string_of_type typ2
     | GEmpty -> "⊥"
 
+    let pp_type fmt = function
+    | GType typ -> OpLang.pp_type fmt typ
+    | GExists (tvar_l, typ1, typ2) ->
+      Format.fprintf fmt "%a. %a × ¬%a" OpLang.pp_tvar_l tvar_l OpLang.pp_type typ1 OpLang.pp_type typ2
+    | GProd (typ1, typ2) ->
+        Format.fprintf fmt "%a × ¬%a" OpLang.pp_type typ1 OpLang.pp_type typ2
+    | GEmpty -> Format.fprintf fmt "⊥"
+
   let get_negative_type = function
     | GType typ -> begin
         match OpLang.get_negative_type typ with
@@ -95,6 +103,11 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   let string_of_negative_type = function
     | IType ty -> OpLang.string_of_negative_type ty
     | INeg ty -> "¬" ^ OpLang.string_of_type ty
+
+  let pp_negative_type fmt = function
+  | IType ty -> OpLang.pp_negative_type fmt ty
+  | INeg ty -> Format.fprintf fmt "¬%a" OpLang.pp_type ty
+
 
   type name_ctx = (Name.name, negative_type) Util.Pmap.pmap
 
@@ -112,7 +125,10 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     Util.Pmap.string_of_pmap "ε" "::" OpLang.Name.string_of_name
       string_of_negative_type
 
-  let pp_name_ctx _ _ = failwith "Not yet implemented"
+  let pp_name_ctx fmt name_ctx =
+    let pp_empty fmt () = Format.fprintf fmt "⋅" in
+    let pp_pair fmt (n,nty) = Format.fprintf fmt "%a : %a" Name.pp_name n pp_negative_type nty in
+    Util.Pmap.pp_pmap ~pp_empty pp_pair fmt name_ctx
 
   module Store = OpLang.Store
 

@@ -4,11 +4,13 @@ module type TYPED = sig
   type typ
 
   val string_of_type : typ -> string
+  val pp_type : Format.formatter -> typ -> unit
 
   type negative_type
 
   val get_negative_type : typ -> negative_type option
   val string_of_negative_type : negative_type -> string
+  val pp_negative_type : Format.formatter -> negative_type -> unit
 
   type name_ctx = (Name.name, negative_type) Util.Pmap.pmap
 
@@ -217,6 +219,8 @@ module type WITHAVAL_INOUT = sig
     (('ty, 'ectx, 'fname, 'cname) Nf.nf_term * 'ty) Nf.M.m
 
   val string_of_typename : typename -> string
+
+  val pp_tvar_l : Format.formatter -> typevar list -> unit
 
   val generate_typename_subst :
     typevar list -> typename list * (typevar, typ) Util.Pmap.pmap

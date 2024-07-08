@@ -21,6 +21,7 @@ val lsubst_vctx : Types.type_subst -> var_ctx -> var_ctx
 val string_of_var_ctx : var_ctx -> string
 val string_of_loc_ctx : loc_ctx -> string
 val string_of_name_ctx : name_ctx -> string
+val pp_name_ctx : Format.formatter -> name_ctx -> unit
 val string_of_cons_ctx : cons_ctx -> string
 val empty_name_ctx : name_ctx
 val empty_var_ctx : var_ctx

@@ -35,14 +35,12 @@ and string_of_typ = function
   | TInt -> "int"
   | TBool -> "bool"
   | TArrow (ty1, ty2) -> string_par_of_typ ty1 ^ "->" ^ string_of_typ ty2
-  | TProd (ty1, ty2) ->
-      string_par_of_typ ty1 ^ "*" ^ string_par_of_typ ty2
+  | TProd (ty1, ty2) -> string_par_of_typ ty1 ^ "*" ^ string_par_of_typ ty2
   | TSum (ty1, ty2) -> string_par_of_typ ty1 ^ "+" ^ string_par_of_typ ty2
   | TRef ty -> "ref " ^ string_of_typ ty
   | TExn -> "exn"
   | TVar typevar -> typevar
-  | TForall ([], ty) ->
-    string_par_of_typ ty
+  | TForall ([], ty) -> string_par_of_typ ty
   | TForall (tvars, ty) ->
       let tvars_string = String.concat " " tvars in
       "∀" ^ tvars_string ^ "." ^ string_par_of_typ ty
@@ -50,6 +48,33 @@ and string_of_typ = function
   | TName id -> id
   | TUndef -> "undef"
 
+let pp_tid fmt id = Format.fprintf fmt "%s" id
+let pp_tname fmt n = Format.fprintf fmt "%s" n
+let pp_tvar fmt typevar = Format.fprintf fmt "%s" typevar
+
+let pp_tvar_l fmt tvar_l =
+  let pp_sep fmt () = Format.fprintf fmt " " in
+  Format.pp_print_list ~pp_sep pp_tvar fmt tvar_l
+
+let rec pp_typ fmt = function
+  | TUnit -> Format.fprintf fmt "unit"
+  | TInt -> Format.fprintf fmt "int"
+  | TBool -> Format.fprintf fmt "bool"
+  | TArrow (ty1, ty2) ->
+      Format.fprintf fmt "%a → %a" pp_typ ty1 pp_typ ty2
+  | TProd (ty1, ty2) ->
+      Format.fprintf fmt "%a × %a" pp_typ ty1 pp_typ ty2
+  | TSum (ty1, ty2) ->
+      Format.fprintf fmt "%a + %a" pp_typ ty1 pp_typ ty2
+  | TRef ty -> Format.fprintf fmt "ref %a" pp_typ ty
+  | TExn -> Format.fprintf fmt "exn"
+  | TVar typevar -> pp_tvar fmt typevar
+  | TForall ([], ty) -> Format.fprintf fmt "%a" pp_typ ty
+  | TForall (tvar_l, ty) ->
+      Format.fprintf fmt "∀%a . %a" pp_tvar_l tvar_l pp_typ ty
+  | TId id -> pp_tid fmt id
+  | TName n -> pp_tname fmt n
+  | TUndef -> Format.fprintf fmt "undef"
 
 (* We provide a way to generate fresh type variables,
    that are used in the type checker *)
@@ -160,8 +185,7 @@ let rec unify_type tsubst = function
       match unify_type tsubst (ty11, ty21) with
       | None ->
           Util.Debug.print_debug
-            ("Cannot unify " ^ string_of_typ ty11 ^ " and "
-           ^ string_of_typ ty21);
+            ("Cannot unify " ^ string_of_typ ty11 ^ " and " ^ string_of_typ ty21);
           None
       | Some (ty1, tsubst') -> (
           match unify_type tsubst' (ty12, ty22) with
@@ -176,8 +200,7 @@ let rec unify_type tsubst = function
       match unify_type tsubst (ty11, ty21) with
       | None ->
           Util.Debug.print_debug
-            ("Cannot unify " ^ string_of_typ ty11 ^ " and "
-           ^ string_of_typ ty21);
+            ("Cannot unify " ^ string_of_typ ty11 ^ " and " ^ string_of_typ ty21);
           None
       | Some (ty1, lsubst') -> (
           match unify_type lsubst' (ty12, ty22) with
@@ -221,20 +244,23 @@ type negative_type = typ
 
 let string_of_negative_type = string_of_typ
 
+let pp_negative_type = pp_typ
+
 let get_negative_type ty =
   match ty with TArrow _ | TForall _ -> Some ty | _ -> None
+
 let force_negative_type ty = ty
 
 let get_input_type = function
-| TArrow (ty1, _) -> ([], ty1)
-| TForall (tvar_l, TArrow (ty1, _)) -> (tvar_l, ty1)
-| ty ->
-    failwith @@ "Error retrieving an input type: the type " ^ string_of_typ ty
-    ^ " is not a negative type. Please report."
+  | TArrow (ty1, _) -> ([], ty1)
+  | TForall (tvar_l, TArrow (ty1, _)) -> (tvar_l, ty1)
+  | ty ->
+      failwith @@ "Error retrieving an input type: the type " ^ string_of_typ ty
+      ^ " is not a negative type. Please report."
 
 let get_output_type = function
-| TArrow (_, ty2) -> ty2
-| TForall (_, TArrow (_, ty2)) -> ty2
-| ty ->
-    failwith @@ "Error retrieving an output type: the type " ^ string_of_typ ty
-    ^ " is not a negative type. Please report."
+  | TArrow (_, ty2) -> ty2
+  | TForall (_, TArrow (_, ty2)) -> ty2
+  | ty ->
+      failwith @@ "Error retrieving an output type: the type "
+      ^ string_of_typ ty ^ " is not a negative type. Please report."

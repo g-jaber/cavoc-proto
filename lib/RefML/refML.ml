@@ -15,10 +15,12 @@ module Typed :
   type typ = Types.typ
 
   let string_of_type = Types.string_of_typ
+  let pp_type = Types.pp_typ
 
   type negative_type = Types.negative_type
 
   let string_of_negative_type = Types.string_of_negative_type
+  let pp_negative_type = Types.pp_negative_type
   let get_negative_type = Types.get_negative_type
 
   type name_ctx = (Name.name, negative_type) Util.Pmap.pmap
@@ -31,7 +33,7 @@ module Typed :
     Util.Pmap.string_of_pmap "[]" "::" Names.string_of_name
       Types.string_of_negative_type
 
-  let pp_name_ctx _ _ = failwith "Not yet implemented"
+  let pp_name_ctx = Type_ctx.pp_name_ctx
 end
 
 module MakeStore (M : Util.Monad.BRANCH) :
@@ -116,6 +118,8 @@ module WithAVal (M : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT = struct
   type typename = Types.id
 
   let string_of_typename id = id
+
+  let pp_tvar_l = Types.pp_tvar_l
 
   let generate_typename_subst tvar_l =
     let aux tvar =

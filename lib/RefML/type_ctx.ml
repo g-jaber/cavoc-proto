@@ -29,6 +29,11 @@ let string_of_name_ctx =
     | ty -> "::" ^ Types.string_of_typ ty in
   Util.Pmap.string_of_pmap "ε" "" Names.string_of_name aux
 
+let pp_name_ctx fmt name_ctx =
+  let pp_empty fmt () = Format.fprintf fmt "⋅" in
+  let pp_pair fmt (n,ty) = Format.fprintf fmt "%a : %a" Names.pp_name n Types.pp_typ ty in
+  Util.Pmap.pp_pmap ~pp_empty pp_pair fmt name_ctx
+
 let string_of_cons_ctx =
   let aux = function
     | Types.TUndef -> "undef"

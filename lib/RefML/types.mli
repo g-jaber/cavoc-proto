@@ -19,9 +19,11 @@ type typ =
 (* Used to represent the absence of type annotation in fun and fix terms *)
 
 val string_of_typ : typ -> string
+val pp_typ : Format.formatter -> typ -> unit
 val fresh_typevar : unit -> typ
 val fresh_typename : unit -> id
 val get_tvars : typ -> typevar list
+val pp_tvar_l : Format.formatter -> typevar list -> unit
 
 type type_subst = (typevar, typ) Util.Pmap.pmap
 type type_env = (id, typ) Util.Pmap.pmap
@@ -33,6 +35,7 @@ val unify_type : type_subst -> typ * typ -> (typ * type_subst) option
 val generalize_type : typ -> typ
 
 type negative_type = typ
+val pp_negative_type : Format.formatter -> negative_type -> unit
 
 val get_negative_type : typ -> negative_type option
 val force_negative_type : typ -> negative_type

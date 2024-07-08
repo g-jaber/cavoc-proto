@@ -41,6 +41,10 @@ let rec string_of_pmap empty sep string_of_dom string_of_im = function
       string_of_dom x ^ sep ^ string_of_im v ^ ", "
       ^ string_of_pmap empty sep string_of_dom string_of_im pmap
 
+let pp_pmap ?(pp_empty=(fun fmt () -> Format.pp_print_string fmt "")) ?(pp_sep=Format.pp_print_cut) pp_pair fmt = function
+| [] -> pp_empty fmt ()
+| pmap -> Format.pp_print_list ~pp_sep pp_pair fmt pmap
+
 let map_dom f = List.map (fun (x, v) -> (f x, v))
 let map_im f = List.map (fun (x, v) -> (x, f v))
 let map = List.map

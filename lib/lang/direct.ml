@@ -30,6 +30,14 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
             stackctx in
         String.concat "::" string_l
 
+  let pp_stack_ctx fmt = function
+    | [] -> Format.fprintf fmt "⋅"
+    | stack_ctx ->
+        let pp_pair fmt (ty1, ty2) =
+          Format.fprintf fmt "%a ⇝ %a" OpLang.pp_type ty1 OpLang.pp_type ty2
+        in
+        Format.pp_print_list pp_pair fmt stack_ctx
+
   let string_of_name_ctx = function
     | OpCtx (ty_option, fnamectx) ->
         let ty_string =
@@ -40,7 +48,14 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     | PropCtx (fnamectx, stackctx) ->
         string_of_stack_ctx stackctx ^ "|" ^ OpLang.string_of_name_ctx fnamectx
 
-  let pp_name_ctx _ _ = failwith "Not yet implemented"
+  let pp_name_ctx fmt = function
+    | OpCtx (None, name_ctx) -> OpLang.pp_name_ctx fmt name_ctx
+    | OpCtx (Some ty, name_ctx) ->
+        Format.fprintf fmt "%a | %a" OpLang.pp_type ty OpLang.pp_name_ctx
+          name_ctx
+    | PropCtx (name_ctx, stack_ctx) ->
+        Format.fprintf fmt "%a | %a" OpLang.pp_name_ctx name_ctx pp_stack_ctx
+          stack_ctx
 
   let concat_name_ctx namectx1 namectx2 =
     match (namectx1, namectx2) with

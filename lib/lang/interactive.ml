@@ -122,7 +122,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let empty_name_ctx = OpLang.empty_name_ctx
   let concat_name_ctx = OpLang.concat_name_ctx
   let string_of_name_ctx = OpLang.string_of_name_ctx
-  let pp_name_ctx _ _ = failwith "Not yet implemented"
+  let pp_name_ctx = OpLang.pp_name_ctx
   let get_names_from_name_ctx = OpLang.get_names_from_name_ctx
 
   (* Interactive environments γ are partial maps from names to interactive values*)

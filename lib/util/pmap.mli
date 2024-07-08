@@ -26,6 +26,14 @@ val string_of_pmap :
   ('a, 'b) pmap ->
   string
 
+val pp_pmap :
+  ?pp_empty:(Format.formatter -> unit -> unit) ->
+  ?pp_sep:(Format.formatter -> unit -> unit) ->
+  (Format.formatter -> 'a * 'b -> unit) ->
+  Format.formatter ->
+  ('a, 'b) pmap ->
+  unit
+
 val map_dom : ('a -> 'b) -> ('a, 'c) pmap -> ('b, 'c) pmap
 val map_im : ('a -> 'b) -> ('c, 'a) pmap -> ('c, 'b) pmap
 val map : ('a * 'b -> 'c * 'd) -> ('a, 'b) pmap -> ('c, 'd) pmap

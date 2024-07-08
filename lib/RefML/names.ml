@@ -5,12 +5,11 @@
 *)
 
 type id = string
-
-
 type name = FName of id | CName of id | PName of id
 
 let is_fname = function FName _ -> true | _ -> false
 let is_cname = function CName _ -> true | _ -> false
+
 let trim_name_id id =
   if id.[0] = '_' then String.sub id 1 (String.length id - 1)
   else failwith @@ "The id " ^ id ^ "does not start with _. It is not a name."
@@ -38,6 +37,10 @@ let fresh_pname () =
   PName ("p" ^ string_of_int pn)
 
 let string_of_name = function FName f -> f | CName c -> c | PName p -> p
+
+let pp_name fmt = function
+  | FName id | CName id | PName id -> Format.fprintf fmt "%s" id
+
 let cname_of_id id = CName id
 let cname_to_id = function CName cn -> Some cn | _ -> None
 
