@@ -2,7 +2,7 @@
 
 You can build the project using ``dune build``.
 
-The prototype is currently formed by an executable ``explore`` that can be found in the bin/ directory.
+The prototype is currently formed by an executable ``explore``.
 To run it, use ``dune exec explore.exe example.ml example.mli``: it takes a module ``example.ml`` and its signature ``example.mli``, 
 and provides a way to play the environment role (aka Opponent) in the interaction, by choosing which input action to perform.
 In that setting, the environment can be seen as a client of the module.
@@ -22,9 +22,6 @@ You can also pass the following options to ``explore``:
 
 The directory ``test/`` contains multiple examples of modules and programs on which ``explore`` can be tested.
 
-There is also another, experimental (a.k.a. mostly broken) executable ``compose``, that takes a module and its signature, and a client, 
-and compose them, computing their interaction.
-
 The prototype currently works on a fragment of OCaml with:
   * higher-order functions
   * recursive function-definitions and while loops
@@ -34,6 +31,9 @@ The prototype currently works on a fragment of OCaml with:
   * dynamically generated mutable references
   * assertions that trigger uncatchable errors
   * exception and try-with
+
+There is also another, experimental (a.k.a. mostly broken) executable ``compose``, that takes a module and its signature, and a client, 
+and compose them, computing their interaction.
 
 The lib/ directory contains the various subparts of the prototype:
 - util/ contains some basic utility modules for printing, monads, partial maps and span. They should eventually be replaced by proper implementation found in existing libraries.
