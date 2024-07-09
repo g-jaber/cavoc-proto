@@ -80,20 +80,11 @@ module Make (IntLang : Lang.Interactive.LANG) :
     namectxO: IntLang.name_ctx;
   }
 
-  let string_of_interactive_ctx ictx =
-    let string_storectx =
-      if ictx.storectx = IntLang.Store.empty_store_ctx then ""
-      else IntLang.Store.string_of_store_ctx ictx.storectx in
-    "<" ^ string_storectx ^ " | "
-    ^ IntLang.string_of_name_ctx ictx.namectxO
-    ^ " | "
-    ^ IntLang.string_of_name_ctx ictx.namectxP
-    ^ ">"
-
   let pp_interactive_ctx fmt ictx =
-    Format.fprintf fmt "⟨%a | %a | %a⟩" IntLang.Store.pp_store_ctx
-      ictx.storectx IntLang.pp_name_ctx ictx.namectxO IntLang.pp_name_ctx ictx.namectxP
+    Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a |@, ΔP: %a⟩@]" IntLang.Store.pp_store_ctx ictx.storectx
+      IntLang.pp_name_ctx ictx.namectxO IntLang.pp_name_ctx ictx.namectxP
 
+  let string_of_interactive_ctx = Format.asprintf "%a" pp_interactive_ctx
   let replace_namectxP ictx namectxP = { ictx with namectxP }
   let replace_storectx ictx storectx = { ictx with storectx }
 
@@ -110,9 +101,9 @@ module Make (IntLang : Lang.Interactive.LANG) :
           { ictx with namectxP; storectx } )
     | None ->
         Util.Error.failwithf
-          "Error: the normal form %a is not typeable in the name context %a. Please report." 
-          IntLang.pp_normal_form nf
-          IntLang.pp_name_ctx ictx.namectxO
+          "Error: the normal form %a is not typeable in the name context %a. \
+           Please report."
+          IntLang.pp_normal_form nf IntLang.pp_name_ctx ictx.namectxO
 
   open IntLang.M
 

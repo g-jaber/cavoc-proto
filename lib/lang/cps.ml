@@ -58,12 +58,12 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   type interactive_env = (OpLang.Name.name, negative_val) Util.Pmap.pmap
 
   let pp_ienv fmt ienv =
-    let pp_sep fmt () = Format.pp_print_char fmt ',' in
-    let pp_empty fmt () = Format.pp_print_string fmt "⋅" in
+    let pp_sep fmt () = Format.pp_print_string fmt " ⋅ " in
     let pp_pair fmt (n, nval) =
-      Format.fprintf fmt "%a ↦ %a" OpLang.Name.pp_name n pp_negative_val nval
+      Format.fprintf fmt "%a ↦ (%a)" OpLang.Name.pp_name n pp_negative_val nval
     in
-    Util.Pmap.pp_pmap ~pp_sep ~pp_empty pp_pair fmt ienv
+    let pp_ienv_aux = Util.Pmap.pp_pmap ~pp_sep pp_pair in 
+    Format.fprintf fmt "[%a]" pp_ienv_aux ienv
 
   let string_of_ienv = Format.asprintf "%a" pp_ienv
   let empty_ienv = Util.Pmap.empty
@@ -115,10 +115,11 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   let get_names_from_name_ctx = Util.Pmap.dom
 
   let pp_name_ctx fmt name_ctx =
+    let pp_sep fmt () = Format.fprintf fmt ", " in
     let pp_empty fmt () = Format.fprintf fmt "⋅" in
     let pp_pair fmt (n, nty) =
       Format.fprintf fmt "%a : %a" Name.pp_name n pp_negative_type nty in
-    Util.Pmap.pp_pmap ~pp_empty pp_pair fmt name_ctx
+    Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt name_ctx
 
   let string_of_name_ctx = Format.asprintf "%a" pp_name_ctx
 

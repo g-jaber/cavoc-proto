@@ -19,12 +19,12 @@ module Make (Int : Lts.Interactive.INT) = struct
   type conf = Active of active_conf | Passive of passive_conf
 
   let pp_active_conf fmt act_conf =
-    Format.fprintf fmt "⟨%a | %a | %a⟩" Int.IntLang.pp_computation
+    Format.fprintf fmt "@[⟨%a |@, %a |@, %a⟩@]" Int.IntLang.pp_computation
       act_conf.computation Int.IntLang.Store.pp_store act_conf.store
       Int.pp_interactive_ctx act_conf.ictx
 
   let pp_passive_conf fmt pas_conf =
-    Format.fprintf fmt "⟨%a | %a | %a⟩" Int.IntLang.Store.pp_store
+    Format.fprintf fmt "@[⟨%a |@, %a |@, %a⟩]" Int.IntLang.Store.pp_store
       pas_conf.store Int.IntLang.pp_ienv pas_conf.ienv Int.pp_interactive_ctx
       pas_conf.ictx
 

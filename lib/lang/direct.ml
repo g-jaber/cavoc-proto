@@ -76,7 +76,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
         Format.pp_print_list ~pp_sep OpLang.pp_eval_context fmt ectx_stack
 
   let pp_ienv fmt (ienv, ectx_stack) =
-    Format.fprintf fmt "%a | %a" OpLang.pp_ienv ienv pp_ctx_stack ectx_stack
+    Format.fprintf fmt "@[IEnv: %a@] | @[Stack: %a@]" OpLang.pp_ienv ienv pp_ctx_stack ectx_stack
 
   let string_of_ienv = Format.asprintf "%a" pp_ienv
 

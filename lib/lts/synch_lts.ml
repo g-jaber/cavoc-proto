@@ -58,13 +58,13 @@ module Make (IntLts : Bipartite.INT_LTS) :
   type conf = Active of active_conf | Passive of passive_conf
 
   let pp_active_conf fmt (act_conf1, act_conf2, namespan) =
-    Format.fprintf fmt "⟨%a | %a | %a⟩" IntLts.pp_active_conf act_conf1
+    Format.fprintf fmt "@[⟨%a |@, %a |@, %a⟩]" IntLts.pp_active_conf act_conf1
       IntLts.pp_active_conf act_conf2
       (Util.Namespan.pp_namespan IntLts.Int.Name.pp_name)
       namespan
 
   let pp_passive_conf fmt (pas_conf1, pas_conf2, namespan) =
-    Format.fprintf fmt "⟨%a | %a | %a⟩" IntLts.pp_passive_conf pas_conf1
+    Format.fprintf fmt "@[⟨%a |@, %a |@, %a⟩]" IntLts.pp_passive_conf pas_conf1
       IntLts.pp_passive_conf pas_conf2
       (Util.Namespan.pp_namespan IntLts.Int.Name.pp_name)
       namespan

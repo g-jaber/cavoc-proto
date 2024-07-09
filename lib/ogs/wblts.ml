@@ -9,10 +9,12 @@ module Make
   type passive_conf = ContNames.cont_name list
 
   let pp_active_conf fmt = function
-  | [] -> Format.fprintf fmt "⋅"
+  | [] -> Format.fprintf fmt "Stack: ⋅"
   | cstack ->
       let pp_sep fmt () = Format.fprintf fmt "::" in
-      Format.pp_print_list ~pp_sep ContNames.pp_cont_name fmt cstack
+      let pp_stack =
+      Format.pp_print_list ~pp_sep ContNames.pp_cont_name in
+      Format.fprintf fmt "Stack: %a" pp_stack cstack
 
 let pp_passive_conf = pp_active_conf
 

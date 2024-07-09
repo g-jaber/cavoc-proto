@@ -16,11 +16,11 @@ module Make
   type conf = Active of active_conf | Passive of passive_conf
 
   let pp_active_conf fmt (iconf, hconf) =
-    Format.fprintf fmt "⟨%a | %a⟩" IntLts.pp_active_conf iconf
+    Format.fprintf fmt "@[%a |@, %a@]" IntLts.pp_active_conf iconf
       HistLts.pp_active_conf hconf
 
   let pp_passive_conf fmt (iconf, hconf) =
-    Format.fprintf fmt "⟨%a | %a⟩" IntLts.pp_passive_conf iconf
+    Format.fprintf fmt "@[%a |@, %a@]" IntLts.pp_passive_conf iconf
       HistLts.pp_passive_conf hconf
 
   let string_of_active_conf = Format.asprintf "%a" pp_active_conf

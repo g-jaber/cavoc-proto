@@ -26,10 +26,10 @@ module Make
   type active_conf = view_map
   type passive_conf = view * view_map
 
-  let pp_active_conf = pp_view_map
+  let pp_active_conf fmt vm = Format.fprintf fmt "View map: %a" pp_view_map vm
 
   let pp_passive_conf fmt (v, vm) =
-    Format.fprintf fmt "⟨ %a | %a⟩" pp_view v pp_view_map vm
+    Format.fprintf fmt "@[⟨View: %a |@, View map: %a⟩@]" pp_view v pp_view_map vm
 
   let string_of_active_conf = Format.asprintf "%a" pp_active_conf
   let string_of_passive_conf = Format.asprintf "%a" pp_passive_conf
@@ -38,13 +38,15 @@ module Make
     match Moves.get_subject_name move with
     | [ nn ] -> nn
     | [] ->
-        failwith @@ "Error: the move " ^ Moves.string_of_move move
-        ^ " does not have a subject name. We cannot enforce \n\
-          \      visibility on it."
+        Util.Error.failwithf
+          "Error: the move %a does not have a subject name. We cannot enforce \
+           visibility on it."
+          Moves.pp_move move
     | _ ->
-        failwith @@ "Error: the move " ^ Moves.string_of_move move
-        ^ " has multiple subject names. We cannot enforce \n\
-          \      visibility on it."
+        Util.Error.failwithf
+          "Error: the move %a  has multiple subject names. We cannot enforce \
+           visibility on it."
+          Moves.pp_move move
 
   let p_trans vm move =
     let nn = get_subject_name move in
@@ -52,9 +54,9 @@ module Make
       match Util.Pmap.lookup nn vm with
       | Some view -> Moves.get_transmitted_names move @ view
       | None ->
-          Util.Error.failwithf "Error: the name %a is not in the view map %a. Please report."
-          ContNames.pp_name nn pp_view_map vm
-          in
+          Util.Error.failwithf
+            "Error: the name %a is not in the view map %a. Please report."
+            ContNames.pp_name nn pp_view_map vm in
     (view, vm)
 
   let o_trans_check (view, vm) move =

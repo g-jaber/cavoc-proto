@@ -1,10 +1,9 @@
 type store = Syntax.val_env * Heap.heap * Type_ctx.cons_ctx
 
 (*TODO: We should also print the other components *)
-let pp_store fmt (_,heap,_) = 
-  Heap.pp_heap fmt heap
-
+let pp_store fmt (_, heap, _) = Heap.pp_heap fmt heap
 let string_of_store = Format.asprintf "%a" pp_store
+
 (*let heap_string = Heap.string_of_heap heap in
   if valenv = Util.Pmap.empty then heap_string
   else
@@ -36,11 +35,13 @@ let embed_cons_ctx cons_ctx = (Util.Pmap.empty, Util.Pmap.empty, cons_ctx)
 type store_ctx = Type_ctx.loc_ctx * Type_ctx.cons_ctx
 
 let pp_store_ctx fmt (loc_ctx, cons_ctx) =
-  Format.fprintf fmt "%a ; %a" Type_ctx.pp_loc_ctx loc_ctx Type_ctx.pp_cons_ctx
-    cons_ctx
+  if Util.Pmap.is_empty cons_ctx then
+    Format.fprintf fmt "%a" Type_ctx.pp_loc_ctx loc_ctx
+  else
+    Format.fprintf fmt "%a ; %a" Type_ctx.pp_loc_ctx loc_ctx
+      Type_ctx.pp_cons_ctx cons_ctx
 
 let string_of_store_ctx = Format.asprintf "%a" pp_store_ctx
-
 let empty_store_ctx = (Type_ctx.empty_loc_ctx, Type_ctx.empty_cons_ctx)
 
 let concat_store_ctx (loc_ctx1, cons_ctx1) (loc_ctx2, cons_ctx2) =
