@@ -4,7 +4,7 @@ You can build the project using ``dune build``.
 
 The prototype is currently formed by an executable ``explore``.
 To run it, use ``dune exec explore.exe example.ml example.mli``: it takes a module ``example.ml`` and its signature ``example.mli``, 
-and provides a way to play the environment role (aka Opponent) in the interaction, by choosing which input action to perform.
+and provides a way to play the environment role (a.k.a. Opponent) in the interaction, by choosing which input action to perform.
 In that setting, the environment can be seen as a client of the module.
 
 You can also pass the following options to ``explore``:
@@ -14,9 +14,9 @@ You can also pass the following options to ``explore``:
     It computes the synchronization product of the normal-form trees of the two modules.
   * -program, if you want to explore the behavior of a program rather than a module. With this option, you do not have to provide a .mli file.
   * -no-wb, if you want to allow Opponent to not respect the well-bracketing enforcement of the interaction.
-    This corresponds of allowing the client of the module to use a control operator like call/cc.
+    This corresponds to allowing the client of the module to use a control operator like call/cc.
   * -vis, if you want to enable the visibility enforcement of the interaction.
-    This corresponds to forbiding the client to use higher-order references to store the functions provided by the module during the interaction.
+    This corresponds to forbidding the client to use higher-order references to store the functions provided by the module during the interaction.
   * -no-cps, Use a representation of actions as calls and returns rather than in cps style. 
     This is incompatible with the -vis option.
 
@@ -40,7 +40,7 @@ The lib/ directory contains the various subparts of the prototype:
 - lang/ contains the interfaces used to represent the programming languages:
   * language.ml contains the various signatures to represent the core of the programming language,
   including the notion of abstracted values;
-  * nf.ml contains the definition of normal forms, that is parametrized wrt the type of values, evaluation contexts, function names and continuation names.
+  * nf.ml contains the definition of normal forms, that is parametrized w.r.t. the type of values, evaluation contexts, function names and continuation names.
   * interactive.ml contains the signature used to represent the focusing process that decomposes normal forms using the abstraction process of values.
   * cps.ml contains the interactive continuation-passing-style transformation of normal forms and top-level terms of a language that embeds evaluation contexts into values.
 - lts/ contains the interfaces used to represent the LTSs used to represent the interaction.
@@ -53,7 +53,7 @@ The lib/ directory contains the various subparts of the prototype:
   * The signature INT_LTS in bipartite.ml is the  basic notion of bipartite LTS
   * We provide a generic way to compute the product of two bipartite LTS via the functor Make of the file product_lts.ml
 - ogs/ contains:
-  * the definition of the OGS LTS in ogslts.ml, define by a functor over Interactive.INT signature 
+  * the definition of the OGS LTS in ogslts.ml, defined by a functor over Interactive.INT signature 
   * including the well-bracketed part.
 - RefML/ contains the definition of the main instance of a programming language:
   * refml.ml contains the instantiation of the signature Interactive.WITHAVAL
