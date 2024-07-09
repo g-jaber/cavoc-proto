@@ -28,16 +28,14 @@ let speclist =
   [
     ("-debug", Arg.Set Util.Debug.debug_mode, "Debug mode");
     ("-generate-tree", Arg.Set generate_tree, "Generate the normal-form tree");
-    ("-print-dot", Arg.Set generate_tree, "Print the LTS in the dot format");
     ("-compare", Arg.Set is_compare, "Compare the two modules or programs");
-    ("-compare", Arg.Set is_compose, "Compare the two modules or programs");
     ("-program", Arg.Set is_program, "Provide a program rather than a module.");
     ( "-no-wb",
       Arg.Clear enable_wb,
-      "Disable the well-bracketing enforcment of the interaction." );
+      "Disable the well-bracketing enforcement of the interaction." );
     ( "-vis",
       Arg.Set enable_visibility,
-      "Enable the visibility enforcment of the interaction" );
+      "Enable the visibility enforcement of the interaction" );
     ( "-no-cps",
       Arg.Clear enable_cps,
       "Use a representation of actions as calls and return rather than in cps \
