@@ -25,7 +25,9 @@ module Make (M : Util.Monad.BRANCH) :
   type interactive_env = (name, negative_val) Util.Pmap.pmap
   type abstract_val = Syntax.value
 
-  let string_of_abstract_val = Syntax.string_of_term
+  let pp_abstract_val = Syntax.pp_term
+
+  let string_of_abstract_val = Format.asprintf "%a" pp_abstract_val
   let names_of_abstract_val = Syntax.get_names
   let labels_of_abstract_val = Syntax.get_labels
 

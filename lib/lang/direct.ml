@@ -6,7 +6,8 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
 
   type computation = term
 
-  let string_of_computation = string_of_term
+  let pp_computation = pp_term
+  let string_of_computation = Format.asprintf "%a" pp_computation
 
   (* A stack context (σ1,τ1)::(σ2,τ2)::...::(σn,τn)
      is the typing context for the stack of evaluation contexts,
@@ -20,16 +21,6 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
 
   let empty_name_ctx = PropCtx (OpLang.empty_name_ctx, [])
 
-  let string_of_stack_ctx = function
-    | [] -> ""
-    | stackctx ->
-        let string_l =
-          List.map
-            (fun (ty1, ty2) ->
-              OpLang.string_of_type ty1 ^ "->" ^ OpLang.string_of_type ty2)
-            stackctx in
-        String.concat "::" string_l
-
   let pp_stack_ctx fmt = function
     | [] -> Format.fprintf fmt "⋅"
     | stack_ctx ->
@@ -37,16 +28,6 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
           Format.fprintf fmt "%a ⇝ %a" OpLang.pp_type ty1 OpLang.pp_type ty2
         in
         Format.pp_print_list pp_pair fmt stack_ctx
-
-  let string_of_name_ctx = function
-    | OpCtx (ty_option, fnamectx) ->
-        let ty_string =
-          match ty_option with
-          | None -> ""
-          | Some ty -> OpLang.string_of_type ty ^ "|" in
-        ty_string ^ OpLang.string_of_name_ctx fnamectx
-    | PropCtx (fnamectx, stackctx) ->
-        string_of_stack_ctx stackctx ^ "|" ^ OpLang.string_of_name_ctx fnamectx
 
   let pp_name_ctx fmt = function
     | OpCtx (None, name_ctx) -> OpLang.pp_name_ctx fmt name_ctx
@@ -56,6 +37,8 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     | PropCtx (name_ctx, stack_ctx) ->
         Format.fprintf fmt "%a | %a" OpLang.pp_name_ctx name_ctx pp_stack_ctx
           stack_ctx
+
+  let string_of_name_ctx = Format.asprintf "%a" pp_name_ctx
 
   let concat_name_ctx namectx1 namectx2 =
     match (namectx1, namectx2) with
@@ -86,22 +69,27 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
   let concat_ienv (fnamectx1, cstack1) (fnamectx2, cstack2) =
     (OpLang.concat_ienv fnamectx1 fnamectx2, cstack1 @ cstack2)
 
-  let string_of_stack = function
-    | [] -> ""
-    | stackctx ->
-        let string_l =
-          List.map (fun ectx -> OpLang.string_of_eval_context ectx) stackctx
-        in
-        String.concat "::" string_l
+  let pp_ctx_stack fmt = function
+    | [] -> Format.pp_print_string fmt "⋅"
+    | ectx_stack ->
+        let pp_sep fmt () = Format.pp_print_char fmt ',' in
+        Format.pp_print_list ~pp_sep OpLang.pp_eval_context fmt ectx_stack
 
-  let string_of_ienv (namectx, stackctx) =
-    string_of_stack stackctx ^ " | " ^ OpLang.string_of_ienv namectx
+  let pp_ienv fmt (ienv, ectx_stack) =
+    Format.fprintf fmt "%a | %a" OpLang.pp_ienv ienv pp_ctx_stack ectx_stack
 
-  let pp_ienv _ _ = failwith "Not yet implemented"
+  let string_of_ienv = Format.asprintf "%a" pp_ienv
 
   type normal_form =
     (value, eval_context, Name.name, unit) OpLang.Nf.nf_term * Store.store
 
+  let pp_normal_form fmt (nf_term, _) =
+    let pp_dir fmt = Format.pp_print_string fmt "" in
+    let pp_cn fmt () = Format.pp_print_string fmt "ret" in
+    OpLang.Nf.pp_nf_term ~pp_dir OpLang.pp_value OpLang.pp_eval_context
+      OpLang.Name.pp_name pp_cn fmt nf_term
+
+  let string_of_nf = Format.asprintf "%a" pp_normal_form
   let is_error (nf_term, _) = OpLang.Nf.is_error nf_term
   let get_store (_, store) = store
 
@@ -109,12 +97,6 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     match normalize_opconf (term, store) with
     | None -> None
     | Some (nf_term, store') -> Some (OpLang.get_nf_term nf_term, store')
-
-  let string_of_nf (nf_term, _) =
-    OpLang.Nf.string_of_nf_term "" OpLang.string_of_value
-      OpLang.string_of_eval_context OpLang.Name.string_of_name
-      (fun () -> "ret")
-      nf_term
 
   let concretize_a_nf ((fname_env, stack_ctx) as ienv) (a_nf_term, store) =
     let get_ectx () =
@@ -193,19 +175,18 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     OpLang.Nf.apply_val [] AVal.names_of_abstract_val a_nf_term
   (*TODO: take into account the store part*)
 
-  let string_of_a_nf_term dir nf_term =
-    OpLang.Nf.string_of_nf_term dir OpLang.AVal.string_of_abstract_val
-      (fun () -> "")
-      OpLang.Name.string_of_name
-      (fun () -> "ret")
-      nf_term
+  let pp_a_nf ~pp_dir fmt (a_nf_term, store) =
+    let pp_ectx fmt () = Format.pp_print_string fmt "" in
+    let pp_cn fmt () = Format.pp_print_string fmt "ret" in
+    let pp_a_nf_term =
+      OpLang.Nf.pp_nf_term ~pp_dir OpLang.AVal.pp_abstract_val pp_ectx
+        OpLang.Name.pp_name pp_cn in
+    if store = Store.empty_store then pp_a_nf_term fmt a_nf_term
+    else Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term Store.pp_store store
 
-  let string_of_a_nf dir (nf_term, store) =
-    let nf_term_string = string_of_a_nf_term dir nf_term in
-    if store = Store.empty_store then nf_term_string
-    else
-      let string_store = Store.string_of_store store in
-      nf_term_string ^ "," ^ string_store
+  let string_of_a_nf dir =
+    let pp_dir fmt = Format.pp_print_string fmt dir in
+    Format.asprintf "%a" (pp_a_nf ~pp_dir)
 
   include AVal.M
 

@@ -21,6 +21,7 @@ module type AVAL = sig
   *)
   type abstract_val
 
+  val pp_abstract_val : Format.formatter -> abstract_val -> unit
   val string_of_abstract_val : abstract_val -> string
   val names_of_abstract_val : abstract_val -> name list
   val labels_of_abstract_val : abstract_val -> label list

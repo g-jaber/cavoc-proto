@@ -8,6 +8,7 @@ module type MOVES = sig
   type move
 
   val build : direction * kdata -> move
+  val pp_move : Format.formatter -> move -> unit
   val string_of_move : move -> string
   val get_kdata : move -> kdata
   val get_direction : move -> direction
@@ -26,6 +27,7 @@ module type A_NF = sig
   module Name : Lang.Names.CONT_NAMES
   type abstract_normal_form
 
+  val pp_a_nf : pp_dir:(Format.formatter -> unit) -> Format.formatter -> abstract_normal_form -> unit
   val string_of_a_nf : string -> abstract_normal_form -> string
   val get_subject_name : abstract_normal_form -> Name.name option
   val get_support : abstract_normal_form -> Name.name list
@@ -54,6 +56,10 @@ struct
   type move = direction * kdata
 
   let build move = move
+
+  let pp_move fmt (dir, kdata) =
+    let pp_dir fmt = Format.pp_print_string fmt (string_of_direction dir) in
+    A_nf.pp_a_nf ~pp_dir fmt kdata
 
   let string_of_move (dir, kdata) =
     A_nf.string_of_a_nf (string_of_direction dir) kdata

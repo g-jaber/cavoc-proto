@@ -112,13 +112,13 @@ module WithAVal (M : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT = struct
 
   type eval_context = Syntax.eval_context
 
+  let pp_eval_context = Syntax.pp_eval_context
   let string_of_eval_context = Syntax.string_of_eval_context
 
   type typevar = Types.typevar
   type typename = Types.id
 
   let string_of_typename id = id
-
   let pp_tvar_l = Types.pp_tvar_l
 
   let generate_typename_subst tvar_l =

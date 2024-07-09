@@ -1,17 +1,24 @@
 module Make
     (ContNames : Lang.Names.CONT_NAMES)
     (Moves : Lts.Moves.MOVES with type name = ContNames.name) :
-  Lts.Hislts.HISLTS_INIT with type move = Moves.move and type name = ContNames.name =
-struct
+  Lts.Hislts.HISLTS_INIT
+    with type move = Moves.move
+     and type name = ContNames.name = struct
   type move = Moves.move
   type active_conf = ContNames.cont_name list
   type passive_conf = ContNames.cont_name list
 
-  let string_of_active_conf cstack =
-    String.concat "::" (List.map ContNames.string_of_cont_name cstack)
+  let pp_active_conf fmt = function
+  | [] -> Format.fprintf fmt "⋅"
+  | cstack ->
+      let pp_sep fmt () = Format.fprintf fmt "::" in
+      Format.pp_print_list ~pp_sep ContNames.pp_cont_name fmt cstack
 
-  let string_of_passive_conf cstack =
-    String.concat "::" (List.map ContNames.string_of_cont_name cstack)
+let pp_passive_conf = pp_active_conf
+
+  let string_of_active_conf = Format.asprintf "%a" pp_active_conf
+
+  let string_of_passive_conf = Format.asprintf "%a" pp_passive_conf
 
   let p_trans cstack move =
     let support = Moves.get_transmitted_names move in

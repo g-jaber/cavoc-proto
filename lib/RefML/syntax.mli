@@ -2,6 +2,9 @@ type id = string
 type constructor = string
 type loc
 
+val pp_id : Format.formatter -> id -> unit
+val pp_constructor : Format.formatter -> constructor -> unit
+val pp_loc : Format.formatter -> loc -> unit
 val string_of_id : id -> string
 val string_of_constructor : constructor -> string
 val string_of_loc : loc -> string
@@ -59,6 +62,9 @@ and term =
   | Hole
   | Error
 
+val pp_term : Format.formatter -> term -> unit
+val string_of_term : term -> string
+
 type name_set = Names.name list
 
 val empty_name_set : name_set
@@ -73,6 +79,7 @@ val get_labels : term -> label_set
 
 type value = term
 
+val pp_value : Format.formatter -> value -> unit
 val string_of_value : value -> string
 val isval : term -> bool
 
@@ -81,7 +88,6 @@ val isval : term -> bool
 val subst : term -> value -> value -> term
 val subst_var : term -> id -> value -> term
 val subst_list : term -> (id * value) list -> term
-val string_of_term : term -> string
 val implement_arith_op : binary_op -> int -> int -> int
 val implement_bin_bool_op : binary_op -> bool -> bool -> bool
 val implement_compar_op : binary_op -> int -> int -> bool
@@ -95,17 +101,17 @@ val empty_val_env : val_env
 
 type eval_context
 
+val pp_eval_context : Format.formatter -> eval_context -> unit
 val string_of_eval_context : eval_context -> string
 
 type negative_val
 
+val pp_negative_val : Format.formatter -> negative_val -> unit
+val string_of_negative_val : negative_val -> string
 val filter_negative_val : value -> negative_val option
 val force_negative_val : value -> negative_val
 val embed_negative_val : negative_val -> value
-val string_of_negative_val : negative_val -> string
-
-val get_nf_term :
-  term -> (value, eval_context, Names.name, unit) Nf.nf_term
+val get_nf_term : term -> (value, eval_context, Names.name, unit) Nf.nf_term
 
 val refold_nf_term :
   (value, unit, negative_val, eval_context) Nf.nf_term -> term

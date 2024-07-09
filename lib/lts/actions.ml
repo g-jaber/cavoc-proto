@@ -9,6 +9,7 @@ module type ACTIONS = sig
     | Vis of Moves.move (* We might make this type abstract in the future *)
 
   val get_move_from_action : action -> Moves.move option
+  val pp_action : Format.formatter -> action -> unit
   val string_of_action : action -> string
   val inject_move : Moves.move -> action
   val diverging_action : action
@@ -34,11 +35,11 @@ module Make (Moves : Moves.MOVES) = struct
   let diverging_action = PDiv
   let error_action = PError
 
-  let string_of_action = function
-    | PDiv -> "Div"
-    | PError -> "Error"
-    | Vis move -> Moves.string_of_move move
-
+  let pp_action fmt = function
+  | PDiv -> Format.pp_print_string fmt "div"
+  | PError -> Format.pp_print_string fmt "error"
+  | Vis move -> Moves.pp_move fmt move
+  let string_of_action = Format.asprintf "%a" pp_action 
   let unify_action span act1 act2 =
     match (act1, act2) with
     | (Vis move1, Vis move2) -> Moves.unify_move span move1 move2

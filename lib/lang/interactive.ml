@@ -4,12 +4,14 @@ module type LANG = sig
   type computation
 
   val string_of_computation : computation -> string
+  val pp_computation : Format.formatter -> computation -> unit
 
   module M : Util.Monad.BRANCH
   module Store : Language.STORE with module M = M
 
   type normal_form
 
+  val pp_normal_form : Format.formatter -> normal_form -> unit
   val string_of_nf : normal_form -> string
 
   (* Error normal form are the one that cannot interact with the environment*)
@@ -25,8 +27,8 @@ module type LANG = sig
 
   val empty_name_ctx : name_ctx
   val concat_name_ctx : name_ctx -> name_ctx -> name_ctx
-  val string_of_name_ctx : name_ctx -> string
   val pp_name_ctx : Format.formatter -> name_ctx -> unit
+  val string_of_name_ctx : name_ctx -> string
   val get_names_from_name_ctx : name_ctx -> Name.name list
 
   (* Interactive environments γ are partial maps from names to interactive values*)
@@ -34,8 +36,8 @@ module type LANG = sig
 
   val empty_ienv : interactive_env
   val concat_ienv : interactive_env -> interactive_env -> interactive_env
-  val string_of_ienv : interactive_env -> string
   val pp_ienv : Format.formatter -> interactive_env -> unit
+  val string_of_ienv : interactive_env -> string
 
   (* The typed focusing process implemented by abstracting_nf
       decomposes a normal form into:
@@ -59,6 +61,12 @@ module type LANG = sig
   (* The first argument is a string inserted between
      the negative part of the normal form
      and the abstract values filling the positive parts *)
+  val pp_a_nf :
+    pp_dir:(Format.formatter -> unit) ->
+    Format.formatter ->
+    abstract_normal_form ->
+    unit
+
   val string_of_a_nf : string -> abstract_normal_form -> string
 
   val is_equiv_a_nf :
@@ -115,25 +123,34 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
 
   type computation = OpLang.term
 
-  let string_of_computation = OpLang.string_of_term
+  let pp_computation = OpLang.pp_term
+  let string_of_computation = Format.asprintf "%a" pp_computation
 
   type name_ctx = OpLang.name_ctx
 
+  let pp_name_ctx = OpLang.pp_name_ctx
+  let string_of_name_ctx = Format.asprintf "%a" pp_name_ctx
   let empty_name_ctx = OpLang.empty_name_ctx
   let concat_name_ctx = OpLang.concat_name_ctx
-  let string_of_name_ctx = OpLang.string_of_name_ctx
-  let pp_name_ctx = OpLang.pp_name_ctx
   let get_names_from_name_ctx = OpLang.get_names_from_name_ctx
 
   (* Interactive environments γ are partial maps from names to interactive values*)
   type interactive_env = OpLang.interactive_env
 
+  let pp_ienv = OpLang.pp_ienv
+  let string_of_ienv = Format.asprintf "%a" pp_ienv
   let empty_ienv = OpLang.empty_ienv
   let concat_ienv = OpLang.concat_ienv
-  let string_of_ienv = OpLang.string_of_ienv
-  let pp_ienv = OpLang.pp_ienv
 
   type normal_form = OpLang.normal_form_term * OpLang.Store.store
+
+  let pp_normal_form fmt (nf_term, _) =
+    let pp_dir fmt = Format.pp_print_string fmt "" in
+    let pp_ectx fmt () = Format.pp_print_string fmt "" in
+    OpLang.Nf.pp_nf_term ~pp_dir OpLang.pp_value pp_ectx OpLang.Name.pp_name
+      OpLang.Name.pp_name fmt nf_term
+
+  let string_of_nf = Format.asprintf "%a" pp_normal_form
 
   let is_error (nf_term, _) = OpLang.Nf.is_error nf_term
   let get_store (_, store) = store
@@ -142,14 +159,6 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
     match OpLang.normalize_opconf (term, store) with
     | None -> None
     | Some (nf_term, store') -> Some (OpLang.get_nf_term nf_term, store')
-
-  let string_of_nf_term dir string_of_val nf_term =
-    OpLang.Nf.string_of_nf_term dir string_of_val
-      (fun () -> "")
-      OpLang.Name.string_of_name OpLang.Name.string_of_name nf_term
-
-  let string_of_nf (nf_term, _) =
-    string_of_nf_term "" OpLang.string_of_value nf_term
 
   let concretize_a_nf ienv (a_nf_term, store) =
     let f_val = OpLang.AVal.subst_names ienv in
@@ -171,11 +180,13 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   (* TODO Deal with the abstraction process of the heap properly *)
 
   let abstracting_nf_term nf_term namectxO =
-    let namectxO' = Util.Pmap.filter_dom (fun n -> Name.is_fname n || Name.is_cname n) namectxO in
+    let namectxO' =
+      Util.Pmap.filter_dom
+        (fun n -> Name.is_fname n || Name.is_cname n)
+        namectxO in
     let namectxO'' = Util.Pmap.map_im OpLang.negating_type namectxO' in
     (* This is bugged, we should first *)
-    let nf_typed_term =
-      OpLang.type_annotating_val namectxO'' nf_term in
+    let nf_typed_term = OpLang.type_annotating_val namectxO'' nf_term in
     let f_val (value, nty) =
       let (aval, ienv, lnamectx) = OpLang.AVal.abstracting_value value nty in
       (aval, (ienv, lnamectx)) in
@@ -221,34 +232,39 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
      This computation would necessitate an iterative process. *)
 
   let get_subject_name (a_nf_term, _) =
-    let f_fn nn = (nn,Some nn) in
-    let f_cn nn = (nn,Some nn) in
+    let f_fn nn = (nn, Some nn) in
+    let f_cn nn = (nn, Some nn) in
     match snd @@ OpLang.Nf.map_fn None f_fn a_nf_term with
-      | None -> snd @@ OpLang.Nf.map_cn None f_cn a_nf_term
-      | Some _ as res -> res
+    | None -> snd @@ OpLang.Nf.map_cn None f_cn a_nf_term
+    | Some _ as res -> res
 
   let get_support (a_nf_term, _) =
     OpLang.Nf.apply_val [] OpLang.AVal.names_of_abstract_val a_nf_term
   (*TODO: take into account the store part*)
 
-  let string_of_a_nf dir (a_nf_term, store) =
-    let string_nf_term =
-      string_of_nf_term dir OpLang.AVal.string_of_abstract_val a_nf_term in
-    if store = Store.empty_store then string_nf_term
-    else
-      let string_store = Store.string_of_store store in
-      string_nf_term ^ "," ^ string_store
+  let pp_a_nf ~pp_dir fmt (a_nf_term, store) =
+    let pp_ectx fmt () = Format.pp_print_string fmt "" in
+    let pp_a_nf_term =
+      OpLang.Nf.pp_nf_term ~pp_dir OpLang.AVal.pp_abstract_val pp_ectx
+        OpLang.Name.pp_name OpLang.Name.pp_name in
+    if store = Store.empty_store then pp_a_nf_term fmt a_nf_term
+    else Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term Store.pp_store store
+
+  let string_of_a_nf dir = 
+    let pp_dir fmt = Format.pp_print_string fmt dir in
+    Format.asprintf "%a" (pp_a_nf ~pp_dir)
 
   include OpLang.AVal.M
 
-
   let fill_abstract_val storectx namectxP nf_skeleton =
-    let gen_val ty =
-      OpLang.AVal.generate_abstract_val storectx namectxP ty in
+    let gen_val ty = OpLang.AVal.generate_abstract_val storectx namectxP ty in
     OpLang.Nf.abstract_nf_term_m ~gen_val nf_skeleton
 
   let generate_a_nf storectx namectxP =
-    let namectxP' = Util.Pmap.filter_dom (fun n -> Name.is_fname n || Name.is_cname n) namectxP in
+    let namectxP' =
+      Util.Pmap.filter_dom
+        (fun n -> Name.is_fname n || Name.is_cname n)
+        namectxP in
     let namectxP'' = Util.Pmap.map_im OpLang.negating_type namectxP' in
     let* _ = return @@ Util.Debug.print_debug @@ "Generating the skeleton " in
     let* skel = OpLang.generate_nf_term namectxP'' in

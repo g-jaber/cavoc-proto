@@ -19,26 +19,19 @@ module Make (Int : Lts.Interactive.INT) = struct
 
   type conf = Active of active_conf | Passive of passive_conf
 
-  let string_of_active_conf act_conf =
-    "<"
-    ^ Int.IntLang.string_of_computation act_conf.computation
-    ^ " | "
-    ^ Int.IntLang.Store.string_of_store act_conf.store
-    ^ " | "
-    ^ Int.IntLang.string_of_ienv act_conf.ienv
-    ^ " > | "
-    ^ Int.string_of_interactive_ctx act_conf.ictx
+  let pp_active_conf fmt act_conf =
+    Format.fprintf fmt "⟨%a | %a | %a | %a⟩" Int.IntLang.pp_computation
+      act_conf.computation Int.IntLang.Store.pp_store act_conf.store
+      Int.IntLang.pp_ienv act_conf.ienv Int.pp_interactive_ctx act_conf.ictx
 
-  let string_of_passive_conf pas_conf =
-    "<"
-    ^ Int.IntLang.Store.string_of_store pas_conf.store
-    ^ " | "
-    ^ Int.IntLang.string_of_ienv pas_conf.ienv
-    ^ " > | "
-    ^ Int.string_of_interactive_ctx pas_conf.ictx
+  let pp_passive_conf fmt pas_conf =
+    Format.fprintf fmt "⟨%a | %a | %a⟩" Int.IntLang.Store.pp_store
+      pas_conf.store Int.IntLang.pp_ienv pas_conf.ienv Int.pp_interactive_ctx
+      pas_conf.ictx
 
-  let pp_passive_conf fmt aconf = 
-    Format.fprintf fmt "⟨%a | %a | %a⟩" Int.IntLang.Store.pp_store aconf.store Int.IntLang.pp_ienv aconf.ienv Int.pp_interactive_ctx aconf.ictx
+  let string_of_active_conf = Format.asprintf "%a" pp_active_conf
+
+  let string_of_passive_conf = Format.asprintf "%a" pp_passive_conf
 
   let extract_interactive_ctx = function
     | Active a_iconf -> a_iconf.ictx

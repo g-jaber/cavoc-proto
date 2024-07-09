@@ -11,34 +11,37 @@ let empty_loc_ctx = Util.Pmap.empty
 let empty_name_ctx = Util.Pmap.empty
 let empty_cons_ctx = Util.Pmap.empty
 
-let string_of_var_ctx =
-  let aux = function
-    | Types.TUndef -> "undef"
-    | ty -> "::" ^ Types.string_of_typ ty in
-  Util.Pmap.string_of_pmap "ε" "" Syntax.string_of_id aux
+let pp_var_ctx fmt var_ctx =
+  let pp_empty fmt () = Format.fprintf fmt "⋅" in
+  let pp_pair fmt (x, ty) =
+    Format.fprintf fmt "%a : %a" Syntax.pp_id x Types.pp_typ ty in
+  Util.Pmap.pp_pmap ~pp_empty pp_pair fmt var_ctx
 
-let string_of_loc_ctx =
-  let aux = function
-    | Types.TUndef -> "undef"
-    | ty -> "::" ^ Types.string_of_typ ty in
-  Util.Pmap.string_of_pmap "ε" "" Syntax.string_of_loc aux
-
-let string_of_name_ctx =
-  let aux = function
-    | Types.TUndef -> "undef"
-    | ty -> "::" ^ Types.string_of_typ ty in
-  Util.Pmap.string_of_pmap "ε" "" Names.string_of_name aux
+let pp_loc_ctx fmt loc_ctx =
+  let pp_empty fmt () = Format.fprintf fmt "⋅" in
+  let pp_pair fmt (l, ty) =
+    Format.fprintf fmt "%a : %a" Syntax.pp_loc l Types.pp_typ ty in
+  Util.Pmap.pp_pmap ~pp_empty pp_pair fmt loc_ctx
 
 let pp_name_ctx fmt name_ctx =
   let pp_empty fmt () = Format.fprintf fmt "⋅" in
-  let pp_pair fmt (n,ty) = Format.fprintf fmt "%a : %a" Names.pp_name n Types.pp_typ ty in
+  let pp_pair fmt (n, ty) =
+    Format.fprintf fmt "%a : %a" Names.pp_name n Types.pp_typ ty in
   Util.Pmap.pp_pmap ~pp_empty pp_pair fmt name_ctx
 
-let string_of_cons_ctx =
-  let aux = function
-    | Types.TUndef -> "undef"
-    | ty -> "::" ^ Types.string_of_typ ty in
-  Util.Pmap.string_of_pmap "ε" "" Syntax.string_of_constructor aux
+let pp_cons_ctx fmt cons_ctx =
+  let pp_empty fmt () = Format.fprintf fmt "⋅" in
+  let pp_pair fmt (c, ty) =
+    Format.fprintf fmt "%a : %a" Syntax.pp_constructor c Types.pp_typ ty in
+  Util.Pmap.pp_pmap ~pp_empty pp_pair fmt cons_ctx
+
+let string_of_var_ctx = Format.asprintf "%a" pp_var_ctx
+
+let string_of_loc_ctx = Format.asprintf "%a" pp_loc_ctx
+
+let string_of_name_ctx = Format.asprintf "%a" pp_name_ctx
+
+let string_of_cons_ctx =  Format.asprintf "%a" pp_cons_ctx
 
 type type_ctx = {
   var_ctx: var_ctx;

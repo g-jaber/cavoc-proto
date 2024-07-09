@@ -12,3 +12,9 @@ let rec combine = function
 
 let string_of_span string_of_name nspan =
   Pmap.string_of_pmap "" "," string_of_name string_of_name nspan
+
+let pp_namespan pp_name fmt nspan =
+  let pp_empty fmt () = Format.fprintf fmt "⋅" in
+  let pp_pair fmt (n1,n2) = Format.fprintf fmt "%a : %a" pp_name n1 pp_name n2 in
+  Pmap.pp_pmap ~pp_empty pp_pair fmt nspan
+

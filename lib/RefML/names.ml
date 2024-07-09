@@ -47,6 +47,7 @@ let cname_to_id = function CName cn -> Some cn | _ -> None
 type cont_name = id
 
 let string_of_cont_name cn = cn
+let pp_cont_name fmt cn = Format.fprintf fmt "%s" cn
 let get_cont_name = cname_to_id
 let inj_cont_name = cname_of_id
 

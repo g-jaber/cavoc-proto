@@ -4,12 +4,15 @@ open Util.Pmap
 type id = string
 type constructor = string
 
+let pp_id = Format.pp_print_string
+let pp_constructor = Format.pp_print_string
 let string_of_id x = x
 let string_of_constructor cons = cons
 
 (* loc is used for locations *)
 type loc = int
 
+let pp_loc fmt = Format.fprintf fmt "ℓ%d"
 let string_of_loc l = "l" ^ string_of_int l
 
 (* we provide a way to generate fresh locations *)
@@ -240,13 +243,13 @@ let subst_list expr lsubst =
     (fun expr (var, value) -> subst expr (Var var) value)
     expr lsubst
 
-let string_of_pattern = function
-  | PatCons (c, id) -> c ^ " " ^ id
-  | PatVar id -> id
+let pp_pattern fmt = function
+  | PatCons (c, id) -> Format.fprintf fmt "%s %s" c id
+  | PatVar id -> Format.pp_print_string fmt id
 
-let string_of_typed_var = function
-  | (x, Types.TUndef) -> x
-  | (x, ty) -> "(" ^ x ^ ":" ^ Types.string_of_typ ty ^ ")"
+let pp_typed_var fmt = function
+  | (x, Types.TUndef) -> Format.pp_print_string fmt x
+  | (x, ty) -> Format.fprintf fmt "(%s:%a)" x Types.pp_typ ty
 
 let string_of_binary_op = function
   | Plus -> "+"
@@ -263,61 +266,67 @@ let string_of_binary_op = function
   | GreatEq -> ">="
 
 let string_of_unary_op = function Not -> "not"
+let pp_binary_op fmt op = Format.pp_print_string fmt (string_of_binary_op op)
+let pp_unary_op fmt op = Format.pp_print_string fmt (string_of_unary_op op)
 
-let rec string_par_of_term = function
-  | Var x -> x
-  | Loc l -> "l" ^ string_of_int l
-  | Unit -> "()"
-  | Int n -> string_of_int n
-  | e -> "(" ^ string_of_term e ^ ")"
-
-and string_of_term = function
-  | Var x -> x
-  | Constructor (c, e) -> c ^ " " ^ string_of_term e
-  | Name n -> Names.string_of_name n
-  | Loc l -> string_of_loc l
-  | Unit -> "()"
-  | Int n -> string_of_int n
-  | Bool true -> "true"
-  | Bool false -> "false"
+let rec pp_par_term fmt = function
+  | Var x -> pp_id fmt x
+  | Loc l -> pp_loc fmt l
+  | Unit -> Format.pp_print_string fmt "()"
+  | Int n -> Format.pp_print_int fmt n
+  | e -> Format.fprintf fmt "(%a)" pp_term e
+and
+ pp_term fmt = function
+  | Var x -> pp_id fmt x
+  | Constructor (c, e) -> Format.fprintf fmt "%a %a" pp_constructor c pp_term e
+  | Name n -> Names.pp_name fmt n
+  | Loc l -> pp_loc fmt l
+  | Unit -> Format.pp_print_string fmt "()"
+  | Int n -> Format.pp_print_int fmt n
+  | Bool b -> Format.pp_print_bool fmt b
   | BinaryOp (op, e1, e2) ->
-      "(" ^ string_of_term e1 ^ string_of_binary_op op ^ string_of_term e2 ^ ")"
-  | UnaryOp (op, e) -> string_of_unary_op op ^ string_of_term e
+      Format.fprintf fmt "(%a %a %a)" pp_term e1 pp_binary_op op pp_term e2
+  | UnaryOp (op, e) -> Format.fprintf fmt "%a%a" pp_unary_op op pp_term e
   | If (e1, e2, e3) ->
-      "if " ^ string_of_term e1 ^ " then " ^ string_of_term e2 ^ " else "
-      ^ string_of_term e3
+      Format.fprintf fmt "if %a then %a else %a" pp_term e1 pp_term e2 pp_term
+        e3
   | Fun (typedvar, e) ->
-      "fun " ^ string_of_typed_var typedvar ^ " -> " ^ string_of_term e
+      Format.fprintf fmt "fun %a -> %a" pp_typed_var typedvar pp_term e
   | Fix (typedvar1, typedvar2, e) ->
-      "fix "
-      ^ string_of_typed_var typedvar1
-      ^ " "
-      ^ string_of_typed_var typedvar2
-      ^ " -> " ^ string_of_term e
+      Format.fprintf fmt "fix %a %a -> %a" pp_typed_var typedvar1 pp_typed_var
+        typedvar2 pp_term e
   | Let (var, e1, e2) ->
-      "let " ^ var ^ " = " ^ string_of_term e1 ^ " in " ^ string_of_term e2
+      Format.fprintf fmt "let %a = %a in %a" pp_id var pp_term e1 pp_term e2
   | LetPair (var1, var2, e1, e2) ->
-      "let (" ^ var1 ^ "," ^ var2 ^ ") = " ^ string_of_term e1 ^ " in "
-      ^ string_of_term e2
-  | Seq (e1, e2) -> string_of_term e1 ^ " ; " ^ string_of_term e2
+      Format.fprintf fmt "let (%a,%a) = %a in %a" pp_id var1 pp_id var2 pp_term e1
+       pp_term e2
+  | Seq (e1, e2) -> Format.fprintf fmt "%a; %a" pp_term e1 pp_term e2
   | While (e1, e2) ->
-      "while " ^ string_of_term e1 ^ " do " ^ string_of_term e2 ^ " done "
-  | App (e1, e2) -> string_par_of_term e1 ^ " " ^ string_par_of_term e2
-  | Pair (e1, e2) -> "(" ^ string_of_term e1 ^ "," ^ string_of_term e2 ^ ")"
-  | Newref (ty, e) -> "ref_" ^ Types.string_of_typ ty ^ " " ^ string_of_term e
-  | Deref e -> "!" ^ string_of_term e
-  | Assign (e1, e2) -> string_of_term e1 ^ " := " ^ string_of_term e2
-  | Assert e -> "assert " ^ string_of_term e
-  | Raise e -> "raise " ^ string_of_term e
+      Format.fprintf fmt "while %a do %a done" pp_term e1 pp_term e2
+  | App (e1, e2) ->
+      Format.fprintf fmt "%a %a" pp_par_term e1 pp_par_term e2
+  | Pair (e1, e2) -> Format.fprintf fmt "(%a,%a)" pp_term e1 pp_term e2
+  | Newref (_, e) ->
+      Format.fprintf fmt "ref %a" pp_term e
+  | Deref e -> Format.fprintf fmt "!%a" pp_term e
+  | Assign (e1, e2) -> Format.fprintf fmt "%a := %a" pp_term e1 pp_term e2
+  | Assert e -> Format.fprintf fmt "assert %a" pp_term e
+  | Raise e -> Format.fprintf fmt "raise %a" pp_term e
   | TryWith (e, handler_l) ->
-      let handler_string_l = List.map string_of_handler handler_l in
-      "try " ^ string_of_term e ^ " with " ^ String.concat "|" handler_string_l
-  | Hole -> "<>"
-  | Error -> "error"
+      let pp_sep fmt () = Format.pp_print_string fmt "|" in
+      let pp_handler_l = Format.pp_print_list ~pp_sep pp_handler in
+      Format.fprintf fmt "try %a with %a" pp_term e pp_handler_l handler_l
+  | Hole -> Format.pp_print_string fmt "∙"
+  | Error -> Format.pp_print_string fmt "error"
 
-and string_of_handler (Handler (pat, expr)) =
-  string_of_pattern pat ^ " => " ^ string_of_term expr
+  and pp_handler fmt (Handler (pat, expr)) =
+    Format.fprintf fmt "%a -> %a" pp_pattern pat pp_term expr
 
+
+let string_of_term = 
+  Format.asprintf "%a" pp_term
+
+let pp_value = pp_term
 let string_of_value = string_of_term
 
 (* Auxiliary functions *)
@@ -384,6 +393,9 @@ let empty_val_env = Util.Pmap.empty
 
 type eval_context = term
 
+let pp_eval_context = pp_term
+let string_of_eval_context = Format.asprintf "%a" pp_eval_context
+
 (* extract_ctx decomposes an expression into its redex and the surrounding evaluation context*)
 let rec extract_ctx expr =
   match expr with
@@ -434,11 +446,11 @@ and extract_ctx_un cons_op expr =
     (result, cons_op ctx)
 
 let fill_hole ctx expr = subst ctx Hole expr
-let string_of_eval_context ctx = string_of_term ctx
 
 type negative_val = value
 
-let string_of_negative_val = string_of_value
+let pp_negative_val = pp_value
+let string_of_negative_val = Format.asprintf "%a" pp_negative_val
 
 let filter_negative_val = function
   | (Fix _ | Fun _ | Name _) as value -> Some value
@@ -452,10 +464,14 @@ type interactive_env = (Names.name, negative_val) Util.Pmap.pmap
 let empty_ienv = Util.Pmap.empty
 let concat_ienv = Util.Pmap.concat
 
-let string_of_ienv =
-  Util.Pmap.string_of_pmap "ε" "↪" Names.string_of_name string_of_negative_val
+let pp_ienv fmt ienv =
+  let pp_sep fmt () = Format.pp_print_char fmt ',' in
+  let pp_empty fmt () = Format.pp_print_string fmt "⋅" in
+  let pp_pair fmt (n, nval) =
+    Format.fprintf fmt "%a ↦ %a" Names.pp_name n pp_negative_val nval in
+  Util.Pmap.pp_pmap ~pp_sep ~pp_empty pp_pair fmt ienv
 
-let pp_ienv _ _ = failwith "Not yet implemented"
+let string_of_ienv = Format.asprintf "%a" pp_ienv
 
 open Nf
 

@@ -1,13 +1,15 @@
 type store = Syntax.val_env * Heap.heap * Type_ctx.cons_ctx
 
-let string_of_store (_, heap, _) = Heap.string_of_heap heap
+(*TODO: We should also print the other components *)
+let pp_store fmt (_,heap,_) = 
+  Heap.pp_heap fmt heap
+
+let string_of_store = Format.asprintf "%a" pp_store
 (*let heap_string = Heap.string_of_heap heap in
   if valenv = Util.Pmap.empty then heap_string
   else
     let valenv_string = Syntax.string_of_val_env valenv in
     heap_string ^ "| " ^ valenv_string*)
-
-let pp_store _ _ = failwith "Not yet implemented"
 let empty_store = (Syntax.empty_val_env, Heap.emptyheap, Type_ctx.empty_cons_ctx)
 let loc_lookup (_, heap, _) loc = Heap.lookup heap loc
 let var_lookup (varenv, _, _) var = Util.Pmap.lookup var varenv
@@ -33,14 +35,13 @@ let embed_cons_ctx cons_ctx = (Util.Pmap.empty, Util.Pmap.empty, cons_ctx)
 
 type store_ctx = Type_ctx.loc_ctx * Type_ctx.cons_ctx
 
+let pp_store_ctx fmt (loc_ctx, cons_ctx) =
+  Format.fprintf fmt "%a ; %a" Type_ctx.pp_loc_ctx loc_ctx Type_ctx.pp_cons_ctx
+    cons_ctx
+
+let string_of_store_ctx = Format.asprintf "%a" pp_store_ctx
+
 let empty_store_ctx = (Type_ctx.empty_loc_ctx, Type_ctx.empty_cons_ctx)
-
-let string_of_store_ctx (loc_ctx, cons_ctx) =
-  Type_ctx.string_of_loc_ctx loc_ctx
-  ^ ","
-  ^ Type_ctx.string_of_cons_ctx cons_ctx
-
-let pp_store_ctx _ _ = failwith "Not yet implemented"
 
 let concat_store_ctx (loc_ctx1, cons_ctx1) (loc_ctx2, cons_ctx2) =
   let loc_ctx = Util.Pmap.concat loc_ctx1 loc_ctx2 in

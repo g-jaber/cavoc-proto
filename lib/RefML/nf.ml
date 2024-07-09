@@ -12,6 +12,16 @@ type ('value, 'ectx, 'fname, 'cname) nf_term =
   | NFError of 'cname
   | NFRaise of 'cname * 'value
 
+  let pp_nf_term ~pp_dir pp_val pp_ectx pp_fn pp_cn fmt = function
+  | NFCallback (fn, value, ectx) ->
+      let string_ectx = Format.asprintf "%a" pp_ectx ectx in
+      let string_ectx' = if string_ectx = "" then "" else  string_ectx in
+      Format.fprintf fmt "%a%t%a%s" pp_fn fn pp_dir pp_val value string_ectx'
+      (* TODO: Improve the code above *)
+  | NFValue (cn, value) -> Format.fprintf fmt "%a%t%a" pp_cn cn pp_dir pp_val value
+  | NFError cn -> Format.fprintf fmt "%a%t(error)" pp_cn cn pp_dir
+  | NFRaise (cn, value) -> Format.fprintf fmt "%a%t(raise %a)" pp_cn cn pp_dir pp_val value
+
 let string_of_nf_term dir f_val f_ectx f_fn f_cn = function
   | NFCallback (fn, value, ectx) ->
       let string_ectx = f_ectx ectx in

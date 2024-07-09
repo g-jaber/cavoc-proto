@@ -56,16 +56,19 @@ module type COMP = sig
 
   type term
 
+  val pp_term : Format.formatter -> term -> unit
   val string_of_term : term -> string
 
   type value
 
+  val pp_value : Format.formatter -> value -> unit
   val string_of_value : value -> string
 
   type negative_val
 
-  val filter_negative_val : value -> negative_val option
+  val pp_negative_val : Format.formatter -> negative_val -> unit
   val string_of_negative_val : negative_val -> string
+  val filter_negative_val : value -> negative_val option
 
   type interactive_env = (Name.name, negative_val) Util.Pmap.pmap
 
@@ -100,6 +103,16 @@ end
 
 module type NF = sig
   type ('value, 'ectx, 'fname, 'cname) nf_term
+
+  val pp_nf_term :
+    pp_dir:(Format.formatter -> unit) ->
+    (Format.formatter -> 'value -> unit) ->
+    (Format.formatter -> 'ectx -> unit) ->
+    (Format.formatter -> 'fname -> unit) ->
+    (Format.formatter -> 'cname -> unit) ->
+    Format.formatter ->
+    ('value, 'ectx, 'fname, 'cname) nf_term ->
+    unit
 
   (* The first argument is a string inserted between
      the negative part of the normal form
@@ -186,6 +199,11 @@ module type WITHAVAL_INOUT = sig
   type typevar
   type typename
 
+  val pp_eval_context : Format.formatter -> eval_context -> unit
+  val string_of_eval_context : eval_context -> string
+  val pp_tvar_l : Format.formatter -> typevar list -> unit
+  val string_of_typename : typename -> string
+
   val type_annotating_val :
     inj_ty:(typ -> 'ty) ->
     fname_ctx:('fname, 'ty) Util.Pmap.pmap ->
@@ -218,17 +236,12 @@ module type WITHAVAL_INOUT = sig
     ('cname, 'ty * 'ty) Util.Pmap.pmap ->
     (('ty, 'ectx, 'fname, 'cname) Nf.nf_term * 'ty) Nf.M.m
 
-  val string_of_typename : typename -> string
-
-  val pp_tvar_l : Format.formatter -> typevar list -> unit
-
   val generate_typename_subst :
     typevar list -> typename list * (typevar, typ) Util.Pmap.pmap
 
   val apply_type_subst : typ -> (typevar, typ) Util.Pmap.pmap -> typ
   val get_input_type : negative_type -> typevar list * typ
   val get_output_type : negative_type -> typ
-  val string_of_eval_context : eval_context -> string
 
   type normal_form_term = (value, eval_context, Name.name, unit) Nf.nf_term
 

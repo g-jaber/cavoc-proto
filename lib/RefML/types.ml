@@ -17,37 +17,6 @@ type typ =
   | TName of id
   | TUndef
 
-let rec string_par_of_typ = function
-  | TArrow (ty1, ty2) ->
-      "(" ^ string_par_of_typ ty1 ^ "->" ^ string_of_typ ty2 ^ ")"
-  | TProd (ty1, ty2) ->
-      "(" ^ string_par_of_typ ty1 ^ "*" ^ string_par_of_typ ty2 ^ ")"
-  | TSum (ty1, ty2) ->
-      "(" ^ string_par_of_typ ty1 ^ "+" ^ string_par_of_typ ty2 ^ ")"
-  | TRef ty -> "(ref " ^ string_of_typ ty ^ ")"
-  | TForall (tvars, ty) ->
-      let tvars_string = String.concat " " tvars in
-      "(∀" ^ tvars_string ^ "." ^ string_par_of_typ ty ^ ")"
-  | typ -> string_of_typ typ
-
-and string_of_typ = function
-  | TUnit -> "unit"
-  | TInt -> "int"
-  | TBool -> "bool"
-  | TArrow (ty1, ty2) -> string_par_of_typ ty1 ^ "->" ^ string_of_typ ty2
-  | TProd (ty1, ty2) -> string_par_of_typ ty1 ^ "*" ^ string_par_of_typ ty2
-  | TSum (ty1, ty2) -> string_par_of_typ ty1 ^ "+" ^ string_par_of_typ ty2
-  | TRef ty -> "ref " ^ string_of_typ ty
-  | TExn -> "exn"
-  | TVar typevar -> typevar
-  | TForall ([], ty) -> string_par_of_typ ty
-  | TForall (tvars, ty) ->
-      let tvars_string = String.concat " " tvars in
-      "∀" ^ tvars_string ^ "." ^ string_par_of_typ ty
-  | TId id -> id
-  | TName id -> id
-  | TUndef -> "undef"
-
 let pp_tid fmt id = Format.fprintf fmt "%s" id
 let pp_tname fmt n = Format.fprintf fmt "%s" n
 let pp_tvar fmt typevar = Format.fprintf fmt "%s" typevar
@@ -60,12 +29,9 @@ let rec pp_typ fmt = function
   | TUnit -> Format.fprintf fmt "unit"
   | TInt -> Format.fprintf fmt "int"
   | TBool -> Format.fprintf fmt "bool"
-  | TArrow (ty1, ty2) ->
-      Format.fprintf fmt "%a → %a" pp_typ ty1 pp_typ ty2
-  | TProd (ty1, ty2) ->
-      Format.fprintf fmt "%a × %a" pp_typ ty1 pp_typ ty2
-  | TSum (ty1, ty2) ->
-      Format.fprintf fmt "%a + %a" pp_typ ty1 pp_typ ty2
+  | TArrow (ty1, ty2) -> Format.fprintf fmt "%a → %a" pp_par_typ ty1 pp_typ ty2
+  | TProd (ty1, ty2) -> Format.fprintf fmt "%a × %a" pp_par_typ ty1 pp_par_typ ty2
+  | TSum (ty1, ty2) -> Format.fprintf fmt "%a + %a" pp_par_typ ty1 pp_par_typ ty2
   | TRef ty -> Format.fprintf fmt "ref %a" pp_typ ty
   | TExn -> Format.fprintf fmt "exn"
   | TVar typevar -> pp_tvar fmt typevar
@@ -75,6 +41,21 @@ let rec pp_typ fmt = function
   | TId id -> pp_tid fmt id
   | TName n -> pp_tname fmt n
   | TUndef -> Format.fprintf fmt "undef"
+
+and pp_par_typ fmt = function
+  | TArrow (ty1, ty2) ->
+      Format.fprintf fmt "(%a → %a)" pp_par_typ ty1 pp_typ ty2
+  | TProd (ty1, ty2) ->
+      Format.fprintf fmt "(%a × %a)" pp_par_typ ty1 pp_par_typ ty2
+  | TSum (ty1, ty2) ->
+      Format.fprintf fmt "(%a + %a)" pp_par_typ ty1 pp_par_typ ty2
+  | TRef ty -> Format.fprintf fmt "(ref %a)" pp_typ ty
+  | TForall ([], ty) -> Format.fprintf fmt "%a" pp_typ ty
+  | TForall (tvar_l, ty) ->
+      Format.fprintf fmt "(∀%a . %a)" pp_tvar_l tvar_l pp_typ ty
+  | typ -> pp_typ fmt typ
+
+let string_of_typ = Format.asprintf "%a" pp_typ
 
 (* We provide a way to generate fresh type variables,
    that are used in the type checker *)
@@ -243,7 +224,6 @@ let generalize_type ty =
 type negative_type = typ
 
 let string_of_negative_type = string_of_typ
-
 let pp_negative_type = pp_typ
 
 let get_negative_type ty =

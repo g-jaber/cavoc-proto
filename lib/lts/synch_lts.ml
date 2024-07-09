@@ -26,6 +26,9 @@ module Make (IntLts : Bipartite.INT_LTS) :
     (*IntLts.Actions.Moves.kdata
       * IntLts.Actions.Moves.kdata*)
 
+    let pp_a_nf ~pp_dir fmt (kdata1, _) =
+      IntLts.Int.IntLang.pp_a_nf ~pp_dir fmt kdata1
+
     let string_of_a_nf sep (kdata1, _) =
       IntLts.Int.IntLang.string_of_a_nf sep kdata1
     (*^ ","
@@ -54,21 +57,20 @@ module Make (IntLts : Bipartite.INT_LTS) :
 
   type conf = Active of active_conf | Passive of passive_conf
 
-  let string_of_active_conf (act_conf1, act_conf2, namespan) =
-    IntLts.string_of_active_conf act_conf1
-    ^ "|"
-    ^ IntLts.string_of_active_conf act_conf2
-    ^ "|"
-    ^ Util.Namespan.string_of_span IntLts.Int.Name.string_of_name namespan
+  let pp_active_conf fmt (act_conf1, act_conf2, namespan) =
+    Format.fprintf fmt "⟨%a | %a | %a⟩" IntLts.pp_active_conf act_conf1
+      IntLts.pp_active_conf act_conf2
+      (Util.Namespan.pp_namespan IntLts.Int.Name.pp_name)
+      namespan
 
-  let string_of_passive_conf (pas_conf1, pas_conf2, namespan) =
-    IntLts.string_of_passive_conf pas_conf1
-    ^ "|"
-    ^ IntLts.string_of_passive_conf pas_conf2
-    ^ "|"
-    ^ Util.Namespan.string_of_span IntLts.Int.Name.string_of_name namespan
+  let pp_passive_conf fmt (pas_conf1, pas_conf2, namespan) =
+    Format.fprintf fmt "⟨%a | %a | %a⟩" IntLts.pp_passive_conf pas_conf1
+      IntLts.pp_passive_conf pas_conf2
+      (Util.Namespan.pp_namespan IntLts.Int.Name.pp_name)
+      namespan
 
-  let pp_passive_conf _ (_, _, _) = failwith "Not yet implemented"
+  let string_of_active_conf = Format.asprintf "%a" pp_active_conf
+  let string_of_passive_conf = Format.asprintf "%a" pp_passive_conf
 
   let equiv_act_conf (act_conf1a, act_conf2a, _) (act_conf1b, act_conf2b, _) =
     IntLts.equiv_act_conf act_conf1a act_conf1b

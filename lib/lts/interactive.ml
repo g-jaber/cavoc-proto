@@ -109,11 +109,10 @@ module Make (IntLang : Lang.Interactive.LANG) :
           lnamectx,
           { ictx with namectxP; storectx } )
     | None ->
-        failwith
-          ("Error: the normal form " ^ IntLang.string_of_nf nf
-         ^ " is not typeable in the name context "
-          ^ IntLang.string_of_name_ctx ictx.namectxO
-          ^ ". Please report.")
+        Util.Error.failwithf
+          "Error: the normal form %a is not typeable in the name context %a. Please report." 
+          IntLang.pp_normal_form nf
+          IntLang.pp_name_ctx ictx.namectxO
 
   open IntLang.M
 

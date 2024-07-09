@@ -10,13 +10,15 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   (* We consider named terms, as in the λμ-calculus *)
   type term = NTerm of (Name.cont_name * OpLang.term)
 
-  let string_of_term (NTerm (cn, term)) =
-    "[" ^ OpLang.Name.string_of_cont_name cn ^ "]" ^ OpLang.string_of_term term
+  let pp_term fmt (NTerm (cn, term)) =
+    Format.fprintf fmt "[%a]%a" OpLang.Name.pp_cont_name cn OpLang.pp_term term
+
+  let string_of_term = Format.asprintf "%a" pp_term
 
   type neval_context = NCtx of (Name.cont_name * OpLang.eval_context)
 
-  let string_of_neval_context (NCtx (cn, ectx)) =
-    "[" ^ Name.string_of_cont_name cn ^ "]" ^ OpLang.string_of_eval_context ectx
+  let pp_neval_context fmt (NCtx (cn, ectx)) =
+    Format.fprintf fmt "[%a]%a" Name.pp_cont_name cn OpLang.pp_eval_context ectx
 
   (*We refine the type of values to allow pairs (V,E) and (V,c) *)
   type value =
@@ -26,22 +28,24 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     | GPackOut of OpLang.typename list * OpLang.value * Name.cont_name
   (* Since we are in Curry-style, we could merge GPairOut and GPackOut *)
 
-  let string_of_value = function
-    | GVal value -> OpLang.string_of_value value
+  let pp_value fmt = function
+    | GVal value -> OpLang.pp_value fmt value
     | GPairIn (value, nctx) ->
-        "("
-        ^ OpLang.string_of_value value
-        ^ ","
-        ^ string_of_neval_context nctx
-        ^ ")"
+        Format.fprintf fmt "(%a,%a)" OpLang.pp_value value pp_neval_context nctx
     | GPairOut (value, cn) | GPackOut (_, value, cn) ->
-        "("
-        ^ OpLang.string_of_value value
-        ^ ","
-        ^ Name.string_of_cont_name cn
-        ^ ")"
+        Format.fprintf fmt "(%a,%a)" OpLang.pp_value value Name.pp_cont_name cn
+
+  let string_of_value = Format.asprintf "%a" pp_value
 
   type negative_val = IVal of OpLang.negative_val | ICtx of neval_context
+
+  let pp_negative_val fmt = function
+    | IVal value -> OpLang.pp_negative_val fmt value
+    | ICtx (NCtx (cn, ectx)) ->
+        Format.fprintf fmt "[%a]%a" Name.pp_cont_name cn OpLang.pp_eval_context
+          ectx
+
+  let string_of_negative_val = Format.asprintf "%a" pp_negative_val
 
   let filter_negative_val = function
     | GVal value -> begin
@@ -51,22 +55,17 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
       end
     | GPairIn _ | GPairOut _ | GPackOut _ -> None
 
-  let string_of_negative_val = function
-    | IVal value -> OpLang.string_of_negative_val value
-    | ICtx (NCtx (cn, ectx)) ->
-        "["
-        ^ Name.string_of_cont_name cn
-        ^ "]"
-        ^ OpLang.string_of_eval_context ectx
-
   type interactive_env = (OpLang.Name.name, negative_val) Util.Pmap.pmap
 
-  let string_of_ienv =
-    Util.Pmap.string_of_pmap "ε" "↪" OpLang.Name.string_of_name
-      string_of_negative_val
+  let pp_ienv fmt ienv =
+    let pp_sep fmt () = Format.pp_print_char fmt ',' in
+    let pp_empty fmt () = Format.pp_print_string fmt "⋅" in
+    let pp_pair fmt (n, nval) =
+      Format.fprintf fmt "%a ↦ %a" OpLang.Name.pp_name n pp_negative_val nval
+    in
+    Util.Pmap.pp_pmap ~pp_sep ~pp_empty pp_pair fmt ienv
 
-  let pp_ienv _ _ = failwith "Not yet implemented"
-
+  let string_of_ienv = Format.asprintf "%a" pp_ienv
   let empty_ienv = Util.Pmap.empty
   let concat_ienv = Util.Pmap.concat
 
@@ -78,19 +77,16 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   type negative_type = IType of OpLang.negative_type | INeg of OpLang.typ
 
-  let string_of_type = function
-    | GType typ -> OpLang.string_of_type typ
-    | GExists (_, typ1, typ2) | GProd (typ1, typ2) ->
-        OpLang.string_of_type typ1 ^ "* ¬" ^ OpLang.string_of_type typ2
-    | GEmpty -> "⊥"
-
-    let pp_type fmt = function
+  let pp_type fmt = function
     | GType typ -> OpLang.pp_type fmt typ
     | GExists (tvar_l, typ1, typ2) ->
-      Format.fprintf fmt "%a. %a × ¬%a" OpLang.pp_tvar_l tvar_l OpLang.pp_type typ1 OpLang.pp_type typ2
+        Format.fprintf fmt "%a. %a × ¬%a" OpLang.pp_tvar_l tvar_l OpLang.pp_type
+          typ1 OpLang.pp_type typ2
     | GProd (typ1, typ2) ->
         Format.fprintf fmt "%a × ¬%a" OpLang.pp_type typ1 OpLang.pp_type typ2
     | GEmpty -> Format.fprintf fmt "⊥"
+
+  let string_of_type = Format.asprintf "%a" pp_type
 
   let get_negative_type = function
     | GType typ -> begin
@@ -100,14 +96,11 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
       end
     | GProd _ | GExists _ | GEmpty -> None
 
-  let string_of_negative_type = function
-    | IType ty -> OpLang.string_of_negative_type ty
-    | INeg ty -> "¬" ^ OpLang.string_of_type ty
-
   let pp_negative_type fmt = function
-  | IType ty -> OpLang.pp_negative_type fmt ty
-  | INeg ty -> Format.fprintf fmt "¬%a" OpLang.pp_type ty
+    | IType ty -> OpLang.pp_negative_type fmt ty
+    | INeg ty -> Format.fprintf fmt "¬%a" OpLang.pp_type ty
 
+  let string_of_negative_type = Format.asprintf "%a" pp_negative_type
 
   type name_ctx = (Name.name, negative_type) Util.Pmap.pmap
 
@@ -121,14 +114,13 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   let concat_name_ctx = Util.Pmap.concat
   let get_names_from_name_ctx = Util.Pmap.dom
 
-  let string_of_name_ctx =
-    Util.Pmap.string_of_pmap "ε" "::" OpLang.Name.string_of_name
-      string_of_negative_type
-
   let pp_name_ctx fmt name_ctx =
     let pp_empty fmt () = Format.fprintf fmt "⋅" in
-    let pp_pair fmt (n,nty) = Format.fprintf fmt "%a : %a" Name.pp_name n pp_negative_type nty in
+    let pp_pair fmt (n, nty) =
+      Format.fprintf fmt "%a : %a" Name.pp_name n pp_negative_type nty in
     Util.Pmap.pp_pmap ~pp_empty pp_pair fmt name_ctx
+
+  let string_of_name_ctx = Format.asprintf "%a" pp_name_ctx
 
   module Store = OpLang.Store
 
@@ -234,7 +226,8 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
      expected to interact over this type. *)
   let negating_type = function
     | IType ty ->
-      Util.Debug.print_debug ("Negating the type " ^ OpLang.string_of_negative_type ty);
+        Util.Debug.print_debug
+          ("Negating the type " ^ OpLang.string_of_negative_type ty);
         let (tvar_l, inp_ty) = OpLang.get_input_type ty in
         let out_ty = OpLang.get_output_type ty in
         begin
@@ -316,21 +309,19 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
       | APack of
           OpLang.typename list * OpLang.AVal.abstract_val * Name.cont_name
 
-    let string_of_abstract_val = function
-      | AVal aval -> OpLang.AVal.string_of_abstract_val aval
+    let pp_abstract_val fmt = function
+      | AVal aval -> OpLang.AVal.pp_abstract_val fmt aval
       | APair (aval, cn) ->
-          "("
-          ^ OpLang.AVal.string_of_abstract_val aval
-          ^ ","
-          ^ Name.string_of_cont_name cn
-          ^ ")"
+          Format.fprintf fmt "(%a,%a)" OpLang.AVal.pp_abstract_val aval
+            Name.pp_cont_name cn
       | APack (tname_l, aval, cn) ->
-          let string_l = List.map OpLang.string_of_typename tname_l in
-          "(" ^ String.concat "," string_l ^ ","
-          ^ OpLang.AVal.string_of_abstract_val aval
-          ^ ","
-          ^ Name.string_of_cont_name cn
-          ^ ")"
+          let string_l =
+            String.concat "," @@ List.map OpLang.string_of_typename tname_l
+            (*TODO: introduce a pp_tname_l pretty printer*) in
+          Format.fprintf fmt "(%s,%a,%a)" string_l OpLang.AVal.pp_abstract_val
+            aval Name.pp_cont_name cn
+
+    let string_of_abstract_val = Format.asprintf "%a" pp_abstract_val
 
     let names_of_abstract_val = function
       | AVal aval -> OpLang.AVal.names_of_abstract_val aval

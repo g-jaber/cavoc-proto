@@ -2,6 +2,16 @@
 
 type heap = (Syntax.loc, Syntax.value) Util.Pmap.pmap
 
+let pp_heap fmt heap =
+  let pp_pair fmt (l,v) = Format.fprintf fmt "%a ↪ %a" Syntax.pp_loc l Syntax.pp_value v in
+  let pp_sep fmt () = Format.fprintf fmt ";" in
+  let pp_heap_aux = Util.Pmap.pp_pmap ~pp_sep pp_pair in
+  Format.fprintf fmt "[%a]" pp_heap_aux heap
+  
+
+let string_of_heap =
+  Format.asprintf "%a" pp_heap
+
 let emptyheap = Util.Pmap.empty
 
 let allocate heap v =
@@ -13,9 +23,6 @@ let update heap heap' =
   Util.Pmap.fold (fun heap (l,value) -> modify heap l value) heap heap'
 
 let lookup heap l = Util.Pmap.lookup l heap
-
-let string_of_heap =
-  Util.Pmap.string_of_pmap "[]" "->" Syntax.string_of_loc Syntax.string_of_term
 
 
 let loc_ctx_of_heap = Util.Pmap.map_im (fun _ -> Types.TInt)
