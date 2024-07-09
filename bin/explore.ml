@@ -42,7 +42,7 @@ let speclist =
        style. This is incompatible with both visibility restriction and open composition." );
   ]
 
-let usage_msg = "Usage: cavoctree filename [options]"
+let usage_msg = "Usage: explore filename.ml filename.mli [options]"
 
 let fix_mode () =
   match (!is_compare, !is_compose) with

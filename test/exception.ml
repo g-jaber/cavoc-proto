@@ -1,5 +1,5 @@
 (* To be tested with
-./_build/default/bin/explore.exe test/exception.ml test/exception.mli
+dune exec explore.exe test/exception.ml test/exception.mli
 *)
 
 exception Bla

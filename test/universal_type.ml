@@ -1,4 +1,4 @@
-(* to be tested with ./_build/default/bin/explore.exe test/universal_type.ml test/universal_type.mli *)
+(* to be tested with dune exec explore.exe test/universal_type.ml test/universal_type.mli *)
 
 type t = unit
 

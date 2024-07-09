@@ -1,8 +1,9 @@
 # cavoc-proto
 
+You can build the project using ``dune build``.
 
 The prototype is currently formed by an executable ``explore`` that can be found in the bin/ directory.
-To run it, use ``explore example.ml example.mli``: it takes a module ``example.ml`` and its signature ``example.mli``, 
+To run it, use ``dune exec explore.exe example.ml example.mli``: it takes a module ``example.ml`` and its signature ``example.mli``, 
 and provides a way to play the environment role (aka Opponent) in the interaction, by choosing which input action to perform.
 In that setting, the environment can be seen as a client of the module.
 
@@ -18,6 +19,8 @@ You can also pass the following options to ``explore``:
     This corresponds to forbiding the client to use higher-order references to store the functions provided by the module during the interaction.
   * -no-cps, Use a representation of actions as calls and returns rather than in cps style. 
     This is incompatible with the -vis option.
+
+The directory ``test/`` contains multiple examples of modules and programs on which ``explore`` can be tested.
 
 There is also another, experimental (a.k.a. mostly broken) executable ``compose``, that takes a module and its signature, and a client, 
 and compose them, computing their interaction.
