@@ -168,7 +168,7 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG) =
         let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.Actions.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
         let module VisLTS = Ogs.Vis_lts.Make (Int.Name) (Int.Actions.Moves) in
-        let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (VisLTS) in
+        let module ProdLTS = Lts.Product_lts.Make (ProdLTS) (VisLTS) in
         generate (module ProdLTS)
     | (true, false) ->
         let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.Actions.Moves) in
