@@ -3,7 +3,7 @@
 You can build the project using ``dune build``.
 
 The prototype is currently formed by an executable ``explore``.
-To run it, use ``dune exec explore.exe example.ml example.mli``: it takes a module ``example.ml`` and its signature ``example.mli``, 
+To run it, use ``dune exec explore example.ml example.mli``: it takes a module ``example.ml`` and its signature ``example.mli``, 
 and provides a way to play the environment role (a.k.a. Opponent) in the interaction, by choosing which input action to perform.
 In that setting, the environment can be seen as a client of the module.
 
