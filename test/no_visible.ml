@@ -1,5 +1,5 @@
 (* To be tested with
-./_build/default/bin/explore_cps.exe test/no_visible.ml test/no_visible.mli
+./_build/default/bin/explore.exe test/no_visible.ml test/no_visible.mli
 *)
 
 let r = ref 0
