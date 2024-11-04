@@ -8,3 +8,4 @@
  (name compose)
  (public_name compose)
  (libraries refml lang lts ogs pogs))
+

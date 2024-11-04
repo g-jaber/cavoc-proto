@@ -1,6 +1,4 @@
 open Js_of_ocaml
-open Js_of_ocaml.Dom
-
 
 type mode =
   | Explore
@@ -43,7 +41,8 @@ let speclist =
     ( "-no-cps",
       Arg.Clear enable_cps,
       "Use a representation of actions as calls and return rather than in cps \
-       style. This is incompatible with both visibility restriction and open composition." );
+       style. This is incompatible with both visibility restriction and open \
+       composition." );
   ]
 
 let usage_msg = "Usage: explore filename.ml filename.mli [options]"
@@ -183,6 +182,55 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG) =
         let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (VisLTS) in
         generate (module ProdLTS)
     | (false, false) -> generate (module OGS_LTS)
+
+(* Global refs to store editor content *)
+let editor_content = ref ""
+let signature_content = ref ""
+
+(* Retrieves the content from the HTML editor fields *)
+let fetch_editor_content () =
+  let editor = Dom_html.getElementById "editor" in
+  let signature_editor = Dom_html.getElementById "signatureEditor" in
+  editor_content := Js.to_string (Js.Unsafe.get editor "innerText");
+  signature_content := Js.to_string (Js.Unsafe.get signature_editor "innerText")
+
+(* Redirects OCaml print functions to output in the HTML div with id "output" *)
+let print_to_output str =
+  let output_div = Dom_html.getElementById "output" in
+  let current_content = Js.to_string (Js.Unsafe.get output_div "innerHTML") in
+  let new_content = current_content ^ "<br>" ^ str in
+  Js.Unsafe.set output_div "innerHTML" (Js.string new_content)
+
+(* Overrides default print functions to redirect to the HTML output div *)
+let () =
+  Printexc.record_backtrace true;
+  Sys_js.set_channel_flusher stdout print_to_output;
+  Sys_js.set_channel_flusher stderr print_to_output
+
+(* Builds and evaluates the OGS LTS based on the provided code content *)
+let evaluate_code () =
+  (* Fetch editor content and store in refs *)
+  fetch_editor_content ();
+
+  (* Set options based on flags *)
+  let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
+  if !enable_cps then
+    let module CpsLang = Lang.Cps.MakeComp (OpLang) in
+    let module IntLang = Lang.Interactive.Make (CpsLang) in
+    build_ogs_lts (module IntLang)
+  else
+    let module DirectLang = Lang.Direct.Make (OpLang) in
+    build_ogs_lts (module DirectLang)
+
+(* Sets up the event listener for the "Evaluer" button *)
+let () =
+  let button = Dom_html.getElementById "submit" in
+  ignore
+    (Dom_html.addEventListener button Dom_html.Event.click
+       (Dom_html.handler (fun _ ->
+            evaluate_code ();
+            Js._false))
+       Js._true)
 
 let () =
   Arg.parse speclist get_filename usage_msg;
