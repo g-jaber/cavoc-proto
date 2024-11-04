@@ -1,3 +1,7 @@
+open Js_of_ocaml
+open Js_of_ocaml.Dom
+
+
 type mode =
   | Explore
   (* id 0 *)

@@ -1,4 +1,10 @@
-(executables
- (names compose explore)
- (public_names compose explore)
+(executable
+ (name explore)
+ (public_name explore)
+ (modes byte js)
+ (libraries refml lang lts ogs pogs js_of_ocaml js_of_ocaml-ppx))
+
+(executable
+ (name compose)
+ (public_name compose)
  (libraries refml lang lts ogs pogs))
