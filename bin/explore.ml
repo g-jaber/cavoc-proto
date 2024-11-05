@@ -102,12 +102,14 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
   match !is_mode with
   | Compare -> begin
       let inBuffer1 = open_in !filename1 in
+      let lineBuffer1 = Lexing.from_channel inBuffer1 in
       let (expr1, namectxO1) =
-        OGS_LTS.Int.IntLang.get_typed_term "first" inBuffer1 in
+        OGS_LTS.Int.IntLang.get_typed_term "first" lineBuffer1 in
       Util.Debug.print_debug "Getting the second program";
       let inBuffer2 = open_in !filename2 in
+      let lineBuffer2 = Lexing.from_channel inBuffer2 in
       let (expr2, namectxO2) =
-        OGS_LTS.Int.IntLang.get_typed_term "second" inBuffer2 in
+        OGS_LTS.Int.IntLang.get_typed_term "second" lineBuffer2 in
       Util.Debug.print_debug
         ("Name contexts for Opponent: "
         ^ OGS_LTS.Int.IntLang.string_of_name_ctx namectxO1
@@ -127,9 +129,10 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
   | Explore ->
       if !is_program then begin
         Util.Debug.print_debug "Getting the program";
-        let expr_buffer = open_in !filename1 in
+        let inBuffer = open_in !filename1 in
+        let lineBuffer = Lexing.from_channel inBuffer in
         let (expr, namectxO) =
-          OGS_LTS.Int.IntLang.get_typed_term "first" expr_buffer in
+          OGS_LTS.Int.IntLang.get_typed_term "first" lineBuffer in
         Util.Debug.print_debug
           ("Name contexts for Opponent: "
           ^ OGS_LTS.Int.IntLang.string_of_name_ctx namectxO);
@@ -144,9 +147,11 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
       else begin
         Util.Debug.print_debug "Getting the module declaration";
         let decl_buffer = open_in !filename1 in
+        let decl_lineBuffer = Lexing.from_channel decl_buffer in
         let signature_buffer = open_in !filename2 in
+        let signature_lineBuffer = Lexing.from_channel signature_buffer in
         let (interactive_env, store, name_ctxP, name_ctxO) =
-          OGS_LTS.Int.IntLang.get_typed_ienv decl_buffer signature_buffer in
+          OGS_LTS.Int.IntLang.get_typed_ienv decl_lineBuffer signature_lineBuffer in
         let init_conf =
           OGS_LTS.Passive
             (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
@@ -220,7 +225,16 @@ let evaluate_code () =
     build_ogs_lts (module IntLang)
   else
     let module DirectLang = Lang.Direct.Make (OpLang) in
-    build_ogs_lts (module DirectLang)
+    build_ogs_lts (module DirectLang);
+    let decl_lineBuffer = Lexing.from_string !editor_content in
+    let signature_lineBuffer = Lexing.from_string !signature_content in
+    let (interactive_env, store, name_ctxP, name_ctxO) =
+      OGS_LTS.Int.IntLang.get_typed_ienv decl_lineBuffer signature_lineBuffer in
+    let init_conf =
+      OGS_LTS.Passive
+        (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
+      let module Generate = Lts.Generate_trace.Make (OGS_LTS) in
+      build_graph (module Generate) init_conf    
 
 (* Sets up the event listener for the "Evaluer" button *)
 let () =
@@ -243,3 +257,10 @@ let () =
   else
     let module DirectLang = Lang.Direct.Make (OpLang) in
     build_ogs_lts (module DirectLang)
+
+
+(*
+- read_int dans para_list
+- l'affichage de la liste des coups 
+  dans la fonction generate du module Generate_trace.
+*)

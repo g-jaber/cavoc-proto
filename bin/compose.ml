@@ -37,7 +37,8 @@ let () =
   let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
   Util.Debug.print_debug "Getting the program";
   let inBuffer1 = open_in !filename1 in
-  let (expr1, namectxO) = Int.IntLang.get_typed_term "first" inBuffer1 in
+  let lineBuffer1 = Lexing.from_channel inBuffer1 in
+  let (expr1, namectxO) = Int.IntLang.get_typed_term "first" lineBuffer1 in
   Util.Debug.print_debug "Getting the module";
   let inBuffer2 = open_in !filename2 in
   let inBuffer3 = open_in !filename3 in

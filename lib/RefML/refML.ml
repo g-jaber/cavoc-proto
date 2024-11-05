@@ -64,8 +64,7 @@ module MakeComp (M : Util.Monad.BRANCH) :
 
   let normalize_opconf = Interpreter.normalize_opconf
 
-  let get_typed_term nbprog inBuffer =
-    let lineBuffer = Lexing.from_channel inBuffer in
+  let get_typed_term nbprog lineBuffer =
     try
       let term = Parser.fullexpr Lexer.token lineBuffer in
       let ty = Type_checker.typing_full Util.Pmap.empty term in

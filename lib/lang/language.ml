@@ -88,7 +88,7 @@ module type COMP = sig
   *)
 
   val normalize_opconf : opconf -> opconf option
-  val get_typed_term : string -> in_channel -> term * typ * name_ctx
+  val get_typed_term : string -> Lexing.lexbuf -> term * typ * name_ctx
 
   (* We retrive a module declaration and its signature from the two in_channel taken as input.
      We evaluate the list of computation declarations into a list of value declarations together with the store

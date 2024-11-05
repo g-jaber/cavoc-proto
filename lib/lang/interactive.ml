@@ -99,7 +99,7 @@ module type LANG = sig
     computation * Store.store * interactive_env
 
   val get_store_of_a_nf : abstract_normal_form -> Store.store
-  val get_typed_term : string -> in_channel -> computation * name_ctx
+  val get_typed_term : string -> Lexing.lexbuf -> computation * name_ctx
 
   (* The function get_typed_ienv
      retrive a module declaration and its signature from the two in_channel taken as input.
@@ -313,7 +313,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
 
   let get_typed_ienv = OpLang.get_typed_ienv
 
-  let get_typed_term nbprog inBuffer =
-    let (comp, _, namectxO) = OpLang.get_typed_term nbprog inBuffer in
+  let get_typed_term nbprog lineBuffer =
+    let (comp, _, namectxO) = OpLang.get_typed_term nbprog lineBuffer in
     (comp, namectxO)
 end
