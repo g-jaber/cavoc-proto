@@ -216,25 +216,21 @@ let () =
 let evaluate_code () =
   (* Fetch editor content and store in refs *)
   fetch_editor_content ();
-
   (* Set options based on flags *)
   let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
-  if !enable_cps then
-    let module CpsLang = Lang.Cps.MakeComp (OpLang) in
-    let module IntLang = Lang.Interactive.Make (CpsLang) in
-    build_ogs_lts (module IntLang)
-  else
-    let module DirectLang = Lang.Direct.Make (OpLang) in
-    build_ogs_lts (module DirectLang)
-    (*let lexBuffer_code = Lexing.from_string !editor_content in
-    let lexBuffer_sig = Lexing.from_string !signature_content in
-    let (interactive_env, store, name_ctxP, name_ctxO) =
-      OGS_LTS.Int.IntLang.get_typed_ienv lexBuffer_code lexBuffer_sig in
-    let init_conf =
-      OGS_LTS.Passive
-        (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
-      let module Generate = Lts.Generate_trace.Make (OGS_LTS) in
-      build_graph (module Generate) init_conf  *)  
+  let module CpsLang = Lang.Cps.MakeComp (OpLang) in
+  let module IntLang = Lang.Interactive.Make (CpsLang) in
+  let module Int = Lts.Interactive.Make (IntLang) in
+  let module OGS_LTS = Ogs.Ogslts.Make (Int) in
+  let lexBuffer_code = Lexing.from_string !editor_content in
+  let lexBuffer_sig = Lexing.from_string !signature_content in
+  let (interactive_env, store, name_ctxP, name_ctxO) =
+    OGS_LTS.Int.IntLang.get_typed_ienv lexBuffer_code lexBuffer_sig in
+  let init_conf =
+    OGS_LTS.Passive
+      (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
+  let module Generate = Lts.Generate_trace.Make (OGS_LTS) in
+  build_graph (module Generate) init_conf
 
 (* Sets up the event listener for the "Evaluer" button *)
 let () =
@@ -257,7 +253,6 @@ let () =
   else
     let module DirectLang = Lang.Direct.Make (OpLang) in
     build_ogs_lts (module DirectLang)
-
 
 (*
 - read_int dans para_list
