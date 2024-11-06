@@ -313,7 +313,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
 
   let get_typed_ienv = OpLang.get_typed_ienv
 
-  let get_typed_term nbprog lineBuffer =
-    let (comp, _, namectxO) = OpLang.get_typed_term nbprog lineBuffer in
+  let get_typed_term nbprog lexBuffer =
+    let (comp, _, namectxO) = OpLang.get_typed_term nbprog lexBuffer in
     (comp, namectxO)
 end

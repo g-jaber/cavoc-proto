@@ -37,15 +37,15 @@ let () =
   let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
   Util.Debug.print_debug "Getting the program";
   let inBuffer1 = open_in !filename1 in
-  let lineBuffer1 = Lexing.from_channel inBuffer1 in
-  let (expr1, namectxO) = Int.IntLang.get_typed_term "first" lineBuffer1 in
+  let lexBuffer1 = Lexing.from_channel inBuffer1 in
+  let (expr1, namectxO) = Int.IntLang.get_typed_term "first" lexBuffer1 in
   Util.Debug.print_debug "Getting the module";
   let inBuffer2 = open_in !filename2 in
   let inBuffer3 = open_in !filename3 in
-  let lineBuffer2 = Lexing.from_channel inBuffer2 in
-  let lineBuffer3 = Lexing.from_channel inBuffer3 in
+  let lexBuffer2 = Lexing.from_channel inBuffer2 in
+  let lexBuffer3 = Lexing.from_channel inBuffer3 in
   let (ienv, store, namectxO', _) =
-    Int.IntLang.get_typed_ienv lineBuffer2 lineBuffer3 in
+    Int.IntLang.get_typed_ienv lexBuffer2 lexBuffer3 in
   Util.Debug.print_debug
     ("Name contexts for Opponent: "
     ^ Int.IntLang.string_of_name_ctx namectxO

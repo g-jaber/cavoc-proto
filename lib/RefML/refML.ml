@@ -64,9 +64,9 @@ module MakeComp (M : Util.Monad.BRANCH) :
 
   let normalize_opconf = Interpreter.normalize_opconf
 
-  let get_typed_term nbprog lineBuffer =
+  let get_typed_term nbprog lexBuffer =
     try
-      let term = Parser.fullexpr Lexer.token lineBuffer in
+      let term = Parser.fullexpr Lexer.token lexBuffer in
       let ty = Type_checker.typing_full Util.Pmap.empty term in
       (term, ty, Util.Pmap.empty)
       (*TODO: The typing of Opponent names is missing, this should be corrected*)
@@ -76,14 +76,14 @@ module MakeComp (M : Util.Monad.BRANCH) :
     | Parser.Error ->
         failwith
           ("Syntax Error in the " ^ nbprog ^ " program:" ^ " at position "
-          ^ string_of_int (Lexing.lexeme_start lineBuffer))
+          ^ string_of_int (Lexing.lexeme_start lexBuffer))
     | Type_checker.TypingError msg ->
         failwith ("Typing Error in the " ^ nbprog ^ " program:" ^ msg)
 
-  let get_typed_ienv lineBuffer_implem lineBuffer_signature =
+  let get_typed_ienv lexBuffer_implem lexBuffer_signature =
     try
-      let implem_decl_l = Parser.prog Lexer.token lineBuffer_implem in
-      let signature_decl_l = Parser.signature Lexer.token lineBuffer_signature in
+      let implem_decl_l = Parser.prog Lexer.token lexBuffer_implem in
+      let signature_decl_l = Parser.signature Lexer.token lexBuffer_signature in
       let (comp_env, namectxO, cons_ctx) =
         Declaration.get_typed_comp_env implem_decl_l in
       let namectxO' = Util.Pmap.filter_map_im Types.get_negative_type namectxO in
@@ -99,7 +99,7 @@ module MakeComp (M : Util.Monad.BRANCH) :
     | Parser.Error ->
         failwith
           ("Syntax Error: " ^ " at position "
-          ^ string_of_int (Lexing.lexeme_start lineBuffer_implem))
+          ^ string_of_int (Lexing.lexeme_start lexBuffer_implem))
         (* Need to get in which file the Parser.Error is *)
     | Type_checker.TypingError msg -> failwith ("Typing Error: " ^ msg)
 end

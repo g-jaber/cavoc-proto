@@ -102,14 +102,14 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
   match !is_mode with
   | Compare -> begin
       let inBuffer1 = open_in !filename1 in
-      let lineBuffer1 = Lexing.from_channel inBuffer1 in
+      let lexBuffer1 = Lexing.from_channel inBuffer1 in
       let (expr1, namectxO1) =
-        OGS_LTS.Int.IntLang.get_typed_term "first" lineBuffer1 in
+        OGS_LTS.Int.IntLang.get_typed_term "first" lexBuffer1 in
       Util.Debug.print_debug "Getting the second program";
       let inBuffer2 = open_in !filename2 in
-      let lineBuffer2 = Lexing.from_channel inBuffer2 in
+      let lexBuffer2 = Lexing.from_channel inBuffer2 in
       let (expr2, namectxO2) =
-        OGS_LTS.Int.IntLang.get_typed_term "second" lineBuffer2 in
+        OGS_LTS.Int.IntLang.get_typed_term "second" lexBuffer2 in
       Util.Debug.print_debug
         ("Name contexts for Opponent: "
         ^ OGS_LTS.Int.IntLang.string_of_name_ctx namectxO1
@@ -130,9 +130,9 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
       if !is_program then begin
         Util.Debug.print_debug "Getting the program";
         let inBuffer = open_in !filename1 in
-        let lineBuffer = Lexing.from_channel inBuffer in
+        let lexBuffer = Lexing.from_channel inBuffer in
         let (expr, namectxO) =
-          OGS_LTS.Int.IntLang.get_typed_term "first" lineBuffer in
+          OGS_LTS.Int.IntLang.get_typed_term "first" lexBuffer in
         Util.Debug.print_debug
           ("Name contexts for Opponent: "
           ^ OGS_LTS.Int.IntLang.string_of_name_ctx namectxO);
@@ -146,12 +146,12 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
       end
       else begin
         Util.Debug.print_debug "Getting the module declaration";
-        let decl_buffer = open_in !filename1 in
-        let decl_lineBuffer = Lexing.from_channel decl_buffer in
-        let signature_buffer = open_in !filename2 in
-        let signature_lineBuffer = Lexing.from_channel signature_buffer in
+        let inBuffer_code = open_in !filename1 in
+        let lexBuffer_code = Lexing.from_channel inBuffer_code in
+        let inBuffer_sig = open_in !filename2 in
+        let lexBuffer_sig = Lexing.from_channel inBuffer_sig in
         let (interactive_env, store, name_ctxP, name_ctxO) =
-          OGS_LTS.Int.IntLang.get_typed_ienv decl_lineBuffer signature_lineBuffer in
+          OGS_LTS.Int.IntLang.get_typed_ienv lexBuffer_code lexBuffer_sig in
         let init_conf =
           OGS_LTS.Passive
             (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
@@ -226,10 +226,10 @@ let evaluate_code () =
   else
     let module DirectLang = Lang.Direct.Make (OpLang) in
     build_ogs_lts (module DirectLang)
-    (*let decl_lineBuffer = Lexing.from_string !editor_content in
-    let signature_lineBuffer = Lexing.from_string !signature_content in
+    (*let lexBuffer_code = Lexing.from_string !editor_content in
+    let lexBuffer_sig = Lexing.from_string !signature_content in
     let (interactive_env, store, name_ctxP, name_ctxO) =
-      OGS_LTS.Int.IntLang.get_typed_ienv decl_lineBuffer signature_lineBuffer in
+      OGS_LTS.Int.IntLang.get_typed_ienv lexBuffer_code lexBuffer_sig in
     let init_conf =
       OGS_LTS.Passive
         (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
