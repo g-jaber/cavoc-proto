@@ -96,8 +96,8 @@ module type COMP = sig
      We return two typing contexts, respectively for the names in the domain of the interactive env,
      and the one contains in the values of its image. *)
   val get_typed_ienv :
-    in_channel ->
-    in_channel ->
+    Lexing.lexbuf ->
+    Lexing.lexbuf ->
     interactive_env * Store.store * name_ctx * name_ctx
 end
 

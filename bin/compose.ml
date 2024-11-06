@@ -42,8 +42,10 @@ let () =
   Util.Debug.print_debug "Getting the module";
   let inBuffer2 = open_in !filename2 in
   let inBuffer3 = open_in !filename3 in
+  let lineBuffer2 = Lexing.from_channel inBuffer2 in
+  let lineBuffer3 = Lexing.from_channel inBuffer3 in
   let (ienv, store, namectxO', _) =
-    Int.IntLang.get_typed_ienv inBuffer2 inBuffer3 in
+    Int.IntLang.get_typed_ienv lineBuffer2 lineBuffer3 in
   Util.Debug.print_debug
     ("Name contexts for Opponent: "
     ^ Int.IntLang.string_of_name_ctx namectxO

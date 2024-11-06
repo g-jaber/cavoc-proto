@@ -80,12 +80,10 @@ module MakeComp (M : Util.Monad.BRANCH) :
     | Type_checker.TypingError msg ->
         failwith ("Typing Error in the " ^ nbprog ^ " program:" ^ msg)
 
-  let get_typed_ienv inBuffer_implem inBuffer_signature =
-    let lexer_implem = Lexing.from_channel inBuffer_implem in
-    let lexer_signature = Lexing.from_channel inBuffer_signature in
+  let get_typed_ienv lineBuffer_implem lineBuffer_signature =
     try
-      let implem_decl_l = Parser.prog Lexer.token lexer_implem in
-      let signature_decl_l = Parser.signature Lexer.token lexer_signature in
+      let implem_decl_l = Parser.prog Lexer.token lineBuffer_implem in
+      let signature_decl_l = Parser.signature Lexer.token lineBuffer_signature in
       let (comp_env, namectxO, cons_ctx) =
         Declaration.get_typed_comp_env implem_decl_l in
       let namectxO' = Util.Pmap.filter_map_im Types.get_negative_type namectxO in
@@ -101,7 +99,7 @@ module MakeComp (M : Util.Monad.BRANCH) :
     | Parser.Error ->
         failwith
           ("Syntax Error: " ^ " at position "
-          ^ string_of_int (Lexing.lexeme_start lexer_implem))
+          ^ string_of_int (Lexing.lexeme_start lineBuffer_implem))
         (* Need to get in which file the Parser.Error is *)
     | Type_checker.TypingError msg -> failwith ("Typing Error: " ^ msg)
 end

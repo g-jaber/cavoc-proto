@@ -225,8 +225,8 @@ let evaluate_code () =
     build_ogs_lts (module IntLang)
   else
     let module DirectLang = Lang.Direct.Make (OpLang) in
-    build_ogs_lts (module DirectLang);
-    let decl_lineBuffer = Lexing.from_string !editor_content in
+    build_ogs_lts (module DirectLang)
+    (*let decl_lineBuffer = Lexing.from_string !editor_content in
     let signature_lineBuffer = Lexing.from_string !signature_content in
     let (interactive_env, store, name_ctxP, name_ctxO) =
       OGS_LTS.Int.IntLang.get_typed_ienv decl_lineBuffer signature_lineBuffer in
@@ -234,7 +234,7 @@ let evaluate_code () =
       OGS_LTS.Passive
         (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
       let module Generate = Lts.Generate_trace.Make (OGS_LTS) in
-      build_graph (module Generate) init_conf    
+      build_graph (module Generate) init_conf  *)  
 
 (* Sets up the event listener for the "Evaluer" button *)
 let () =
