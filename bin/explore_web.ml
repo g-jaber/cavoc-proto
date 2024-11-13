@@ -1,3 +1,5 @@
+open Js_of_ocaml
+
 type mode =
   | Explore
   (* id 0 *)
@@ -127,10 +129,10 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
   | Explore ->
       if !is_program then begin
         Util.Debug.print_debug "Getting the program";
-        let expr_buffer = open_in !filename1 in
-        let expr_lexbuffer = Lexing.from_channel expr_buffer in
+        let inBuffer = open_in !filename1 in
+        let lexBuffer = Lexing.from_channel inBuffer in
         let (expr, namectxO) =
-          OGS_LTS.Int.IntLang.get_typed_term "first" expr_lexbuffer in
+          OGS_LTS.Int.IntLang.get_typed_term "first" lexBuffer in
         Util.Debug.print_debug
           ("Name contexts for Opponent: "
           ^ OGS_LTS.Int.IntLang.string_of_name_ctx namectxO);
@@ -144,13 +146,12 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
       end
       else begin
         Util.Debug.print_debug "Getting the module declaration";
-        let decl_buffer = open_in !filename1 in
-        let decl_lexbuffer = Lexing.from_channel decl_buffer in
-        let signature_buffer = open_in !filename2 in
-        let signature_lexbuffer = Lexing.from_channel signature_buffer in
+        let inBuffer_code = open_in !filename1 in
+        let lexBuffer_code = Lexing.from_channel inBuffer_code in
+        let inBuffer_sig = open_in !filename2 in
+        let lexBuffer_sig = Lexing.from_channel inBuffer_sig in
         let (interactive_env, store, name_ctxP, name_ctxO) =
-          OGS_LTS.Int.IntLang.get_typed_ienv decl_lexbuffer signature_lexbuffer
-        in
+          OGS_LTS.Int.IntLang.get_typed_ienv lexBuffer_code lexBuffer_sig in
         let init_conf =
           OGS_LTS.Passive
             (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
@@ -187,6 +188,60 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG) =
         generate (module ProdLTS)
     | (false, false) -> generate (module OGS_LTS)
 
+(* Global refs to store editor content *)
+let editor_content = ref ""
+let signature_content = ref ""
+
+(* Retrieves the content from the HTML editor fields *)
+let fetch_editor_content () =
+  let editor = Dom_html.getElementById "editor" in
+  let signature_editor = Dom_html.getElementById "signatureEditor" in
+  editor_content := Js.to_string (Js.Unsafe.get editor "innerText");
+  signature_content := Js.to_string (Js.Unsafe.get signature_editor "innerText")
+
+(* Redirects OCaml print functions to output in the HTML div with id "output" *)
+let print_to_output str =
+  let output_div = Dom_html.getElementById "output" in
+  let current_content = Js.to_string (Js.Unsafe.get output_div "innerHTML") in
+  let new_content = current_content ^ "<br>" ^ str in
+  Js.Unsafe.set output_div "innerHTML" (Js.string new_content)
+
+(* Overrides default print functions to redirect to the HTML output div *)
+let () =
+  Printexc.record_backtrace true;
+  Sys_js.set_channel_flusher stdout print_to_output;
+  Sys_js.set_channel_flusher stderr print_to_output
+
+(* Builds and evaluates the OGS LTS based on the provided code content *)
+let evaluate_code () =
+  (* Fetch editor content and store in refs *)
+  fetch_editor_content ();
+  (* Set options based on flags *)
+  let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
+  let module CpsLang = Lang.Cps.MakeComp (OpLang) in
+  let module IntLang = Lang.Interactive.Make (CpsLang) in
+  let module Int = Lts.Interactive.Make (IntLang) in
+  let module OGS_LTS = Ogs.Ogslts.Make (Int) in
+  let lexBuffer_code = Lexing.from_string !editor_content in
+  let lexBuffer_sig = Lexing.from_string !signature_content in
+  let (interactive_env, store, name_ctxP, name_ctxO) =
+    OGS_LTS.Int.IntLang.get_typed_ienv lexBuffer_code lexBuffer_sig in
+  let init_conf =
+    OGS_LTS.Passive
+      (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
+  let module Generate = Lts.Generate_trace.Make (OGS_LTS) in
+  build_graph (module Generate) init_conf
+
+(* Sets up the event listener for the "Evaluer" button *)
+let () =
+  let button = Dom_html.getElementById "submit" in
+  ignore
+    (Dom_html.addEventListener button Dom_html.Event.click
+       (Dom_html.handler (fun _ ->
+            evaluate_code ();
+            Js._false))
+       Js._true)
+
 let () =
   Arg.parse speclist get_filename usage_msg;
   fix_mode ();
@@ -198,3 +253,9 @@ let () =
   else
     let module DirectLang = Lang.Direct.Make (OpLang) in
     build_ogs_lts (module DirectLang)
+
+(*
+- read_int dans para_list
+- l'affichage de la liste des coups 
+  dans la fonction generate du module Generate_trace.
+*)
