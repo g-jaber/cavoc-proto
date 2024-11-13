@@ -11,12 +11,11 @@ let editor_content = ref ""
 let signature_content = ref ""
 
 let fetch_editor_content () =
-  (* Access the editor instance directly from the global window object *)
   let editor = Js.Unsafe.get Js.Unsafe.global "editor_instance" in
   let signature_editor =
     Js.Unsafe.get Js.Unsafe.global "signatureEditor_instance" in
 
-  (* Call getValue() on the ACE editor instances *)
+  (* Fetch content from the ACE editor (this preserves newlines as \n) *)
   editor_content := Js.to_string (Js.Unsafe.meth_call editor "getValue" [||]);
   signature_content :=
     Js.to_string (Js.Unsafe.meth_call signature_editor "getValue" [||])
@@ -25,7 +24,7 @@ let fetch_editor_content () =
 let print_to_output str =
   let output_div = Dom_html.getElementById "output" in
   let current_content = Js.to_string (Js.Unsafe.get output_div "innerHTML") in
-  let new_content = current_content ^ "<br>" ^ str in
+  let new_content = current_content ^ "<pre>" ^ str ^ "</pre>" in
   Js.Unsafe.set output_div "innerHTML" (Js.string new_content)
 
 (* Overrides default print functions to redirect to the HTML output div *)
@@ -46,8 +45,7 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
   match !is_mode with
   | Explore ->
       Util.Debug.print_debug "Getting the program from the editor";
-      ignore (print_to_output "Trying to get code, code is :");
-      ignore (print_to_output ("Code :" ^ !editor_content));
+      ignore (print_to_output ("Code :\n" ^ !editor_content));
       let lexBuffer = Lexing.from_string !editor_content in
       let (expr, namectxO) =
         OGS_LTS.Int.IntLang.get_typed_term "first" lexBuffer in
