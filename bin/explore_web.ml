@@ -1,10 +1,5 @@
 open Js_of_ocaml
 
-type mode = Explore
-(* Only Explore mode is needed *)
-
-let is_mode = ref Explore
-let print_dot = ref false
 
 (* Fetches the content from the HTML editor fields *)
 let editor_content = ref ""
@@ -41,35 +36,12 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
   print_string graph_string
 
 (* Generates the LTS based on the selected mode and editor content *)
-let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
-  match !is_mode with
-  | Explore ->
-      Util.Debug.print_debug "Getting the program from the editor";
-      ignore (print_to_output ("Code :\n" ^ !editor_content));
-      let lexBuffer = Lexing.from_string !editor_content in
-      let (expr, namectxO) =
-        OGS_LTS.Int.IntLang.get_typed_term "first" lexBuffer in
-      Util.Debug.print_debug
-        ("Name contexts for Opponent: "
-        ^ OGS_LTS.Int.IntLang.string_of_name_ctx namectxO);
-      let init_conf = OGS_LTS.Active (OGS_LTS.init_aconf expr namectxO) in
-      if !print_dot then
-        let module Graph = Lts.Graph.Make (OGS_LTS) in
-        build_graph (module Graph) init_conf
-      else
-        let module Generate = Lts.Generate_trace.Make (OGS_LTS) in
-        build_graph (module Generate) init_conf
 
 (* Builds and evaluates the OGS LTS based on the provided code content *)
 let evaluate_code () =
   (* Fetch editor content and store in refs *)
   fetch_editor_content ();
 
-  let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
-  let module DirectLang = Lang.Direct.Make (OpLang) in
-  let module Int = Lts.Interactive.Make (DirectLang) in
-  let module POGS_LTS = Pogs.Pogslts.Make (Int) in
-  generate (module POGS_LTS);
 
   (* Set options based on flags *)
   let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
