@@ -91,7 +91,21 @@ let check_number_filenames () =
 
 let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
     (init_conf : a) =
-  let graph = Graph.compute_graph init_conf in
+  let show_moves results_list = 
+    print_endline "The possible move are :";
+    List.iter print_endline
+  (List.mapi
+     (fun i m ->
+       string_of_int (i + 1)
+       ^ ": "
+       ^ m)
+     results_list) in
+  let get_move n = 
+    let i = read_int () in
+    if i > 0 && i <= n then i else
+      exit 1
+  in
+  let graph = Graph.compute_graph ~show_moves ~get_move init_conf in
   let graph_string = Graph.string_of_graph graph in
   print_string graph_string
 
