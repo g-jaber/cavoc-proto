@@ -21,8 +21,8 @@ module Make (IntLTS : Bipartite.LTS) = struct
   end)
 
   let ask_print_conf pas_conf =
-    print_endline "Do you want to print the Proponent configuration? (1/0)";
-    let i = read_int () in
+    print_endline "Do you want to print the Proponent configuration? fixed to 0 for debugging";
+    let i = 0 in
     match i with
     | 1 -> print_endline @@ IntLTS.string_of_passive_conf pas_conf
     | _ -> ()

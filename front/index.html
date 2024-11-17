@@ -1,56 +1,57 @@
 <!DOCTYPE html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CAVOC</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.5/ace.js"></script>
-    <link rel="stylesheet" href="style.css" />
-    <link rel="shortcut icon" href="./" type="image/x-icon" />
-  </head>
 
-  <body>
-    <div class="container code-section">
-      <h2>Code OCaml</h2>
-      <div id="editor"></div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CAVOC</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.5/ace.js"></script>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="shortcut icon" href="./" type="image/x-icon" />
+</head>
+
+<body>
+  <div class="container code-section">
+    <h2>Code OCaml</h2>
+    <div id="editor"></div>
+  </div>
+
+  <div class="container">
+    <h2>Signature OCaml</h2>
+    <div id="signatureEditor"></div>
+  </div>
+  <div id="output-container">
+    <div id="select-action">
+      <div id="actions-list">
+        <div> <input type="radio" name="same" id="1-act"> check </div>
+        <div> <input type="radio" name="same"> check </div>
+        <div> <input type="radio" name="same"> check </div>
+        <div> <input type="radio" name="same"> check </div>
+        <div> <input type="radio" name="same"> check </div>
+        <div> <input type="radio" name="same"> check </div>
+      </div>
+      <button>Select</button>
     </div>
 
-    <div class="container">
-      <h2>Signature OCaml</h2>
-      <div id="signatureEditor"></div>
-    </div>
-    <img
-      id="theme"
-      height="50px"
-      src="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fcdn2.iconfinder.com%2Fdata%2Ficons%2Fimages-and-photography-2%2F24%2Flight-mode-dark-light-1024.png&f=1&nofb=1&ipt=b3dfeb185a2ac41f2f660b3798852a30f48c6576c83a1ad238eff59f1d0c5d26&ipo=images"
-    />
+    <!-- temporary element (for debugging) -->
     <div id="output"></div>
-    <button id="submit">Evaluer</button>
-    <script src="../_build/default/bin/explore_web.bc.js"></script>
-  </body>
+  </div>
+  <button id="submit">Evaluer</button>
+  <script src="../_build/default/bin/explore_web.bc.js"></script>
+</body>
 
-  <script>
-    // Initialize ACE editor
-    var editor = ace.edit("editor");
-    editor.setTheme("ace/theme/monokai");
-    editor.session.setMode("ace/mode/ocaml");
+<script>
+  // Initialize ACE editor
+  var editor = ace.edit("editor");
+  editor.setTheme("ace/theme/monokai");
+  editor.session.setMode("ace/mode/ocaml");
+  var signatureEditor = ace.edit("signatureEditor");
+  signatureEditor.setTheme("ace/theme/monokai");
+  signatureEditor.session.setMode("ace/mode/ocaml");
 
-    var signatureEditor = ace.edit("signatureEditor");
-    signatureEditor.setTheme("ace/theme/monokai");
-    signatureEditor.session.setMode("ace/mode/ocaml");
+  // Store editor instances in global variables to be accessed from OCaml
+  window.editor_instance = editor;
+  window.signatureEditor_instance = signatureEditor;
+</script>
 
-    // Store editor instances in global variables to be accessed from OCaml
-    window.editor_instance = editor;
-    window.signatureEditor_instance = signatureEditor;
-
-    const themeIcon = document.getElementById("theme");
-    let isDarkTheme = true;
-
-    themeIcon.addEventListener("click", () => {
-      isDarkTheme = !isDarkTheme;
-      const newTheme = isDarkTheme ? "ace/theme/monokai" : "ace/theme/textmate";
-      editor.setTheme(newTheme);
-      signatureEditor.setTheme(newTheme);
-    });
-  </script>
 </html>

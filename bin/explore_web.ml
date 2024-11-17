@@ -31,6 +31,7 @@ let () =
 (* Build graph function remains the same as it visualizes the LTS in a graph format *)
 let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
     (init_conf : a) =
+    (*genere les cliquables et les ajoute dans la liste des coups possibles*)
   let show_moves results_list = List.iter print_endline
   (List.mapi
      (fun i m ->
@@ -38,8 +39,9 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
        ^ ": "
        ^ m)
      results_list) in
+     (*event listener sur les cliquables renvoyant l'index de celui sur lequel l'utilisateur a cliqué *)
      let get_move n = 
-      let i = read_int () in
+      let i = 0 in
       if i > 0 && i <= n then i else
         exit 1
     in
@@ -78,3 +80,9 @@ let () =
             evaluate_code ();
             Js._false))
        Js._true)
+
+(*function wich generate clickable component on the DOM*)
+ let generate_clickable number name = 
+  let container = Dom_html.getElementById "output" in
+  ignore
+  container.appendChild() 
