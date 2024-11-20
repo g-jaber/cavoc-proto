@@ -1,5 +1,6 @@
 open Js_of_ocaml
-
+open Lwt.Infix
+module Lwt_js_events = Js_of_ocaml_lwt.Lwt_js_events
 
 (* Fetches the content from the HTML editor fields *)
 let editor_content = ref ""
@@ -22,29 +23,43 @@ let print_to_output str =
   let new_content = current_content ^ "<pre>" ^ str ^ "</pre>" in
   Js.Unsafe.set output_div "innerHTML" (Js.string new_content)
 
+(*function wich generate clickable component on the DOM*)
+let generate_clickables actions =
+  let actions_list = Dom_html.getElementById "actions-list" in
+  actions_list##.innerHTML := Js.string "";
+  (* Clear existing elements *)
+  List.iter
+    (fun (id, action) ->
+      let checkbox_div = Dom_html.createDiv Dom_html.document in
+      checkbox_div##.innerHTML :=
+        Js.string
+          (Printf.sprintf "<input type='radio' name='action' id='action_%d'> %s"
+             id action);
+      Dom.appendChild actions_list checkbox_div)
+    actions
+
+
 (* Overrides default print functions to redirect to the HTML output div *)
 let () =
   Printexc.record_backtrace true;
   Sys_js.set_channel_flusher stdout print_to_output;
   Sys_js.set_channel_flusher stderr print_to_output
 
-(* Build graph function remains the same as it visualizes the LTS in a graph format *)
 let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
     (init_conf : a) =
-    (*genere les cliquables et les ajoute dans la liste des coups possibles*)
-  let show_moves results_list = List.iter print_endline
-  (List.mapi
-     (fun i m ->
-       string_of_int (i + 1)
-       ^ ": "
-       ^ m)
-     results_list) in
-     (*event listener sur les cliquables renvoyant l'index de celui sur lequel l'utilisateur a cliqué *)
-     let get_move n = 
-      let i = 0 in
-      if i > 0 && i <= n then i else
-        exit 1
-    in
+  (*genere les cliquables et les ajoute dans la liste des coups possibles*)
+  let show_moves results_list =
+    (* Convert the moves list into a list of tuples with dummy ids for demonstration *)
+    let actions =
+      List.mapi (fun i results_list -> (i, results_list)) results_list in
+    generate_clickables actions in
+  (*event listener sur les cliquables renvoyant l'index de celui sur lequel l'utilisateur a cliqué *)
+  let get_move n =
+    let i = get_selected_action () in
+    if i > 0 && i <= n then i
+    else (
+      ignore (print_to_output "No button ;(");
+      exit 1) in
   let graph = Graph.compute_graph ~show_moves ~get_move init_conf in
   let graph_string = Graph.string_of_graph graph in
   print_string graph_string
@@ -80,9 +95,3 @@ let () =
             evaluate_code ();
             Js._false))
        Js._true)
-
-(*function wich generate clickable component on the DOM*)
- let generate_clickable number name = 
-  let container = Dom_html.getElementById "output" in
-  ignore
-  container.appendChild() 
