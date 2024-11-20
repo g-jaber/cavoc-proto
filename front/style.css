@@ -1,3 +1,4 @@
+/* General Body Styles */
 body {
   display: flex;
   font-family: Arial, sans-serif;
@@ -6,42 +7,43 @@ body {
   background-color: #dfefec;
 }
 
+/* Container Styles - General layout for sections */
 .container {
   width: 50%;
   padding: 20px;
   box-sizing: border-box;
 }
 
+/* Code Section - Styles specific to the code editor container */
 .code-section {
   padding-right: 20px;
 }
 
+/* Header Styles - For all h2 elements */
 h2 {
   margin-top: 0;
   text-align: center;
   color: #000000;
 }
-#theme {
-  border-radius: 5px;
-  padding: 10px 15px;
-  cursor: pointer;
-  position: fixed;
-  bottom: 20px;
-}
+
+/* Editor Styles - All relating to the OCaml code editor */
 #editor,
 #signatureEditor {
   height: 45%;
   width: 100%;
   margin-top: 20px;
   border-radius: 7px;
+  padding-left: 10px; /* Added padding for consistency */
 }
-#submit{
+
+/* Submit Button - The 'Evaluer' button styling */
+#submit {
   position: fixed;
-  background-color: #2ECC71;
+  background-color: #2ecc71;
   height: 50px;
   border-radius: 5px;
   color: #dfefec;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: "Courier New", Courier, monospace;
   font-size: larger;
   border: solid 2px black;
   bottom: 40%;
@@ -50,55 +52,75 @@ h2 {
   z-index: 10;
   cursor: pointer;
 }
-#output-container{
+/* Output Container - For displaying the output section at the bottom of the page */
+#output-container {
   height: 40%;
   width: 100%;
   position: fixed;
   margin-left: 0%;
   bottom: 0%;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: "Courier New", Courier, monospace;
 }
 
-#output{
+/* Output Area - Specific styles for the output section */
+#output {
   position: relative;
   background-color: #2e2e2e;
   width: 100%;
   height: 20%;
-  resize:vertical;
+  resize: vertical;
   overflow-y: scroll;
   color: #dfefec;
-}
-
-#select-action{
+} /* Actions List and Select Action Styles - All relating to the action list container */
+#select-action {
   width: 30%;
   height: 80%;
   overflow-y: scroll;
   border-radius: 5px;
+  background-color: #272822; /* Monokai background color for action list */
+  padding-left: 10px; /* Added padding to the left to prevent it from touching the border */
 }
 
+/* Actions List - Styles the list of actions (checkboxes or items inside the action container) */
 #actions-list {
   position: relative;
+  top: 35px;
   display: flex;
   flex-direction: column;
   user-select: none;
   margin: 1px;
   margin-left: 5%;
+  background-color: #272822; /* Monokai background color for actions list */
 }
 
+/* Radio Button Styles - Specific to radio buttons in the actions list */
 input[type="radio"] {
   margin-right: 5px;
-  padding: 0;
-  /* Add space between the radio button and text */
+  padding: 0; /* Adds space between the radio button and the text */
+  color: #f8f8f2; /* White text color for radio button */
 }
-#select-action button{
-  position: relative;
-  left: 70%;
-  bottom: 5%;
-  background-color: #fff;
+
+/* Button inside the action list - Positioning and styling for buttons inside actions list */
+#select-action button {
+  position: relative; /* Use absolute positioning to place the button outside the list */
+  left: 50%;
+  bottom: -30px; /* Moves the button outside the action list */
+  transform: translateX(-50%); /* Centers the button horizontally */
+  background-color: #2ecc71; /* Light color for button background */
+  color: #272822; /* Dark color for text to match Monokai contrast */
+  font-family: "Courier New", Courier, monospace;
+  font-size: larger;
+  border: solid 2px black;
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 10px 15px; /* Adds padding to the button */
 }
-#actions-list div{
+
+/* Individual Action Item Styles - Styles for each action list item */
+#actions-list div {
   border: 1px solid rgb(152, 152, 152);
   border-radius: 5px;
   padding: 1px;
-
+  background-color: #272822; /* Monokai background color for each action item */
+  color: #f8f8f2; /* Light text color for action items */
 }
