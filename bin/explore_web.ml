@@ -1,6 +1,5 @@
 open Js_of_ocaml
-open Lwt.Infix
-module Lwt_js_events = Js_of_ocaml_lwt.Lwt_js_events
+open Random
 
 (* Fetches the content from the HTML editor fields *)
 let editor_content = ref ""
@@ -38,7 +37,6 @@ let generate_clickables actions =
       Dom.appendChild actions_list checkbox_div)
     actions
 
-
 (* Overrides default print functions to redirect to the HTML output div *)
 let () =
   Printexc.record_backtrace true;
@@ -55,7 +53,7 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
     generate_clickables actions in
   (*event listener sur les cliquables renvoyant l'index de celui sur lequel l'utilisateur a cliqué *)
   let get_move n =
-    let i = get_selected_action () in
+    let i = Random.int (n + 1) in
     if i > 0 && i <= n then i
     else (
       ignore (print_to_output "No button ;(");
@@ -88,6 +86,7 @@ let evaluate_code () =
 
 (* Sets up the event listener for the "Evaluer" button *)
 let () =
+  self_init ();
   let button = Dom_html.getElementById "submit" in
   ignore
     (Dom_html.addEventListener button Dom_html.Event.click
