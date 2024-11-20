@@ -73,6 +73,7 @@ h2 {
   color: #dfefec;
 } /* Actions List and Select Action Styles - All relating to the action list container */
 #select-action {
+  margin-left: 1.3%;
   width: 30%;
   height: 80%;
   overflow-y: scroll;
