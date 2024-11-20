@@ -4,7 +4,7 @@
   (modes byte js)
   (preprocess
    (pps js_of_ocaml-ppx))
-  (libraries refml lang lts ogs pogs js_of_ocaml js_of_ocaml-ppx lwt js_of_ocaml-lwt)
+  (libraries refml lang lts ogs pogs js_of_ocaml js_of_ocaml-ppx)
   (js_of_ocaml
    (flags (--pretty --debug-info))))
   
