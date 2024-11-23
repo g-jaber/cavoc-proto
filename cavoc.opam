@@ -12,8 +12,6 @@ bug-reports: "https://github.com/username/reponame/issues"
 depends: [
   "ocaml"
   "dune" {>= "3.11"}
-  "js_of_ocaml"
-  "js_of_ocaml-ppx"
   "odoc" {with-doc}
 ]
 build: [

@@ -84,9 +84,9 @@ module MakeComp (M : Util.Monad.BRANCH) :
      | None -> None
 
   let get_typed_term nbprog inBuffer =
-    let lexBuffer = Lexing.from_channel inBuffer in
+    let lineBuffer = Lexing.from_channel inBuffer in
     try
-      let term = Parser.fullterm Lexer.token lexBuffer in
+      let term = Parser.fullterm Lexer.token lineBuffer in
       let (TComp (ty,_)) = Type_checker.typing_full Util.Pmap.empty term in
       (term, ty, Util.Pmap.empty)
       (*TODO: The typing of Opponent names is missing, this should be corrected*)
@@ -96,7 +96,7 @@ module MakeComp (M : Util.Monad.BRANCH) :
     | Parser.Error ->
         failwith
           ("Syntax Error in the " ^ nbprog ^ " program:" ^ " at position "
-          ^ string_of_int (Lexing.lexeme_start lexBuffer))
+          ^ string_of_int (Lexing.lexeme_start lineBuffer))
     | Type_checker.TypingError msg ->
         failwith ("Typing Error in the " ^ nbprog ^ " program:" ^ msg)
 

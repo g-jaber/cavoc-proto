@@ -263,9 +263,9 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
      This is needed for the POGS equivalence. *)
   let is_equiv_a_nf _ (_, _) (_, _) = failwith "Not yet implemented"
 
-  let get_typed_ienv lexBuffer_implem lexBuffer_signature =
+  let get_typed_ienv inBuffer_implem inBuffer_signature =
     let (ienv, store, namectxP, namectxO) =
-      OpLang.get_typed_ienv lexBuffer_implem lexBuffer_signature in
+      OpLang.get_typed_ienv inBuffer_implem inBuffer_signature in
     ((ienv, []), store, PropCtx (namectxP, []), OpCtx (None, namectxO))
 
   let get_typed_term nbprog inBuffer =

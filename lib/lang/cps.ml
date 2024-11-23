@@ -148,9 +148,9 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     in
     (nterm, GEmpty, namectxO')
 
-  let get_typed_ienv lexBuffer_implem lexBuffer_signature =
+  let get_typed_ienv inBuffer_implem inBuffer_signature =
     let (int_env, store, namectxP, namectxO) =
-      OpLang.get_typed_ienv lexBuffer_implem lexBuffer_signature in
+      OpLang.get_typed_ienv inBuffer_implem inBuffer_signature in
     ( embed_value_env int_env,
       store,
       embed_name_ctx @@ namectxP,

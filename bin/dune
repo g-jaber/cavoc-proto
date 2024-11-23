@@ -1,19 +1,4 @@
-(executable
-  (name explore_web)
-  (public_name explore_web)
-  (modes byte js)
-  (preprocess
-   (pps js_of_ocaml-ppx))
-  (libraries refml lang lts ogs pogs js_of_ocaml js_of_ocaml-ppx)
-  (js_of_ocaml
-   (flags (--pretty --debug-info))))
-  
-(executable
-  (name compose)
-  (public_name compose)
-  (libraries refml lang lts ogs pogs))
-
-(executable
-  (name explore)
-  (public_name explore)
-  (libraries refml lang lts ogs pogs))
+(executables
+ (names compose explore)
+ (public_names compose explore)
+ (libraries refml lang lts ogs pogs))

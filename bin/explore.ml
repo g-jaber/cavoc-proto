@@ -39,8 +39,7 @@ let speclist =
     ( "-no-cps",
       Arg.Clear enable_cps,
       "Use a representation of actions as calls and return rather than in cps \
-       style. This is incompatible with both visibility restriction and open \
-       composition." );
+       style. This is incompatible with both visibility restriction and open composition." );
   ]
 
 let usage_msg = "Usage: explore filename.ml filename.mli [options]"
@@ -91,21 +90,7 @@ let check_number_filenames () =
 
 let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
     (init_conf : a) =
-  let show_moves results_list = 
-    print_endline "The possible move are :";
-    List.iter print_endline
-  (List.mapi
-     (fun i m ->
-       string_of_int (i + 1)
-       ^ ": "
-       ^ m)
-     results_list) in
-  let get_move n = 
-    let i = read_int () in
-    if i > 0 && i <= n then i else
-      exit 1
-  in
-  let graph = Graph.compute_graph ~show_moves ~get_move init_conf in
+  let graph = Graph.compute_graph init_conf in
   let graph_string = Graph.string_of_graph graph in
   print_string graph_string
 
@@ -114,14 +99,12 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
   match !is_mode with
   | Compare -> begin
       let inBuffer1 = open_in !filename1 in
-      let lexBuffer1 = Lexing.from_channel inBuffer1 in
       let (expr1, namectxO1) =
-        OGS_LTS.Int.IntLang.get_typed_term "first" lexBuffer1 in
+        OGS_LTS.Int.IntLang.get_typed_term "first" inBuffer1 in
       Util.Debug.print_debug "Getting the second program";
       let inBuffer2 = open_in !filename2 in
-      let lexBuffer2 = Lexing.from_channel inBuffer2 in
       let (expr2, namectxO2) =
-        OGS_LTS.Int.IntLang.get_typed_term "second" lexBuffer2 in
+        OGS_LTS.Int.IntLang.get_typed_term "second" inBuffer2 in
       Util.Debug.print_debug
         ("Name contexts for Opponent: "
         ^ OGS_LTS.Int.IntLang.string_of_name_ctx namectxO1
@@ -142,9 +125,8 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
       if !is_program then begin
         Util.Debug.print_debug "Getting the program";
         let expr_buffer = open_in !filename1 in
-        let expr_lexbuffer = Lexing.from_channel expr_buffer in
         let (expr, namectxO) =
-          OGS_LTS.Int.IntLang.get_typed_term "first" expr_lexbuffer in
+          OGS_LTS.Int.IntLang.get_typed_term "first" expr_buffer in
         Util.Debug.print_debug
           ("Name contexts for Opponent: "
           ^ OGS_LTS.Int.IntLang.string_of_name_ctx namectxO);
@@ -159,12 +141,9 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
       else begin
         Util.Debug.print_debug "Getting the module declaration";
         let decl_buffer = open_in !filename1 in
-        let decl_lexbuffer = Lexing.from_channel decl_buffer in
         let signature_buffer = open_in !filename2 in
-        let signature_lexbuffer = Lexing.from_channel signature_buffer in
         let (interactive_env, store, name_ctxP, name_ctxO) =
-          OGS_LTS.Int.IntLang.get_typed_ienv decl_lexbuffer signature_lexbuffer
-        in
+          OGS_LTS.Int.IntLang.get_typed_ienv decl_buffer signature_buffer in
         let init_conf =
           OGS_LTS.Passive
             (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
