@@ -39,6 +39,7 @@ let generate_clickables actions =
 
 let get_chosen_action n : int = Random.int (n + 1)
 
+
 (* Overrides default print functions to redirect to the HTML output div *)
 let () =
   Printexc.record_backtrace true;
