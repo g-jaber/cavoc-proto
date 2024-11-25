@@ -47,6 +47,7 @@ let () =
 
 let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
     (init_conf : a) =
+  let show_conf _ = () in (* À définir *)
   (*genere les cliquables et les ajoute dans la liste des coups possibles*)
   let show_moves results_list =
     (* Convert the moves list into a list of tuples with dummy ids for demonstration *)
@@ -60,7 +61,7 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
     else (
       ignore (print_to_output "No button ;(");
       exit 1) in
-  let graph = Graph.compute_graph ~show_moves ~get_move init_conf in
+  let graph = Graph.compute_graph ~show_conf ~show_moves ~get_move init_conf in
   let graph_string = Graph.string_of_graph graph in
   print_string graph_string
 
