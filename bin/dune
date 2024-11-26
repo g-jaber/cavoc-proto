@@ -21,9 +21,9 @@
 (executable
  (name compose)
  (public_name compose)
- (libraries refml lang lts ogs pogs))
+ (libraries js_of_ocaml refml lang lts ogs pogs))
 
 (executable
  (name explore)
  (public_name explore)
- (libraries refml lang lts ogs pogs))
+ (libraries js_of_ocaml refml lang lts ogs pogs))
