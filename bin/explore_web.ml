@@ -24,6 +24,7 @@ let print_to_output str =
 
 (*function wich generate clickable component on the DOM*)
 let generate_clickables actions =
+  let actions = actions @ [(-1 , "Stop")] in 
   let actions_list = Dom_html.getElementById "actions-list" in
   actions_list##.innerHTML := Js.string "";
   (* Clear existing elements *)
