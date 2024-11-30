@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: OCaml CI
 
 on:
   push:
@@ -9,24 +9,28 @@ on:
       - main
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Install OCaml and Dune
-        uses: avsm/setup-ocaml@v2
-        with:
-          ocaml-version: 5.0.0
-          dune-version: 3.9.0
+    - name: Set up OCaml
+      uses: avsm/setup-ocaml@v2
+      with:
+        ocaml-compiler: 4.14.0 # Remplacez par la version appropriée
+        dune-cache: true
 
-      - name: Install js_of_ocaml
-        run: opam install js_of_ocaml js_of_ocaml-lwt -y
+    - name: Install dependencies
+      run: |
+        opam install . --deps-only --yes
 
-      - name: Build the Project
-        run: dune build
+    - name: Build all executables
+      run: dune build @install
 
-      - name: Run Tests
-        run: dune runtest
+    - name: Build JavaScript for explore_web
+      run: dune build _build/default/bin/explore_web.bc.js
+
+    - name: Run tests with dune
+      run: dune exec ./_build/default/bin/explore.exe test/isc.ml test/isc.mli
