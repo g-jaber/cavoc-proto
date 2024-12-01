@@ -18,22 +18,27 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # Étape 2 : Installer OCaml et Dune
+      # Étape 2 : Installer OCaml et configurer l'environnement Opam
       - name: Setup OCaml and Dune
         uses: avsm/setup-ocaml@v2
         with:
-          ocaml-compiler: 5.0.0 # Remplacez par votre version d'OCaml
+          ocaml-compiler: 5.0.0 # Version d'OCaml
           dune-cache: true      # Active la mise en cache pour Dune
 
-      # Étape 3 : Installer les dépendances js_of_ocaml
-      - name: Install Dependencies
+      # Étape 3 : Initialiser Opam
+      - name: Initialize Opam
+        run: eval $(opam env)
+
+      # Étape 4 : Installer Dune et les dépendances
+      - name: Install Dune and Dependencies
         run: |
+          opam install dune -y
           opam install js_of_ocaml js_of_ocaml-lwt -y
 
-      # Étape 4 : Compiler le projet
+      # Étape 5 : Compiler le projet
       - name: Build the Project
         run: dune build
 
-      # Étape 5 : Lancer les tests
+      # Étape 6 : Lancer les tests
       - name: Run Tests
         run: dune runtest
