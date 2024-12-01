@@ -1,36 +1,39 @@
-name: OCaml CI
+name: CI Pipeline for js_of_ocaml
 
+# Déclenchement du workflow
 on:
   push:
     branches:
-      - main
+      - test-ci
   pull_request:
     branches:
-      - main
+      - test-ci
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      # Étape 1 : Cloner le dépôt
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-    - name: Set up OCaml
-      uses: avsm/setup-ocaml@v2
-      with:
-        ocaml-compiler: 4.14.0 # Remplacez par la version appropriée
-        dune-cache: true
+      # Étape 2 : Installer OCaml et Dune
+      - name: Setup OCaml and Dune
+        uses: avsm/setup-ocaml@v2
+        with:
+          ocaml-version: 5.0.0
+          dune-version: 3.9.0
 
-    - name: Install dependencies
-      run: |
-        opam install . --deps-only --yes
+      # Étape 3 : Installer les dépendances js_of_ocaml
+      - name: Install Dependencies
+        run: |
+          opam install js_of_ocaml js_of_ocaml-lwt -y
 
-    - name: Build all executables
-      run: dune build @install
+      # Étape 4 : Compiler le projet
+      - name: Build the Project
+        run: dune build
 
-    - name: Build JavaScript for explore_web
-      run: dune build _build/default/bin/explore_web.bc.js
-
-    - name: Run tests with dune
-      run: dune exec ./_build/default/bin/explore.exe test/isc.ml test/isc.mli
+      # Étape 5 : Lancer les tests
+      - name: Run Tests
+        run: dune runtest
