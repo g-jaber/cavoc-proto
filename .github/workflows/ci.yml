@@ -22,8 +22,8 @@ jobs:
       - name: Setup OCaml and Dune
         uses: avsm/setup-ocaml@v2
         with:
-          ocaml-version: 5.0.0
-          dune-version: 3.9.0
+          ocaml-compiler: 5.0.0 # Remplacez par votre version d'OCaml
+          dune-cache: true      # Active la mise en cache pour Dune
 
       # Étape 3 : Installer les dépendances js_of_ocaml
       - name: Install Dependencies
