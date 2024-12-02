@@ -1,5 +1,7 @@
 open Js_of_ocaml
 open Random
+open Js_of_ocaml_lwt
+open Lwt.Infix
 
 (* Fetches the content from the HTML editor fields *)
 let editor_content = ref ""
@@ -40,12 +42,37 @@ let generate_clickables actions =
 
 let get_chosen_action _ =
   print_to_output "Waiting for a click.";
-  let%lwt _ =
-    Js_of_ocaml_lwt.Lwt_js_events.click (Dom_html.getElementById "actions-list")
-  in
-  let i = 1 (*Random.int n*) in
-  print_to_output @@ "You have clicked but "^ (string_of_int i) ^ " has been chosen!";
-  Lwt.return i
+  let select_btn_opt = Dom_html.getElementById_opt "select-btn" in
+  match select_btn_opt with
+  | None -> Lwt.return (-2) (* No button found *)
+  | Some btn -> (
+      Lwt_js_events.click btn >>= fun _ ->
+      let actions_list_opt = Dom_html.getElementById_opt "actions-list" in
+      match actions_list_opt with
+      | None -> Lwt.return (-2) (* No actions list found *)
+      | Some actions_list ->
+          let children = Dom.list_of_nodeList actions_list##.childNodes in
+          print_to_output @@ string_of_int (List.length children);
+          let selected_action =
+            List.fold_left
+              (fun acc child ->
+                match Js.Opt.to_option (Dom_html.CoerceTo.element child) with
+                | None -> acc
+                | Some element -> (
+                    match
+                      Js.Opt.to_option (Dom_html.CoerceTo.input element)
+                    with
+                    | None -> acc
+                    | Some input ->
+                        if Js.to_bool input##.checked then
+                          let id_str = Js.to_string input##.id in
+                          (* Split the id string at '_' and extract the number *)
+                          match String.split_on_char '_' id_str with
+                          | [ _; num_str ] -> int_of_string num_str
+                          | _ -> acc
+                        else acc))
+              (-4) children in
+          Lwt.return selected_action)
 
 (* Overrides default print functions to redirect to the HTML output div *)
 let () =
@@ -79,19 +106,28 @@ let evaluate_code () =
   let show_moves results_list =
     (* Convert the moves list into a list of tuples with dummy ids for demonstration *)
     let actions =
-      List.mapi (fun i results_list -> (i, results_list)) results_list in
+      List.mapi (fun i results_list -> (i + 1, results_list)) results_list in
     generate_clickables actions in
   (*event listener sur les cliquables renvoyant l'index de celui sur lequel l'utilisateur a cliqué *)
   let get_move n =
     print_to_output "In get_move";
-    let%lwt i = get_chosen_action n in
+    let%lwt i = get_chosen_action (n + 1) in
+    print_to_output ("i = " ^ string_of_int i);
     if i > 0 && i <= n then begin
       print_to_output ("Selected action " ^ string_of_int i);
       Lwt.return i
     end
     else begin
-      print_to_output ("No button ;(" ^ string_of_int i);
-      exit 1
+      match i with
+      | -1 ->
+          print_to_output "Stop";
+          exit 1
+      | -2 ->
+          print_to_output "No button";
+          exit 1
+      | _ ->
+          print_to_output "error : unknown";
+          exit 1
     end in
   IBuild.interactive_build ~show_conf ~show_moves ~get_move init_conf
 
