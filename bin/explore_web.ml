@@ -40,6 +40,10 @@ let generate_clickables actions =
       Dom.appendChild actions_list checkbox_div)
     actions
 
+let clear_list () : unit =
+  let actions_list = Dom_html.getElementById "actions-list" in
+  actions_list##.innerHTML := Js.string ""
+
 let get_chosen_action _ =
   print_to_output "Waiting for a click.";
   let select_btn_opt = Dom_html.getElementById_opt "select-btn" in
@@ -59,18 +63,27 @@ let get_chosen_action _ =
                 match Js.Opt.to_option (Dom_html.CoerceTo.element child) with
                 | None -> acc
                 | Some element -> (
+                    (* Look for input[type='radio'] inside each div *)
                     match
-                      Js.Opt.to_option (Dom_html.CoerceTo.input element)
+                      element##querySelector (Js.string "input[type='radio']")
                     with
-                    | None -> acc
-                    | Some input ->
-                        if Js.to_bool input##.checked then
-                          let id_str = Js.to_string input##.id in
-                          (* Split the id string at '_' and extract the number *)
-                          match String.split_on_char '_' id_str with
-                          | [ _; num_str ] -> int_of_string num_str
-                          | _ -> acc
-                        else acc))
+                    | exception _ -> acc
+                    | input_opt -> (
+                        match Js.Opt.to_option input_opt with
+                        | None -> acc
+                        | Some input -> (
+                            let input = Dom_html.CoerceTo.input input in
+                            match Js.Opt.to_option input with
+                            | None -> acc
+                            | Some radio_input ->
+                                if Js.to_bool radio_input##.checked then (
+                                  let id_str = Js.to_string radio_input##.id in
+                                  print_to_output ("Selected ID: " ^ id_str);
+                                  (* Extract the number from the id *)
+                                  match String.split_on_char '_' id_str with
+                                  | [ _; num_str ] -> int_of_string num_str
+                                  | _ -> acc)
+                                else acc))))
               (-4) children in
           Lwt.return selected_action)
 
@@ -106,29 +119,29 @@ let evaluate_code () =
   let show_moves results_list =
     (* Convert the moves list into a list of tuples with dummy ids for demonstration *)
     let actions =
-      List.mapi (fun i results_list -> (i + 1, results_list)) results_list in
+      List.mapi (fun i results_list -> (i, results_list)) results_list in
     generate_clickables actions in
   (*event listener sur les cliquables renvoyant l'index de celui sur lequel l'utilisateur a cliqué *)
   let get_move n =
+    let n = n + 1 in
     print_to_output "In get_move";
-    let%lwt i = get_chosen_action (n + 1) in
-    print_to_output ("i = " ^ string_of_int i);
-    if i > 0 && i <= n then begin
-      print_to_output ("Selected action " ^ string_of_int i);
-      Lwt.return i
-    end
-    else begin
-      match i with
-      | -1 ->
-          print_to_output "Stop";
-          exit 1
-      | -2 ->
-          print_to_output "No button";
-          exit 1
-      | _ ->
-          print_to_output "error : unknown";
-          exit 1
-    end in
+    let%lwt i = get_chosen_action n in
+    print_to_output
+      ("i = " ^ string_of_int i ^ " ; and number of actions =" ^ string_of_int n);
+    match i with
+    | i when i >= 0 && i < n ->
+        print_to_output ("Selected action " ^ string_of_int i);
+        Lwt.return i
+    | -1 ->
+        print_to_output "Stop";
+        clear_list ();
+        exit 1
+    | -2 ->
+        print_to_output "No button";
+        exit 1
+    | _ ->
+        print_to_output "error : unknown";
+        exit 1 in
   IBuild.interactive_build ~show_conf ~show_moves ~get_move init_conf
 
 (* Sets up the event listener for the "Evaluer" button *)
