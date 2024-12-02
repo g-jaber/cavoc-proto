@@ -133,15 +133,12 @@ let evaluate_code () =
         print_to_output ("Selected action " ^ string_of_int i);
         Lwt.return i
     | -1 ->
-        print_to_output "Stop";
         clear_list ();
-        exit 1
-    | -2 ->
-        print_to_output "No button";
-        exit 1
+        Lwt.fail (Failure "Stop")
+    | -2 -> Lwt.fail (Failure "No button")
     | _ ->
         print_to_output "error : unknown";
-        exit 1 in
+        Lwt.fail (Failure "Unknown error") in
   IBuild.interactive_build ~show_conf ~show_moves ~get_move init_conf
 
 (* Sets up the event listener for the "Evaluer" button *)
