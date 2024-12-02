@@ -14,7 +14,6 @@ module Make (IntLTS : Bipartite.LTS) = struct
         (*^ "-> "*)
     | Leaf _ -> "" (*IntLTS.Int.string_of_interactive_ctx ictx*)
 
-    (* We should modify this Util.Monad.UserChooseWrite into Util.Monad.Lwt *)
   include Util.Monad.UserChooseWrite (struct
     type t = event
 
