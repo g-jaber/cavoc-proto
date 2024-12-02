@@ -1,3 +1,5 @@
 (library
  (name lts)
- (libraries lang util))
+  (preprocess
+  (pps lwt_ppx))
+ (libraries lang util lwt))

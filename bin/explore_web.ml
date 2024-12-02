@@ -24,7 +24,7 @@ let print_to_output str =
 
 (*function wich generate clickable component on the DOM*)
 let generate_clickables actions =
-  let actions = actions @ [(-1 , "Stop")] in 
+  let actions = actions @ [ (-1, "Stop") ] in
   let actions_list = Dom_html.getElementById "actions-list" in
   actions_list##.innerHTML := Js.string "";
   (* Clear existing elements *)
@@ -38,33 +38,20 @@ let generate_clickables actions =
       Dom.appendChild actions_list checkbox_div)
     actions
 
-let get_chosen_action n : int = Random.int (n + 1)
+let get_chosen_action _ =
+  print_to_output "Waiting for a click.";
+  let%lwt _ =
+    Js_of_ocaml_lwt.Lwt_js_events.click (Dom_html.getElementById "actions-list")
+  in
+  let i = 1 (*Random.int n*) in
+  print_to_output @@ "You have clicked but "^ (string_of_int i) ^ " has been chosen!";
+  Lwt.return i
 
 (* Overrides default print functions to redirect to the HTML output div *)
 let () =
   Printexc.record_backtrace true;
   Sys_js.set_channel_flusher stdout print_to_output;
   Sys_js.set_channel_flusher stderr print_to_output
-
-let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
-    (init_conf : a) =
-  let show_conf _ = () in (* À définir *)
-  (*genere les cliquables et les ajoute dans la liste des coups possibles*)
-  let show_moves results_list =
-    (* Convert the moves list into a list of tuples with dummy ids for demonstration *)
-    let actions =
-      List.mapi (fun i results_list -> (i, results_list)) results_list in
-    generate_clickables actions in
-  (*event listener sur les cliquables renvoyant l'index de celui sur lequel l'utilisateur a cliqué *)
-  let get_move n =
-    let i = get_chosen_action n in
-    if i > 0 && i <= n then i
-    else (
-      ignore (print_to_output "No button ;(");
-      exit 1) in
-  let graph = Graph.compute_graph ~show_conf ~show_moves ~get_move init_conf in
-  let graph_string = Graph.string_of_graph graph in
-  print_string graph_string
 
 (* Generates the LTS based on the selected mode and editor content *)
 
@@ -85,16 +72,33 @@ let evaluate_code () =
   let init_conf =
     OGS_LTS.Passive
       (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
-  let module Generate = Lts.Generate_trace.Make (OGS_LTS) in
-  build_graph (module Generate) init_conf
+  let module IBuild = Lts.Interactive_build.Make (OGS_LTS) in
+  let show_conf _ = () in
+  (* À définir *)
+  (*genere les cliquables et les ajoute dans la liste des coups possibles*)
+  let show_moves results_list =
+    (* Convert the moves list into a list of tuples with dummy ids for demonstration *)
+    let actions =
+      List.mapi (fun i results_list -> (i, results_list)) results_list in
+    generate_clickables actions in
+  (*event listener sur les cliquables renvoyant l'index de celui sur lequel l'utilisateur a cliqué *)
+  let get_move n =
+    print_to_output "In get_move";
+    let%lwt i = get_chosen_action n in
+    if i > 0 && i <= n then begin
+      print_to_output ("Selected action " ^ string_of_int i);
+      Lwt.return i
+    end
+    else begin
+      print_to_output ("No button ;(" ^ string_of_int i);
+      exit 1
+    end in
+  IBuild.interactive_build ~show_conf ~show_moves ~get_move init_conf
 
 (* Sets up the event listener for the "Evaluer" button *)
 let () =
   self_init ();
   let button = Dom_html.getElementById "submit" in
-  ignore
-    (Dom_html.addEventListener button Dom_html.Event.click
-       (Dom_html.handler (fun _ ->
-            evaluate_code ();
-            Js._false))
-       Js._true)
+  Js_of_ocaml_lwt.Lwt_js_events.async (fun () ->
+      let%lwt _ = Js_of_ocaml_lwt.Lwt_js_events.click button in
+      evaluate_code ())
