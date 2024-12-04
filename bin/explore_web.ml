@@ -29,14 +29,19 @@ let generate_clickables actions =
   let actions = actions @ [ (-1, "Stop") ] in
   let actions_list = Dom_html.getElementById "actions-list" in
   actions_list##.innerHTML := Js.string "";
+
   (* Clear existing elements *)
-  List.iter
-    (fun (id, action) ->
+  List.iteri
+    (fun index (id, action) ->
       let checkbox_div = Dom_html.createDiv Dom_html.document in
+      let checked_attr =
+        if index = 0 then " checked" else "" (* Check the first radio button *)
+      in
       checkbox_div##.innerHTML :=
         Js.string
-          (Printf.sprintf "<input type='radio' name='action' id='action_%d'> %s"
-             id action);
+          (Printf.sprintf
+             "<input type='radio' name='action' id='action_%d'%s> %s" id
+             checked_attr action);
       Dom.appendChild actions_list checkbox_div)
     actions
 
