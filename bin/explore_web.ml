@@ -1,5 +1,4 @@
 open Js_of_ocaml
-open Random
 open Js_of_ocaml_lwt
 open Lwt.Infix
 
@@ -17,26 +16,46 @@ let fetch_editor_content () =
   signature_content :=
     Js.to_string (Js.Unsafe.meth_call signature_editor "getValue" [||])
 
-(* Redirects OCaml print functions to output in the HTML div with id "output" *)
-let print_to_output str =
-  let output_div = Dom_html.getElementById "output" in
-  let current_content = Js.to_string (Js.Unsafe.get output_div "innerHTML") in
-  let new_content = current_content ^ "<pre>" ^ str ^ "</pre>" in
-  Js.Unsafe.set output_div "innerHTML" (Js.string new_content)
+(* print function to send output to the web console *)
+let print_to_output str = Firebug.console##log str
+
+(* Mutable list to store previous actions *)
+let previous_actions : string list ref = ref []
+
+(*Shows the actions in the html*)
+let display_previous_actions () : unit =
+  let actions_string = String.concat " ; " !previous_actions in
+  print_to_output @@ "Actions played = " ^ actions_string
+
+(* Adds an action to the previous actions list and updates the DOM *)
+let add_action action =
+  (* Debugging line *)
+  previous_actions := !previous_actions @ [ action ];
+  display_previous_actions ()
+
+(* Clears the previous actions list and the DOM display *)
+let flush_actions () =
+  previous_actions := [];
+  display_previous_actions ()
 
 (*function wich generate clickable component on the DOM*)
 let generate_clickables actions =
   let actions = actions @ [ (-1, "Stop") ] in
   let actions_list = Dom_html.getElementById "actions-list" in
   actions_list##.innerHTML := Js.string "";
+
   (* Clear existing elements *)
-  List.iter
-    (fun (id, action) ->
+  List.iteri
+    (fun index (id, action) ->
       let checkbox_div = Dom_html.createDiv Dom_html.document in
+      let checked_attr =
+        if index = 0 then " checked" else "" (* Check the first radio button *)
+      in
       checkbox_div##.innerHTML :=
         Js.string
-          (Printf.sprintf "<input type='radio' name='action' id='action_%d'> %s"
-             id action);
+          (Printf.sprintf
+             "<input type='radio' name='action' id='action_%d'%s> %s" id
+             checked_attr action);
       Dom.appendChild actions_list checkbox_div)
     actions
 
@@ -63,6 +82,10 @@ let get_chosen_action _ =
                 match Js.Opt.to_option (Dom_html.CoerceTo.element child) with
                 | None -> acc
                 | Some element -> (
+                    let action_label =
+                      Js.to_string
+                        (Js.Opt.get element##.textContent (fun () ->
+                             assert false)) in
                     (* Look for input[type='radio'] inside each div *)
                     match
                       element##querySelector (Js.string "input[type='radio']")
@@ -77,6 +100,8 @@ let get_chosen_action _ =
                             | None -> acc
                             | Some radio_input ->
                                 if Js.to_bool radio_input##.checked then (
+                                  add_action action_label;
+                                  (* Log the action *)
                                   let id_str = Js.to_string radio_input##.id in
                                   print_to_output ("Selected ID: " ^ id_str);
                                   (* Extract the number from the id *)
@@ -97,6 +122,7 @@ let () =
 
 (* Builds and evaluates the OGS LTS based on the provided code content *)
 let evaluate_code () =
+  flush_actions ();
   (* Fetch editor content and store in refs *)
   fetch_editor_content ();
   (* Set options based on flags *)
@@ -141,10 +167,30 @@ let evaluate_code () =
         Lwt.fail (Failure "Unknown error") in
   IBuild.interactive_build ~show_conf ~show_moves ~get_move init_conf
 
-(* Sets up the event listener for the "Evaluer" button *)
-let () =
-  self_init ();
+let rec init_page () =
   let button = Dom_html.getElementById "submit" in
+  (* Restore button's original state *)
+  Js.Unsafe.set button "disabled" Js._false;
+  Js.Unsafe.set button "style"
+    (Js.string "background-color: ''; cursor: pointer;");
+
   Js_of_ocaml_lwt.Lwt_js_events.async (fun () ->
       let%lwt _ = Js_of_ocaml_lwt.Lwt_js_events.click button in
-      evaluate_code ())
+      (* Grey out the button after it is clicked *)
+      Js.Unsafe.set button "disabled" Js._true;
+      Js.Unsafe.set button "style"
+        (Js.string "background-color: grey; cursor: not-allowed;");
+      Lwt.catch
+        (fun () -> evaluate_code ())
+        (function
+          | Failure msg when msg = "Stop" ->
+              print_to_output "Caught Failure \"Stop\", restarting init_page...";
+              init_page ();
+              (* Recursively call init_page to restore button *)
+              Lwt.return_unit
+          | exn ->
+              print_to_output ("Unhandled exception: " ^ Printexc.to_string exn);
+              Lwt.return_unit))
+
+(* Sets up the event listener for the "Evaluer" button *)
+let () = init_page ()
