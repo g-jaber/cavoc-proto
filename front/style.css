@@ -5,20 +5,20 @@ body {
   height: 100vh;
   margin: 0;
   background-color: #dfefec;
+  padding-left: 1%;
+  padding-right: 1%;
 }
 
 /* Container Styles - General layout for sections */
 .container {
   width: 50%;
-  padding: 20px;
   box-sizing: border-box;
+  right: 0;
 }
-
-/* Code Section - Styles specific to the code editor container */
-.code-section {
-  padding-right: 20px;
+.container.signature{
+  position: relative;
+  left: 1%;
 }
-
 /* Header Styles - For all h2 elements */
 h2 {
   margin-top: 0;
@@ -30,10 +30,9 @@ h2 {
 #editor,
 #signatureEditor {
   height: 45%;
-  width: 100%;
+  width: 98%;
   margin-top: 20px;
   border-radius: 7px;
-  padding-left: 10px; /* Added padding for consistency */
 }
 
 /* Submit Button - The 'Evaluer' button styling */
@@ -54,32 +53,22 @@ h2 {
 }
 /* Output Container - For displaying the output section at the bottom of the page */
 #output-container {
+  display: flex;
   height: 40%;
-  width: 100%;
+  width: 98%;
   position: fixed;
   margin-left: 0%;
   bottom: 0%;
   font-family: "Courier New", Courier, monospace;
 }
 
-/* Output Area - Specific styles for the output section */
-#output {
-  position: relative;
-  background-color: #2e2e2e;
-  width: 100%;
-  height: 20%;
-  resize: vertical;
-  overflow-y: scroll;
-  color: #dfefec;
-} /* Actions List and Select Action Styles - All relating to the action list container */
+ /* Actions List and Select Action Styles - All relating to the action list container */
 #select-action {
-  margin-left: 1.3%;
-  width: 30%;
-  height: 80%;
+  width: 40%;
+  height: 100%;
   overflow-y: scroll;
   border-radius: 5px;
   background-color: #272822; /* Monokai background color for action list */
-  padding-left: 10px; /* Added padding to the left to prevent it from touching the border */
 }
 
 /* Actions List - Styles the list of actions (checkboxes or items inside the action container) */
@@ -97,7 +86,7 @@ h2 {
 /* Radio Button Styles - Specific to radio buttons in the actions list */
 input[type="radio"] {
   margin-right: 5px;
-  padding: 0; /* Adds space between the radio button and the text */
+  padding: 1px; /* Adds space between the radio button and the text */
   color: #f8f8f2; /* White text color for radio button */
 }
 
@@ -124,4 +113,26 @@ input[type="radio"] {
   padding: 1px;
   background-color: #272822; /* Monokai background color for each action item */
   color: #f8f8f2; /* Light text color for action items */
+}
+
+#histo-config-container {
+  width: 60%;
+  padding-left: 1%;
+}
+
+#history{
+  display: inline-block;
+  width: 100%;
+  height: 40%;
+  background-color: #272822;
+  border-radius: 5px;
+}
+#config{
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background-color: #272822;
+  height: 40%;
+  width: 100%;
+  border-radius: 5px;
 }
