@@ -22,7 +22,8 @@ let print_to_output str =
   let output_div = Dom_html.getElementById "output" in
   let current_content = Js.to_string (Js.Unsafe.get output_div "innerHTML") in
   let new_content = current_content ^ "<pre>" ^ str ^ "</pre>" in
-  Js.Unsafe.set output_div "innerHTML" (Js.string new_content)
+  Js.Unsafe.set output_div "innerHTML" (Js.string new_content);
+  Js.Unsafe.set output_div "scrollTop" (Js.Unsafe.get output_div "scrollHeight")
 
 (*function wich generate clickable component on the DOM*)
 let generate_clickables actions =
