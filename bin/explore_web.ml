@@ -16,13 +16,27 @@ let fetch_editor_content () =
   signature_content :=
     Js.to_string (Js.Unsafe.meth_call signature_editor "getValue" [||])
 
-(* Redirects OCaml print functions to output in the HTML div with id "output" *)
-let print_to_output str =
-  let output_div = Dom_html.getElementById "output" in
-  let current_content = Js.to_string (Js.Unsafe.get output_div "innerHTML") in
-  let new_content = current_content ^ "<pre>" ^ str ^ "</pre>" in
-  Js.Unsafe.set output_div "innerHTML" (Js.string new_content);
-  Js.Unsafe.set output_div "scrollTop" (Js.Unsafe.get output_div "scrollHeight")
+(* print function to send output to the web console *)
+let print_to_output str = Firebug.console##log str
+
+(* Mutable list to store previous actions *)
+let previous_actions : string list ref = ref []
+
+(*Shows the actions in the html*)
+let display_previous_actions () : unit =
+  let actions_string = String.concat " ; " !previous_actions in
+  print_to_output @@ "Actions played = " ^ actions_string
+
+(* Adds an action to the previous actions list and updates the DOM *)
+let add_action action =
+  (* Debugging line *)
+  previous_actions := !previous_actions @ [ action ];
+  display_previous_actions ()
+
+(* Clears the previous actions list and the DOM display *)
+let flush_actions () =
+  previous_actions := [];
+  display_previous_actions ()
 
 (*function wich generate clickable component on the DOM*)
 let generate_clickables actions =
@@ -68,6 +82,10 @@ let get_chosen_action _ =
                 match Js.Opt.to_option (Dom_html.CoerceTo.element child) with
                 | None -> acc
                 | Some element -> (
+                    let action_label =
+                      Js.to_string
+                        (Js.Opt.get element##.textContent (fun () ->
+                             assert false)) in
                     (* Look for input[type='radio'] inside each div *)
                     match
                       element##querySelector (Js.string "input[type='radio']")
@@ -82,6 +100,8 @@ let get_chosen_action _ =
                             | None -> acc
                             | Some radio_input ->
                                 if Js.to_bool radio_input##.checked then (
+                                  add_action action_label;
+                                  (* Log the action *)
                                   let id_str = Js.to_string radio_input##.id in
                                   print_to_output ("Selected ID: " ^ id_str);
                                   (* Extract the number from the id *)
@@ -102,6 +122,7 @@ let () =
 
 (* Builds and evaluates the OGS LTS based on the provided code content *)
 let evaluate_code () =
+  flush_actions ();
   (* Fetch editor content and store in refs *)
   fetch_editor_content ();
   (* Set options based on flags *)
