@@ -7,6 +7,7 @@ body {
   background-color: #dfefec;
   padding-left: 1%;
   padding-right: 1%;
+  margin-top: 1%;
 }
 
 /* Container Styles - General layout for sections */
@@ -15,10 +16,12 @@ body {
   box-sizing: border-box;
   right: 0;
 }
-.container.signature{
+
+.container.signature {
   position: relative;
   left: 1%;
 }
+
 /* Header Styles - For all h2 elements */
 h2 {
   margin-top: 0;
@@ -51,6 +54,7 @@ h2 {
   z-index: 10;
   cursor: pointer;
 }
+
 /* Output Container - For displaying the output section at the bottom of the page */
 #output-container {
   display: flex;
@@ -62,13 +66,14 @@ h2 {
   font-family: "Courier New", Courier, monospace;
 }
 
- /* Actions List and Select Action Styles - All relating to the action list container */
+/* Actions List and Select Action Styles - All relating to the action list container */
 #select-action {
   width: 40%;
   height: 100%;
   overflow-y: scroll;
   border-radius: 5px;
-  background-color: #272822; /* Monokai background color for action list */
+  background-color: #272822;
+  /* Monokai background color for action list */
 }
 
 /* Actions List - Styles the list of actions (checkboxes or items inside the action container) */
@@ -80,30 +85,39 @@ h2 {
   user-select: none;
   margin: 1px;
   margin-left: 5%;
-  background-color: #272822; /* Monokai background color for actions list */
+  background-color: #272822;
+  /* Monokai background color for actions list */
 }
 
 /* Radio Button Styles - Specific to radio buttons in the actions list */
 input[type="radio"] {
   margin-right: 5px;
-  padding: 1px; /* Adds space between the radio button and the text */
-  color: #f8f8f2; /* White text color for radio button */
+  padding: 1px;
+  /* Adds space between the radio button and the text */
+  color: #f8f8f2;
+  /* White text color for radio button */
 }
 
 /* Button inside the action list - Positioning and styling for buttons inside actions list */
 #select-action button {
-  position: relative; /* Use absolute positioning to place the button outside the list */
+  position: relative;
+  /* Use absolute positioning to place the button outside the list */
   left: 50%;
-  bottom: -30px; /* Moves the button outside the action list */
-  transform: translateX(-50%); /* Centers the button horizontally */
-  background-color: #2ecc71; /* Light color for button background */
-  color: #272822; /* Dark color for text to match Monokai contrast */
+  bottom: -30px;
+  /* Moves the button outside the action list */
+  transform: translateX(-50%);
+  /* Centers the button horizontally */
+  background-color: #2ecc71;
+  /* Light color for button background */
+  color: #272822;
+  /* Dark color for text to match Monokai contrast */
   font-family: "Courier New", Courier, monospace;
   font-size: larger;
   border: solid 2px black;
   border-radius: 5px;
   cursor: pointer;
-  padding: 10px 15px; /* Adds padding to the button */
+  padding: 10px 15px;
+  /* Adds padding to the button */
 }
 
 /* Individual Action Item Styles - Styles for each action list item */
@@ -111,8 +125,10 @@ input[type="radio"] {
   border: 1px solid rgb(152, 152, 152);
   border-radius: 5px;
   padding: 1px;
-  background-color: #272822; /* Monokai background color for each action item */
-  color: #f8f8f2; /* Light text color for action items */
+  background-color: #272822;
+  /* Monokai background color for each action item */
+  color: #f8f8f2;
+  /* Light text color for action items */
 }
 
 #histo-config-container {
@@ -120,19 +136,32 @@ input[type="radio"] {
   padding-left: 1%;
 }
 
-#history{
+#history {
   display: inline-block;
   width: 100%;
-  height: 40%;
+  height: 12%;
+  margin-top: 1%;
   background-color: #272822;
   border-radius: 5px;
+  color: #f8f8f2;
+  padding: 7px;
+  padding-right: 0;
+  font-family: monospace;
 }
-#config{
+
+#config {
+  color: #f8f8f2;
+  padding: 7px;
+  font-family: monospace ;
+  padding: 7px;
   position: relative;
   display: flex;
+  margin-top: 1%;
   flex-direction: column;
   background-color: #272822;
-  height: 40%;
+  height: 52%;
   width: 100%;
   border-radius: 5px;
+  overflow-y: scroll;
+  padding-right: 0;
 }
