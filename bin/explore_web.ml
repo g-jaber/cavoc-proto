@@ -174,15 +174,22 @@ let evaluate_code () =
 let rec init_page () =
   let button = Dom_html.getElementById "submit" in
   let select_button = Dom_html.getElementById "select-btn" in
+
   (* Disable the Select button by default *)
   Js.Unsafe.set select_button "disabled" Js._true;
   Js.Unsafe.set select_button "style"
     (Js.string "background-color: grey; cursor: not-allowed;");
+  Js.Unsafe.set select_button "title"
+    (Js.string "You must be evaluating code to select an action");
 
   (* Restore Evaluate button's original state *)
   Js.Unsafe.set button "disabled" Js._false;
   Js.Unsafe.set button "style"
     (Js.string "background-color: ''; cursor: pointer;");
+
+  (* Set tooltip for the Evaluate button when it's disabled *)
+  Js.Unsafe.set button "title"
+    (Js.string "Stop evaluation to evaluate new code");
 
   Js_of_ocaml_lwt.Lwt_js_events.async (fun () ->
       let%lwt _ = Js_of_ocaml_lwt.Lwt_js_events.click button in
@@ -190,11 +197,15 @@ let rec init_page () =
       Js.Unsafe.set button "disabled" Js._true;
       Js.Unsafe.set button "style"
         (Js.string "background-color: grey; cursor: not-allowed;");
+      Js.Unsafe.set button "title"
+        (Js.string "Stop evaluation to evaluate new code");
 
       (* Enable the Select button after evaluate is pressed *)
       Js.Unsafe.set select_button "disabled" Js._false;
       Js.Unsafe.set select_button "style"
         (Js.string "background-color: ''; cursor: pointer;");
+      Js.Unsafe.set select_button "title"
+        (Js.string "You must be evaluating code to select an action");
 
       Lwt.catch
         (fun () -> evaluate_code ())
@@ -204,6 +215,8 @@ let rec init_page () =
               Js.Unsafe.set select_button "disabled" Js._true;
               Js.Unsafe.set select_button "style"
                 (Js.string "background-color: grey; cursor: not-allowed;");
+              Js.Unsafe.set select_button "title"
+                (Js.string "You must be evaluating code to select an action");
               print_to_output "Caught Failure \"Stop\", restarting init_page...";
               init_page ();
               (* Recursively call init_page to restore button *)
