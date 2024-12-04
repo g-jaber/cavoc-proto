@@ -1,5 +1,4 @@
 open Js_of_ocaml
-open Random
 open Js_of_ocaml_lwt
 open Lwt.Infix
 
@@ -142,9 +141,11 @@ let evaluate_code () =
         Lwt.fail (Failure "Unknown error") in
   IBuild.interactive_build ~show_conf ~show_moves ~get_move init_conf
 
+
+
+
 (* Sets up the event listener for the "Evaluer" button *)
 let () =
-  self_init ();
   let button = Dom_html.getElementById "submit" in
   Js_of_ocaml_lwt.Lwt_js_events.async (fun () ->
       let%lwt _ = Js_of_ocaml_lwt.Lwt_js_events.click button in
