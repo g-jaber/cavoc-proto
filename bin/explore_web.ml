@@ -17,7 +17,7 @@ let fetch_editor_content () =
     Js.to_string (Js.Unsafe.meth_call signature_editor "getValue" [||])
 
 (* print function to send output to the web console *)
-let print_to_output str = Firebug.console##log str
+let print_to_output str = ignore (Firebug.console##log str)
 
 (* Mutable list to store previous actions *)
 let previous_actions : string list ref = ref []
@@ -25,6 +25,8 @@ let previous_actions : string list ref = ref []
 (*Shows the actions in the html*)
 let display_previous_actions () : unit =
   let actions_string = String.concat " ; " !previous_actions in
+  let action_display = Dom_html.getElementById "history" in
+  Js.Unsafe.set action_display "textContent" (Js.string actions_string);
   print_to_output @@ "Actions played = " ^ actions_string
 
 (* Adds an action to the previous actions list and updates the DOM *)
@@ -139,8 +141,9 @@ let evaluate_code () =
     OGS_LTS.Passive
       (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
   let module IBuild = Lts.Interactive_build.Make (OGS_LTS) in
-  let show_conf _ = () in
-  (* À définir *)
+  let show_conf conf : unit =
+    let config_display = Dom_html.getElementById "config" in
+    Js.Unsafe.set config_display "textContent" (Js.string conf) in
   (*genere les cliquables et les ajoute dans la liste des coups possibles*)
   let show_moves results_list =
     (* Convert the moves list into a list of tuples with dummy ids for demonstration *)
