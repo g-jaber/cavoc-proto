@@ -167,9 +167,16 @@ let evaluate_code () =
         Lwt.fail (Failure "Unknown error") in
   IBuild.interactive_build ~show_conf ~show_moves ~get_move init_conf
 
+(* Do page init, creating the callback on the submit button, and managing some button looks*)
 let rec init_page () =
   let button = Dom_html.getElementById "submit" in
-  (* Restore button's original state *)
+  let select_button = Dom_html.getElementById "select-btn" in
+  (* Disable the Select button by default *)
+  Js.Unsafe.set select_button "disabled" Js._true;
+  Js.Unsafe.set select_button "style"
+    (Js.string "background-color: grey; cursor: not-allowed;");
+
+  (* Restore Evaluate button's original state *)
   Js.Unsafe.set button "disabled" Js._false;
   Js.Unsafe.set button "style"
     (Js.string "background-color: ''; cursor: pointer;");
@@ -180,17 +187,28 @@ let rec init_page () =
       Js.Unsafe.set button "disabled" Js._true;
       Js.Unsafe.set button "style"
         (Js.string "background-color: grey; cursor: not-allowed;");
+
+      (* Enable the Select button after evaluate is pressed *)
+      Js.Unsafe.set select_button "disabled" Js._false;
+      Js.Unsafe.set select_button "style"
+        (Js.string "background-color: ''; cursor: pointer;");
+
       Lwt.catch
         (fun () -> evaluate_code ())
         (function
           | Failure msg when msg = "Stop" ->
+              (* Disable Select button again after Stop action *)
+              Js.Unsafe.set select_button "disabled" Js._true;
+              Js.Unsafe.set select_button "style"
+                (Js.string "background-color: grey; cursor: not-allowed;");
               print_to_output "Caught Failure \"Stop\", restarting init_page...";
               init_page ();
               (* Recursively call init_page to restore button *)
               Lwt.return_unit
           | exn ->
+              (* Handle other exceptions *)
               print_to_output ("Unhandled exception: " ^ Printexc.to_string exn);
               Lwt.return_unit))
 
-(* Sets up the event listener for the "Evaluer" button *)
+(* "Main" entry point *)
 let () = init_page ()
