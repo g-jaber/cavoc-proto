@@ -141,12 +141,30 @@ let evaluate_code () =
         Lwt.fail (Failure "Unknown error") in
   IBuild.interactive_build ~show_conf ~show_moves ~get_move init_conf
 
-
-
-
-(* Sets up the event listener for the "Evaluer" button *)
-let () =
+let rec init_page () =
   let button = Dom_html.getElementById "submit" in
+  (* Restore button's original state *)
+  Js.Unsafe.set button "disabled" Js._false;
+  Js.Unsafe.set button "style"
+    (Js.string "background-color: ''; cursor: pointer;");
+
   Js_of_ocaml_lwt.Lwt_js_events.async (fun () ->
       let%lwt _ = Js_of_ocaml_lwt.Lwt_js_events.click button in
-      evaluate_code ())
+      (* Grey out the button after it is clicked *)
+      Js.Unsafe.set button "disabled" Js._true;
+      Js.Unsafe.set button "style"
+        (Js.string "background-color: grey; cursor: not-allowed;");
+      Lwt.catch
+        (fun () -> evaluate_code ())
+        (function
+          | Failure msg when msg = "Stop" ->
+              print_to_output "Caught Failure \"Stop\", restarting init_page...";
+              init_page ();
+              (* Recursively call init_page to restore button *)
+              Lwt.return_unit
+          | exn ->
+              print_to_output ("Unhandled exception: " ^ Printexc.to_string exn);
+              Lwt.return_unit))
+
+(* Sets up the event listener for the "Evaluer" button *)
+let () = init_page ()
