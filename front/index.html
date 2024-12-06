@@ -29,11 +29,11 @@
       <div id="histo-config-container">
         History :
         <div id="history"></div>
-        <br> <br>
-        Configuration : 
+        <br />
+        <br />
+        Configuration :
         <div id="config"></div>
       </div>
-
     </div>
     <button id="submit">Evaluate</button>
     <script src="../_build/default/bin/explore_web.bc.js"></script>
@@ -60,11 +60,18 @@ let g f = x := 1; f(); assert (!x = 1)`;
     var signature = `val g : (unit -> unit) -> unit`;
 
     // Apply the code to the editors
-    editor.setValue(code);
-    signatureEditor.setValue(signature);
+    editor.session.setValue(code);
+    signatureEditor.session.setValue(signature);
 
     // Store editor instances in global variables to be accessed from OCaml
     window.editor_instance = editor;
     window.signatureEditor_instance = signatureEditor;
+
+    var configEditor = ace.edit("config");
+    configEditor.setTheme("ace/theme/monokai");
+    configEditor.session.setMode("ace/mode/ocaml");
+    configEditor.setReadOnly(true);
+    configEditor.renderer.$cursorLayer.element.style.display = "none";
+    window.configEditor_instance = configEditor;
   </script>
 </html>
