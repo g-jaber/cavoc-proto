@@ -96,7 +96,7 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
       "Do you want to print the Proponent configuration? (1=yes/0=no)";
     let i = read_int () in
     match i with 1 -> print_endline @@ conf_str | _ -> () in
-  let show_moves results_list =
+  let show_moves_list results_list =
     print_endline "The possible move are:";
     List.iter print_endline
       (List.mapi (fun i m -> string_of_int (i + 1) ^ ": " ^ m) results_list)
@@ -106,7 +106,7 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
     ^ " to decide what to do, or choose 0 to stop.");
     let i = read_int () in
     if i > 0 && i <= n then i else exit 1 in
-  let graph = Graph.compute_graph ~show_conf ~show_moves ~get_move init_conf in
+  let graph = Graph.compute_graph ~show_conf ~show_moves_list ~get_move init_conf in
   let graph_string = Graph.string_of_graph graph in
   print_string graph_string
 

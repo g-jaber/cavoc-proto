@@ -5,8 +5,9 @@ module type IBUILD = sig
   (* *)
 
   val interactive_build : 
+  show_move:(string -> unit) -> 
   show_conf:(string -> unit) -> 
-  show_moves:(string list -> unit) -> 
+  show_moves_list:(string list -> unit) -> 
     (* the argument of get_move is the 
     number of moves *)
     get_move:(int -> int Lwt.t) 

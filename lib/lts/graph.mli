@@ -9,7 +9,7 @@ module type GRAPH = sig
   val string_of_graph : graph -> string
   val compute_graph : 
   show_conf:(string -> unit) -> 
-  show_moves:(string list -> unit) -> 
+  show_moves_list:(string list -> unit) -> 
     (* the argument of get_move is the 
     number of moves *)
     get_move:(int -> int) 

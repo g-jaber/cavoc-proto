@@ -9,7 +9,7 @@ module type GRAPH = sig
   val string_of_graph : graph -> string
   val compute_graph : 
   show_conf:(string -> unit) -> 
-  show_moves:(string list -> unit) -> 
+  show_moves_list:(string list -> unit) -> 
     get_move:(int -> int) 
   -> conf -> graph
 end
@@ -126,7 +126,7 @@ module Make (IntLTS : Bipartite.LTS) : GRAPH
 
     (* The computation of the graph is always called on an active state*)
     (* TODO: Why ? *)
-    let rec compute_graph_monad ~show_conf ~show_moves ~get_move = function
+    let rec compute_graph_monad ~show_conf ~show_moves_list ~get_move = function
       | (IntLTS.Active act_conf, _) as act_state ->
           let (action, pas_conf_option) = IntLTS.p_trans act_conf in
           begin
@@ -141,7 +141,7 @@ module Make (IntLTS : Bipartite.LTS) : GRAPH
                 Util.Debug.print_debug
                   ("Adding the transition: " ^ string_of_transition edge);
                 let* () = add_edge edge in
-                compute_graph_monad ~show_conf ~show_moves ~get_move pas_state
+                compute_graph_monad ~show_conf ~show_moves_list ~get_move pas_state
             | (PDiv, Some _) | (PError, Some _) | (Vis _, None) ->
                 failwith
                   "Error: impossible transition in the graph. Please report."
@@ -156,7 +156,7 @@ module Make (IntLTS : Bipartite.LTS) : GRAPH
                 let* act_state = add_act_state act_conf in
                 let edge = PublicTrans (pas_state, input_move, act_state) in
                 let* () = add_edge edge in
-                compute_graph_monad ~show_conf ~show_moves ~get_move act_state
+                compute_graph_monad ~show_conf ~show_moves_list ~get_move act_state
             | Some act_state ->
                 Util.Debug.print_debug
                   ("Loop detected: \n   "
@@ -166,12 +166,12 @@ module Make (IntLTS : Bipartite.LTS) : GRAPH
                 add_edge edge
           end
 
-    let compute_graph_m ~show_conf ~show_moves ~get_move init_conf =
+    let compute_graph_m ~show_conf ~show_moves_list ~get_move init_conf =
       let* init_state = add_conf init_conf in
-      compute_graph_monad ~show_conf ~show_moves ~get_move init_state
+      compute_graph_monad ~show_conf ~show_moves_list ~get_move init_state
 
-    let compute_graph ~show_conf ~show_moves ~get_move init_conf =
-      let comp = compute_graph_m ~show_conf ~show_moves ~get_move init_conf in
+    let compute_graph ~show_conf ~show_moves_list ~get_move init_conf =
+      let comp = compute_graph_m ~show_conf ~show_moves_list ~get_move init_conf in
       let (_, graph) = runState comp empty_graph in
       graph
   end

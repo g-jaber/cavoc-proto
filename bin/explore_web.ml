@@ -141,11 +141,12 @@ let evaluate_code () =
     OGS_LTS.Passive
       (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
   let module IBuild = Lts.Interactive_build.Make (OGS_LTS) in
+  let show_move _ = () in
   let show_conf conf : unit =
     let config_display = Dom_html.getElementById "config" in
     Js.Unsafe.set config_display "textContent" (Js.string conf) in
   (*genere les cliquables et les ajoute dans la liste des coups possibles*)
-  let show_moves results_list =
+  let show_moves_list results_list =
     (* Convert the moves list into a list of tuples with dummy ids for demonstration *)
     let actions =
       List.mapi (fun i results_list -> (i, results_list)) results_list in
@@ -168,7 +169,7 @@ let evaluate_code () =
     | _ ->
         print_to_output "error : unknown";
         Lwt.fail (Failure "Unknown error") in
-  IBuild.interactive_build ~show_conf ~show_moves ~get_move init_conf
+  IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move init_conf
 
 (* Do page init, creating the callback on the submit button, and managing some button looks*)
 let rec init_page () =
