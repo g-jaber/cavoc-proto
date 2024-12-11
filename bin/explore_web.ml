@@ -40,6 +40,16 @@ let flush_actions () =
   previous_actions := [];
   display_previous_actions ()
 
+let display_conf conf : unit =
+  (* Retrieve the ACE config editor instance from the global JavaScript context *)
+  let config_editor = Js.Unsafe.get Js.Unsafe.global "configEditor_instance" in
+  (* Access the editor's session and use session.setValue to update the content *)
+  let session = Js.Unsafe.get config_editor "session" in
+  Js.Unsafe.meth_call session "setValue" [| Js.Unsafe.inject (Js.string conf) |]
+  |> ignore;
+  (* Clear any selection to ensure clean display *)
+  Js.Unsafe.meth_call config_editor "clearSelection" [||] |> ignore
+
 (*function wich generate clickable component on the DOM*)
 let generate_clickables actions =
   let actions = actions @ [ (-1, "Stop") ] in
@@ -142,9 +152,7 @@ let evaluate_code () =
       (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
   let module IBuild = Lts.Interactive_build.Make (OGS_LTS) in
   let show_move _ = () in
-  let show_conf conf : unit =
-    let config_display = Dom_html.getElementById "config" in
-    Js.Unsafe.set config_display "textContent" (Js.string conf) in
+  let show_conf conf : unit = display_conf conf in
   (*genere les cliquables et les ajoute dans la liste des coups possibles*)
   let show_moves_list results_list =
     (* Convert the moves list into a list of tuples with dummy ids for demonstration *)
