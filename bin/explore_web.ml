@@ -139,9 +139,10 @@ let evaluate_code () =
   fetch_editor_content ();
   (* Set options based on flags *)
   let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
-  let module CpsLang = Lang.Cps.MakeComp (OpLang) in
-  let module IntLang = Lang.Interactive.Make (CpsLang) in
-  let module Int = Lts.Interactive.Make (IntLang) in
+(*  let module CpsLang = Lang.Cps.MakeComp (OpLang) in *)
+  let module DirectLang  = Lang.Direct.Make (OpLang) in
+(*  let module IntLang  = Lang.Interactive.Make (DirectLang : Lang.Interactive.LANG) in *)
+  let module Int = Lts.Interactive.Make (DirectLang) in
   let module OGS_LTS = Ogs.Ogslts.Make (Int) in
   let lexBuffer_code = Lexing.from_string !editor_content in
   let lexBuffer_sig = Lexing.from_string !signature_content in
