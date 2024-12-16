@@ -47,7 +47,12 @@ module Make (IntLTS : Bipartite.LTS) = struct
                 (IntLTS.Passive pas_conf)
         end
     | IntLTS.Passive pas_conf ->
-        let pas_conf_str = IntLTS.string_of_passive_conf pas_conf in
+        (*let pas_conf_str = IntLTS.string_of_passive_conf pas_conf in*)
+        Util.Debug.print_debug "bli";
+        let conf_json = IntLTS.passive_conf_to_yojson pas_conf in
+        Util.Debug.print_debug "bla";
+        let pas_conf_str = Yojson.Safe.pretty_to_string conf_json in
+        Util.Debug.print_debug "blu";
         show_conf pas_conf_str;
         let results_list = IntLTS.M.run (IntLTS.o_trans_gen pas_conf) in
         let moves_list = List.map fst results_list in

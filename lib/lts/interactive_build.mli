@@ -4,14 +4,15 @@ module type IBUILD = sig
 
   (* *)
 
-  val interactive_build : 
-  show_move:(string -> unit) -> 
-  show_conf:(string -> unit) -> 
-  show_moves_list:(string list -> unit) -> 
+  val interactive_build :
+    show_move:(string -> unit) ->
+    show_conf:(string -> unit) ->
+    show_moves_list:(string list -> unit) ->
     (* the argument of get_move is the 
     number of moves *)
-    get_move:(int -> int Lwt.t) 
-  -> conf -> unit Lwt.t
+    get_move:(int -> int Lwt.t) ->
+    conf ->
+    unit Lwt.t
 end
 
 module Make : functor (IntLTS : Bipartite.LTS) ->

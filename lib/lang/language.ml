@@ -12,7 +12,7 @@ module type TYPED = sig
   val string_of_negative_type : negative_type -> string
   val pp_negative_type : Format.formatter -> negative_type -> unit
 
-  type name_ctx = (Name.name, negative_type) Util.Pmap.pmap
+  type name_ctx = (Name.name, negative_type) Util.Pmap.pmap [@@deriving to_yojson]
 
   val empty_name_ctx : name_ctx
   val concat_name_ctx : name_ctx -> name_ctx -> name_ctx
@@ -71,6 +71,7 @@ module type COMP = sig
   val filter_negative_val : value -> negative_val option
 
   type interactive_env = (Name.name, negative_val) Util.Pmap.pmap
+  [@@deriving to_yojson]
 
   val empty_ienv : interactive_env
   val concat_ienv : interactive_env -> interactive_env -> interactive_env

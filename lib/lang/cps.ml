@@ -57,12 +57,18 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   type interactive_env = (OpLang.Name.name, negative_val) Util.Pmap.pmap
 
+  let interactive_env_to_yojson ienv =
+    let to_string (nn, nval) =
+      (OpLang.Name.string_of_name nn, `String (string_of_negative_val nval))
+    in
+    `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string ienv)
+
   let pp_ienv fmt ienv =
     let pp_sep fmt () = Format.pp_print_string fmt " ⋅ " in
     let pp_pair fmt (n, nval) =
       Format.fprintf fmt "%a ↦ (%a)" OpLang.Name.pp_name n pp_negative_val nval
     in
-    let pp_ienv_aux = Util.Pmap.pp_pmap ~pp_sep pp_pair in 
+    let pp_ienv_aux = Util.Pmap.pp_pmap ~pp_sep pp_pair in
     Format.fprintf fmt "[%a]" pp_ienv_aux ienv
 
   let string_of_ienv = Format.asprintf "%a" pp_ienv
@@ -103,6 +109,11 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   let string_of_negative_type = Format.asprintf "%a" pp_negative_type
 
   type name_ctx = (Name.name, negative_type) Util.Pmap.pmap
+
+  let name_ctx_to_yojson nctx =
+    let to_string (nn, nval) =
+      (Name.string_of_name nn, `String (string_of_negative_type nval)) in
+    `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string nctx)
 
   let extract_name_ctx =
     Util.Pmap.filter_map (function

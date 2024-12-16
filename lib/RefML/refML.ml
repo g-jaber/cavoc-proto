@@ -25,6 +25,11 @@ module Typed :
 
   type name_ctx = (Name.name, negative_type) Util.Pmap.pmap
 
+  let name_ctx_to_yojson ienv =
+    let to_string (nn, nty) =
+      (Names.string_of_name nn, `String (string_of_negative_type nty)) in
+    `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string ienv)
+
   let empty_name_ctx = Util.Pmap.empty
   let concat_name_ctx = Util.Pmap.concat
   let get_names_from_name_ctx = Util.Pmap.dom
@@ -49,7 +54,7 @@ module MakeComp (M : Util.Monad.BRANCH) :
   Lang.Language.COMP
     with type term = Syntax.term
      and type value = Syntax.value
-     and type negative_val = Syntax.negative_val
+     and type negative_val = Syntax.negative_val 
      and type typ = Types.typ
      and type negative_type = Types.negative_type
      and type Store.label = Syntax.label

@@ -7,9 +7,17 @@ module Make
   (* the view contains the names that Proponent has provided to Opponent. *)
   type view = Moves.name list
 
+  let view_to_yojson nn_l =
+    `List (List.map (fun x -> `String (ContNames.string_of_name x)) nn_l)
+
   (* the view map associate to each Opponent name the set of Proponent names
      available when it was introduced. *)
   type view_map = (Moves.name, view) Util.Pmap.pmap
+
+  let view_map_to_yojson vmap =
+    let to_string (nn, view) =
+      (ContNames.string_of_name nn, view_to_yojson view) in
+    `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string vmap)
 
   let pp_view fmt v =
     let pp_sep fmt () = Format.pp_print_char fmt ',' in
@@ -24,12 +32,13 @@ module Make
 
   type move = Moves.move
   type active_conf = view_map
-  type passive_conf = view * view_map
+  type passive_conf = view * view_map [@@deriving to_yojson]
 
   let pp_active_conf fmt vm = Format.fprintf fmt "View map: %a" pp_view_map vm
 
   let pp_passive_conf fmt (v, vm) =
-    Format.fprintf fmt "@[⟨View: %a |@, View map: %a⟩@]" pp_view v pp_view_map vm
+    Format.fprintf fmt "@[⟨View: %a |@, View map: %a⟩@]" pp_view v pp_view_map
+      vm
 
   let string_of_active_conf = Format.asprintf "%a" pp_active_conf
   let string_of_passive_conf = Format.asprintf "%a" pp_passive_conf

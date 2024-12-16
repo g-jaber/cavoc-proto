@@ -62,6 +62,7 @@ and term =
   | Hole
   | Error
 
+
 val pp_term : Format.formatter -> term -> unit
 val string_of_term : term -> string
 
@@ -117,6 +118,7 @@ val refold_nf_term :
   (value, unit, negative_val, eval_context) Nf.nf_term -> term
 
 type interactive_env = (Names.name, negative_val) Util.Pmap.pmap
+[@@deriving to_yojson]
 
 val empty_ienv : interactive_env
 val concat_ienv : interactive_env -> interactive_env -> interactive_env

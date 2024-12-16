@@ -23,7 +23,7 @@ module type LANG = sig
   val compute_nf : computation * Store.store -> normal_form option
 
   (*Interactive name contexts are typing contexts mapping names to interactive types.*)
-  type name_ctx
+  type name_ctx [@@deriving to_yojson]
 
   val empty_name_ctx : name_ctx
   val concat_name_ctx : name_ctx -> name_ctx -> name_ctx
@@ -32,7 +32,8 @@ module type LANG = sig
   val get_names_from_name_ctx : name_ctx -> Name.name list
 
   (* Interactive environments γ are partial maps from names to interactive values*)
-  type interactive_env
+  type interactive_env [@@deriving to_yojson]
+
 
   val empty_ienv : interactive_env
   val concat_ienv : interactive_env -> interactive_env -> interactive_env
@@ -126,7 +127,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let pp_computation = OpLang.pp_term
   let string_of_computation = Format.asprintf "%a" pp_computation
 
-  type name_ctx = OpLang.name_ctx
+  type name_ctx = OpLang.name_ctx [@@deriving to_yojson]
 
   let pp_name_ctx = OpLang.pp_name_ctx
   let string_of_name_ctx = Format.asprintf "%a" pp_name_ctx
@@ -135,7 +136,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let get_names_from_name_ctx = OpLang.get_names_from_name_ctx
 
   (* Interactive environments γ are partial maps from names to interactive values*)
-  type interactive_env = OpLang.interactive_env
+  type interactive_env = OpLang.interactive_env [@@deriving to_yojson]
 
   let pp_ienv = OpLang.pp_ienv
   let string_of_ienv = Format.asprintf "%a" pp_ienv

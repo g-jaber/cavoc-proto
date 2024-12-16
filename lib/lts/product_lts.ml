@@ -1,8 +1,9 @@
 module Make
     (IntLts : Bipartite.INT_LTS)
-    (HistLts : Hislts.HISLTS_INIT
-                 with type move = IntLts.Int.Actions.Moves.move
-                  and type name = IntLts.Int.Name.name) :
+    (HistLts :
+      Hislts.HISLTS_INIT
+        with type move = IntLts.Int.Actions.Moves.move
+         and type name = IntLts.Int.Name.name) :
   Bipartite.INT_LTS with module Int = IntLts.Int = struct
   module M = IntLts.M
   open M
@@ -12,7 +13,10 @@ module Make
   module Actions = IntLts.Actions
 
   type active_conf = IntLts.active_conf * HistLts.active_conf
+
   type passive_conf = IntLts.passive_conf * HistLts.passive_conf
+  [@@deriving to_yojson]
+
   type conf = Active of active_conf | Passive of passive_conf
 
   let pp_active_conf fmt (iconf, hconf) =

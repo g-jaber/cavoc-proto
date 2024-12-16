@@ -17,20 +17,32 @@ module Make (Int : Lts.Interactive.INT) = struct
     ictx: Int.interactive_ctx;
   }
 
+  let passive_conf_to_yojson passive_conf =
+    `Assoc
+      [
+        ("store", `String (Int.IntLang.Store.string_of_store passive_conf.store));
+        ("ienv", Int.IntLang.interactive_env_to_yojson passive_conf.ienv);
+        ("ictx", Int.interactive_ctx_to_yojson passive_conf.ictx);
+      ]
+
   type conf = Active of active_conf | Passive of passive_conf
 
   let pp_active_conf fmt act_conf =
-    Format.fprintf fmt "@[⟨@[Computation: %a@] @, @[Store: %a@] @, @[IEnv:  %a@] @, @[ICtx: %a@]⟩@]" Int.IntLang.pp_computation
-      act_conf.computation Int.IntLang.Store.pp_store act_conf.store
-      Int.IntLang.pp_ienv act_conf.ienv Int.pp_interactive_ctx act_conf.ictx
+    Format.fprintf fmt
+      "@[⟨@[Computation: %a@] @,\
+      \ @[Store: %a@] @,\
+      \ @[IEnv:  %a@] @,\
+      \ @[ICtx: %a@]⟩@]"
+      Int.IntLang.pp_computation act_conf.computation Int.IntLang.Store.pp_store
+      act_conf.store Int.IntLang.pp_ienv act_conf.ienv Int.pp_interactive_ctx
+      act_conf.ictx
 
   let pp_passive_conf fmt pas_conf =
-    Format.fprintf fmt "@[⟨@[Store: %a@] @, @[IEnv:  %a@] @, @[ICtx: %a@]⟩@]" Int.IntLang.Store.pp_store
-      pas_conf.store Int.IntLang.pp_ienv pas_conf.ienv Int.pp_interactive_ctx
-      pas_conf.ictx
+    Format.fprintf fmt "@[⟨@[Store: %a@] @, @[IEnv:  %a@] @, @[ICtx: %a@]⟩@]"
+      Int.IntLang.Store.pp_store pas_conf.store Int.IntLang.pp_ienv
+      pas_conf.ienv Int.pp_interactive_ctx pas_conf.ictx
 
   let string_of_active_conf = Format.asprintf "%a" pp_active_conf
-
   let string_of_passive_conf = Format.asprintf "%a" pp_passive_conf
 
   let extract_interactive_ctx = function

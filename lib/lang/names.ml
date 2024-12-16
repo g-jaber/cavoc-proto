@@ -1,6 +1,5 @@
 module type NAME = sig
   type name
-
   val string_of_name : name -> string
   val pp_name : Format.formatter -> name -> unit
   val is_callable : name -> bool

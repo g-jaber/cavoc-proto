@@ -1,5 +1,5 @@
 (library
  (name lts)
   (preprocess
-  (pps lwt_ppx))
- (libraries lang util lwt))
+  (pps lwt_ppx ppx_deriving_yojson))
+ (libraries lang util lwt yojson ppx_deriving_yojson.runtime))

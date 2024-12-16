@@ -9,7 +9,7 @@ module type INT = sig
        and type Moves.kdata = IntLang.abstract_normal_form
   (* *)
 
-  type interactive_ctx
+  type interactive_ctx [@@deriving to_yojson]
 
   val replace_namectxP : interactive_ctx -> IntLang.name_ctx -> interactive_ctx
 
@@ -78,7 +78,14 @@ module Make (IntLang : Lang.Interactive.LANG) :
     storectx: IntLang.Store.store_ctx;
     namectxP: IntLang.name_ctx;
     namectxO: IntLang.name_ctx;
-  }
+  } 
+  
+  let interactive_ctx_to_yojson ictx =
+    `Assoc [
+      ("storectx", `String (IntLang.Store.string_of_store_ctx ictx.storectx));
+      ("namectxP", IntLang.name_ctx_to_yojson ictx.namectxP);
+      ("namectxO", IntLang.name_ctx_to_yojson ictx.namectxO)
+    ]
 
   let pp_interactive_ctx fmt ictx =
     Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a |@, ΔP: %a⟩@]" IntLang.Store.pp_store_ctx ictx.storectx

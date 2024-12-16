@@ -24,7 +24,7 @@ module Make (IntLts : Bipartite.INT_LTS) :
       IntLts.Int.IntLang.abstract_normal_form
       * IntLts.Int.IntLang.abstract_normal_form
     (*IntLts.Actions.Moves.kdata
-      * IntLts.Actions.Moves.kdata*)
+     * IntLts.Actions.Moves.kdata*)
 
     let pp_a_nf ~pp_dir fmt (kdata1, _) =
       IntLts.Int.IntLang.pp_a_nf ~pp_dir fmt kdata1
@@ -54,6 +54,8 @@ module Make (IntLts : Bipartite.INT_LTS) :
     IntLts.passive_conf
     * IntLts.passive_conf
     * IntLts.Int.Name.name Util.Namespan.namespan
+
+  let passive_conf_to_yojson _ = failwith "Not implemented"
 
   type conf = Active of active_conf | Passive of passive_conf
 

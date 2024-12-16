@@ -1,7 +1,7 @@
 module type HISLTS = sig
   type move
   type active_conf
-  type passive_conf
+  type passive_conf [@@deriving to_yojson]
 
   val string_of_active_conf : active_conf -> string
   val string_of_passive_conf : passive_conf -> string

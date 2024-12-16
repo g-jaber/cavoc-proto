@@ -18,6 +18,14 @@ module Make (Int : Lts.Interactive.INT) = struct
 
   type conf = Active of active_conf | Passive of passive_conf
 
+  let passive_conf_to_yojson passive_conf =
+    `Assoc
+      [
+        ("store", `String (Int.IntLang.Store.string_of_store passive_conf.store));
+        ("ienv", Int.IntLang.interactive_env_to_yojson passive_conf.ienv);
+        ("ictx", Int.interactive_ctx_to_yojson passive_conf.ictx);
+      ]
+
   let pp_active_conf fmt act_conf =
     Format.fprintf fmt "@[⟨%a |@, %a |@, %a⟩@]" Int.IntLang.pp_computation
       act_conf.computation Int.IntLang.Store.pp_store act_conf.store
@@ -29,7 +37,6 @@ module Make (Int : Lts.Interactive.INT) = struct
       pas_conf.ictx
 
   let string_of_active_conf = Format.asprintf "%a" pp_active_conf
-
   let string_of_passive_conf = Format.asprintf "%a" pp_passive_conf
 
   let extract_interactive_ctx = function
