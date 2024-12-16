@@ -94,10 +94,6 @@ let get_chosen_action _ =
                 match Js.Opt.to_option (Dom_html.CoerceTo.element child) with
                 | None -> acc
                 | Some element -> (
-                    let action_label =
-                      Js.to_string
-                        (Js.Opt.get element##.textContent (fun () ->
-                             assert false)) in
                     (* Look for input[type='radio'] inside each div *)
                     match
                       element##querySelector (Js.string "input[type='radio']")
@@ -112,7 +108,6 @@ let get_chosen_action _ =
                             | None -> acc
                             | Some radio_input ->
                                 if Js.to_bool radio_input##.checked then (
-                                  add_action action_label;
                                   (* Log the action *)
                                   let id_str = Js.to_string radio_input##.id in
                                   print_to_output ("Selected ID: " ^ id_str);
@@ -139,9 +134,9 @@ let evaluate_code () =
   fetch_editor_content ();
   (* Set options based on flags *)
   let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
-(*  let module CpsLang = Lang.Cps.MakeComp (OpLang) in *)
-  let module DirectLang  = Lang.Direct.Make (OpLang) in
-(*  let module IntLang  = Lang.Interactive.Make (DirectLang : Lang.Interactive.LANG) in *)
+  (*  let module CpsLang = Lang.Cps.MakeComp (OpLang) in *)
+  let module DirectLang = Lang.Direct.Make (OpLang) in
+  (*  let module IntLang  = Lang.Interactive.Make (DirectLang : Lang.Interactive.LANG) in *)
   let module Int = Lts.Interactive.Make (DirectLang) in
   let module OGS_LTS = Ogs.Ogslts.Make (Int) in
   let lexBuffer_code = Lexing.from_string !editor_content in
@@ -152,7 +147,7 @@ let evaluate_code () =
     OGS_LTS.Passive
       (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
   let module IBuild = Lts.Interactive_build.Make (OGS_LTS) in
-  let show_move _ = () in
+  let show_move action = add_action action in
   let show_conf conf : unit = display_conf conf in
   (*genere les cliquables et les ajoute dans la liste des coups possibles*)
   let show_moves_list results_list =
@@ -178,7 +173,8 @@ let evaluate_code () =
     | _ ->
         print_to_output "error : unknown";
         Lwt.fail (Failure "Unknown error") in
-  IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move init_conf
+  IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
+    init_conf
 
 (* Do page init, creating the callback on the submit button, and managing some button looks*)
 let rec init_page () =
