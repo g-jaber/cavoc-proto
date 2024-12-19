@@ -40,12 +40,13 @@ let flush_actions () =
   previous_actions := [];
   display_previous_actions ()
 
-let display_conf conf : unit =
+let display_conf conf_json : unit =
+  let conf_str = Yojson.Safe.pretty_to_string conf_json in
   (* Retrieve the ACE config editor instance from the global JavaScript context *)
   let config_editor = Js.Unsafe.get Js.Unsafe.global "configEditor_instance" in
   (* Access the editor's session and use session.setValue to update the content *)
   let session = Js.Unsafe.get config_editor "session" in
-  Js.Unsafe.meth_call session "setValue" [| Js.Unsafe.inject (Js.string conf) |]
+  Js.Unsafe.meth_call session "setValue" [| Js.Unsafe.inject (Js.string conf_str) |]
   |> ignore;
   (* Clear any selection to ensure clean display *)
   Js.Unsafe.meth_call config_editor "clearSelection" [||] |> ignore
