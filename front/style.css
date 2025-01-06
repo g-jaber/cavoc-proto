@@ -56,6 +56,14 @@ h2 {
   cursor: pointer;
 }
 
+#store{
+  padding: 20px;
+}
+#store div{
+  padding: 20px;
+  border: solid 1px rgb(152, 152, 152);
+}
+
 #submit:hover {
   position: fixed;
   background-color: #32b568;
