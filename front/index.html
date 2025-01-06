@@ -167,6 +167,10 @@ let g f = x := 1; f(); assert (!x = 1)`;
         fileSelect.appendChild(option);
       });
 
+      // Set the default selected file to "higher_order.ml"
+      const defaultFile = "higher_order.ml";
+      fileSelect.value = defaultFile;
+
       // Load the selected file into the editor when the load button is clicked
       document
         .getElementById("load-btn")
