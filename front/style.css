@@ -9,6 +9,7 @@ body {
   padding-right: 1%;
   padding-top: 1%;
   /* overflow: hidden; */
+  user-select: none;
 }
 
 /* Container Styles - General layout for sections */
@@ -274,4 +275,13 @@ input[type="radio"] {
   /* Monokai background color for each action item */
   color: #f8f8f2;
   /* Light text color for action items */
+}
+
+
+#file-selection{
+  position: absolute;
+  margin-left: 50%;
+  margin-top: 1%;
+  transform: translate(-50%, -50%);
+  z-index: -1px;
 }

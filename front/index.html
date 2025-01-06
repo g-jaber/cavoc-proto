@@ -11,21 +11,20 @@
 
   <body>
     <div class="container code-section">
-      <div id="file-selection" class="file-selection-container">
-        <label for="file-select">Select a file:</label>
-        <select id="file-select-dropdown" class="file-select">
-          <!-- Options will be populated dynamically -->
-        </select>
-        <button id="load-btn" class="load-btn">Load</button>
-      </div>
       <h2>Code OCaml</h2>
       <div id="editor"></div>
     </div>
 
     <div class="container signature">
-      <div><p></p></div>
       <h2>Signature OCaml</h2>
       <div id="signatureEditor"></div>
+    </div>
+    <div id="file-selection" class="file-selection-container">
+      <label for="file-select">Select a file:</label>
+      <select id="file-select-dropdown" class="file-select">
+        <!-- Options will be populated dynamically -->
+      </select>
+      <button id="load-btn" class="load-btn">Load</button>
     </div>
     <div id="output-container">
       <div id="select-action">
