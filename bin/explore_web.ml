@@ -89,7 +89,7 @@ let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
             \              <div class='ienv-div' style='flex: 1; overflow-y: \
              auto; white-space: pre-wrap;'>ienv :<br> %s</div>\n\
             \              <div id='stack-container' class='stack-div' \
-             style='flex: 1; overflow-y: auto; height: 300px; overflow-y: \
+             style='flex: 1; overflow-y: auto; height: 250px; overflow-y: \
              scroll;'>Stack :<br>   %s</div>\n\
             \            </div>"
             ienv_html stack_html
