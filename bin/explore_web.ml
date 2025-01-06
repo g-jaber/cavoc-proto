@@ -303,6 +303,8 @@ let rec init_page () =
               (* Recursively call init_page to restore button *)
               Lwt.return_unit
           | exn ->
+              (* init page again to allow for another exec *)
+              init_page ();
               (* Handle other exceptions *)
               print_to_output ("Unhandled exception: " ^ Printexc.to_string exn);
               Lwt.return_unit))

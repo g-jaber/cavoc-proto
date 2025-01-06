@@ -178,35 +178,36 @@ let g f = x := 1; f(); assert (!x = 1)`;
           const selectedFileName = document.getElementById(
             "file-select-dropdown"
           ).value;
-
-          // Check for .ml file and .mli file
-          if (selectedFileName) {
-            const mlFileName = selectedFileName;
-            const mliFileName = mlFileName.replace(".ml", ".mli");
-
-            // Load .ml file content into the editor
-            fetch(`../test/${mlFileName}`)
-              .then((response) => response.text())
-              .then((mlContent) => {
-                editor.session.setValue(mlContent);
-              })
-              .catch((error) =>
-                console.error("Error loading .ml file:", error)
-              );
-
-            // Load .mli file content into the signature editor if it exists
-            fetch(`../test/${mliFileName}`)
-              .then((response) => response.text())
-              .then((mliContent) => {
-                signatureEditor.session.setValue(mliContent);
-              })
-              .catch((error) => {
-                console.error("Error loading .mli file:", error);
-                // If the .mli file doesn't exist, set signature editor to empty
-                signatureEditor.session.setValue("");
-              });
-          }
+          loadFileContent(selectedFileName);
         });
+
+      // Function to load the file content into the editor
+      function loadFileContent(selectedFileName) {
+        if (selectedFileName) {
+          const mlFileName = selectedFileName;
+          const mliFileName = mlFileName.replace(".ml", ".mli");
+
+          // Load .ml file content into the editor
+          fetch(`../test/${mlFileName}`)
+            .then((response) => response.text())
+            .then((mlContent) => {
+              editor.session.setValue(mlContent);
+            })
+            .catch((error) => console.error("Error loading .ml file:", error));
+
+          // Load .mli file content into the signature editor if it exists
+          fetch(`../test/${mliFileName}`)
+            .then((response) => response.text())
+            .then((mliContent) => {
+              signatureEditor.session.setValue(mliContent);
+            })
+            .catch((error) => {
+              console.error("Error loading .mli file:", error);
+              // If the .mli file doesn't exist, set signature editor to empty
+              signatureEditor.session.setValue("");
+            });
+        }
+      }
     };
   </script>
 </html>
