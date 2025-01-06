@@ -87,10 +87,10 @@ let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
           Printf.sprintf
             "<div style='display: flex; gap: 10px;'>\n\
             \              <div class='ienv-div' style='flex: 1; overflow-y: \
-             auto; white-space: pre-wrap;'>%s</div>\n\
+             auto; white-space: pre-wrap;'>ienv :<br> %s</div>\n\
             \              <div id='stack-container' class='stack-div' \
              style='flex: 1; overflow-y: auto; height: 300px; overflow-y: \
-             scroll;'>%s</div>\n\
+             scroll;'>Stack :<br>   %s</div>\n\
             \            </div>"
             ienv_html stack_html
       | _ -> "<div>Invalid ienv structure</div>")
