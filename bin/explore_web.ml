@@ -40,16 +40,90 @@ let flush_actions () =
   previous_actions := [];
   display_previous_actions ()
 
+(* Updates the HTML content of a specific container by ID *)
+let update_container (id : string) (content : string) : unit =
+  let container = Dom_html.getElementById id in
+  container##.innerHTML := Js.string content
+
+(* Generates HTML for the "store" tab *)
+let generate_store_html (store_str : string) : string =
+  (* Split the store string into lines and wrap each in a <div> for display *)
+  store_str |> String.split_on_char ';' |> List.map String.trim
+  |> List.filter (fun s -> s <> "")
+  |> List.map (fun line -> Printf.sprintf "<div>%s</div>" line)
+  |> String.concat "\n"
+
+(* Generates HTML for the "ienv" tab *)
+let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
+  match ienv_obj with
+  | `Assoc fields -> (
+      match
+        (List.assoc_opt "ienv" fields, List.assoc_opt "ectx stack" fields)
+      with
+      | (Some (`Assoc ienv_content), Some (`List ectx_stack)) ->
+          (* Generate ienv content as formatted text *)
+          let ienv_html =
+            ienv_content
+            |> List.map (fun (key, value) ->
+                   match value with
+                   | `String v ->
+                       Printf.sprintf "<div><strong>%s:</strong> %s</div>" key v
+                   | _ ->
+                       Printf.sprintf
+                         "<div><strong>%s:</strong> (non-string value)</div>"
+                         key)
+            |> String.concat "\n" in
+
+          (* Generate the stack content as a list of divs *)
+          let stack_html =
+            ectx_stack
+            |> List.map (function
+                 | `String s ->
+                     Printf.sprintf "<div class=\"stack-item\">%s</div>" s
+                 | _ -> "<div>(non-string value)</div>")
+            |> String.concat "\n" in
+
+          (* Wrap the ienv and stack in a flex container *)
+          Printf.sprintf
+            "<div style='display: flex; gap: 10px;'>\n\
+            \              <div class='ienv-div' style='flex: 1; overflow-y: \
+             auto; white-space: pre-wrap;'>%s</div>\n\
+            \              <div id='stack-container' class='stack-div' \
+             style='flex: 1; overflow-y: auto; height: 300px; overflow-y: \
+             scroll;'>%s</div>\n\
+            \            </div>"
+            ienv_html stack_html
+      | _ -> "<div>Invalid ienv structure</div>")
+  | _ -> "<div>Invalid ienv format</div>"
+
+(* Main display configuration function *)
 let display_conf conf_json : unit =
+  (* Pretty-print the JSON and display it in the ACE editor *)
   let conf_str = Yojson.Safe.pretty_to_string conf_json in
-  (* Retrieve the ACE config editor instance from the global JavaScript context *)
   let config_editor = Js.Unsafe.get Js.Unsafe.global "configEditor_instance" in
-  (* Access the editor's session and use session.setValue to update the content *)
   let session = Js.Unsafe.get config_editor "session" in
-  Js.Unsafe.meth_call session "setValue" [| Js.Unsafe.inject (Js.string conf_str) |]
+  Js.Unsafe.meth_call session "setValue"
+    [| Js.Unsafe.inject (Js.string conf_str) |]
   |> ignore;
-  (* Clear any selection to ensure clean display *)
-  Js.Unsafe.meth_call config_editor "clearSelection" [||] |> ignore
+  Js.Unsafe.meth_call config_editor "clearSelection" [||] |> ignore;
+
+  (* Decode the JSON to fill store and ienv tabs *)
+  match conf_json with
+  | `Assoc fields -> (
+      (* Handle "store" tab *)
+      (match List.assoc_opt "store" fields with
+      | Some (`String store_str) ->
+          let store_html = generate_store_html store_str in
+          update_container "store" store_html
+      | _ -> update_container "store" "<div>No store data available</div>");
+
+      (* Handle "ienv" tab *)
+      match List.assoc_opt "ienv" fields with
+      | Some ienv_obj ->
+          let ienv_html = generate_ienv_html ienv_obj in
+          update_container "ienv" ienv_html
+      | _ -> update_container "ienv" "<div>No ienv data available</div>")
+  | _ -> print_to_output "Invalid JSON format"
 
 (*function wich generate clickable component on the DOM*)
 let generate_clickables actions =

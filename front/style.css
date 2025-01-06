@@ -185,16 +185,15 @@ input[type="radio"] {
   box-sizing: border-box;
 }
 
-#history{
+#history {
   padding: 5%;
 }
-
 
 /*styles for config tabs*/
 
 /* Style for tab navigation */
 
-.tabs{
+.tabs {
   position: relative;
   display: block;
   height: 48%;
@@ -238,4 +237,33 @@ input[type="radio"] {
 
 .tab-content.active {
   display: block;
+  padding: 0.05%;
+}
+
+.ienv-div {
+  padding: 10px;
+  border: 1px solid rgb(152, 152, 152);
+  border-radius: 5px;
+  margin: 3px;
+}
+
+.stack-div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid rgb(152, 152, 152);
+  border-radius: 5px;
+  margin: 3px;
+}
+
+.stack-item {
+  padding: 8px;
+  border: 1px solid rgb(152, 152, 152);
+  border-radius: 4px;
+  margin: 3px;
+  background-color: hsl(70, 8%, 18%);
+  /* Monokai background color for each action item */
+  color: #f8f8f2;
+  /* Light text color for action items */
 }

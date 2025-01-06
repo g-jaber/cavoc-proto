@@ -1,113 +1,117 @@
 <!DOCTYPE html>
 <html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CAVOC</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.5/ace.js"></script>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="shortcut icon" href="./" type="image/x-icon" />
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CAVOC</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.5/ace.js"></script>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="shortcut icon" href="./" type="image/x-icon" />
-</head>
-
-<body>
-  <div class="container code-section">
-    <h2>Code OCaml</h2>
-    <div id="editor"></div>
-  </div>
-
-  <div class="container signature">
-    <h2>Signature OCaml</h2>
-    <div id="signatureEditor"></div>
-  </div>
-  <div id="output-container">
-    <div id="select-action">
-      <button id="select-btn">Select</button>
-      <div id="actions-list">
-        <!-- Checkboxes will be dynamically added here -->
-      </div>
+  <body>
+    <div class="container code-section">
+      <h2>Code OCaml</h2>
+      <div id="editor"></div>
     </div>
-    <div id="histo-config-container">
+
+    <div class="container signature">
+      <h2>Signature OCaml</h2>
+      <div id="signatureEditor"></div>
+    </div>
+    <div id="output-container">
+      <div id="select-action">
+        <button id="select-btn">Select</button>
+        <div id="actions-list">
+          <!-- Checkboxes will be dynamically added here -->
+        </div>
+      </div>
+      <div id="histo-config-container">
         <div class="tabs">
           <!-- Tab navigation -->
           <div class="tab-nav">
-            <button class="tab-link active" onclick="openTab(event, 'config')">Configuration</button>
-            <button class="tab-link" onclick="openTab(event, 'ienv')">ienv</button>
-            <button class="tab-link" onclick="openTab(event, 'store')">Store</button>
-            <button class="tab-link" onclick="openTab(event, 'histo')">History</button>
+            <button class="tab-link active" onclick="openTab(event, 'config')">
+              Configuration
+            </button>
+            <button class="tab-link" onclick="openTab(event, 'ienv')">
+              ienv
+            </button>
+            <button class="tab-link" onclick="openTab(event, 'store')">
+              Store
+            </button>
+            <button class="tab-link" onclick="openTab(event, 'histo')">
+              History
+            </button>
           </div>
 
           <!-- Tab content -->
-          <div id="config" class="tab-content active">
-          </div>
+          <div id="config" class="tab-content active"></div>
           <div id="ienv" class="tab-content">
+            <div id="ienv-div" class="tab-content active"></div>
+            <div id="stack-container" class="tab-content active"></div>
           </div>
-          <div id="store" class="tab-content">
-          </div>
+          <div id="store" class="tab-content"></div>
           <div id="histo" class="tab-content">
             <div id="history"></div>
-
           </div>
-
+        </div>
       </div>
     </div>
-  </div>
-  <button id="submit">Evaluate</button>
-  <script src="../_build/default/bin/explore_web.bc.js"></script>
-</body>
+    <button id="submit">Evaluate</button>
+    <script src="../_build/default/bin/explore_web.bc.js"></script>
+  </body>
 
-<script>
-  // Initialize ACE editor
-  var editor = ace.edit("editor");
-  editor.setTheme("ace/theme/monokai");
-  editor.session.setMode("ace/mode/ocaml");
-  var signatureEditor = ace.edit("signatureEditor");
-  signatureEditor.setTheme("ace/theme/monokai");
-  signatureEditor.session.setMode("ace/mode/ocaml");
-  editor.set;
+  <script>
+    // Initialize ACE editor
+    var editor = ace.edit("editor");
+    editor.setTheme("ace/theme/monokai");
+    editor.session.setMode("ace/mode/ocaml");
+    var signatureEditor = ace.edit("signatureEditor");
+    signatureEditor.setTheme("ace/theme/monokai");
+    signatureEditor.session.setMode("ace/mode/ocaml");
+    editor.set;
 
-  // Set the default code for the code editor
-  var code = `(* To be tested with
+    // Set the default code for the code editor
+    var code = `(* To be tested with
 dune exec explore.exe test/isc.ml test/isc.mli
 *)
 let x = ref 0
 let g f = x := 1; f(); assert (!x = 1)`;
 
-  // Set the default code for the signature editor
-  var signature = `val g : (unit -> unit) -> unit`;
+    // Set the default code for the signature editor
+    var signature = `val g : (unit -> unit) -> unit`;
 
-  // Apply the code to the editors
-  editor.session.setValue(code);
-  signatureEditor.session.setValue(signature);
+    // Apply the code to the editors
+    editor.session.setValue(code);
+    signatureEditor.session.setValue(signature);
 
-  // Store editor instances in global variables to be accessed from OCaml
-  window.editor_instance = editor;
-  window.signatureEditor_instance = signatureEditor;
+    // Store editor instances in global variables to be accessed from OCaml
+    window.editor_instance = editor;
+    window.signatureEditor_instance = signatureEditor;
 
-  var configEditor = ace.edit("config");
-  configEditor.setTheme("ace/theme/monokai");
-  configEditor.session.setMode("ace/mode/ocaml");
-  configEditor.setReadOnly(true);
-  configEditor.renderer.$cursorLayer.element.style.display = "none";
-  window.configEditor_instance = configEditor;
+    var configEditor = ace.edit("config");
+    configEditor.setTheme("ace/theme/monokai");
+    configEditor.session.setMode("ace/mode/ocaml");
+    configEditor.setReadOnly(true);
+    configEditor.renderer.$cursorLayer.element.style.display = "none";
+    window.configEditor_instance = configEditor;
 
-  //script for config tabs
+    //script for config tabs
 
-  function openTab(event, tabId) {
-    // Hide all tab contents
-    const contents = document.querySelectorAll('.tab-content');
-    contents.forEach((content) => content.classList.remove('active'));
+    function openTab(event, tabId) {
+      // Hide all tab contents
+      const contents = document.querySelectorAll(".tab-content");
+      contents.forEach((content) => content.classList.remove("active"));
 
-    // Remove "active" class from all tab links
-    const links = document.querySelectorAll('.tab-link');
-    links.forEach((link) => link.classList.remove('active'));
+      // Remove "active" class from all tab links
+      const links = document.querySelectorAll(".tab-link");
+      links.forEach((link) => link.classList.remove("active"));
 
-    // Show the selected tab content
-    document.getElementById(tabId).classList.add('active');
+      // Show the selected tab content
+      document.getElementById(tabId).classList.add("active");
 
-    // Add "active" class to the clicked tab link
-    event.currentTarget.classList.add('active');
-  }
-</script>
-
+      // Add "active" class to the clicked tab link
+      event.currentTarget.classList.add("active");
+    }
+  </script>
 </html>
