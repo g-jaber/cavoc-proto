@@ -11,11 +11,19 @@
 
   <body>
     <div class="container code-section">
+      <div id="file-selection" class="file-selection-container">
+        <label for="file-select">Select a file:</label>
+        <select id="file-select-dropdown" class="file-select">
+          <!-- Options will be populated dynamically -->
+        </select>
+        <button id="load-btn" class="load-btn">Load</button>
+      </div>
       <h2>Code OCaml</h2>
       <div id="editor"></div>
     </div>
 
     <div class="container signature">
+      <div><p></p></div>
       <h2>Signature OCaml</h2>
       <div id="signatureEditor"></div>
     </div>
@@ -113,5 +121,88 @@ let g f = x := 1; f(); assert (!x = 1)`;
       // Add "active" class to the clicked tab link
       event.currentTarget.classList.add("active");
     }
+  </script>
+  <script>
+    window.onload = function () {
+      // List of files as provided
+      const filesList = [
+        "cavoc.ml",
+        "exception.ml",
+        "higher_order.mli",
+        "no_visible.ml",
+        "polymorphic_identity.mli",
+        "rec_diverge.ml",
+        "universal_type.mli",
+        "wbsc_context.ml",
+        "while.ml",
+        "compare",
+        "exception.mli",
+        "isc.ml",
+        "no_visible.mli",
+        "private_counter.ml",
+        "rec_diverge.mli",
+        "wbsc.ml",
+        "wbsc_context.mli",
+        "while_diverge.ml",
+        "dune",
+        "higher_order.ml",
+        "isc.mli",
+        "polymorphic_identity.ml",
+        "private_counter.mli",
+        "universal_type.ml",
+        "wbsc.mli",
+        "wbsc_interact.ml",
+        "while_diverge.mli",
+      ];
+
+      // Filter the list to get only the .ml files
+      const mlFiles = filesList.filter((file) => file.endsWith(".ml"));
+
+      // Populate the dropdown with the .ml file names
+      const fileSelect = document.getElementById("file-select-dropdown");
+      mlFiles.forEach((file) => {
+        const option = document.createElement("option");
+        option.value = file;
+        option.text = file;
+        fileSelect.appendChild(option);
+      });
+
+      // Load the selected file into the editor when the load button is clicked
+      document
+        .getElementById("load-btn")
+        .addEventListener("click", function () {
+          const selectedFileName = document.getElementById(
+            "file-select-dropdown"
+          ).value;
+
+          // Check for .ml file and .mli file
+          if (selectedFileName) {
+            const mlFileName = selectedFileName;
+            const mliFileName = mlFileName.replace(".ml", ".mli");
+
+            // Load .ml file content into the editor
+            fetch(`../test/${mlFileName}`)
+              .then((response) => response.text())
+              .then((mlContent) => {
+                editor.session.setValue(mlContent);
+              })
+              .catch((error) =>
+                console.error("Error loading .ml file:", error)
+              );
+
+            // Load .mli file content into the signature editor if it exists
+            fetch(`../test/${mliFileName}`)
+              .then((response) => response.text())
+              .then((mliContent) => {
+                signatureEditor.session.setValue(mliContent);
+              })
+              .catch((error) => {
+                console.error("Error loading .mli file:", error);
+                // If the .mli file doesn't exist, set signature editor to empty
+                signatureEditor.session.setValue("");
+              });
+          }
+        });
+    };
   </script>
 </html>
