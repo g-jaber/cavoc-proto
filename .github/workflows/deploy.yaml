@@ -27,9 +27,9 @@ jobs:
 
       # Build the project
       - name: Build Project
-          run: |
+        run: |
           eval $(opam env)
-          dune build 
+          dune build
 
       # Prepare deployment folder
       - name: Prepare Deployment
