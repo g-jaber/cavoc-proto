@@ -1,0 +1,287 @@
+/* General Body Styles */
+body {
+  display: flex;
+  font-family: Arial, sans-serif;
+  height: 100vh;
+  margin: 0;
+  background-color: #dfefec;
+  padding-left: 1%;
+  padding-right: 1%;
+  padding-top: 1%;
+  /* overflow: hidden; */
+  user-select: none;
+}
+
+/* Container Styles - General layout for sections */
+.container {
+  width: 50%;
+  box-sizing: border-box;
+  right: 0;
+}
+
+.container.signature {
+  position: relative;
+  left: 1%;
+}
+
+/* Header Styles - For all h2 elements */
+h2 {
+  margin-top: 0;
+  text-align: center;
+  color: #000000;
+}
+
+/* Editor Styles - All relating to the OCaml code editor */
+#editor,
+#signatureEditor {
+  height: 45%;
+  width: 98%;
+  margin-top: 20px;
+  border-radius: 7px;
+}
+
+/* Submit Button - The 'Evaluer' button styling */
+#submit {
+  position: fixed;
+  background-color: #2ecc71;
+  height: 50px;
+  border-radius: 5px;
+  color: #000000;
+  font-family: "Courier New", Courier, monospace;
+  font-size: larger;
+  border: solid 2px black;
+  bottom: 40%;
+  left: 50%;
+  transform: translate(-50%);
+  z-index: 10;
+  cursor: pointer;
+}
+
+#store{
+  padding: 20px;
+}
+#store div{
+  padding: 20px;
+  border: solid 1px rgb(152, 152, 152);
+}
+
+#submit:hover {
+  position: fixed;
+  background-color: #32b568;
+  height: 50px;
+  border-radius: 5px;
+  color: #000000;
+  font-family: "Courier New", Courier, monospace;
+  font-size: larger;
+  border: solid 2px black;
+  bottom: 40%;
+  left: 50%;
+  transform: translate(-50%);
+  z-index: 10;
+  cursor: pointer;
+}
+
+/* Output Container - For displaying the output section at the bottom of the page */
+#output-container {
+  display: flex;
+  height: 40%;
+  width: 98%;
+  position: fixed;
+  margin-left: 0%;
+  bottom: 0%;
+  font-family: "Courier New", Courier, monospace;
+}
+
+/* Actions List and Select Action Styles - All relating to the action list container */
+#select-action {
+  width: 40%;
+  height: 99%;
+  overflow-y: scroll;
+  border-radius: 5px;
+  background-color: #272822;
+  /* Monokai background color for action list */
+}
+
+/* Actions List - Styles the list of actions (checkboxes or items inside the action container) */
+#actions-list {
+  position: relative;
+  top: 35px;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  margin: 1px;
+  margin-left: 5%;
+  background-color: #272822;
+  /* Monokai background color for actions list */
+}
+
+/* Radio Button Styles - Specific to radio buttons in the actions list */
+input[type="radio"] {
+  margin-right: 5px;
+  padding: 1px;
+  /* Adds space between the radio button and the text */
+  color: #f8f8f2;
+  /* White text color for radio button */
+}
+
+/* Button inside the action list - Positioning and styling for buttons inside actions list */
+#select-action button {
+  position: relative;
+  /* Use absolute positioning to place the button outside the list */
+  left: 50%;
+  bottom: -30px;
+  /* Moves the button outside the action list */
+  transform: translateX(-50%);
+  /* Centers the button horizontally */
+  background-color: #2ecc71;
+  /* Light color for button background */
+  color: #272822;
+  /* Dark color for text to match Monokai contrast */
+  font-family: "Courier New", Courier, monospace;
+  font-size: larger;
+  border: solid 2px black;
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 10px 15px;
+  /* Adds padding to the button */
+}
+
+#select-action button:hover {
+  position: relative;
+  /* Use absolute positioning to place the button outside the list */
+  left: 50%;
+  bottom: -30px;
+  /* Moves the button outside the action list */
+  transform: translateX(-50%);
+  /* Centers the button horizontally */
+  background-color: #32b568;
+  /* Light color for button background */
+  color: #272822;
+  /* Dark color for text to match Monokai contrast */
+  font-family: "Courier New", Courier, monospace;
+  font-size: larger;
+  border: solid 2px black;
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 10px 15px;
+  /* Adds padding to the button */
+}
+
+/* Individual Action Item Styles - Styles for each action list item */
+#actions-list div {
+  border: 1px solid rgb(152, 152, 152);
+  border-radius: 5px;
+  padding: 1px;
+  background-color: #272822;
+  /* Monokai background color for each action item */
+  color: #f8f8f2;
+  /* Light text color for action items */
+}
+
+#histo-config-container {
+  width: 60%;
+  margin-top: -2%;
+  padding-left: 1%;
+  color: #f8f8f2;
+  font-family: monospace;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 5px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+#history {
+  padding: 5%;
+}
+
+/*styles for config tabs*/
+
+/* Style for tab navigation */
+
+.tabs {
+  position: relative;
+  display: block;
+  height: 48%;
+}
+.tab-nav {
+  justify-content: right;
+  display: flex;
+}
+
+.tab-link {
+  font-family: "Courier New", Courier, monospace;
+  background: #381414;
+  color: #f8f8f2;
+  padding: 6px 20px;
+  cursor: pointer;
+  font-size: 16px;
+  border: 1px solid black;
+}
+
+.tab-link.active {
+  border-top-right-radius: 10px;
+  border-top-left-radius: 10px;
+  border-top: solid #32b568 5px;
+  color: #32b568;
+}
+
+.tab-link:hover {
+  color: #000000;
+  background: #2b9b59;
+}
+
+/* Style for tab content */
+.tab-content {
+  display: none;
+  border-bottom-right-radius: 5px;
+  border-top-left-radius: 5px;
+  border-bottom-left-radius: 5px;
+  background-color: #272822;
+  height: 200%;
+}
+
+.tab-content.active {
+  display: block;
+  padding: 0.05%;
+}
+
+.ienv-div {
+  padding: 10px;
+  border: 1px solid rgb(152, 152, 152);
+  border-radius: 5px;
+  margin: 3px;
+}
+
+.stack-div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid rgb(152, 152, 152);
+  border-radius: 5px;
+  margin: 3px;
+}
+
+.stack-item {
+  padding: 8px;
+  border: 1px solid rgb(152, 152, 152);
+  border-radius: 4px;
+  margin: 3px;
+  background-color: hsl(70, 8%, 18%);
+  /* Monokai background color for each action item */
+  color: #f8f8f2;
+  /* Light text color for action items */
+}
+
+
+#file-selection{
+  position: absolute;
+  margin-left: 50%;
+  margin-top: 1%;
+  transform: translate(-50%, -50%);
+  z-index: -1px;
+}
