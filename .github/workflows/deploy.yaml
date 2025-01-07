@@ -13,23 +13,23 @@ jobs:
     steps:
       # Checkout the repository
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # Install OCaml and dependencies
+      # Set up OCaml
       - name: Set up OCaml
-        uses: avsm/setup-ocaml@v2
+        uses: ocaml/setup-ocaml@v3
         with:
-          ocaml-version: "5.0"
-          dune-version: "3.10"
+          ocaml-compiler: 5 # Use OCaml version 5.x
 
+      # Install dependencies
       - name: Install Dependencies
         run: opam install . --deps-only --yes
 
       # Build the project
       - name: Build Project
-        run: |
+          run: |
           eval $(opam env)
-          dune build bin/explore_web.bc.js
+          dune build 
 
       # Prepare deployment folder
       - name: Prepare Deployment
@@ -38,7 +38,7 @@ jobs:
           cp -r front/* deployment/front/  # Copy front-end files
           mkdir -p deployment/_build/default/bin
           cp _build/default/bin/explore_web.bc.js deployment/_build/default/bin/  # Copy build artifact
-          cp -r test deployment/test       # Copy test files
+          cp -r test deployment/test  # Copy test files
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
