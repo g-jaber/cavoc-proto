@@ -1,0 +1,48 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - test-frontend-ta
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Install OCaml and dependencies
+      - name: Set up OCaml
+        uses: avsm/setup-ocaml@v2
+        with:
+          ocaml-version: "5.0"
+          dune-version: "3.10"
+
+      - name: Install Dependencies
+        run: opam install . --deps-only --yes
+
+      # Build the project
+      - name: Build Project
+        run: |
+          eval $(opam env)
+          dune build bin/explore_web.bc.js
+
+      # Prepare deployment folder
+      - name: Prepare Deployment
+        run: |
+          mkdir -p deployment/front
+          cp -r front/* deployment/front/  # Copy front-end files
+          mkdir -p deployment/_build/default/bin
+          cp _build/default/bin/explore_web.bc.js deployment/_build/default/bin/  # Copy build artifact
+          cp -r test deployment/test       # Copy test files
+
+      # Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: deployment/front
