@@ -17,7 +17,16 @@ let fetch_editor_content () =
     Js.to_string (Js.Unsafe.meth_call signature_editor "getValue" [||])
 
 (* print function to send output to the web console *)
-let print_to_output str = ignore (Firebug.console##log str)
+(* let print_to_output str = ignore (Firebug.console##log str) *)
+
+(* Redirects OCaml print functions to output in the HTML div with id "output" *)
+let print_to_output str =
+  let output_div = Dom_html.getElementById "console" in
+  let current_content = Js.to_string (Js.Unsafe.get output_div "innerHTML") in
+  let new_content = current_content ^ "<pre>" ^ str ^ "</pre>" in
+  Js.Unsafe.set output_div "innerHTML" (Js.string new_content);
+  Js.Unsafe.set output_div "innerHTML" (Js.string new_content);
+  Js.Unsafe.set output_div "scrollTop" (Js.Unsafe.get output_div "scrollHeight")
 
 (* Mutable list to store previous actions *)
 let previous_actions : string list ref = ref []
@@ -26,8 +35,7 @@ let previous_actions : string list ref = ref []
 let display_previous_actions () : unit =
   let actions_string = String.concat " ; " !previous_actions in
   let action_display = Dom_html.getElementById "history" in
-  Js.Unsafe.set action_display "textContent" (Js.string actions_string);
-  print_to_output @@ "Actions played = " ^ actions_string
+  Js.Unsafe.set action_display "textContent" (Js.string actions_string)
 
 (* Adds an action to the previous actions list and updates the DOM *)
 let add_action action =
@@ -151,7 +159,6 @@ let clear_list () : unit =
   actions_list##.innerHTML := Js.string ""
 
 let get_chosen_action _ =
-  print_to_output "Waiting for a click.";
   let select_btn_opt = Dom_html.getElementById_opt "select-btn" in
   match select_btn_opt with
   | None -> Lwt.return (-2) (* No button found *)
@@ -162,7 +169,6 @@ let get_chosen_action _ =
       | None -> Lwt.return (-2) (* No actions list found *)
       | Some actions_list ->
           let children = Dom.list_of_nodeList actions_list##.childNodes in
-          print_to_output @@ string_of_int (List.length children);
           let selected_action =
             List.fold_left
               (fun acc child ->
@@ -185,7 +191,6 @@ let get_chosen_action _ =
                                 if Js.to_bool radio_input##.checked then (
                                   (* Log the action *)
                                   let id_str = Js.to_string radio_input##.id in
-                                  print_to_output ("Selected ID: " ^ id_str);
                                   (* Extract the number from the id *)
                                   match String.split_on_char '_' id_str with
                                   | [ _; num_str ] -> int_of_string num_str
@@ -233,13 +238,9 @@ let evaluate_code () =
   (*event listener sur les cliquables renvoyant l'index de celui sur lequel l'utilisateur a cliqué *)
   let get_move n =
     let n = n + 1 in
-    print_to_output "In get_move";
     let%lwt i = get_chosen_action n in
-    print_to_output
-      ("i = " ^ string_of_int i ^ " ; and number of actions =" ^ string_of_int n);
     match i with
     | i when i >= 0 && i < n ->
-        print_to_output ("Selected action " ^ string_of_int i);
         Lwt.return i
     | -1 ->
         clear_list ();
@@ -253,6 +254,7 @@ let evaluate_code () =
 
 (* Do page init, creating the callback on the submit button, and managing some button looks*)
 let rec init_page () =
+  Printexc.record_backtrace true;
   let button = Dom_html.getElementById "submit" in
   let select_button = Dom_html.getElementById "select-btn" in
 
@@ -298,7 +300,6 @@ let rec init_page () =
                 (Js.string "background-color: grey; cursor: not-allowed;");
               Js.Unsafe.set select_button "title"
                 (Js.string "You must be evaluating code to select an action");
-              print_to_output "Caught Failure \"Stop\", restarting init_page...";
               init_page ();
               (* Recursively call init_page to restore button *)
               Lwt.return_unit
@@ -308,6 +309,7 @@ let rec init_page () =
               (* Handle other exceptions *)
               print_to_output ("Unhandled exception: " ^ Printexc.to_string exn);
               Lwt.return_unit))
+
 
 (* "Main" entry point *)
 let () = init_page ()
