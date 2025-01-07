@@ -25,10 +25,7 @@ jobs:
       - name: Install Dependencies
         run: |
           opam install . --deps-only --yes
-          opam install ppx_deriving_yojson
-          opam install lwt_ppx
-          opam install lwt
-
+          opam install ppx_deriving_yojson lwt lwt_ppx js_of_ocaml-lwt
       # Build the project
       - name: Build Project
         run: |
