@@ -6,6 +6,10 @@ on:
       - main
       - test-frontend-ta
 
+permissions:
+  contents: read # Read repository contents
+  pages: write # Write to GitHub Pages
+
 jobs:
   build:
     runs-on: ubuntu-latest
