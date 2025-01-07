@@ -7,8 +7,8 @@ on:
       - test-frontend-ta
 
 permissions:
-  contents: read # Read repository contents
-  pages: write # Write to GitHub Pages
+  contents: write
+  pages: write
 
 jobs:
   build:
