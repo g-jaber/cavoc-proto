@@ -1,6 +1,7 @@
 type name_ctx = (Names.name, Types.typ) Util.Pmap.pmap
 type var_ctx = (Syntax.id, Types.typ) Util.Pmap.pmap
 type loc_ctx = (Syntax.loc, Types.typ) Util.Pmap.pmap
+
 type cons_ctx = (Syntax.constructor, Types.typ) Util.Pmap.pmap
 
 type type_ctx = {

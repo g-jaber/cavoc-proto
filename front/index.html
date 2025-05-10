@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CAVOC</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.5/ace.js"></script>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="shortcut icon" href="./" type="image/x-icon" />
+  </head>
+
+  <body>
+    <div class="container code-section">
+      <h2>Code OCaml</h2>
+      <div id="editor"></div>
+    </div>
+
+    <div class="container signature">
+      <h2>Signature OCaml</h2>
+      <div id="signatureEditor"></div>
+    </div>
+    <div id="file-selection" class="file-selection-container">
+      <label for="file-select">Select a file:</label>
+      <select id="file-select-dropdown" class="file-select">
+        <!-- Options will be populated dynamically -->
+      </select>
+      <button id="load-btn" class="load-btn">Load</button>
+    </div>
+    <div id="output-container">
+      <div id="select-action">
+        <button id="select-btn">Select</button>
+        <div id="actions-list">
+          <!-- Checkboxes will be dynamically added here -->
+        </div>
+      </div>
+      <div id="histo-config-container">
+        <div class="tabs">
+          <!-- Tab navigation -->
+          <div class="tab-nav">
+            <button class="tab-link active" onclick="openTab(event, 'config')">
+              Configuration
+            </button>
+            <button class="tab-link" onclick="openTab(event, 'ienv')">
+              ienv
+            </button>
+            <button class="tab-link" onclick="openTab(event, 'store')">
+              Store
+            </button>
+            <button class="tab-link" onclick="openTab(event, 'histo')">
+              History
+            </button>
+            <button class="tab-link" onclick="openTab(event, 'console')">
+              Console
+            </button>
+          </div>
+
+          <!-- Tab content -->
+          <div id="config" class="tab-content active"></div>
+          <div id="ienv" class="tab-content">
+            <div id="ienv-div" class="tab-content active"></div>
+            <div id="stack-container" class="tab-content active"></div>
+          </div>
+          <div id="store" class="tab-content"></div>
+          <div id="histo" class="tab-content">
+            <div id="history"></div>
+          </div>
+          <div id="console" class="tab-content"></div>
+        </div>
+      </div>
+    </div>
+    <button id="submit">Evaluate</button>
+    <script src="../_build/default/bin/explore_web.bc.js"></script>
+  </body>
+
+  <script>
+    // Initialize ACE editor
+    var editor = ace.edit("editor");
+    editor.setTheme("ace/theme/monokai");
+    editor.session.setMode("ace/mode/ocaml");
+    var signatureEditor = ace.edit("signatureEditor");
+    signatureEditor.setTheme("ace/theme/monokai");
+    signatureEditor.session.setMode("ace/mode/ocaml");
+    editor.set;
+
+    // Set the default code for the code editor
+    var code = `(* To be tested with
+dune exec explore.exe test/isc.ml test/isc.mli
+*)
+let x = ref 0
+let g f = x := 1; f(); assert (!x = 1)`;
+
+    // Set the default code for the signature editor
+    var signature = `val g : (unit -> unit) -> unit`;
+
+    // Apply the code to the editors
+    editor.session.setValue(code);
+    signatureEditor.session.setValue(signature);
+
+    // Store editor instances in global variables to be accessed from OCaml
+    window.editor_instance = editor;
+    window.signatureEditor_instance = signatureEditor;
+
+    var configEditor = ace.edit("config");
+    configEditor.setTheme("ace/theme/monokai");
+    configEditor.session.setMode("ace/mode/ocaml");
+    configEditor.setReadOnly(true);
+    configEditor.renderer.$cursorLayer.element.style.display = "none";
+    window.configEditor_instance = configEditor;
+
+    //script for config tabs
+
+    function openTab(event, tabId) {
+      // Hide all tab contents
+      const contents = document.querySelectorAll(".tab-content");
+      contents.forEach((content) => content.classList.remove("active"));
+
+      // Remove "active" class from all tab links
+      const links = document.querySelectorAll(".tab-link");
+      links.forEach((link) => link.classList.remove("active"));
+
+      // Show the selected tab content
+      document.getElementById(tabId).classList.add("active");
+
+      // Add "active" class to the clicked tab link
+      event.currentTarget.classList.add("active");
+    }
+  </script>
+  <script>
+    window.onload = function () {
+      // List of files as provided
+      const filesList = [
+        "cavoc.ml",
+        "exception.ml",
+        "higher_order.mli",
+        "no_visible.ml",
+        "polymorphic_identity.mli",
+        "rec_diverge.ml",
+        "universal_type.mli",
+        "wbsc_context.ml",
+        "while.ml",
+        "compare",
+        "exception.mli",
+        "isc.ml",
+        "no_visible.mli",
+        "private_counter.ml",
+        "rec_diverge.mli",
+        "wbsc.ml",
+        "wbsc_context.mli",
+        "while_diverge.ml",
+        "dune",
+        "higher_order.ml",
+        "isc.mli",
+        "polymorphic_identity.ml",
+        "private_counter.mli",
+        "universal_type.ml",
+        "wbsc.mli",
+        "wbsc_interact.ml",
+        "while_diverge.mli",
+      ];
+
+      // Filter the list to get only the .ml files
+      const mlFiles = filesList.filter((file) => file.endsWith(".ml"));
+
+      // Populate the dropdown with the .ml file names
+      const fileSelect = document.getElementById("file-select-dropdown");
+      mlFiles.forEach((file) => {
+        const option = document.createElement("option");
+        option.value = file;
+        option.text = file;
+        fileSelect.appendChild(option);
+      });
+
+      // Set the default selected file to "higher_order.ml"
+      const defaultFile = "higher_order.ml";
+      fileSelect.value = defaultFile;
+
+      // Load the selected file into the editor when the load button is clicked
+      document
+        .getElementById("load-btn")
+        .addEventListener("click", function () {
+          const selectedFileName = document.getElementById(
+            "file-select-dropdown"
+          ).value;
+          loadFileContent(selectedFileName);
+        });
+
+      // Function to load the file content into the editor
+      function loadFileContent(selectedFileName) {
+        if (selectedFileName) {
+          const mlFileName = selectedFileName;
+          const mliFileName = mlFileName.replace(".ml", ".mli");
+
+          // Load .ml file content into the editor
+          fetch(`../test/${mlFileName}`)
+            .then((response) => response.text())
+            .then((mlContent) => {
+              editor.session.setValue(mlContent);
+            })
+            .catch((error) => console.error("Error loading .ml file:", error));
+
+          // Load .mli file content into the signature editor if it exists
+          fetch(`../test/${mliFileName}`)
+            .then((response) => response.text())
+            .then((mliContent) => {
+              signatureEditor.session.setValue(mliContent);
+            })
+            .catch((error) => {
+              console.error("Error loading .mli file:", error);
+              // If the .mli file doesn't exist, set signature editor to empty
+              signatureEditor.session.setValue("");
+            });
+        }
+      }
+    };
+  </script>
+</html>

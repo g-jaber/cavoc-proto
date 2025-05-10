@@ -1,0 +1,53 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - test-frontend-ta
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Set up OCaml
+      - name: Set up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5 # Use OCaml version 5.x
+
+      # Install dependencies
+      - name: Install Dependencies
+        run: |
+          opam install . --deps-only --yes
+          opam install ppx_deriving_yojson lwt lwt_ppx js_of_ocaml-lwt
+      # Build the project
+      - name: Build Project
+        run: |
+          eval $(opam env)
+          dune build
+
+      # Prepare deployment folder
+      - name: Prepare Deployment
+        run: |
+          mkdir -p deployment/front
+          cp -r front/* deployment/front/  # Copy front-end files
+          mkdir -p deployment/_build/default/bin
+          cp _build/default/bin/explore_web.bc.js deployment/_build/default/bin/  # Copy build artifact
+          cp -r test deployment/test  # Copy test files
+
+      # Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: deployment/front

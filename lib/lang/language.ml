@@ -12,7 +12,7 @@ module type TYPED = sig
   val string_of_negative_type : negative_type -> string
   val pp_negative_type : Format.formatter -> negative_type -> unit
 
-  type name_ctx = (Name.name, negative_type) Util.Pmap.pmap
+  type name_ctx = (Name.name, negative_type) Util.Pmap.pmap [@@deriving to_yojson]
 
   val empty_name_ctx : name_ctx
   val concat_name_ctx : name_ctx -> name_ctx -> name_ctx
@@ -71,6 +71,7 @@ module type COMP = sig
   val filter_negative_val : value -> negative_val option
 
   type interactive_env = (Name.name, negative_val) Util.Pmap.pmap
+  [@@deriving to_yojson]
 
   val empty_ienv : interactive_env
   val concat_ienv : interactive_env -> interactive_env -> interactive_env
@@ -88,7 +89,7 @@ module type COMP = sig
   *)
 
   val normalize_opconf : opconf -> opconf option
-  val get_typed_term : string -> in_channel -> term * typ * name_ctx
+  val get_typed_term : string -> Lexing.lexbuf -> term * typ * name_ctx
 
   (* We retrive a module declaration and its signature from the two in_channel taken as input.
      We evaluate the list of computation declarations into a list of value declarations together with the store
@@ -96,8 +97,8 @@ module type COMP = sig
      We return two typing contexts, respectively for the names in the domain of the interactive env,
      and the one contains in the values of its image. *)
   val get_typed_ienv :
-    in_channel ->
-    in_channel ->
+    Lexing.lexbuf ->
+    Lexing.lexbuf ->
     interactive_env * Store.store * name_ctx * name_ctx
 end
 

@@ -14,10 +14,31 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
      with σi the type of the hole and τi the return type )*)
   type stack_ctx = (OpLang.typ * OpLang.typ) list
 
+  let stack_ctx_to_yojson stack =
+    let to_string (ty1, ty2) =
+      `String (OpLang.string_of_type ty1 ^ " ⇝ " ^ OpLang.string_of_type ty2)
+    in
+    `List (List.map to_string stack)
+
   (* The active context PropCtx have a type for the toplevel term*)
   type name_ctx =
     | OpCtx of OpLang.typ option * OpLang.name_ctx
     | PropCtx of OpLang.name_ctx * stack_ctx
+
+  let name_ctx_to_yojson = function
+    | OpCtx (None, name_ctx) -> OpLang.name_ctx_to_yojson name_ctx
+    | OpCtx (Some ty, name_ctx) ->
+        `Assoc
+          [
+            ("type", `String (OpLang.string_of_type ty));
+            ("name_ctx", OpLang.name_ctx_to_yojson name_ctx);
+          ]
+    | PropCtx (name_ctx, stack_ctx) ->
+        `Assoc
+          [
+            ("name_ctx", OpLang.name_ctx_to_yojson name_ctx);
+            ("stack_ctx", stack_ctx_to_yojson stack_ctx);
+          ]
 
   let empty_name_ctx = PropCtx (OpLang.empty_name_ctx, [])
 
@@ -64,6 +85,17 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
      and a stack of evaluation contexts. *)
   type interactive_env = OpLang.interactive_env * OpLang.eval_context list
 
+  let interactive_env_to_yojson (ienv, ectx_l) =
+    let ectx_l_yojson =
+      `List
+        (List.map (fun x -> `String (OpLang.string_of_eval_context x)) ectx_l)
+    in
+    `Assoc
+      [
+        ("ienv", OpLang.interactive_env_to_yojson ienv);
+        ("ectx stack", ectx_l_yojson);
+      ]
+
   let empty_ienv = (OpLang.empty_ienv, [])
 
   let concat_ienv (fnamectx1, cstack1) (fnamectx2, cstack2) =
@@ -76,7 +108,8 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
         Format.pp_print_list ~pp_sep OpLang.pp_eval_context fmt ectx_stack
 
   let pp_ienv fmt (ienv, ectx_stack) =
-    Format.fprintf fmt "@[IEnv: %a@] | @[Stack: %a@]" OpLang.pp_ienv ienv pp_ctx_stack ectx_stack
+    Format.fprintf fmt "@[IEnv: %a@] | @[Stack: %a@]" OpLang.pp_ienv ienv
+      pp_ctx_stack ectx_stack
 
   let string_of_ienv = Format.asprintf "%a" pp_ienv
 
@@ -263,9 +296,9 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
      This is needed for the POGS equivalence. *)
   let is_equiv_a_nf _ (_, _) (_, _) = failwith "Not yet implemented"
 
-  let get_typed_ienv inBuffer_implem inBuffer_signature =
+  let get_typed_ienv lexBuffer_implem lexBuffer_signature =
     let (ienv, store, namectxP, namectxO) =
-      OpLang.get_typed_ienv inBuffer_implem inBuffer_signature in
+      OpLang.get_typed_ienv lexBuffer_implem lexBuffer_signature in
     ((ienv, []), store, PropCtx (namectxP, []), OpCtx (None, namectxO))
 
   let get_typed_term nbprog inBuffer =

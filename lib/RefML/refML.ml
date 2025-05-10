@@ -25,6 +25,11 @@ module Typed :
 
   type name_ctx = (Name.name, negative_type) Util.Pmap.pmap
 
+  let name_ctx_to_yojson ienv =
+    let to_string (nn, nty) =
+      (Names.string_of_name nn, `String (string_of_negative_type nty)) in
+    `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string ienv)
+
   let empty_name_ctx = Util.Pmap.empty
   let concat_name_ctx = Util.Pmap.concat
   let get_names_from_name_ctx = Util.Pmap.dom
@@ -49,7 +54,7 @@ module MakeComp (M : Util.Monad.BRANCH) :
   Lang.Language.COMP
     with type term = Syntax.term
      and type value = Syntax.value
-     and type negative_val = Syntax.negative_val
+     and type negative_val = Syntax.negative_val 
      and type typ = Types.typ
      and type negative_type = Types.negative_type
      and type Store.label = Syntax.label
@@ -64,10 +69,9 @@ module MakeComp (M : Util.Monad.BRANCH) :
 
   let normalize_opconf = Interpreter.normalize_opconf
 
-  let get_typed_term nbprog inBuffer =
-    let lineBuffer = Lexing.from_channel inBuffer in
+  let get_typed_term nbprog lexBuffer =
     try
-      let term = Parser.fullexpr Lexer.token lineBuffer in
+      let term = Parser.fullexpr Lexer.token lexBuffer in
       let ty = Type_checker.typing_full Util.Pmap.empty term in
       (term, ty, Util.Pmap.empty)
       (*TODO: The typing of Opponent names is missing, this should be corrected*)
@@ -77,16 +81,14 @@ module MakeComp (M : Util.Monad.BRANCH) :
     | Parser.Error ->
         failwith
           ("Syntax Error in the " ^ nbprog ^ " program:" ^ " at position "
-          ^ string_of_int (Lexing.lexeme_start lineBuffer))
+          ^ string_of_int (Lexing.lexeme_start lexBuffer))
     | Type_checker.TypingError msg ->
         failwith ("Typing Error in the " ^ nbprog ^ " program:" ^ msg)
 
-  let get_typed_ienv inBuffer_implem inBuffer_signature =
-    let lexer_implem = Lexing.from_channel inBuffer_implem in
-    let lexer_signature = Lexing.from_channel inBuffer_signature in
+  let get_typed_ienv lexBuffer_implem lexBuffer_signature =
     try
-      let implem_decl_l = Parser.prog Lexer.token lexer_implem in
-      let signature_decl_l = Parser.signature Lexer.token lexer_signature in
+      let implem_decl_l = Parser.prog Lexer.token lexBuffer_implem in
+      let signature_decl_l = Parser.signature Lexer.token lexBuffer_signature in
       let (comp_env, namectxO, cons_ctx) =
         Declaration.get_typed_comp_env implem_decl_l in
       let namectxO' = Util.Pmap.filter_map_im Types.get_negative_type namectxO in
@@ -102,7 +104,7 @@ module MakeComp (M : Util.Monad.BRANCH) :
     | Parser.Error ->
         failwith
           ("Syntax Error: " ^ " at position "
-          ^ string_of_int (Lexing.lexeme_start lexer_implem))
+          ^ string_of_int (Lexing.lexeme_start lexBuffer_implem))
         (* Need to get in which file the Parser.Error is *)
     | Type_checker.TypingError msg -> failwith ("Typing Error: " ^ msg)
 end

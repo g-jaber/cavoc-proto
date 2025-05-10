@@ -8,18 +8,18 @@ module Make
   type active_conf = ContNames.cont_name list
   type passive_conf = ContNames.cont_name list
 
+  let passive_conf_to_yojson cn_l =
+    `List (List.map (fun x -> `String (ContNames.string_of_cont_name x)) cn_l)
+
   let pp_active_conf fmt = function
-  | [] -> Format.fprintf fmt "Stack: ⋅"
-  | cstack ->
-      let pp_sep fmt () = Format.fprintf fmt "::" in
-      let pp_stack =
-      Format.pp_print_list ~pp_sep ContNames.pp_cont_name in
-      Format.fprintf fmt "Stack: %a" pp_stack cstack
+    | [] -> Format.fprintf fmt "Stack: ⋅"
+    | cstack ->
+        let pp_sep fmt () = Format.fprintf fmt "::" in
+        let pp_stack = Format.pp_print_list ~pp_sep ContNames.pp_cont_name in
+        Format.fprintf fmt "Stack: %a" pp_stack cstack
 
-let pp_passive_conf = pp_active_conf
-
+  let pp_passive_conf = pp_active_conf
   let string_of_active_conf = Format.asprintf "%a" pp_active_conf
-
   let string_of_passive_conf = Format.asprintf "%a" pp_passive_conf
 
   let p_trans cstack move =
