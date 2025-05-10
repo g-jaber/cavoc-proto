@@ -164,13 +164,6 @@ and pp_handler fmt (Handler (pat, expr)) =
 let string_of_term = Format.asprintf "%a" pp_term
 let pp_value = pp_term
 let string_of_value = string_of_term
-(*let term_to_yojson term = `String (string_of_term term)
-
-let term_of_yojson = function
-  | `String str ->
-      let lexBuffer = Lexing.from_string str in
-      Parser.fullexpr Lexer.token lexBuffer
-  | _ -> failwith "Expected a String"*)
 
 (* TODO: We should rather use a Set rather than a list to represent set of names*)
 
