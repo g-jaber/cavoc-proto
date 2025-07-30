@@ -36,12 +36,9 @@ let pp_cons_ctx fmt cons_ctx =
   Util.Pmap.pp_pmap ~pp_empty pp_pair fmt cons_ctx
 
 let string_of_var_ctx = Format.asprintf "%a" pp_var_ctx
-
 let string_of_loc_ctx = Format.asprintf "%a" pp_loc_ctx
-
 let string_of_name_ctx = Format.asprintf "%a" pp_name_ctx
-
-let string_of_cons_ctx =  Format.asprintf "%a" pp_cons_ctx
+let string_of_cons_ctx = Format.asprintf "%a" pp_cons_ctx
 
 type type_ctx = {
   var_ctx: var_ctx;
@@ -58,3 +55,31 @@ let get_type_env type_ctx = type_ctx.type_env
 
 let extend_var_ctx type_ctx var ty =
   { type_ctx with var_ctx= Util.Pmap.modadd (var, ty) type_ctx.var_ctx }
+
+let apply_type_subst_to_ctx tsubst =
+  Util.Pmap.map (fun (x, ty) -> (x, Types.apply_type_subst ty tsubst))
+
+let apply_type_subst type_ctx tsubst =
+  let var_ctx = apply_type_subst_to_ctx tsubst type_ctx.var_ctx in
+  let loc_ctx = apply_type_subst_to_ctx tsubst type_ctx.loc_ctx in
+  let name_ctx = apply_type_subst_to_ctx tsubst type_ctx.name_ctx in
+  let cons_ctx = apply_type_subst_to_ctx tsubst type_ctx.cons_ctx in
+  let type_env = type_ctx.type_env in
+  { var_ctx; loc_ctx; name_ctx; cons_ctx; type_env }
+
+let build_type_ctx expr =
+  let lnames = Syntax.get_names expr in
+  let name_ctx =
+    Util.Pmap.list_to_pmap
+    @@ List.map
+         (fun n ->
+           let tvar = Types.fresh_typevar () in
+           (n, tvar))
+         lnames in
+  {
+    var_ctx= empty_var_ctx;
+    loc_ctx= empty_loc_ctx;
+    name_ctx;
+    cons_ctx= empty_cons_ctx;
+    type_env= Types.empty_type_env;
+  }

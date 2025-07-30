@@ -29,3 +29,6 @@ val empty_var_ctx : var_ctx
 val empty_loc_ctx : loc_ctx
 val empty_cons_ctx : cons_ctx
 val extend_var_ctx : type_ctx -> Syntax.id -> Types.typ -> type_ctx
+val apply_type_subst : type_ctx -> Types.type_subst -> type_ctx
+
+val build_type_ctx : Syntax.term -> type_ctx

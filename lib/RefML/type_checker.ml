@@ -191,8 +191,8 @@ let rec infer_type type_ctx type_subst expr =
   | App (e1, e2) ->
       let (aty, type_subst') = infer_type type_ctx type_subst e2 in
       let (fty, type_subst'') = infer_type type_ctx type_subst' e1 in
-      let fty' = apply_type_subst fty type_subst'' in
-      let aty' = apply_type_subst aty type_subst'' in
+      let fty' = Types.apply_type_subst fty type_subst'' in
+      let aty' = Types.apply_type_subst aty type_subst'' in
       Util.Debug.print_debug ("Typing App:" ^ Syntax.string_of_term expr);
       Util.Debug.print_debug
         (Syntax.string_of_term e1 ^ " is of type " ^ string_of_typ fty'
@@ -295,7 +295,7 @@ let rec infer_type type_ctx type_subst expr =
 
 and check_type type_ctx type_subst expr res_ty =
   let (ty, type_subst') = infer_type type_ctx type_subst expr in
-  let ty_inst = apply_type_subst ty type_subst' in
+  let ty_inst = Types.apply_type_subst ty type_subst' in
   match mgu_type (Type_ctx.get_type_env type_ctx) (ty_inst, res_ty) with
   | Some type_subst'' -> type_subst''
   | None ->
@@ -308,27 +308,15 @@ and check_type_bin type_ctx type_subst com_ty expr1 expr2 =
   let type_subst'' = check_type type_ctx type_subst' expr2 com_ty in
   type_subst''
 
+(*  
 let infer_gen_type type_ctx type_subst expr =
   let (ty, type_subst') = infer_type type_ctx type_subst expr in
   let tvar_l = get_tvars ty in
   (TForall (tvar_l, ty), type_subst')
+*)
 
-let typing_full type_subst expr =
-  let lnames = Syntax.get_names expr in
-  let name_ctx =
-    Util.Pmap.list_to_pmap
-    @@ List.map
-         (fun n ->
-           let tvar = fresh_typevar () in
-           (n, tvar))
-         lnames in
-  let type_ctx =
-    {
-      var_ctx= Type_ctx.empty_var_ctx;
-      loc_ctx= Type_ctx.empty_loc_ctx;
-      name_ctx;
-      cons_ctx= Type_ctx.empty_cons_ctx;
-      type_env = Types.empty_type_env;
-    } in
-  let (ty, tsubst') = infer_type type_ctx type_subst expr in
-  apply_type_subst ty tsubst'
+let typing_expr type_ctx expr =
+  let (ty, tsubst') = infer_type type_ctx Types.empty_type_subst expr in
+  let ty' = Types.apply_type_subst ty tsubst' in
+  let type_ctx' =  Type_ctx.apply_type_subst type_ctx tsubst' in
+  (type_ctx',ty')

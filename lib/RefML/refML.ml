@@ -54,7 +54,7 @@ module MakeComp (M : Util.Monad.BRANCH) :
   Lang.Language.COMP
     with type term = Syntax.term
      and type value = Syntax.value
-     and type negative_val = Syntax.negative_val 
+     and type negative_val = Syntax.negative_val
      and type typ = Types.typ
      and type negative_type = Types.negative_type
      and type Store.label = Syntax.label
@@ -71,10 +71,10 @@ module MakeComp (M : Util.Monad.BRANCH) :
 
   let get_typed_term nbprog lexBuffer =
     try
-      let term = Parser.fullexpr Lexer.token lexBuffer in
-      let ty = Type_checker.typing_full Util.Pmap.empty term in
-      (term, ty, Util.Pmap.empty)
-      (*TODO: The typing of Opponent names is missing, this should be corrected*)
+      let expr = Parser.fullexpr Lexer.token lexBuffer in
+      let type_ctx = Type_ctx.build_type_ctx expr in
+      let (type_ctx, ty) = Type_checker.typing_expr type_ctx expr in
+      (expr, ty, Type_ctx.get_name_ctx type_ctx)
     with
     | Lexer.SyntaxError msg ->
         failwith ("Parsing Error in the " ^ nbprog ^ " program:" ^ msg)
