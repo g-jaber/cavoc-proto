@@ -16,9 +16,6 @@ val get_var_ctx : type_ctx -> var_ctx
 val get_name_ctx : type_ctx -> name_ctx
 val get_loc_ctx : type_ctx -> loc_ctx
 val get_type_subst : type_ctx -> Types.type_subst
-val subst_vctx : Syntax.id -> Types.typ -> var_ctx -> var_ctx
-val lsubst_type : Types.type_subst -> Types.typ -> Types.typ
-val lsubst_vctx : Types.type_subst -> var_ctx -> var_ctx
 val pp_var_ctx : Format.formatter -> var_ctx -> unit
 val pp_loc_ctx : Format.formatter -> loc_ctx -> unit
 val pp_name_ctx : Format.formatter -> name_ctx -> unit
@@ -31,6 +28,4 @@ val empty_name_ctx : name_ctx
 val empty_var_ctx : var_ctx
 val empty_loc_ctx : loc_ctx
 val empty_cons_ctx : cons_ctx
-val extend_type_subst : type_ctx -> Syntax.id -> Types.typ -> type_ctx
-val update_type_subst : type_ctx -> Types.type_subst -> type_ctx
 val extend_var_ctx : type_ctx -> Syntax.id -> Types.typ -> type_ctx

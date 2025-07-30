@@ -56,36 +56,5 @@ let get_name_ctx type_ctx = type_ctx.name_ctx
 let get_loc_ctx type_ctx = type_ctx.loc_ctx
 let get_type_subst type_ctx = type_ctx.type_subst
 
-let subst_ctx tvar sty =
-  Util.Pmap.map_im (fun ty -> Types.subst_type tvar sty ty)
-
-(* TO BE REMOVED *)
-let subst_vctx tvar sty =
-  Util.Pmap.map_im (fun ty -> Types.subst_type tvar sty ty)
-
-(* The following function perform nested substitution of subst on ty *)
-let lsubst_type type_subst ty =
-  Util.Pmap.fold
-    (fun ty (tvar, sty) -> Types.subst_type tvar sty ty)
-    ty type_subst
-
-let lsubst_vctx lsubst = Util.Pmap.map_im (fun ty -> lsubst_type lsubst ty)
-
-let lsubst_ctx type_subst =
-  Util.Pmap.map_im (fun ty -> lsubst_type type_subst ty)
-
-let extend_type_subst type_ctx tvar ty =
-  let var_ctx = subst_ctx tvar ty type_ctx.var_ctx in
-  let loc_ctx = subst_ctx tvar ty type_ctx.loc_ctx in
-  let name_ctx = subst_ctx tvar ty type_ctx.name_ctx in
-  let type_subst = Util.Pmap.modadd (tvar, ty) type_ctx.type_subst in
-  { type_ctx with var_ctx; loc_ctx; name_ctx; type_subst }
-
-let update_type_subst type_ctx type_subst =
-  let var_ctx = lsubst_ctx type_subst type_ctx.var_ctx in
-  let loc_ctx = lsubst_ctx type_subst type_ctx.loc_ctx in
-  let name_ctx = lsubst_ctx type_subst type_ctx.name_ctx in
-  { type_ctx with var_ctx; loc_ctx; name_ctx; type_subst }
-
 let extend_var_ctx type_ctx var ty =
   { type_ctx with var_ctx= Util.Pmap.modadd (var, ty) type_ctx.var_ctx }

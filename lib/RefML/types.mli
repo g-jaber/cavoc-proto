@@ -29,17 +29,18 @@ type type_subst = (typevar, typ) Util.Pmap.pmap
 type type_env = (id, typ) Util.Pmap.pmap
 
 val apply_type_subst : typ -> type_subst -> typ
+val compose_type_subst : type_subst -> type_subst -> type_subst
 val apply_type_env : typ -> type_env -> typ
 val subst_type : typevar -> typ -> typ -> typ
+val mgu_type : typ * typ -> type_subst option
 val unify_type : type_subst -> typ * typ -> (typ * type_subst) option
 val generalize_type : typ -> typ
 
 type negative_type = typ
-val pp_negative_type : Format.formatter -> negative_type -> unit
 
+val pp_negative_type : Format.formatter -> negative_type -> unit
 val get_negative_type : typ -> negative_type option
 val force_negative_type : typ -> negative_type
 val string_of_negative_type : negative_type -> string
-
 val get_input_type : negative_type -> typevar list * typ
 val get_output_type : negative_type -> typ

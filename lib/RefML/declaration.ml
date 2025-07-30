@@ -97,9 +97,10 @@ let get_typed_comp_env implem_decl_l =
         Type_ctx.get_name_ctx type_ctx in
       (comp_env, name_ctx, cons_ctx)
     | (var, expr) :: val_decl_l ->
-        let (ty, type_ctx') = Type_checker.infer_type type_ctx expr in
-        let type_ctx'' = Type_ctx.extend_var_ctx type_ctx' var ty in
-        aux ((var, expr) :: comp_env) type_ctx'' val_decl_l in
+        let (ty, type_subst') = Type_checker.infer_type type_ctx type_subst expr in
+        let ty' = Types.apply_type_subst ty type_subst' in
+        let type_ctx' = Type_ctx.extend_var_ctx type_ctx var ty' in
+        aux ((var, expr) :: comp_env) type_ctx' val_decl_l in
   aux [] type_ctx val_decl_l
 
 let get_typed_val_env var_val_env sign_decl_l =

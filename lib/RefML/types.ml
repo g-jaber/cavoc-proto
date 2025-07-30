@@ -30,8 +30,10 @@ let rec pp_typ fmt = function
   | TInt -> Format.fprintf fmt "int"
   | TBool -> Format.fprintf fmt "bool"
   | TArrow (ty1, ty2) -> Format.fprintf fmt "%a → %a" pp_par_typ ty1 pp_typ ty2
-  | TProd (ty1, ty2) -> Format.fprintf fmt "%a × %a" pp_par_typ ty1 pp_par_typ ty2
-  | TSum (ty1, ty2) -> Format.fprintf fmt "%a + %a" pp_par_typ ty1 pp_par_typ ty2
+  | TProd (ty1, ty2) ->
+      Format.fprintf fmt "%a × %a" pp_par_typ ty1 pp_par_typ ty2
+  | TSum (ty1, ty2) ->
+      Format.fprintf fmt "%a + %a" pp_par_typ ty1 pp_par_typ ty2
   | TRef ty -> Format.fprintf fmt "ref %a" pp_typ ty
   | TExn -> Format.fprintf fmt "exn"
   | TVar typevar -> pp_tvar fmt typevar
@@ -148,6 +150,36 @@ let rec subst_type tvar sty ty =
       TForall (tvars, subst_type tvar sty ty')
   | TForall _ -> ty
   | TUndef -> failwith "Error: undefined type, please report."
+
+let subst_in_tsubst tsubst tvar ty =
+  Util.Pmap.map (fun (tvar', ty') -> (tvar', subst_type tvar ty ty')) tsubst
+
+let compose_type_subst tsubst1 tsubst2 =
+  let tsubst2' = 
+  Util.Pmap.map (fun (tvar, ty) -> (tvar,apply_type_subst ty tsubst1)) tsubst2 in
+  Util.Pmap.concat tsubst1 tsubst2'
+
+let mgu_type (ty1,ty2) =
+  let rec mgu_type_aux ty1 ty2 tsubst =
+    match (ty1, ty2) with
+    | (TUnit, TUnit) | (TInt, TInt) | (TBool, TBool) | (TExn, TExn) ->
+        Some tsubst
+    | (TRef ty1, TRef ty2) -> mgu_type_aux ty1 ty2 tsubst
+    | (TArrow (ty11, ty12), TArrow (ty21, ty22))
+    | (TProd (ty11, ty12), TProd (ty21, ty22)) -> begin
+        match mgu_type_aux ty11 ty21 tsubst with
+        | None -> None
+        | Some tsubst' -> mgu_type_aux ty12 ty22 tsubst'
+      end
+    | (TVar tvar1, TVar tvar2) when tvar1 = tvar2 -> Some tsubst
+    | (TVar tvar, ty) | (ty, TVar tvar) -> Some (subst_in_tsubst tsubst tvar ty) (* We should do some occur_check *)
+    | (TId id1, TId id2) | (TName id1, TName id2) ->
+        if id1 = id2 then Some tsubst else None
+    | (ty1, ty2) ->
+        Util.Debug.print_debug
+          ("Cannot unify " ^ string_of_typ ty1 ^ " and " ^ string_of_typ ty2);
+        None in
+  mgu_type_aux ty1 ty2 Util.Pmap.empty
 
 (* The following function
    taking an initial type substitution
