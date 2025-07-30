@@ -22,7 +22,7 @@ let rec infer_type type_ctx type_subst expr =
           let (pty', type_subst') = infer_type type_ctx type_subst e in
           (*Should we instantiate pty' ? *)
           begin
-            match mgu_type (pty, pty') with
+            match mgu_type (Type_ctx.get_type_env type_ctx) (pty, pty') with
             | Some type_subst'' ->
                 (ty, compose_type_subst type_subst'' type_subst')
             | None ->
@@ -99,7 +99,7 @@ let rec infer_type type_ctx type_subst expr =
       let (ty3, type_subst3) = infer_type type_ctx type_subst2 e3 in
       (* Should we instantiate ty2 and ty3 ?*)
       begin
-        match mgu_type (ty2, ty3) with
+        match mgu_type (Type_ctx.get_type_env type_ctx) (ty2, ty3) with
         | Some type_subst' -> (ty3, compose_type_subst type_subst' type_subst3)
         | None ->
             Util.Error.fail_error
@@ -125,7 +125,7 @@ let rec infer_type type_ctx type_subst expr =
         Type_ctx.extend_var_ctx type_ctx' idfun (TArrow (tvar1, tvar2)) in
       let (rty, type_subst') = infer_type type_ctx'' type_subst e in
       begin
-        match mgu_type (tvar2, rty) with
+        match mgu_type (Type_ctx.get_type_env type_ctx) (tvar2, rty) with
         | Some type_subst'' ->
             (TArrow (tvar1, rty), compose_type_subst type_subst'' type_subst')
         | None ->
@@ -142,7 +142,7 @@ let rec infer_type type_ctx type_subst expr =
       begin
         match Util.Pmap.lookup idfun type_ctx'.var_ctx with
         | Some fty -> begin
-            match mgu_type (fty, TArrow (aty, rty)) with
+            match mgu_type (Type_ctx.get_type_env type_ctx) (fty, TArrow (aty, rty)) with
             | Some type_subst'' ->
                 (TArrow (aty, rty), compose_type_subst type_subst'' type_subst')
             | None ->
@@ -161,7 +161,7 @@ let rec infer_type type_ctx type_subst expr =
       let type_ctx' = Type_ctx.extend_var_ctx type_ctx' idfun fty in
       let (rty, type_subst') = infer_type type_ctx' type_subst e in
       begin
-        match mgu_type (fty, TArrow (aty, rty)) with
+        match mgu_type (Type_ctx.get_type_env type_ctx) (fty, TArrow (aty, rty)) with
         | Some type_subst'' ->
             (TArrow (aty, rty), compose_type_subst type_subst'' type_subst')
         | None ->
@@ -180,7 +180,7 @@ let rec infer_type type_ctx type_subst expr =
       let tvar2 = fresh_typevar () in
       let type_ctx' = Type_ctx.extend_var_ctx type_ctx var1 tvar1 in
       let type_ctx'' = Type_ctx.extend_var_ctx type_ctx' var2 tvar2 in
-      begin match mgu_type (ty, TProd (tvar1,tvar2)) with
+      begin match mgu_type (Type_ctx.get_type_env type_ctx) (ty, TProd (tvar1,tvar2)) with
       | Some type_subst'' -> 
         let type_subst'' = compose_type_subst type_subst'' type_subst' in
         infer_type type_ctx'' type_subst'' e2
@@ -202,7 +202,7 @@ let rec infer_type type_ctx type_subst expr =
        ^ " (was " ^ string_of_typ aty ^ ")");
       let tvar = fresh_typevar () in
       begin
-        match mgu_type (fty', TArrow (aty', tvar)) with
+        match mgu_type (Type_ctx.get_type_env type_ctx) (fty', TArrow (aty', tvar)) with
         | Some tsubst''' -> (tvar, tsubst''')
         | None ->
             Util.Error.fail_error
@@ -238,7 +238,7 @@ let rec infer_type type_ctx type_subst expr =
       let (ty1, type_subst') = infer_type type_ctx type_subst e1 in
       let (ty2, type_subst'') = infer_type type_ctx type_subst' e2 in
       begin
-        match mgu_type (ty1, TRef ty2) with
+        match mgu_type (Type_ctx.get_type_env type_ctx) (ty1, TRef ty2) with
         | Some type_subst''' ->
             (TUnit, compose_type_subst type_subst''' type_subst'')
         | None ->
@@ -282,7 +282,7 @@ let rec infer_type type_ctx type_subst expr =
                 infer_type type_ctx' type_subst e_handler
           end in
         begin
-          match mgu_type (ty, ty') with
+          match mgu_type (Type_ctx.get_type_env type_ctx) (ty, ty') with
           | Some type_subst'' ->
               (ty, compose_type_subst type_subst'' type_subst')
           | None -> failwith "Type checking of try with not fully implemented."
@@ -296,7 +296,7 @@ let rec infer_type type_ctx type_subst expr =
 and check_type type_ctx type_subst expr res_ty =
   let (ty, type_subst') = infer_type type_ctx type_subst expr in
   let ty_inst = apply_type_subst ty type_subst' in
-  match mgu_type (ty_inst, res_ty) with
+  match mgu_type (Type_ctx.get_type_env type_ctx) (ty_inst, res_ty) with
   | Some type_subst'' -> type_subst''
   | None ->
       Util.Error.fail_error
@@ -328,7 +328,7 @@ let typing_full type_subst expr =
       loc_ctx= Type_ctx.empty_loc_ctx;
       name_ctx;
       cons_ctx= Type_ctx.empty_cons_ctx;
-      type_subst;
+      type_env = Types.empty_type_env;
     } in
   let (ty, tsubst') = infer_type type_ctx type_subst expr in
   apply_type_subst ty tsubst'

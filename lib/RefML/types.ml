@@ -96,10 +96,15 @@ let rec get_new_tvars tvar_set = function
 
 let get_tvars ty = TVarSet.elements @@ get_new_tvars TVarSet.empty ty
 
+let generalize_type ty =
+  let tvar_l = get_tvars ty in
+  TForall (tvar_l, ty)
+
 (* Type substitutions are maps from type variables to types *)
 
 type type_subst = (typevar, typ) Util.Pmap.pmap
-type type_env = (id, typ) Util.Pmap.pmap
+
+let empty_type_subst = Util.Pmap.empty
 
 (* The following function perform parallel substitution of subst on ty *)
 let rec apply_type_subst ty subst =
@@ -119,21 +124,6 @@ let rec apply_type_subst ty subst =
       failwith
         "Applying type substitution on universally quantified type is not \
          supported. Please report."
-  | TUndef -> failwith "Error: undefined type, please report."
-
-let rec apply_type_env ty type_env =
-  match ty with
-  | TUnit | TInt | TBool | TRef _ | TName _ | TVar _ | TExn -> ty
-  | TArrow (ty1, ty2) ->
-      TArrow (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
-  | TProd (ty1, ty2) ->
-      TProd (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
-  | TSum (ty1, ty2) ->
-      TSum (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
-  | TId id -> begin
-      match Util.Pmap.lookup id type_env with Some ty' -> ty' | None -> ty
-    end
-  | TForall (tvar_l, ty') -> TForall (tvar_l, apply_type_env ty' type_env)
   | TUndef -> failwith "Error: undefined type, please report."
 
 let rec subst_type tvar sty ty =
@@ -159,7 +149,26 @@ let compose_type_subst tsubst1 tsubst2 =
   Util.Pmap.map (fun (tvar, ty) -> (tvar,apply_type_subst ty tsubst1)) tsubst2 in
   Util.Pmap.concat tsubst1 tsubst2'
 
-let mgu_type (ty1,ty2) =
+
+type type_env = (id, typ) Util.Pmap.pmap
+let empty_type_env = Util.Pmap.empty 
+let rec apply_type_env ty type_env =
+  match ty with
+  | TUnit | TInt | TBool | TRef _ | TName _ | TVar _ | TExn -> ty
+  | TArrow (ty1, ty2) ->
+      TArrow (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
+  | TProd (ty1, ty2) ->
+      TProd (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
+  | TSum (ty1, ty2) ->
+      TSum (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
+  | TId id -> begin
+      match Util.Pmap.lookup id type_env with Some ty' -> ty' | None -> ty
+    end
+  | TForall (tvar_l, ty') -> TForall (tvar_l, apply_type_env ty' type_env)
+  | TUndef -> failwith "Error: undefined type, please report."
+
+
+let mgu_type tenv (ty1,ty2) =
   let rec mgu_type_aux ty1 ty2 tsubst =
     match (ty1, ty2) with
     | (TUnit, TUnit) | (TInt, TInt) | (TBool, TBool) | (TExn, TExn) ->
@@ -173,85 +182,16 @@ let mgu_type (ty1,ty2) =
       end
     | (TVar tvar1, TVar tvar2) when tvar1 = tvar2 -> Some tsubst
     | (TVar tvar, ty) | (ty, TVar tvar) -> Some (subst_in_tsubst tsubst tvar ty) (* We should do some occur_check *)
-    | (TId id1, TId id2) | (TName id1, TName id2) ->
-        if id1 = id2 then Some tsubst else None
+    | (TId id,ty) | (ty,TId id) -> 
+      begin match Util.Pmap.lookup id tenv with
+      | Some ty' -> mgu_type_aux ty ty' tsubst
+      | None -> None
+    end
     | (ty1, ty2) ->
         Util.Debug.print_debug
           ("Cannot unify " ^ string_of_typ ty1 ^ " and " ^ string_of_typ ty2);
         None in
   mgu_type_aux ty1 ty2 Util.Pmap.empty
-
-(* The following function
-   taking an initial type substitution
-   and two types as input
-   and tries to find a type susbtitution extending the initial one that unifies the two types, otherwise it returns None *)
-let rec unify_type tsubst = function
-  | (TUnit, TUnit) -> Some (TUnit, tsubst)
-  | (TInt, TInt) -> Some (TInt, tsubst)
-  | (TBool, TBool) -> Some (TBool, tsubst)
-  | (TRef ty1, TRef ty2) -> begin
-      match unify_type tsubst (ty1, ty2) with
-      | None -> None
-      | Some (ty, tsubst') -> Some (TRef ty, tsubst')
-    end
-  | (TArrow (ty11, ty12), TArrow (ty21, ty22)) -> begin
-      match unify_type tsubst (ty11, ty21) with
-      | None ->
-          Util.Debug.print_debug
-            ("Cannot unify " ^ string_of_typ ty11 ^ " and " ^ string_of_typ ty21);
-          None
-      | Some (ty1, tsubst') -> (
-          match unify_type tsubst' (ty12, ty22) with
-          | None ->
-              Util.Debug.print_debug
-                ("Cannot unify " ^ string_of_typ ty12 ^ " and "
-               ^ string_of_typ ty22);
-              None
-          | Some (ty2, tsubst'') -> Some (TArrow (ty1, ty2), tsubst''))
-    end
-  | (TProd (ty11, ty12), TProd (ty21, ty22)) -> begin
-      match unify_type tsubst (ty11, ty21) with
-      | None ->
-          Util.Debug.print_debug
-            ("Cannot unify " ^ string_of_typ ty11 ^ " and " ^ string_of_typ ty21);
-          None
-      | Some (ty1, lsubst') -> (
-          match unify_type lsubst' (ty12, ty22) with
-          | None ->
-              Util.Debug.print_debug
-                ("Cannot unify " ^ string_of_typ ty12 ^ " and "
-               ^ string_of_typ ty22);
-              None
-          | Some (ty2, lsubst'') -> Some (TProd (ty1, ty2), lsubst''))
-    end
-  | (TExn, TExn) -> Some (TExn, tsubst)
-  | ((TVar tvar1 as ty1), TVar tvar2) when tvar1 = tvar2 -> Some (ty1, tsubst)
-  | ((TVar _ as ty1), TVar tvar2) ->
-      Some (ty1, Util.Pmap.modadd (tvar2, ty1) tsubst)
-  | (TVar tvar, ty) | (ty, TVar tvar) -> begin
-      match Util.Pmap.lookup tvar tsubst with
-      | None -> Some (ty, Util.Pmap.modadd (tvar, ty) tsubst)
-      | Some ty' -> begin
-          match unify_type tsubst (ty, ty') with
-          | None ->
-              Util.Debug.print_debug
-                ("Cannot unify " ^ string_of_typ ty ^ " and "
-               ^ string_of_typ ty');
-              None
-          | Some (ty'', lsubst'') ->
-              Some (ty'', Util.Pmap.modadd (tvar, ty'') lsubst'')
-        end
-    end
-  | ((TId id1 as ty), TId id2) | ((TName id1 as ty), TName id2) ->
-      if id1 = id2 then Some (ty, tsubst) else None
-  | (ty1, ty2) ->
-      Util.Debug.print_debug
-        ("Cannot unify " ^ string_of_typ ty1 ^ " and " ^ string_of_typ ty2);
-      None
-
-let generalize_type ty =
-  let tvar_l = get_tvars ty in
-  TForall (tvar_l, ty)
 
 type negative_type = typ
 

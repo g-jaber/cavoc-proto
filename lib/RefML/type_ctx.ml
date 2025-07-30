@@ -48,13 +48,13 @@ type type_ctx = {
   loc_ctx: loc_ctx;
   name_ctx: name_ctx;
   cons_ctx: cons_ctx;
-  type_subst: Types.type_subst;
+  type_env: Types.type_env;
 }
 
 let get_var_ctx type_ctx = type_ctx.var_ctx
 let get_name_ctx type_ctx = type_ctx.name_ctx
 let get_loc_ctx type_ctx = type_ctx.loc_ctx
-let get_type_subst type_ctx = type_ctx.type_subst
+let get_type_env type_ctx = type_ctx.type_env
 
 let extend_var_ctx type_ctx var ty =
   { type_ctx with var_ctx= Util.Pmap.modadd (var, ty) type_ctx.var_ctx }

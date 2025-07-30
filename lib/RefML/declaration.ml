@@ -79,17 +79,17 @@ let build_name_ctx comp_env =
 
 let get_typed_comp_env implem_decl_l =
   let (val_decl_l, type_decl_l, exn_l) = split_implem_decl_list implem_decl_l in
-  let type_subst = Util.Pmap.list_to_pmap type_decl_l in
+  let type_env = Util.Pmap.list_to_pmap type_decl_l in
   let name_ctx = build_name_ctx val_decl_l in
   let cons_ctx = Util.Pmap.list_to_pmap exn_l in
-  (* TODO: Should we also put domain of type_subst in name_ctx ?*)
+  (* TODO: Should we also put domain of type_env in name_ctx ?*)
   let type_ctx =
     {
       var_ctx= Type_ctx.empty_var_ctx;
       loc_ctx= Type_ctx.empty_loc_ctx;
       name_ctx;
       cons_ctx;
-      type_subst;
+      type_env;
     } in
   let rec aux comp_env type_ctx = function
     | [] -> 
@@ -97,7 +97,7 @@ let get_typed_comp_env implem_decl_l =
         Type_ctx.get_name_ctx type_ctx in
       (comp_env, name_ctx, cons_ctx)
     | (var, expr) :: val_decl_l ->
-        let (ty, type_subst') = Type_checker.infer_type type_ctx type_subst expr in
+        let (ty, type_subst') = Type_checker.infer_type type_ctx Types.empty_type_env expr in
         let ty' = Types.apply_type_subst ty type_subst' in
         let type_ctx' = Type_ctx.extend_var_ctx type_ctx var ty' in
         aux ((var, expr) :: comp_env) type_ctx' val_decl_l in

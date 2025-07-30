@@ -25,16 +25,21 @@ val fresh_typename : unit -> id
 val get_tvars : typ -> typevar list
 val pp_tvar_l : Format.formatter -> typevar list -> unit
 
-type type_subst = (typevar, typ) Util.Pmap.pmap
-type type_env = (id, typ) Util.Pmap.pmap
+val subst_type : typevar -> typ -> typ -> typ
+val generalize_type : typ -> typ
 
+type type_subst = (typevar, typ) Util.Pmap.pmap
+val empty_type_subst : type_subst
 val apply_type_subst : typ -> type_subst -> typ
 val compose_type_subst : type_subst -> type_subst -> type_subst
+
+type type_env = (id, typ) Util.Pmap.pmap
+val empty_type_env : type_env
 val apply_type_env : typ -> type_env -> typ
-val subst_type : typevar -> typ -> typ -> typ
-val mgu_type : typ * typ -> type_subst option
-val unify_type : type_subst -> typ * typ -> (typ * type_subst) option
-val generalize_type : typ -> typ
+
+val mgu_type : type_env -> typ * typ -> type_subst option
+
+
 
 type negative_type = typ
 
