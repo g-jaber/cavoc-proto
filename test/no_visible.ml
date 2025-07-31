@@ -1,5 +1,5 @@
 (* To be tested with
-./_build/default/bin/explore.exe test/no_visible.ml test/no_visible.mli
+dune exec bin/explore.exe test/no_visible.ml test/no_visible.mli
 *)
 
 let r = ref 0

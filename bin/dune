@@ -1,6 +1,6 @@
 (executable
  (name explore_web)
- (public_name explore_web)
+ (public_name cavoc-explore_web)
  (modes byte js)
  (preprocess
   (pps js_of_ocaml-ppx lwt_ppx))
@@ -20,7 +20,7 @@
 
 (executable
  (name compose)
- (public_name compose)
+ (public_name cavoc-compose)
  (libraries
   refml
   lang
@@ -34,7 +34,7 @@
 
 (executable
  (name explore)
- (public_name explore)
+ (public_name cavoc-explore)
  (libraries
   refml
   lang

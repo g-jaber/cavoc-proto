@@ -1,5 +1,5 @@
 (* To be tested with
-dune exec explore.exe test/private_counter.ml test/private_counter.mli
+dune exec bin/explore.exe test/private_counter.ml test/private_counter.mli
 *)
 
 type t = int
