@@ -39,6 +39,7 @@ val apply_type_env : typ -> type_env -> typ
 
 val mgu_type : type_env -> typ * typ -> type_subst option
 
+val refresh_forall : typ -> typ
 
 
 type negative_type = typ

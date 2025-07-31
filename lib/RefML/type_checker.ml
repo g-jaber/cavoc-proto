@@ -8,7 +8,9 @@ let rec infer_type type_ctx type_subst expr =
   match expr with
   | Var x -> begin
       match Util.Pmap.lookup x type_ctx.var_ctx with
-      | Some ty -> (ty, type_subst)
+      | Some ty -> 
+        let ty' = Types.refresh_forall ty in
+        (ty', type_subst)
       | None ->
           Util.Error.fail_error
             ("Error: the variable " ^ Syntax.string_of_id x
@@ -172,7 +174,9 @@ let rec infer_type type_ctx type_subst expr =
       end
   | Let (var, e1, e2) ->
       let (ty, type_subst') = infer_type type_ctx type_subst e1 in
-      let type_ctx' = Type_ctx.extend_var_ctx type_ctx var ty in
+      let ty' = Types.apply_type_subst ty type_subst' in
+      let ty_gen = Types.generalize_type ty' in
+      let type_ctx' = Type_ctx.extend_var_ctx type_ctx var ty_gen in
       infer_type type_ctx' type_subst' e2
   | LetPair (var1, var2, e1, e2) ->
       let (ty, type_subst') = infer_type type_ctx type_subst e1 in
@@ -318,12 +322,14 @@ let infer_gen_type type_ctx type_subst expr =
 let typing_expr type_ctx expr =
   let (ty, tsubst) = infer_type type_ctx Types.empty_type_subst expr in
   let ty' = Types.apply_type_subst ty tsubst in
+  let ty_gen = Types.generalize_type ty' in
   let type_ctx' =  Type_ctx.apply_type_subst type_ctx tsubst in
-  (type_ctx',ty')
+  (type_ctx',ty_gen)
 
 
 let checking_expr type_ctx expr ty =
   let tsubst = check_type type_ctx Types.empty_type_subst expr ty in
   let ty' = Types.apply_type_subst ty tsubst in
+  let ty_gen = Types.generalize_type ty' in
   let type_ctx' =  Type_ctx.apply_type_subst type_ctx tsubst in
-  (type_ctx',ty')
+  (type_ctx',ty_gen)

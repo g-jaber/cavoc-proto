@@ -145,13 +145,16 @@ let subst_in_tsubst tsubst tvar ty =
   Util.Pmap.map (fun (tvar', ty') -> (tvar', subst_type tvar ty ty')) tsubst
 
 let compose_type_subst tsubst1 tsubst2 =
-  let tsubst2' = 
-  Util.Pmap.map (fun (tvar, ty) -> (tvar,apply_type_subst ty tsubst1)) tsubst2 in
+  let tsubst2' =
+    Util.Pmap.map
+      (fun (tvar, ty) -> (tvar, apply_type_subst ty tsubst1))
+      tsubst2 in
   Util.Pmap.concat tsubst1 tsubst2'
 
-
 type type_env = (id, typ) Util.Pmap.pmap
-let empty_type_env = Util.Pmap.empty 
+
+let empty_type_env = Util.Pmap.empty
+
 let rec apply_type_env ty type_env =
   match ty with
   | TUnit | TInt | TBool | TRef _ | TName _ | TVar _ | TExn -> ty
@@ -167,8 +170,7 @@ let rec apply_type_env ty type_env =
   | TForall (tvar_l, ty') -> TForall (tvar_l, apply_type_env ty' type_env)
   | TUndef -> failwith "Error: undefined type, please report."
 
-
-let mgu_type tenv (ty1,ty2) =
+let mgu_type tenv (ty1, ty2) =
   let rec mgu_type_aux ty1 ty2 tsubst =
     match (ty1, ty2) with
     | (TUnit, TUnit) | (TInt, TInt) | (TBool, TBool) | (TExn, TExn) ->
@@ -181,17 +183,32 @@ let mgu_type tenv (ty1,ty2) =
         | Some tsubst' -> mgu_type_aux ty12 ty22 tsubst'
       end
     | (TVar tvar1, TVar tvar2) when tvar1 = tvar2 -> Some tsubst
-    | (TVar tvar, ty) | (ty, TVar tvar) -> Some (subst_in_tsubst tsubst tvar ty) (* We should do some occur_check *)
-    | (TId id,ty) | (ty,TId id) -> 
-      begin match Util.Pmap.lookup id tenv with
-      | Some ty' -> mgu_type_aux ty ty' tsubst
-      | None -> None
-    end
+    | (TVar tvar, ty) | (ty, TVar tvar) ->
+        Some (subst_in_tsubst tsubst tvar ty)
+        (* We should do some occur_check *)
+    | (TId id, ty) | (ty, TId id) -> begin
+        match Util.Pmap.lookup id tenv with
+        | Some ty' -> mgu_type_aux ty ty' tsubst
+        | None -> None
+      end
     | (ty1, ty2) ->
         Util.Debug.print_debug
           ("Cannot unify " ^ string_of_typ ty1 ^ " and " ^ string_of_typ ty2);
         None in
   mgu_type_aux ty1 ty2 Util.Pmap.empty
+
+let refresh_forall = function
+  | TForall (tvar_l, ty) ->
+      let tsubst =
+        Util.Pmap.list_to_pmap
+        (List.map
+            (fun tvar ->
+              let tvar' = fresh_typevar () in
+              (tvar, tvar'))
+            tvar_l) in
+      let ty' = apply_type_subst ty tsubst in
+      ty'
+  | ty -> ty
 
 type negative_type = typ
 
