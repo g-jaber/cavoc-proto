@@ -22,7 +22,7 @@
 %token IF THEN ELSE
 %token UNIT
 %token REF ASSIGN DEREF
-%token WHILE DO
+%token WHILE DO DONE
 %token WITH
 %token ASSERT
 %token RAISE
@@ -37,7 +37,7 @@
 %token TEXN
 %right ARROW
 
-%left ELSE IN DO
+%left ELSE IN
 %left SEMICOLON
 %left ASSIGN
 %nonassoc NOT
@@ -122,7 +122,7 @@ expr:
     { Let (v, Fix ((v,TUndef),tid, List.fold_left (fun expr var -> Fun (var,expr)) e1 lid), e2) }
   | LET LPAR v1=VAR COMMA v2=VAR RPAR EQ e1=expr IN e2=expr
     { LetPair (v1,v2,e1,e2)}
-  | WHILE e1=expr DO e2=expr { While (e1,e2) }
+  | WHILE e1=expr DO e2=expr DONE { While (e1,e2) }
   | REF e=expr         { Newref (TUndef,e) }
   | e1=expr ASSIGN e2=expr { Assign (e1,e2) }
   | ASSERT e=expr      { Assert e }

@@ -52,6 +52,7 @@ rule token = parse
   | "assert" { ASSERT }
   | "while" { WHILE }
   | "do" { DO }
+  | "done" { DONE }
 
   | "()" { UNIT }
   | "ref" { REF }
