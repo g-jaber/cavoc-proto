@@ -22,7 +22,7 @@ val string_of_typ : typ -> string
 val pp_typ : Format.formatter -> typ -> unit
 val fresh_typevar : unit -> typ
 val fresh_typename : unit -> id
-val get_tvars : typ -> typevar list
+val get_free_tvars : typ -> typevar list
 val pp_tvar_l : Format.formatter -> typevar list -> unit
 
 val subst_type : typevar -> typ -> typ -> typ

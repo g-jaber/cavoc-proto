@@ -83,21 +83,21 @@ module TVarSet = Set.Make (struct
   let compare = String.compare
 end)
 
-let rec get_new_tvars tvar_set = function
+let rec get_new_free_tvars tvar_set = function
   | TUnit | TInt | TBool | TExn | TId _ | TName _ | TUndef -> tvar_set
   | TArrow (ty1, ty2) | TProd (ty1, ty2) | TSum (ty1, ty2) ->
-      let tvar_set' = get_new_tvars tvar_set ty1 in
-      get_new_tvars tvar_set' ty2
-  | TRef ty -> get_new_tvars tvar_set ty
+      let tvar_set' = get_new_free_tvars tvar_set ty1 in
+      get_new_free_tvars tvar_set' ty2
+  | TRef ty -> get_new_free_tvars tvar_set ty
   | TVar typevar -> TVarSet.add typevar tvar_set
   | TForall (tvars, ty) ->
       let tvar_set' = List.fold_left (Fun.flip TVarSet.remove) tvar_set tvars in
-      get_new_tvars tvar_set' ty
+      get_new_free_tvars tvar_set' ty
 
-let get_tvars ty = TVarSet.elements @@ get_new_tvars TVarSet.empty ty
+let get_free_tvars ty = TVarSet.elements @@ get_new_free_tvars TVarSet.empty ty
 
 let generalize_type ty =
-  let tvar_l = get_tvars ty in
+  let tvar_l = get_free_tvars ty in
   TForall (tvar_l, ty)
 
 (* Type substitutions are maps from type variables to types *)

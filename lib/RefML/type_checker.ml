@@ -311,7 +311,7 @@ and check_type_bin type_ctx type_subst com_ty expr1 expr2 =
 (*  
 let infer_gen_type type_ctx type_subst expr =
   let (ty, type_subst') = infer_type type_ctx type_subst expr in
-  let tvar_l = get_tvars ty in
+  let tvar_l = get_free_tvars ty in
   (TForall (tvar_l, ty), type_subst')
 *)
 
