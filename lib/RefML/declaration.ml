@@ -190,19 +190,19 @@ let get_typed_comp_env implem_decl_l sign_decl_l =
   type_priv_included type_env type_priv_decl_l;
   type_decl_coincide type_env type_publ_decl_l;
   exn_included cons_ctx sign_exn_l;
-  let name_ctx = build_name_ctx comp_decl_l in
+  let name_ctxO = build_name_ctx comp_decl_l in
   let var_decls = Util.Pmap.list_to_pmap var_decl_l in
   (* TODO: Should we also put domain of type_env in name_ctx ?*)
   let type_ctx =
     {
       var_ctx= Type_ctx.empty_var_ctx;
       loc_ctx= Type_ctx.empty_loc_ctx;
-      name_ctx;
+      name_ctx=name_ctxO;
       cons_ctx;
       type_env;
     } in
-  let (comp_env, name_ctx) = typing_decl_l type_ctx var_decls comp_decl_l in
-  (comp_env, name_ctx, cons_ctx)
+  let (comp_env, name_ctxO') = typing_decl_l type_ctx var_decls comp_decl_l in
+  (comp_env, name_ctxO', cons_ctx)
 
 let get_typed_val_env var_val_env sign_decl_l =
   let (var_ctx_l, _, type_publ_decl_l, _) =
