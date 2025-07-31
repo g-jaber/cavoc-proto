@@ -93,7 +93,7 @@ rule token = parse
   | name as nn { NAME nn }
   | constructor as c { CONSTRUCTOR c }
 
-  | _  { raise Error }
+  | _  { failwith (Printf.sprintf "Unexpected char at %d" lexbuf.lex_curr_p.pos_cnum) }
 
 and comment depth = parse
   | '\n'  { newline lexbuf; comment depth lexbuf }

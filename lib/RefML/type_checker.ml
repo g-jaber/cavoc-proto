@@ -316,7 +316,14 @@ let infer_gen_type type_ctx type_subst expr =
 *)
 
 let typing_expr type_ctx expr =
-  let (ty, tsubst') = infer_type type_ctx Types.empty_type_subst expr in
-  let ty' = Types.apply_type_subst ty tsubst' in
-  let type_ctx' =  Type_ctx.apply_type_subst type_ctx tsubst' in
+  let (ty, tsubst) = infer_type type_ctx Types.empty_type_subst expr in
+  let ty' = Types.apply_type_subst ty tsubst in
+  let type_ctx' =  Type_ctx.apply_type_subst type_ctx tsubst in
+  (type_ctx',ty')
+
+
+let checking_expr type_ctx expr ty =
+  let tsubst = check_type type_ctx Types.empty_type_subst expr ty in
+  let ty' = Types.apply_type_subst ty tsubst in
+  let type_ctx' =  Type_ctx.apply_type_subst type_ctx tsubst in
   (type_ctx',ty')

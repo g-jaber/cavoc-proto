@@ -1,7 +1,7 @@
-(lang dune 3.11)
+(lang dune 3.13)
 
 (name cavoc)
-(using menhir 2.0)
+(using menhir 3.0)
 
 (generate_opam_files true)
 

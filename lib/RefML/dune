@@ -1,7 +1,8 @@
 (ocamllex lexer)
 
 (menhir
- (modules parser))
+ (modules parser)
+ (explain true))
 
 (library
  (name refml)

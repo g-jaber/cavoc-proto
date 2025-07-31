@@ -37,7 +37,7 @@
 %token TEXN
 %right ARROW
 
-%left ELSE IN
+%left ELSE IN DO
 %left SEMICOLON
 %left ASSIGN
 %nonassoc NOT
@@ -48,7 +48,7 @@
 %left MULT DIV
 %nonassoc REF
 %nonassoc ASSERT
-
+%nonassoc RAISE
 
 %start prog
 %type <Declaration.implem_decl list> prog
@@ -59,114 +59,126 @@
 %start fullexpr
 %type <Syntax.term> fullexpr
 
+
 %%
 
-fullexpr: expr; EOF  { $1 }
+fullexpr: 
+| e=expr_with_try; EOF  { e }
 
-prog: list_implem_decl; EOF  { $1 }
+prog: 
+| l=list_implem_decl; EOF  { l }
 
-signature: list_signature_decl; EOF { $1 }
+signature: 
+| l=list_signature_decl; EOF { l }
 
 signature_decl:
-  | TYPE VAR { PrivateTypeDecl ($2) }  
-  | TYPE VAR EQ ty { PublicTypeDecl ($2,$4) }
-  | VAL VAR COLON ty { PublicValDecl ($2,$4) }
-  | EXCEPTION CONSTRUCTOR OF ty { PublicExnDecl ($2, $4) }
+  | TYPE v=VAR { PrivateTypeDecl (v) }  
+  | TYPE v=VAR EQ t=ty { PublicTypeDecl (v,t) }
+  | VAL v=VAR COLON t=ty { PublicValDecl (v,t) }
+  | EXCEPTION c=CONSTRUCTOR  { PublicExnDecl (c, None) }
+  | EXCEPTION c=CONSTRUCTOR OF t=ty { PublicExnDecl (c, Some t) }
 
 implem_decl:
-  | TYPE VAR EQ ty { TypeDecl ($2,$4) }
-  | LET VAR list_ident EQ expr
-    { ValDecl ($2, List.fold_left (fun expr var -> Fun (var,expr)) $5 $3) }
-  | LET REC VAR typed_ident list_ident EQ expr
-    { ValDecl ($3, Fix (($3,TUndef),$4, List.fold_left (fun expr var -> Fun (var,expr)) $7 $5)) }
-  | EXCEPTION CONSTRUCTOR OF ty { ExnDecl ($2, $4) }
+  | TYPE v=VAR EQ t=ty { TypeDecl (v,t) }
+  | LET v=VAR l=list_ident EQ e=expr_with_try
+    { ValDecl (v, List.fold_left (fun expr var -> Fun (var,expr)) e l) }
+  | LET REC v=VAR t=typed_ident l=list_ident EQ e=expr
+    { ValDecl (v, Fix ((v,TUndef),t, List.fold_left (fun expr_with_try var -> Fun (var,expr_with_try)) e l)) }
+  | EXCEPTION c=CONSTRUCTOR { ExnDecl (c, None) }
+  | EXCEPTION c=CONSTRUCTOR OF t=ty { ExnDecl (c, Some t) }
 
 list_signature_decl:
   |  { [] }
-  | list_signature_decl signature_decl {$2::$1}
+  | l=list_signature_decl d=signature_decl {d::l}
 
 list_implem_decl:
   |  { [] }
-  | list_implem_decl implem_decl {$2::$1}
+  | l=list_implem_decl d=implem_decl {d::l}
 
-pattern : 
-  | CONSTRUCTOR VAR {PatCons ($1, $2)}
-  | VAR {PatVar $1}
+ pattern : 
+   | c=CONSTRUCTOR v=VAR {PatCons (c, v)}
+   | v=VAR {PatVar v}
 
-handler : PIPE pattern ARROW expr {$2,$4}
-handler_list : 
-  | { [] }
-  | handler handler_list {(Handler ($1))::$2}
+ handler : PIPE p=pattern ARROW e=expr {p,e}
+ handler_list : 
+   | { [] }
+   | hl=handler_list h=handler {(Handler h)::hl}
+
+expr_with_try:
+  | e=expr { e }
+  | TRY e=expr WITH hl=handler_list { TryWith (e,hl) }
+
 
 expr:
-  | app_expr { $1 }
-  | expr SEMICOLON expr         { Seq ($1, $3) }
-  | IF expr THEN expr ELSE expr        { If ($2, $4, $6) }
-  | FUN typed_ident ARROW expr { Fun ($2, $4) }
-  | FIX typed_ident typed_ident ARROW expr
-    { Fix ($2,$3, $5) }
-  | LET VAR list_ident EQ expr IN expr
-    { Let ($2, List.fold_left (fun expr var -> Fun (var,expr)) $5 $3, $7) }
-  | LET REC VAR typed_ident list_ident EQ expr IN expr
-    { Let ($3, Fix (($3,TUndef),$4, List.fold_left (fun expr var -> Fun (var,expr)) $7 $5), $9) }
-  | LET LPAR VAR COMMA VAR RPAR EQ expr IN expr
-    { LetPair ($3,$5,$8,$10)}
-  | WHILE expr DO expr { While ($2,$4) }
-  | REF expr         { Newref (TUndef,$2) }
-  | expr ASSIGN expr { Assign ($1,$3) }
-  | ASSERT expr      { Assert $2 }
-  | RAISE expr { Raise $2 }
-  | TRY e=expr WITH hl=handler_list { TryWith (e,hl) }
-(*  | MINUS expr          { UMinus (-$2) }  *)
-  | expr PLUS expr     { BinaryOp (Plus, $1, $3) }
-  | expr MINUS expr    { BinaryOp (Minus, $1, $3) }
-  | expr MULT expr     { BinaryOp (Mult, $1, $3) }
-  | expr DIV expr      { BinaryOp (Div, $1, $3) }
-  | NOT expr          { UnaryOp (Not, $2) }
-  | expr LAND expr     { BinaryOp (And, $1, $3) }
-  | expr LOR expr      { BinaryOp (Or, $1, $3) }
-  | expr EQ expr      { BinaryOp (Equal, $1, $3) }
-  | expr NEQ expr     { BinaryOp (NEqual, $1, $3) }
-  | expr GREAT expr    { BinaryOp (Great, $1, $3) }
-  | expr GREATEQ expr  { BinaryOp (GreatEq, $1, $3) }
-  | expr LESS expr    { BinaryOp (Less, $1, $3) }
-  | expr LESSEQ expr  { BinaryOp (LessEq, $1, $3) }
+  | e=app_expr { e }
+  | e1=expr SEMICOLON e2=expr         { Seq (e1, e2) }
+  | IF e1=expr THEN e2=expr ELSE e3=expr        { If (e1, e2, e3) }
+  | FUN tid=typed_ident ARROW e=expr { Fun (tid, e) }
+  | FIX tid1=typed_ident tid2=typed_ident ARROW e=expr
+    { Fix (tid1, tid2, e) }
+  | LET v=VAR lid=list_ident EQ e1=expr IN e2=expr
+    { Let (v, List.fold_left (fun expr var -> Fun (var,expr)) e1 lid, e2) }
+  | LET REC v=VAR tid=typed_ident lid=list_ident EQ e1=expr IN e2=expr
+    { Let (v, Fix ((v,TUndef),tid, List.fold_left (fun expr var -> Fun (var,expr)) e1 lid), e2) }
+  | LET LPAR v1=VAR COMMA v2=VAR RPAR EQ e1=expr IN e2=expr
+    { LetPair (v1,v2,e1,e2)}
+  | WHILE e1=expr DO e2=expr { While (e1,e2) }
+  | REF e=expr         { Newref (TUndef,e) }
+  | e1=expr ASSIGN e2=expr { Assign (e1,e2) }
+  | ASSERT e=expr      { Assert e }
+  | RAISE e=expr { Raise e }
+(*  | MINUS e=expr          { UMinus e }  *)
+  | e1=expr PLUS e2=expr     { BinaryOp (Plus, e1, e2) }
+  | e1=expr MINUS e2=expr    { BinaryOp (Minus, e1, e2) }
+  | e1=expr MULT e2=expr     { BinaryOp (Mult, e1, e2) }
+  | e1=expr DIV e2=expr      { BinaryOp (Div, e1, e2) }
+  | NOT e=expr          { UnaryOp (Not, e) }
+  | e1=expr LAND e2=expr     { BinaryOp (And, e1, e2) }
+  | e1=expr LOR e2=expr      { BinaryOp (Or, e1, e2) }
+  | e1=expr EQ e2=expr      { BinaryOp (Equal, e1, e2) }
+  | e1=expr NEQ e2=expr     { BinaryOp (NEqual, e1, e2) }
+  | e1=expr GREAT e2=expr    { BinaryOp (Great, e1, e2) }
+  | e1=expr GREATEQ e2=expr  { BinaryOp (GreatEq, e1, e2) }
+  | e1=expr LESS e2=expr    { BinaryOp (Less, e1, e2) }
+  | e1=expr LESSEQ e2=expr  { BinaryOp (LessEq, e1, e2) }
+
+
 
 app_expr:
-  | simple_expr { $1 }
-  | app_expr simple_expr         { App ($1, $2) }
+  | e=simple_expr { e }
+  | e1=app_expr e2=simple_expr         { App (e1, e2) }
 
 simple_expr:
-  | VAR             { Var $1 }
-  | c=CONSTRUCTOR p=expr    { Constructor (c, p)}
-  | NAME            { Name (Names.fname_of_id (Names.trim_name_id $1)) }
+  | v=VAR             { Var v }
+  | c=CONSTRUCTOR p=simple_expr    { Constructor (c, p)}
+  | n=NAME            { Name (Names.fname_of_id (Names.trim_name_id n)) }
   | UNIT            { Unit }
-  | INT             { Int $1 }
+  | n=INT             { Int n }
   | TRUE            { Bool true }
   | FALSE           { Bool false }
-  | LPAR expr COMMA expr RPAR   { Pair ($2, $4) }
-  | DEREF VAR       { Deref (Var $2) }
-  | LPAR expr RPAR   { $2 }
+  | LPAR e1=expr COMMA e2=expr RPAR   { Pair (e1, e2) }
+  | DEREF v=VAR       { Deref (Var v) }
+  | LPAR e=expr_with_try RPAR   { e }
 
 typed_ident:
   | UNIT { let var = fresh_evar () in (var,TUnit) }
-  | VAR { ($1,TUndef) }
-  | LPAR VAR COLON ty RPAR { ($2,$4) }
+  | v=VAR { (v,TUndef) }
+  | LPAR v=VAR COLON t=ty RPAR { (v,t) }
 
 list_ident :
   |  { [] }
-  | list_ident typed_ident {$2::$1}
+  | l=list_ident tid=typed_ident {tid::l}
 
 ty:
-  | TVAR          { TVar $1 }
-  | VAR          { TId $1 }
+  | v=TVAR          { TVar v }
+  | v=VAR          { TId v }
   | TUNIT        { TUnit }
   | TBOOL        { TBool }
   | TINT         { TInt }
-  | REF ty      { TRef $2 }
-  | ty ARROW ty { TArrow ($1, $3) }
-  | ty MULT ty   { TProd ($1, $3) }
-  | LPAR ty RPAR { $2 }
+  | REF t=ty      { TRef t }
+  | t1=ty ARROW t2=ty { TArrow (t1, t2) }
+  | t1=ty MULT t2=ty   { TProd (t1, t2) }
+  | LPAR t=ty RPAR { t }
   | TEXN { TExn }
 
 %%

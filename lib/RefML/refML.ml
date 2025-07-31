@@ -77,10 +77,10 @@ module MakeComp (M : Util.Monad.BRANCH) :
       (expr, ty, Type_ctx.get_name_ctx type_ctx)
     with
     | Lexer.SyntaxError msg ->
-        failwith ("Parsing Error in the " ^ nbprog ^ " program:" ^ msg)
+        failwith ("Lexing Error in the " ^ nbprog ^ " program:" ^ msg)
     | Parser.Error ->
         failwith
-          ("Syntax Error in the " ^ nbprog ^ " program:" ^ " at position "
+          ("Parsing Error in the " ^ nbprog ^ " program:" ^ " at position "
           ^ string_of_int (Lexing.lexeme_start lexBuffer))
     | Type_checker.TypingError msg ->
         failwith ("Typing Error in the " ^ nbprog ^ " program:" ^ msg)
@@ -90,7 +90,7 @@ module MakeComp (M : Util.Monad.BRANCH) :
       let implem_decl_l = Parser.prog Lexer.token lexBuffer_implem in
       let signature_decl_l = Parser.signature Lexer.token lexBuffer_signature in
       let (comp_env, namectxO, cons_ctx) =
-        Declaration.get_typed_comp_env implem_decl_l in
+        Declaration.get_typed_comp_env implem_decl_l signature_decl_l in
       let namectxO' = Util.Pmap.filter_map_im Types.get_negative_type namectxO in
       let (val_assign, heap, cons_ctx') =
         Interpreter.normalize_term_env cons_ctx comp_env in
@@ -100,11 +100,14 @@ module MakeComp (M : Util.Monad.BRANCH) :
       let namectxP' = Util.Pmap.filter_map_im Types.get_negative_type namectxP in
       (int_env, (val_assign, heap, cons_ctx'), namectxP', namectxO')
     with
-    | Lexer.SyntaxError msg -> failwith ("Parsing Error: " ^ msg)
+    | Lexer.SyntaxError msg -> failwith ("Lexing Error: " ^ msg)
     | Parser.Error ->
+      let pos = Lexing.lexeme_start_p lexBuffer_implem in
+      let pos_str = Printf.sprintf "%s:%d:%d"
+           pos.pos_fname pos.pos_lnum (pos.pos_cnum - pos.pos_bol + 1) in
         failwith
-          ("Syntax Error: " ^ " at position "
-          ^ string_of_int (Lexing.lexeme_start lexBuffer_implem))
+          ("Parsing Errorr at "
+          ^ pos_str)
         (* Need to get in which file the Parser.Error is *)
     | Type_checker.TypingError msg -> failwith ("Typing Error: " ^ msg)
 end

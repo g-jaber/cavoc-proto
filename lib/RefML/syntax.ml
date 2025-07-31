@@ -59,6 +59,7 @@ type handler = Handler of (pattern * term)
 and term =
   | Var of id
   | Constructor of constructor * term
+    (* We should generalize constructors so that it takes a list of arguments *)
   | Name of Names.name
   | Loc of loc
   | Unit
