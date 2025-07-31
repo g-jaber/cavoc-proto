@@ -74,6 +74,7 @@ module MakeComp (M : Util.Monad.BRANCH) :
       let expr = Parser.fullexpr Lexer.token lexBuffer in
       let type_ctx = Type_ctx.build_type_ctx expr in
       let (type_ctx, ty) = Type_checker.typing_expr type_ctx expr in
+      Util.Debug.print_debug ("Type checking of " ^ Syntax.string_of_term expr ^ " provides " ^ Types.string_of_typ ty);
       (expr, ty, Type_ctx.get_name_ctx type_ctx)
     with
     | Lexer.SyntaxError msg ->

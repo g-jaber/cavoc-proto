@@ -98,13 +98,16 @@ let get_free_tvars ty = TVarSet.elements @@ get_new_free_tvars TVarSet.empty ty
 
 let generalize_type ty =
   let tvar_l = get_free_tvars ty in
-  TForall (tvar_l, ty)
+  match tvar_l with [] -> ty | _ -> TForall (tvar_l, ty)
 
 (* Type substitutions are maps from type variables to types *)
 
 type type_subst = (typevar, typ) Util.Pmap.pmap
 
 let empty_type_subst = Util.Pmap.empty
+
+let string_of_type_subst =
+  Util.Pmap.string_of_pmap "[]" "=" Fun.id string_of_typ
 
 (* The following function perform parallel substitution of subst on ty *)
 let rec apply_type_subst ty subst =
@@ -122,8 +125,8 @@ let rec apply_type_subst ty subst =
   | TId _ -> ty
   | TForall _ ->
       failwith
-        "Applying type substitution on universally quantified type is not \
-         supported. Please report."
+      @@ "Error applying type substitution on universally quantified type "
+      ^ string_of_typ ty
   | TUndef -> failwith "Error: undefined type, please report."
 
 let rec subst_type tvar sty ty =
@@ -180,17 +183,24 @@ let mgu_type tenv (ty1, ty2) =
     | (TProd (ty11, ty12), TProd (ty21, ty22)) -> begin
         match mgu_type_aux ty11 ty21 tsubst with
         | None -> None
-        | Some tsubst' -> mgu_type_aux ty12 ty22 tsubst'
+        | Some tsubst' ->
+          let ty12' = apply_type_subst ty12 tsubst' in
+          let ty22' = apply_type_subst ty22 tsubst' in
+          mgu_type_aux ty12' ty22' tsubst'
       end
     | (TVar tvar1, TVar tvar2) when tvar1 = tvar2 -> Some tsubst
     | (TVar tvar, ty) | (ty, TVar tvar) ->
-        Some (subst_in_tsubst tsubst tvar ty)
+        Util.Debug.print_debug @@ "New constraint: " ^ tvar ^ " = "
+        ^ string_of_typ ty;
+        let tsubst' = subst_in_tsubst tsubst tvar ty in
+        Some (Util.Pmap.add (tvar, ty) tsubst')
         (* We should do some occur_check *)
     | (TId id, ty) | (ty, TId id) -> begin
         match Util.Pmap.lookup id tenv with
         | Some ty' -> mgu_type_aux ty ty' tsubst
         | None -> None
       end
+    | (TForall _, TForall _) -> failwith "Computing the MGU of forall types is not yet supported. Please report."
     | (ty1, ty2) ->
         Util.Debug.print_debug
           ("Cannot unify " ^ string_of_typ ty1 ^ " and " ^ string_of_typ ty2);
@@ -201,11 +211,11 @@ let refresh_forall = function
   | TForall (tvar_l, ty) ->
       let tsubst =
         Util.Pmap.list_to_pmap
-        (List.map
-            (fun tvar ->
-              let tvar' = fresh_typevar () in
-              (tvar, tvar'))
-            tvar_l) in
+          (List.map
+             (fun tvar ->
+               let tvar' = fresh_typevar () in
+               (tvar, tvar'))
+             tvar_l) in
       let ty' = apply_type_subst ty tsubst in
       ty'
   | ty -> ty

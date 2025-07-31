@@ -104,7 +104,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   let pp_negative_type fmt = function
     | IType ty -> OpLang.pp_negative_type fmt ty
-    | INeg ty -> Format.fprintf fmt "¬%a" OpLang.pp_type ty
+    | INeg ty -> Format.fprintf fmt "¬(%a)" OpLang.pp_type ty
 
   let string_of_negative_type = Format.asprintf "%a" pp_negative_type
 

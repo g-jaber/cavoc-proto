@@ -8,9 +8,9 @@ let rec infer_type type_ctx type_subst expr =
   match expr with
   | Var x -> begin
       match Util.Pmap.lookup x type_ctx.var_ctx with
-      | Some ty -> 
-        let ty' = Types.refresh_forall ty in
-        (ty', type_subst)
+      | Some ty ->
+          let ty' = Types.refresh_forall ty in
+          (ty', type_subst)
       | None ->
           Util.Error.fail_error
             ("Error: the variable " ^ Syntax.string_of_id x
@@ -89,12 +89,11 @@ let rec infer_type type_ctx type_subst expr =
   | BinaryOp (LessEq, e1, e2)
   | BinaryOp (Great, e1, e2)
   | BinaryOp (GreatEq, e1, e2) ->
-    let tsubst =
-      check_type_bin type_ctx type_subst TInt e1 e2
-    in (TBool,tsubst)
-  | UnaryOp (Not, e) -> 
-    let tsubst = check_type type_ctx type_subst e TBool
-  in (TBool,tsubst)
+      let tsubst = check_type_bin type_ctx type_subst TInt e1 e2 in
+      (TBool, tsubst)
+  | UnaryOp (Not, e) ->
+      let tsubst = check_type type_ctx type_subst e TBool in
+      (TBool, tsubst)
   | If (e1, e2, e3) ->
       let type_subst1 = check_type type_ctx type_subst e1 TBool in
       let (ty2, type_subst2) = infer_type type_ctx type_subst1 e2 in
@@ -109,13 +108,13 @@ let rec infer_type type_ctx type_subst expr =
              ^ string_of_typ ty2 ^ " is not equal to " ^ string_of_typ ty3)
       end
   | Fun ((var, TUndef), e) ->
-          Util.Debug.print_debug "THere ?";
       let tvar = fresh_typevar () in
       let type_ctx' = Type_ctx.extend_var_ctx type_ctx var tvar in
       let (ty2, type_subst') = infer_type type_ctx' type_subst e in
+      Util.Debug.print_debug @@ "The current type substitution is :"
+      ^ Types.string_of_type_subst type_subst';
       (TArrow (tvar, ty2), type_subst')
   | Fun ((var, ty1), e) ->
-      Util.Debug.print_debug ("Here ? with " ^ (Syntax.string_of_term e));
       let type_ctx' = Type_ctx.extend_var_ctx type_ctx var ty1 in
       let (ty2, type_subst') = infer_type type_ctx' type_subst e in
       (TArrow (ty1, ty2), type_subst')
@@ -144,7 +143,9 @@ let rec infer_type type_ctx type_subst expr =
       begin
         match Util.Pmap.lookup idfun type_ctx'.var_ctx with
         | Some fty -> begin
-            match mgu_type (Type_ctx.get_type_env type_ctx) (fty, TArrow (aty, rty)) with
+            match
+              mgu_type (Type_ctx.get_type_env type_ctx) (fty, TArrow (aty, rty))
+            with
             | Some type_subst'' ->
                 (TArrow (aty, rty), compose_type_subst type_subst'' type_subst')
             | None ->
@@ -163,7 +164,9 @@ let rec infer_type type_ctx type_subst expr =
       let type_ctx' = Type_ctx.extend_var_ctx type_ctx' idfun fty in
       let (rty, type_subst') = infer_type type_ctx' type_subst e in
       begin
-        match mgu_type (Type_ctx.get_type_env type_ctx) (fty, TArrow (aty, rty)) with
+        match
+          mgu_type (Type_ctx.get_type_env type_ctx) (fty, TArrow (aty, rty))
+        with
         | Some type_subst'' ->
             (TArrow (aty, rty), compose_type_subst type_subst'' type_subst')
         | None ->
@@ -176,6 +179,11 @@ let rec infer_type type_ctx type_subst expr =
       let (ty, type_subst') = infer_type type_ctx type_subst e1 in
       let ty' = Types.apply_type_subst ty type_subst' in
       let ty_gen = Types.generalize_type ty' in
+      Util.Debug.print_debug
+        ("We have " ^ Syntax.string_of_term e1 ^ " of type "
+       ^ Types.string_of_typ ty
+       ^ " before substitution and\n      generalization, and "
+       ^ Types.string_of_typ ty_gen ^ " after.");
       let type_ctx' = Type_ctx.extend_var_ctx type_ctx var ty_gen in
       infer_type type_ctx' type_subst' e2
   | LetPair (var1, var2, e1, e2) ->
@@ -184,11 +192,15 @@ let rec infer_type type_ctx type_subst expr =
       let tvar2 = fresh_typevar () in
       let type_ctx' = Type_ctx.extend_var_ctx type_ctx var1 tvar1 in
       let type_ctx'' = Type_ctx.extend_var_ctx type_ctx' var2 tvar2 in
-      begin match mgu_type (Type_ctx.get_type_env type_ctx) (ty, TProd (tvar1,tvar2)) with
-      | Some type_subst'' -> 
-        let type_subst'' = compose_type_subst type_subst'' type_subst' in
-        infer_type type_ctx'' type_subst'' e2
-      | None ->             Util.Error.fail_error
+      begin
+        match
+          mgu_type (Type_ctx.get_type_env type_ctx) (ty, TProd (tvar1, tvar2))
+        with
+        | Some type_subst'' ->
+            let type_subst'' = compose_type_subst type_subst'' type_subst' in
+            infer_type type_ctx'' type_subst'' e2
+        | None ->
+            Util.Error.fail_error
               ("Error typing " ^ Syntax.string_of_term expr ^ " : "
              ^ string_of_typ ty ^ " is not a product type")
       end
@@ -197,7 +209,6 @@ let rec infer_type type_ctx type_subst expr =
       let (fty, type_subst'') = infer_type type_ctx type_subst' e1 in
       let fty' = Types.apply_type_subst fty type_subst'' in
       let aty' = Types.apply_type_subst aty type_subst'' in
-      Util.Debug.print_debug ("Typing App:" ^ Syntax.string_of_term expr);
       Util.Debug.print_debug
         (Syntax.string_of_term e1 ^ " is of type " ^ string_of_typ fty'
        ^ " (was " ^ string_of_typ fty ^ ")");
@@ -206,8 +217,10 @@ let rec infer_type type_ctx type_subst expr =
        ^ " (was " ^ string_of_typ aty ^ ")");
       let tvar = fresh_typevar () in
       begin
-        match mgu_type (Type_ctx.get_type_env type_ctx) (fty', TArrow (aty', tvar)) with
-        | Some tsubst''' -> (tvar, tsubst''')
+        match
+          mgu_type (Type_ctx.get_type_env type_ctx) (fty', TArrow (aty', tvar))
+        with
+        | Some tsubst''' -> (tvar, compose_type_subst tsubst''' type_subst'')
         | None ->
             Util.Error.fail_error
               ("Error typing " ^ Syntax.string_of_term expr ^ ": "
@@ -216,14 +229,18 @@ let rec infer_type type_ctx type_subst expr =
       end
   | Seq (e1, e2) ->
       let type_subst' = check_type type_ctx type_subst e1 TUnit in
+      Util.Debug.print_debug @@ "In Seq, the current type substitution is : "
+      ^ string_of_type_subst type_subst';
       infer_type type_ctx type_subst' e2
   | While (e1, e2) ->
       let type_subst' = check_type type_ctx type_subst e1 TBool in
       let type_subst'' = check_type type_ctx type_subst' e2 TUnit in
-      (TUnit,type_subst'')
+      (TUnit, type_subst'')
   | Pair (e1, e2) ->
       let (ty1, type_subst') = infer_type type_ctx type_subst e1 in
       let (ty2, type_subst'') = infer_type type_ctx type_subst' e2 in
+      Util.Debug.print_debug @@ "In Pair, the current type substitution is : "
+      ^ string_of_type_subst type_subst'';
       (TProd (ty1, ty2), type_subst'')
   | Newref (_, e) ->
       let (ty, type_subst') = infer_type type_ctx type_subst e in
@@ -244,7 +261,15 @@ let rec infer_type type_ctx type_subst expr =
       begin
         match mgu_type (Type_ctx.get_type_env type_ctx) (ty1, TRef ty2) with
         | Some type_subst''' ->
-            (TUnit, compose_type_subst type_subst''' type_subst'')
+            Util.Debug.print_debug
+              ("We get an assign with " ^ Syntax.string_of_term e1 ^ " of type "
+             ^ Types.string_of_typ ty1 ^ " and " ^ Syntax.string_of_term e2
+             ^ " of type " ^ Types.string_of_typ ty2);
+            let type_subst_final =
+              compose_type_subst type_subst''' type_subst'' in
+            Util.Debug.print_debug @@ "The current type substitution is : "
+            ^ string_of_type_subst type_subst_final;
+            (TUnit, type_subst_final)
         | None ->
             Util.Error.fail_error @@ "Error typing "
             ^ Syntax.string_of_term expr ^ " : " ^ string_of_typ ty1
@@ -301,7 +326,7 @@ and check_type type_ctx type_subst expr res_ty =
   let (ty, type_subst') = infer_type type_ctx type_subst expr in
   let ty_inst = Types.apply_type_subst ty type_subst' in
   match mgu_type (Type_ctx.get_type_env type_ctx) (ty_inst, res_ty) with
-  | Some type_subst'' -> type_subst''
+  | Some type_subst'' -> compose_type_subst type_subst'' type_subst'
   | None ->
       Util.Error.fail_error
         ("Error typing " ^ Syntax.string_of_term expr ^ " : " ^ string_of_typ ty
@@ -312,24 +337,16 @@ and check_type_bin type_ctx type_subst com_ty expr1 expr2 =
   let type_subst'' = check_type type_ctx type_subst' expr2 com_ty in
   type_subst''
 
-(*  
-let infer_gen_type type_ctx type_subst expr =
-  let (ty, type_subst') = infer_type type_ctx type_subst expr in
-  let tvar_l = get_free_tvars ty in
-  (TForall (tvar_l, ty), type_subst')
-*)
-
 let typing_expr type_ctx expr =
   let (ty, tsubst) = infer_type type_ctx Types.empty_type_subst expr in
   let ty' = Types.apply_type_subst ty tsubst in
   let ty_gen = Types.generalize_type ty' in
-  let type_ctx' =  Type_ctx.apply_type_subst type_ctx tsubst in
-  (type_ctx',ty_gen)
-
+  let type_ctx' = Type_ctx.apply_type_subst type_ctx tsubst in
+  (type_ctx', ty_gen)
 
 let checking_expr type_ctx expr ty =
   let tsubst = check_type type_ctx Types.empty_type_subst expr ty in
   let ty' = Types.apply_type_subst ty tsubst in
   let ty_gen = Types.generalize_type ty' in
-  let type_ctx' =  Type_ctx.apply_type_subst type_ctx tsubst in
-  (type_ctx',ty_gen)
+  let type_ctx' = Type_ctx.apply_type_subst type_ctx tsubst in
+  (type_ctx', ty_gen)

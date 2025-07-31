@@ -160,7 +160,8 @@ module Make (M : Util.Monad.BRANCH) :
 
   let rec abstracting_value (value : value) ty =
     match (value, ty) with
-    | (Fun _, TArrow _) | (Fix _, TArrow _) | (Name _, TArrow _) ->
+    | (Fun _, TArrow _) | (Fix _, TArrow _) | (Name _, TArrow _)
+    | (Fun _, TForall (_,TArrow _) )| (Fix _, TForall (_,TArrow _)) | (Name _, TForall (_,TArrow _)) ->
         let fn = Names.fresh_fname () in
         let nval = Syntax.force_negative_val value in
         let nty = Types.force_negative_type ty in

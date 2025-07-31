@@ -1,5 +1,5 @@
 (* To be tested with
-   dune exec bin/explore.exe test/wbsc.ml test/wbsc.mli 
+   dune exec bin/explore.exe -- -no-wb test/wbsc.ml test/wbsc.mli 
    
 in order to study non well-bracketed interaction. *)
 
