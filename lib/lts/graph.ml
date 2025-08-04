@@ -57,10 +57,8 @@ module Make (IntLTS : Bipartite.LTS) : GRAPH
 
     type transition =
       | PublicTrans of state * IntLTS.Actions.Moves.move * state
-      | Divergent of state
 
     let string_of_transition = function
-      | Divergent _ -> "" (*idstring_of_state st ^ "-> Boom"*)
       | PublicTrans (st1, act, st2) ->
           idstring_of_state st1 ^ " -> " ^ idstring_of_state st2
           ^ "[color=blue, label=\""
@@ -128,23 +126,16 @@ module Make (IntLTS : Bipartite.LTS) : GRAPH
     (* TODO: Why ? *)
     let rec compute_graph_monad ~show_conf ~show_moves_list ~get_move = function
       | (IntLTS.Active act_conf, _) as act_state ->
-          let (action, pas_conf_option) = IntLTS.p_trans act_conf in
           begin
-            match (action, pas_conf_option) with
-            | (PDiv, None) ->
-                let* act_state = add_act_state act_conf in (*This is fishy, why adding act_state while it should already be there ?*)
-                add_edge (Divergent act_state)
-            | (PError, None) -> add_failed_state act_state
-            | (Vis pmove, Some pas_conf) ->
+            match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
+            | None -> add_failed_state act_state
+            | Some (pmove, pas_conf) ->
                 let* pas_state = add_pas_state pas_conf in
                 let edge = PublicTrans (act_state, pmove, pas_state) in
                 Util.Debug.print_debug
                   ("Adding the transition: " ^ string_of_transition edge);
                 let* () = add_edge edge in
                 compute_graph_monad ~show_conf ~show_moves_list ~get_move pas_state
-            | (PDiv, Some _) | (PError, Some _) | (Vis _, None) ->
-                failwith
-                  "Error: impossible transition in the graph. Please report."
           end
       | (IntLTS.Passive pas_conf, _) as pas_state ->
           let* (input_move, act_conf) =

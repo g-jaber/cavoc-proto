@@ -1,6 +1,6 @@
 module Make (Int : Lts.Interactive.INT) = struct
   module M = Int.IntLang.M
-  include M
+  module EvalMonad = Int.IntLang.EvalMonad
   module Int = Int
   module Actions = Int.Actions
 
@@ -50,16 +50,15 @@ module Make (Int : Lts.Interactive.INT) = struct
     | Passive p_iconf -> p_iconf.ictx
 
   let p_trans act_conf =
-    let nf_option =
+    let open EvalMonad in
+    let* nf =
       Int.IntLang.compute_nf (act_conf.computation, act_conf.store) in
-    match nf_option with
-    | None -> (Int.Actions.diverging_action, None)
-    | Some nf when Int.IntLang.is_error nf -> (Int.Actions.error_action, None)
-    | Some nf ->
-        let (move, ienv', _, ictx) = Int.generate_output_move act_conf.ictx nf in
+      if Int.IntLang.is_error nf then fail () (* to be improved *)
+      else 
+        let* (move, ienv', _, ictx) = Int.generate_output_move act_conf.ictx nf in
         let ienv = Int.IntLang.concat_ienv ienv' act_conf.ienv in
         let store = Int.IntLang.get_store nf in
-        (Int.Actions.inject_move move, Some { store; ienv; ictx })
+        return (move, { store; ienv; ictx })
 
   let o_trans pas_conf input_move =
     match Int.check_input_move pas_conf.ictx input_move with
@@ -71,6 +70,7 @@ module Make (Int : Lts.Interactive.INT) = struct
         Some { computation; store; ienv; ictx }
 
   let o_trans_gen pas_conf =
+    let open M in
     let* (input_move, ictx) = Int.generate_input_moves pas_conf.ictx in
     let (computation, store', ienv) =
       Int.trigger_computation pas_conf.ienv input_move in

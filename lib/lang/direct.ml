@@ -1,8 +1,11 @@
 module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
   open OpLang
+  module EvalMonad = OpLang.EvalMonad
   module Name = OpLang.Name
   module M = AVal.M
   module Store = OpLang.Store
+
+  open EvalMonad
 
   type computation = term
 
@@ -127,9 +130,8 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
   let get_store (_, store) = store
 
   let compute_nf (term, store) =
-    match normalize_opconf (term, store) with
-    | None -> None
-    | Some (nf_term, store') -> Some (OpLang.get_nf_term nf_term, store')
+    let* (nf_term, store') = normalize_opconf (term, store) in 
+    return (OpLang.get_nf_term nf_term, store')
 
   let concretize_a_nf ((fname_env, stack_ctx) as ienv) (a_nf_term, store) =
     let get_ectx () =

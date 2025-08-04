@@ -21,21 +21,19 @@ module Make (IntLTS : Bipartite.LTS) = struct
   let rec interactive_build ~show_move ~show_conf ~show_moves_list ~get_move conf =
     match conf with
     | IntLTS.Active act_conf ->
-        let (action, pas_conf_option) = IntLTS.p_trans act_conf in
         begin
-          match (pas_conf_option, action) with
+          match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
+         (* | None -> 
           | (_, PDiv) ->
               Lwt.return ()
           | (_, PError) ->
               print_endline
               @@ "Proponent has errored. Congratulation, you've found a bug! ";
-              Lwt.return ()
-          | (None, Vis output_move) ->
-              let move_string = IntLTS.Actions.Moves.string_of_move output_move in
-              show_move move_string;
+              Lwt.return () *)
+          | None ->
               print_endline @@ "Proponent has quitted the game.";
               Lwt.return ()
-          | (Some pas_conf, Vis output_move) ->
+          | Some (output_move, pas_conf) ->
             let move_string = IntLTS.Actions.Moves.string_of_move output_move in
             show_move move_string;
               interactive_build ~show_move ~show_conf ~show_moves_list ~get_move

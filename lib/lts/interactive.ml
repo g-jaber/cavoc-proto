@@ -36,10 +36,10 @@ module type INT = sig
   val generate_output_move :
     interactive_ctx ->
     IntLang.normal_form ->
-    Actions.Moves.move
+    (Actions.Moves.move
     * IntLang.interactive_env
     * IntLang.name_ctx
-    * interactive_ctx
+    * interactive_ctx) IntLang.EvalMonad.m
 
   (* generate_input_move Δ return
       all the pairs (m,Δ') such that
@@ -102,7 +102,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
     match IntLang.abstracting_nf nf ictx.namectxO ictx.storectx with
     | Some (a_nf, ienv, lnamectx, storectx) ->
         let namectxP = IntLang.concat_name_ctx lnamectx ictx.namectxP in
-        ( Moves.build (Moves.Output, a_nf),
+        IntLang.EvalMonad.return ( Moves.build (Moves.Output, a_nf),
           ienv,
           lnamectx,
           { ictx with namectxP; storectx } )

@@ -33,15 +33,11 @@ functor
             failwith
               "Error: trying to compose two passive configurations. Please \
                report." in
-      let (action, pas_conf_option) = IntLTS.p_trans act_conf in
-      match (pas_conf_option, IntLTS.Actions.get_move_from_action action) with
-      | (_, None) ->
+      match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
+      | None ->
           Util.Debug.print_debug "Stopping composition";
           return ()
-      | (None, Some move) ->
-          Util.Debug.print_debug "Stopping composition";
-          emit move
-      | (Some pas_conf', Some output_move) ->
+      | Some (output_move, pas_conf') ->
           let input_move = IntLTS.Actions.Moves.switch_direction output_move in
           begin
             match IntLTS.o_trans pas_conf input_move with
@@ -90,15 +86,11 @@ functor
             failwith
               "Error: trying to compose two passive configurations. Please \
                report." in
-      let (action, pas_conf_option) = IntLTS.p_trans act_conf in
-      match (pas_conf_option, IntLTS.Actions.get_move_from_action action) with
-      | (_, None) ->
+      match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
+      | None ->
           Util.Debug.print_debug "Stopping composition";
           return ()
-      | (None, Some move) ->
-          Util.Debug.print_debug "Stopping composition";
-          emit move
-      | (Some pas_conf', Some output_move) ->
+      | Some (output_move, pas_conf') ->
           let* (input_move, act_conf') =
             para_list (IntLTS.M.run (IntLTS.o_trans_gen pas_conf)) in
           let (moveP, moveO, confP', confO') =

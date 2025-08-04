@@ -8,6 +8,23 @@ module type MONAD = sig
   val ( let* ) : 'a m -> ('a -> 'b m) -> 'b m
 end
 
+module type RUNNABLE = sig
+  include MONAD
+  val run : 'a m -> 'a option
+  val fail : unit -> 'a m
+end
+
+module Option : RUNNABLE = struct
+  type 'a m = 'a option
+
+  let return x = Some x
+  let ( let* ) a f = match a with None -> None | Some x -> f x
+
+  let run x = x
+
+  let fail () = None
+end
+
 (** A simple branching monad **)
 
 (*** Signature ***)

@@ -4,7 +4,9 @@
    and by embedding named evaluation contexts in values. *)
 module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   Language.WITHAVAL_NEG with module Name = OpLang.Name = struct
+  module EvalMonad = OpLang.EvalMonad
   module Name = OpLang.Name
+  open EvalMonad
   (* *)
 
   (* We consider named terms, as in the λμ-calculus *)
@@ -139,9 +141,8 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   type opconf = term * Store.store
 
   let normalize_opconf (NTerm (cn, term), store) =
-    match OpLang.normalize_opconf (term, store) with
-    | Some (nfterm, store') -> Some (NTerm (cn, nfterm), store')
-    | None -> None
+    let* (nf_term, store') = OpLang.normalize_opconf (term, store) in 
+    return (NTerm (cn, nf_term), store')
 
   let embed_value_env = Util.Pmap.map_im (fun v -> IVal v)
 

@@ -65,6 +65,15 @@ module MakeComp (M : Util.Monad.BRANCH) :
   include Typed
   module Store = MakeStore (M)
 
+  module EvalMonad = struct
+    type 'a m = 'a option
+
+    let return x = Some x
+    let ( let* ) a f = match a with None -> None | Some x -> f x
+    let run x = x 
+    let fail () = None
+  end
+
   type opconf = Interpreter.opconf
 
   let normalize_opconf = Interpreter.normalize_opconf
@@ -74,7 +83,9 @@ module MakeComp (M : Util.Monad.BRANCH) :
       let expr = Parser.fullexpr Lexer.token lexBuffer in
       let type_ctx = Type_ctx.build_type_ctx expr in
       let (type_ctx, ty) = Type_checker.typing_expr type_ctx expr in
-      Util.Debug.print_debug ("Type checking of " ^ Syntax.string_of_term expr ^ " provides " ^ Types.string_of_typ ty);
+      Util.Debug.print_debug
+        ("Type checking of " ^ Syntax.string_of_term expr ^ " provides "
+       ^ Types.string_of_typ ty);
       (expr, ty, Type_ctx.get_name_ctx type_ctx)
     with
     | Lexer.SyntaxError msg ->
@@ -103,12 +114,11 @@ module MakeComp (M : Util.Monad.BRANCH) :
     with
     | Lexer.SyntaxError msg -> failwith ("Lexing Error: " ^ msg)
     | Parser.Error ->
-      let pos = Lexing.lexeme_start_p lexBuffer_implem in
-      let pos_str = Printf.sprintf "%s:%d:%d"
-           pos.pos_fname pos.pos_lnum (pos.pos_cnum - pos.pos_bol + 1) in
-        failwith
-          ("Parsing Errorr at "
-          ^ pos_str)
+        let pos = Lexing.lexeme_start_p lexBuffer_implem in
+        let pos_str =
+          Printf.sprintf "%s:%d:%d" pos.pos_fname pos.pos_lnum
+            (pos.pos_cnum - pos.pos_bol + 1) in
+        failwith ("Parsing Errorr at " ^ pos_str)
         (* Need to get in which file the Parser.Error is *)
     | Type_checker.TypingError msg -> failwith ("Typing Error: " ^ msg)
 end

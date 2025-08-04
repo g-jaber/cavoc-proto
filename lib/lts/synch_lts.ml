@@ -15,6 +15,7 @@ end
 module Make (IntLts : Bipartite.INT_LTS) :
   INT_LTS with module Int = IntLts.Int = struct
   module M = IntLts.M
+  module EvalMonad = IntLts.EvalMonad
   open M
 
   module A_nf = struct
@@ -106,29 +107,19 @@ module Make (IntLts : Bipartite.INT_LTS) :
     (move1, move2)
 
   let p_trans (act_conf1, act_conf2, span) =
-    let (action1, pas_conf_opt1) = IntLts.p_trans act_conf1 in
-    let (action2, pas_conf_opt2) = IntLts.p_trans act_conf2 in
-    match (pas_conf_opt1, pas_conf_opt2) with
-    | (None, _) | (_, None) -> (Actions.error_action, None)
-    | (Some pas_conf1, Some pas_conf2) -> begin
-        match (action1, action2) with
-        | (Vis move1, Vis move2) -> begin
-            match Int.Actions.Moves.unify_move span move1 move2 with
-            | None ->
-                Util.Debug.print_debug @@ "Cannot synchronize output actions "
-                ^ IntLts.Int.Actions.string_of_action action1
-                ^ " and "
-                ^ IntLts.Int.Actions.string_of_action action2;
-                (Actions.error_action, None)
-            | Some span' ->
-                let move = fold_moves move1 move2 in
-                (Vis move, Some (pas_conf1, pas_conf2, span'))
-          end
-        | (PDiv, PDiv) -> (PDiv, None)
-        | (PError, PError) -> (PError, None)
-        | _ -> (Actions.error_action, None)
-        (* To be reworked *)
-      end
+    let open EvalMonad in
+    let* (move1, pas_conf1) = IntLts.p_trans act_conf1 in
+    let* (move2, pas_conf2) = IntLts.p_trans act_conf2 in
+    match Int.Actions.Moves.unify_move span move1 move2 with
+    | None ->
+        Util.Debug.print_debug @@ "Cannot synchronize output moves "
+        ^ IntLts.Int.Actions.Moves.string_of_move move1
+        ^ " and "
+        ^ IntLts.Int.Actions.Moves.string_of_move move2;
+        EvalMonad.fail ()
+    | Some span' ->
+        let move = fold_moves move1 move2 in
+        return (move, (pas_conf1, pas_conf2, span'))
 
   let o_trans (pas_conf1, pas_conf2, span) in_move =
     let (in_move1, in_move2) = unfold_move in_move in

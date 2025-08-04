@@ -4,7 +4,6 @@ module Make (IntLTS : Bipartite.LTS) = struct
 
   type event =
     | Trans of IntLTS.conf * IntLTS.Actions.Moves.move
-    | Leaf of IntLTS.conf
 
   let string_of_event = function
     | Trans (_, move) ->
@@ -12,7 +11,6 @@ module Make (IntLTS : Bipartite.LTS) = struct
           ^ " -" ^*)
         IntLTS.Actions.Moves.string_of_move move
         (*^ "-> "*)
-    | Leaf _ -> "" (*IntLTS.Int.string_of_interactive_ctx ictx*)
 
   include Util.Monad.UserChooseWrite (struct
     type t = event
@@ -22,30 +20,20 @@ module Make (IntLTS : Bipartite.LTS) = struct
 
   let rec generate ~show_conf ~show_moves_list ~get_move conf =
     match conf with
-    | IntLTS.Active act_conf ->
-        let (action, pas_conf_option) = IntLTS.p_trans act_conf in
-        begin
-          match (pas_conf_option, action) with
-          | (_, PDiv) ->
-              print_endline @@ "Proponent has diverged ";
-              let* () = emit @@ Leaf conf in
-              return ()
-          | (_, PError) ->
-              print_endline
-              @@ "Proponent has errored. Congratulation, you've found a bug! ";
-              let* () = emit @@ Leaf conf in
-              return ()
-          | (None, Vis output_move) ->
-              print_endline @@ "Proponent has quitted the game after playing "
-              ^ IntLTS.Actions.Moves.string_of_move output_move;
-              emit @@ Trans (conf, output_move)
-          | (Some pas_conf, Vis output_move) ->
-              print_endline @@ "Proponent has played "
-              ^ IntLTS.Actions.Moves.string_of_move output_move;
-              let* () = emit @@ Trans (conf, output_move) in
-              generate ~show_conf ~show_moves_list ~get_move
-                (IntLTS.Passive pas_conf)
-        end
+    | IntLTS.Active act_conf -> begin
+        match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
+        | None ->
+            print_endline
+            @@ "Proponent has quitted the game after playing. Congratulation, \
+                you won ! ";
+            return ()
+        | Some (output_move, pas_conf) ->
+            print_endline @@ "Proponent has played "
+            ^ IntLTS.Actions.Moves.string_of_move output_move;
+            let* () = emit @@ Trans (conf, output_move) in
+            generate ~show_conf ~show_moves_list ~get_move
+              (IntLTS.Passive pas_conf)
+      end
     | IntLTS.Passive pas_conf ->
         let conf_json = IntLTS.passive_conf_to_yojson pas_conf in
         let pas_conf_str = Yojson.Safe.pretty_to_string conf_json in

@@ -88,7 +88,9 @@ module type COMP = sig
      - callbacks to function provided by another module
   *)
 
-  val normalize_opconf : opconf -> opconf option
+  module EvalMonad : Util.Monad.RUNNABLE
+
+  val normalize_opconf : opconf -> opconf EvalMonad.m
   val get_typed_term : string -> Lexing.lexbuf -> term * typ * name_ctx
 
   (* We retrive a module declaration and its signature from the two in_channel taken as input.

@@ -3,6 +3,9 @@ module type LANG = sig
 
   type computation
 
+
+  module EvalMonad : Util.Monad.RUNNABLE
+
   val string_of_computation : computation -> string
   val pp_computation : Format.formatter -> computation -> unit
 
@@ -20,7 +23,7 @@ module type LANG = sig
 
   (* compute_nf computes the normal form of an operational configuration,
      or None when we detect that the operational configuration diverges.*)
-  val compute_nf : computation * Store.store -> normal_form option
+  val compute_nf : computation * Store.store -> normal_form EvalMonad.m
 
   (*Interactive name contexts are typing contexts mapping names to interactive types.*)
   type name_ctx [@@deriving to_yojson]
@@ -118,9 +121,12 @@ end
    from a module OpLang of type Language.WITHAVAL_NEG *)
 module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   (*open OpLang*)
+  module EvalMonad = OpLang.EvalMonad
   module Name = OpLang.Name
   module M = OpLang.AVal.M
   module Store = OpLang.Store
+
+  open EvalMonad
 
   type computation = OpLang.term
 
@@ -157,9 +163,8 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let get_store (_, store) = store
 
   let compute_nf (term, store) =
-    match OpLang.normalize_opconf (term, store) with
-    | None -> None
-    | Some (nf_term, store') -> Some (OpLang.get_nf_term nf_term, store')
+    let* (nf_term, store') = OpLang.normalize_opconf (term, store) in 
+    return (OpLang.get_nf_term nf_term, store')
 
   let concretize_a_nf ienv (a_nf_term, store) =
     let f_val = OpLang.AVal.subst_names ienv in

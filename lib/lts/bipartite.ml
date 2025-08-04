@@ -1,6 +1,7 @@
 module type LTS = sig
   (* The following field is to be instantiated *)
   module M : Util.Monad.BRANCH
+  module EvalMonad : Util.Monad.RUNNABLE
 
   (* *)
   module Actions : Actions.ACTIONS
@@ -17,7 +18,7 @@ module type LTS = sig
   val equiv_act_conf : active_conf -> active_conf -> bool
 
   (* The Proponent transition function return None when an error or diverging action is performed*)
-  val p_trans : active_conf -> Actions.action * passive_conf option
+  val p_trans : active_conf -> (Actions.Moves.move * passive_conf) EvalMonad.m
   val o_trans : passive_conf -> Actions.Moves.move -> active_conf option
   val o_trans_gen : passive_conf -> (Actions.Moves.move * active_conf) M.m
 end

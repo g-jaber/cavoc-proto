@@ -6,6 +6,7 @@ module Make
          and type name = IntLts.Int.Name.name) :
   Bipartite.INT_LTS with module Int = IntLts.Int = struct
   module M = IntLts.M
+  module EvalMonad = IntLts.EvalMonad
   open M
 
   (* *)
@@ -37,15 +38,10 @@ module Make
   let equiv_act_conf _ _ = failwith "Not yet implemented"
 
   let p_trans (active_iconf, active_hconf) =
-    let (action, passive_iconf_option) = IntLts.p_trans active_iconf in
-    match
-      (IntLts.Actions.get_move_from_action action, passive_iconf_option)
-    with
-    | (Some output_move, Some passive_iconf) ->
-        let passive_hconf = HistLts.p_trans active_hconf output_move in
-        (action, Some (passive_iconf, passive_hconf))
-    | (None, None) -> (action, None)
-    | _ -> failwith "Impossible branch"
+    let open EvalMonad in
+    let* (output_move, passive_iconf) = IntLts.p_trans active_iconf in
+    let passive_hconf = HistLts.p_trans active_hconf output_move in
+    return (output_move, (passive_iconf, passive_hconf))
 
   let o_trans (passive_iconf, passive_hconf) input_move =
     match
