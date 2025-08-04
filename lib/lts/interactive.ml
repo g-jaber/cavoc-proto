@@ -44,9 +44,9 @@ module type INT = sig
       all the pairs (m,Δ') such that
       there exists a name context Γ for the free names of m such that
       Δ ⊢ m ▷ Γ  and Δ' = Γ *_O Δ.
-     It uses the branching monad from IntLang.M to do so. *)
+     It uses the branching monad from IntLang.BranchMonad to do so. *)
   val generate_input_moves :
-    interactive_ctx -> (Moves.move * interactive_ctx) IntLang.M.m
+    interactive_ctx -> (Moves.move * interactive_ctx) IntLang.BranchMonad.m
 
   (* check_input_move Δ m return Some Δ'
      when there exists a name context Γ for the free names of m such that
@@ -110,10 +110,10 @@ module Make (IntLang : Lang.Interactive.LANG) :
            Please report."
           IntLang.pp_normal_form nf IntLang.pp_name_ctx ictx.namectxO
 
-  open IntLang.M
 
   let generate_input_moves ictx =
     Util.Debug.print_debug "Generating O-moves";
+    let open IntLang.BranchMonad in
     let* (a_nf, lnamectx, namectxP) =
       IntLang.generate_a_nf ictx.storectx ictx.namectxP in
     let namectxO = IntLang.concat_name_ctx lnamectx ictx.namectxO in

@@ -2,10 +2,8 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
   open OpLang
   module EvalMonad = OpLang.EvalMonad
   module Name = OpLang.Name
-  module M = AVal.M
+  module BranchMonad = AVal.BranchMonad
   module Store = OpLang.Store
-
-  open EvalMonad
 
   type computation = term
 
@@ -130,7 +128,8 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
   let get_store (_, store) = store
 
   let compute_nf (term, store) =
-    let* (nf_term, store') = normalize_opconf (term, store) in 
+    let open EvalMonad in
+    let* (nf_term, store') = normalize_opconf (term, store) in
     return (OpLang.get_nf_term nf_term, store')
 
   let concretize_a_nf ((fname_env, stack_ctx) as ienv) (a_nf_term, store) =
@@ -223,8 +222,6 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     let pp_dir fmt = Format.pp_print_string fmt dir in
     Format.asprintf "%a" (pp_a_nf ~pp_dir)
 
-  include AVal.M
-
   let fill_abstract_val storectx fnamectxP nf_skeleton =
     let gen_val in_ty =
       (*TODO: We should take into account the type var list*)
@@ -241,6 +238,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
             Some (nn, (in_ty, OpLang.get_output_type ty))
           else None)
         fnamectx in
+    let open BranchMonad in
     let* (skel, typ) = OpLang.generate_nf_term_call fname_ctx in
     let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx skel in
     let* store = Store.generate_store storectx in
@@ -248,10 +246,11 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     return ((a_nf_term, store), namectxO, namectxP)
 
   let[@warning "-8"] generate_a_nf_ret storectx = function
-    | PropCtx (_, []) -> fail ()
+    | PropCtx (_, []) -> BranchMonad.fail ()
     | PropCtx (fnamectx, (ty_hole, ty_out) :: stackctx') ->
         let cname_ctx = Util.Pmap.singleton ((), (ty_hole, ty_out)) in
         let inj_ty ty = ty in
+        let open BranchMonad in
         let* (skel, typ) = OpLang.generate_nf_term_ret inj_ty cname_ctx in
         let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx skel in
         let* store = Store.generate_store storectx in
@@ -260,7 +259,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
         return ((a_nf_term, store), namectxO, namectxP')
 
   let generate_a_nf storectx namectxP =
-    para_pair
+    BranchMonad.para_pair
       (generate_a_nf_call storectx namectxP)
       (generate_a_nf_ret storectx namectxP)
 

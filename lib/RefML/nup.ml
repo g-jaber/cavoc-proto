@@ -1,4 +1,4 @@
-module Make (M : Util.Monad.BRANCH) :
+module Make (BranchMonad : Util.Monad.BRANCH) :
   Lang.Abstract_val.AVAL
     with type name = Names.name
      and type value = Syntax.value
@@ -7,7 +7,7 @@ module Make (M : Util.Monad.BRANCH) :
      and type negative_type = Types.negative_type
      and type label = Syntax.label
      and type store_ctx = Store.store_ctx
-     and module M = M = struct
+     and module BranchMonad = BranchMonad = struct
   (* Instantiation *)
   type name = Names.name
   type label = Syntax.label
@@ -56,8 +56,8 @@ module Make (M : Util.Monad.BRANCH) :
      We also provide a typing context that is used to retrieve the polynorphic names of
      a given type
   *)
-  module M = M
-  open M
+  module BranchMonad = BranchMonad
+  open BranchMonad
 
   let rec generate_abstract_val ((_, cons_ctx) as storectx) namectxP = function
     | TUnit -> return (Unit, Util.Pmap.empty)
@@ -65,7 +65,7 @@ module Make (M : Util.Monad.BRANCH) :
         let* b = para_list @@ [ true; false ] in
         return (Bool b, Util.Pmap.empty)
     | TInt ->
-        let* i = M.pick_int () in
+        let* i = BranchMonad.pick_int () in
         return (Int i, Util.Pmap.empty)
     | TProd (ty1, ty2) ->
         let* (nup1, nctx1) = generate_abstract_val storectx namectxP ty1 in

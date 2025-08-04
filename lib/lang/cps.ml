@@ -141,7 +141,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   type opconf = term * Store.store
 
   let normalize_opconf (NTerm (cn, term), store) =
-    let* (nf_term, store') = OpLang.normalize_opconf (term, store) in 
+    let* (nf_term, store') = OpLang.normalize_opconf (term, store) in
     return (NTerm (cn, nf_term), store')
 
   let embed_value_env = Util.Pmap.map_im (fun v -> IVal v)
@@ -172,7 +172,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     Language.NF
       with type ('value, 'ectx, 'fname, 'cname) nf_term =
         ('value, 'ectx, 'fname, 'cname) OpLang.Nf.nf_term
-       and module M = OpLang.AVal.M =
+       and module BranchMonad = OpLang.AVal.BranchMonad =
     OpLang.Nf
 
   let type_annotating_val name_ctx =
@@ -214,8 +214,6 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     OpLang.type_check_nf_term ~inj_ty ~empty_res ~fname_ctx ~cname_ctx
       ~type_check_call ~type_check_ret nf
 
-  open OpLang.AVal.M
-
   let generate_nf_term namectx =
     let inj_ty ty = GType ty in
     let fname_ctx =
@@ -229,6 +227,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
           if Name.is_cname cn then Some (cn, (ty, GEmpty)) else None)
         namectx in
     (* For both, the type provided must be ⊥, but we do not check it.*)
+    let open OpLang.AVal.BranchMonad in
     let* (a, _) =
       para_pair
         (OpLang.generate_nf_term_call fname_ctx)
@@ -303,7 +302,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
        and type negative_type = negative_type_temp
        and type label = Store.label
        and type store_ctx = Store.store_ctx
-       and module M = Store.M = struct
+       and module BranchMonad = Store.BranchMonad = struct
     type name = Name.name
     type label = OpLang.AVal.label
     type value = value_temp
@@ -394,8 +393,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
           (AVal aval, ienv, lnamectx)
       | (_, _) -> failwith "Ill-typed interactive value. Please report."
 
-    module M = OpLang.AVal.M
-    open M
+    module BranchMonad = OpLang.AVal.BranchMonad
 
     (* From the interactive name context Γ_P and a glue type τ,
        we generate all the possible pairs (A,Δ) such that
@@ -403,6 +401,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
        Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
     let generate_abstract_val storectx lnamectx gtype =
       let lnamectx' = extract_name_ctx lnamectx in
+      let open OpLang.AVal.BranchMonad in
       match gtype with
       | GType ty ->
           let* (aval, lnamectx) =

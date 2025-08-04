@@ -41,16 +41,16 @@ module Typed :
   let pp_name_ctx = Type_ctx.pp_name_ctx
 end
 
-module MakeStore (M : Util.Monad.BRANCH) :
+module MakeStore (BranchMonad : Util.Monad.BRANCH) :
   Lang.Language.STORE
     with type store = Store.store
      and type label = Syntax.label
      and type store_ctx = Store.store_ctx
-     and module M = M = struct
-  include Store_gen.Make (M)
+     and module BranchMonad = BranchMonad = struct
+  include Store_gen.Make (BranchMonad)
 end
 
-module MakeComp (M : Util.Monad.BRANCH) :
+module MakeComp (BranchMonad : Util.Monad.BRANCH) :
   Lang.Language.COMP
     with type term = Syntax.term
      and type value = Syntax.value
@@ -60,10 +60,10 @@ module MakeComp (M : Util.Monad.BRANCH) :
      and type Store.label = Syntax.label
      and type Store.store_ctx = Store.store_ctx
      and module Name = Names
-     and module Store.M = M = struct
+     and module Store.BranchMonad = BranchMonad = struct
   include Syntax
   include Typed
-  module Store = MakeStore (M)
+  module Store = MakeStore (BranchMonad)
 
   module EvalMonad = struct
     type 'a m = 'a option
@@ -123,8 +123,8 @@ module MakeComp (M : Util.Monad.BRANCH) :
     | Type_checker.TypingError msg -> failwith ("Typing Error: " ^ msg)
 end
 
-module WithAVal (M : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT = struct
-  include MakeComp (M)
+module WithAVal (BranchMonad : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT = struct
+  include MakeComp (BranchMonad)
 
   type eval_context = Syntax.eval_context
 
@@ -148,11 +148,11 @@ module WithAVal (M : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT = struct
   let get_input_type = Types.get_input_type
   let get_output_type = Types.get_output_type
 
-  module Nf_gen = Nf.Make (M)
+  module Nf_gen = Nf.Make (BranchMonad)
 
   module Nf = struct
     include Nf
-    module M = M
+    module BranchMonad = BranchMonad
 
     let abstract_nf_term_m = Nf_gen.abstract_nf_term_m
   end
@@ -181,6 +181,6 @@ module WithAVal (M : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT = struct
        and type negative_type = Types.negative_type
        and type label = Syntax.label
        and type store_ctx = Store.store_ctx
-       and module M = M =
-    Nup.Make (M)
+       and module BranchMonad = BranchMonad =
+    Nup.Make (BranchMonad)
 end

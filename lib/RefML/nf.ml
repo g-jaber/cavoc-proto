@@ -124,8 +124,8 @@ let type_check_nf_term ~inj_ty ~empty_res ~fname_ctx ~cname_ctx ~type_check_call
       let ty_in = inj_ty Types.TExn in
       type_check_ret value ty_in ty_out
 
-module Make (M : Util.Monad.BRANCH) = struct
-  open M
+module Make (BranchMonad : Util.Monad.BRANCH) = struct
+  open BranchMonad
 
   (* the following function is in general called with cname=unit*)
   let generate_nf_term_call fname_ctx =
@@ -133,7 +133,7 @@ module Make (M : Util.Monad.BRANCH) = struct
       List.map
         (fun (fn, (ty_in, ty_out)) -> (NFCallback (fn, ty_in, ()), ty_out))
         (Util.Pmap.to_list fname_ctx) in
-    M.para_list @@ callback_l
+    BranchMonad.para_list @@ callback_l
 
   let generate_nf_term_ret inj_ty cname_ctx =
     let return_l =
@@ -148,7 +148,7 @@ module Make (M : Util.Monad.BRANCH) = struct
       List.map
         (fun (cn, (ty_in, ty_out)) -> (NFRaise (cn, ty_in), ty_out))
         (Util.Pmap.to_list exn_ctx) in
-    M.para_list @@ return_l @ exn_l
+    BranchMonad.para_list @@ return_l @ exn_l
 
   let abstract_nf_term_m ~gen_val = function
     | NFCallback (fn, value, _) ->

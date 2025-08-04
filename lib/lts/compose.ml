@@ -92,7 +92,7 @@ functor
           return ()
       | Some (output_move, pas_conf') ->
           let* (input_move, act_conf') =
-            para_list (IntLTS.M.run (IntLTS.o_trans_gen pas_conf)) in
+            para_list (IntLTS.OpponentMonad.run (IntLTS.o_trans_gen pas_conf)) in
           let (moveP, moveO, confP', confO') =
             begin
               match act_player with

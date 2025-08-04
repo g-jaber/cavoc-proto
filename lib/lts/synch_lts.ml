@@ -14,9 +14,8 @@ end
 
 module Make (IntLts : Bipartite.INT_LTS) :
   INT_LTS with module Int = IntLts.Int = struct
-  module M = IntLts.M
+  module OpponentMonad = IntLts.OpponentMonad
   module EvalMonad = IntLts.EvalMonad
-  open M
 
   module A_nf = struct
     module Name = IntLts.Int.IntLang.Name
@@ -128,6 +127,7 @@ module Make (IntLts : Bipartite.INT_LTS) :
     | (Some act_conf1, Some act_conf2) -> Some (act_conf1, act_conf2, span)
 
   let o_trans_gen (pas_conf1, pas_conf2, span) =
+    let open OpponentMonad in
     let* (in_move1, act_conf1) = IntLts.o_trans_gen pas_conf1 in
     let* (in_move2, act_conf2) = IntLts.o_trans_gen pas_conf2 in
     match Int.Moves.unify_move span in_move1 in_move2 with

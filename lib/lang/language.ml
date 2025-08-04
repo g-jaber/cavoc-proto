@@ -44,10 +44,10 @@ module type STORE = sig
 
   val restrict_ctx : store_ctx -> label list -> store_ctx
 
-  module M : Util.Monad.BRANCH
+  module BranchMonad : Util.Monad.BRANCH
   (* *)
 
-  val generate_store : store_ctx -> store M.m
+  val generate_store : store_ctx -> store BranchMonad.m
 end
 
 module type COMP = sig
@@ -172,12 +172,12 @@ module type NF = sig
     ('value, 'ectx, 'fname, 'cname) nf_term ->
     ('value, 'ectx, 'fnameb, 'cname) nf_term * 'res
 
-  module M : Util.Monad.BRANCH
+  module BranchMonad : Util.Monad.BRANCH
 
   val abstract_nf_term_m :
-    gen_val:('value -> ('avalue * 'res) M.m) ->
+    gen_val:('value -> ('avalue * 'res) BranchMonad.m) ->
     ('value, 'ectx, 'fname, 'cname) nf_term ->
-    (('avalue, unit, 'fname, 'cname) nf_term * 'res) M.m
+    (('avalue, unit, 'fname, 'cname) nf_term * 'res) BranchMonad.m
 
   val equiv_nf_term :
     ('name Util.Namespan.namespan ->
@@ -196,7 +196,7 @@ end
    that values are normal forms. *)
 module type WITHAVAL_INOUT = sig
   include COMP
-  module Nf : NF with module M = Store.M
+  module Nf : NF with module BranchMonad = Store.BranchMonad
 
   type eval_context
   type typevar
@@ -232,12 +232,12 @@ module type WITHAVAL_INOUT = sig
 
   val generate_nf_term_call :
     ('fname, 'typ * 'typ) Util.Pmap.pmap ->
-    (('typ, unit, 'fname, 'cname) Nf.nf_term * 'typ) Nf.M.m
+    (('typ, unit, 'fname, 'cname) Nf.nf_term * 'typ) Nf.BranchMonad.m
 
   val generate_nf_term_ret :
     (typ -> 'ty) ->
     ('cname, 'ty * 'ty) Util.Pmap.pmap ->
-    (('ty, 'ectx, 'fname, 'cname) Nf.nf_term * 'ty) Nf.M.m
+    (('ty, 'ectx, 'fname, 'cname) Nf.nf_term * 'ty) Nf.BranchMonad.m
 
   val generate_typename_subst :
     typevar list -> typename list * (typevar, typ) Util.Pmap.pmap
@@ -262,7 +262,7 @@ module type WITHAVAL_INOUT = sig
        and type negative_type = negative_type
        and type label = Store.label
        and type store_ctx = Store.store_ctx
-       and module M = Store.M
+       and module BranchMonad = Store.BranchMonad
 end
 
 (* The following signature WITHAVAL_NEG is used for operational languages
@@ -272,7 +272,7 @@ end
 
 module type WITHAVAL_NEG = sig
   include COMP
-  module Nf : NF with module M = Store.M
+  module Nf : NF with module BranchMonad = Store.BranchMonad
 
   val type_annotating_val :
     (Name.name, typ) Util.Pmap.pmap ->
@@ -288,7 +288,7 @@ module type WITHAVAL_NEG = sig
 
   val generate_nf_term :
     (Name.name, typ) Util.Pmap.pmap ->
-    (typ, unit, Name.name, Name.name) Nf.nf_term Nf.M.m
+    (typ, unit, Name.name, Name.name) Nf.nf_term Nf.BranchMonad.m
 
   val negating_type : negative_type -> typ
 
@@ -311,5 +311,5 @@ module type WITHAVAL_NEG = sig
        and type negative_type = negative_type
        and type label = Store.label
        and type store_ctx = Store.store_ctx
-       and module M = Store.M
+       and module BranchMonad = Store.BranchMonad
 end

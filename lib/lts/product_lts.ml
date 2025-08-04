@@ -5,9 +5,8 @@ module Make
         with type move = IntLts.Int.Moves.move
          and type name = IntLts.Int.Name.name) :
   Bipartite.INT_LTS with module Int = IntLts.Int = struct
-  module M = IntLts.M
+  module OpponentMonad = IntLts.OpponentMonad
   module EvalMonad = IntLts.EvalMonad
-  open M
 
   (* *)
   module Int = IntLts.Int
@@ -52,6 +51,7 @@ module Make
     | (Some active_iconf, Some active_hconf) -> Some (active_iconf, active_hconf)
 
   let o_trans_gen (passive_iconf, passive_hconf) =
+    let open OpponentMonad in
     let* (input_move, active_iconf) = IntLts.o_trans_gen passive_iconf in
     match HistLts.o_trans_check passive_hconf input_move with
     | None -> fail ()

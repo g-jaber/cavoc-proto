@@ -9,8 +9,8 @@ module type LANG = sig
   val string_of_computation : computation -> string
   val pp_computation : Format.formatter -> computation -> unit
 
-  module M : Util.Monad.BRANCH
-  module Store : Language.STORE with module M = M
+  module BranchMonad : Util.Monad.BRANCH
+  module Store : Language.STORE with module BranchMonad = BranchMonad
 
   type normal_form
 
@@ -86,7 +86,7 @@ module type LANG = sig
   val generate_a_nf :
     Store.store_ctx ->
     name_ctx ->
-    (abstract_normal_form * name_ctx * name_ctx) M.m
+    (abstract_normal_form * name_ctx * name_ctx) BranchMonad.m
 
   (* The typing judgment of an abstracted normal form Γ_P;Γ_O ⊢ A ▷ Δ
      produces the interactive name context (Δ,Γ'_P) of fresh names introduced by A.
@@ -123,7 +123,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   (*open OpLang*)
   module EvalMonad = OpLang.EvalMonad
   module Name = OpLang.Name
-  module M = OpLang.AVal.M
+  module BranchMonad = OpLang.AVal.BranchMonad
   module Store = OpLang.Store
 
   open EvalMonad
@@ -260,7 +260,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
     let pp_dir fmt = Format.pp_print_string fmt dir in
     Format.asprintf "%a" (pp_a_nf ~pp_dir)
 
-  include OpLang.AVal.M
+  include OpLang.AVal.BranchMonad
 
   let fill_abstract_val storectx namectxP nf_skeleton =
     let gen_val ty = OpLang.AVal.generate_abstract_val storectx namectxP ty in
