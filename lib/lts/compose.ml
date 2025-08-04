@@ -9,9 +9,9 @@ functor
   ->
   struct
     include Util.Monad.UserChooseWrite (struct
-      type t = IntLTS.Int.Actions.Moves.move
+      type t = IntLTS.Int.Moves.move
 
-      let show = IntLTS.Int.Actions.Moves.string_of_move
+      let show = IntLTS.Int.Moves.string_of_move
     end)
 
     type player = Proponent | Opponent
@@ -38,13 +38,13 @@ functor
           Util.Debug.print_debug "Stopping composition";
           return ()
       | Some (output_move, pas_conf') ->
-          let input_move = IntLTS.Actions.Moves.switch_direction output_move in
+          let input_move = IntLTS.Moves.switch_direction output_move in
           begin
             match IntLTS.o_trans pas_conf input_move with
             | None ->
                 Util.Debug.print_debug
                   ("Input move forbidden: "
-                  ^ IntLTS.Actions.Moves.string_of_move input_move
+                  ^ IntLTS.Moves.string_of_move input_move
                   ^ " in the configuration "
                   ^ IntLTS.string_of_passive_conf pas_conf);
                 emit output_move
@@ -62,7 +62,7 @@ functor
                           IntLTS.Passive pas_conf' )
                   end in
                 Util.Debug.print_debug @@ "Composition succeeded with move "
-                ^ IntLTS.Actions.Moves.string_of_move moveP;
+                ^ IntLTS.Moves.string_of_move moveP;
                 let* () = emit moveP in
                 compose_check confP' confO'
           end
@@ -109,12 +109,12 @@ functor
             end in
           Util.Debug.print_debug
             ("Composing moves "
-            ^ IntLTS.Actions.Moves.string_of_move moveP
+            ^ IntLTS.Moves.string_of_move moveP
             ^ " and "
-            ^ IntLTS.Actions.Moves.string_of_move moveO);
-          let moveO' = IntLTS.Actions.Moves.switch_direction moveO in
+            ^ IntLTS.Moves.string_of_move moveO);
+          let moveO' = IntLTS.Moves.switch_direction moveO in
           let nspan_option =
-            IntLTS.Actions.Moves.unify_move nspan moveP moveO' in
+            IntLTS.Moves.unify_move nspan moveP moveO' in
           begin
             match nspan_option with
             | None ->
@@ -126,7 +126,7 @@ functor
                 return ()
             | Some nspan' ->
                 Util.Debug.print_debug @@ "Composing succeeded with move "
-                ^ IntLTS.Actions.Moves.string_of_move moveP;
+                ^ IntLTS.Moves.string_of_move moveP;
                 let* () = emit moveP in
                 compose_gen nspan' confP' confO'
           end

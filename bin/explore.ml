@@ -187,17 +187,17 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG) =
     let module OGS_LTS = Ogs.Ogslts.Make (Int) in
     match (!enable_wb, !enable_visibility) with
     | (true, true) ->
-        let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.Actions.Moves) in
+        let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
-        let module VisLTS = Ogs.Vis_lts.Make (Int.Name) (Int.Actions.Moves) in
+        let module VisLTS = Ogs.Vis_lts.Make (Int.Name) (Int.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (ProdLTS) (VisLTS) in
         generate (module ProdLTS)
     | (true, false) ->
-        let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.Actions.Moves) in
+        let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
         generate (module ProdLTS)
     | (false, true) ->
-        let module VisLTS = Ogs.Vis_lts.Make (Int.Name) (Int.Actions.Moves) in
+        let module VisLTS = Ogs.Vis_lts.Make (Int.Name) (Int.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (VisLTS) in
         generate (module ProdLTS)
     | (false, false) -> generate (module OGS_LTS)

@@ -3,10 +3,9 @@ module type INT = sig
   module IntLang : Lang.Interactive.LANG
   module Name : Lang.Names.CONT_NAMES with type name = IntLang.Name.name
 
-  module Actions :
-    Actions.ACTIONS
-      with type Moves.name = IntLang.Name.name
-       and type Moves.kdata = IntLang.abstract_normal_form
+  module Moves : Moves.MOVES
+      with type name = IntLang.Name.name
+       and type kdata = IntLang.abstract_normal_form
   (* *)
 
   type interactive_ctx [@@deriving to_yojson]
@@ -36,7 +35,7 @@ module type INT = sig
   val generate_output_move :
     interactive_ctx ->
     IntLang.normal_form ->
-    (Actions.Moves.move
+    (Moves.move
     * IntLang.interactive_env
     * IntLang.name_ctx
     * interactive_ctx) IntLang.EvalMonad.m
@@ -47,32 +46,31 @@ module type INT = sig
       Δ ⊢ m ▷ Γ  and Δ' = Γ *_O Δ.
      It uses the branching monad from IntLang.M to do so. *)
   val generate_input_moves :
-    interactive_ctx -> (Actions.Moves.move * interactive_ctx) IntLang.M.m
+    interactive_ctx -> (Moves.move * interactive_ctx) IntLang.M.m
 
   (* check_input_move Δ m return Some Δ'
      when there exists a name context Γ for the free names of m such that
       Δ ⊢ m ▷ Γ and Δ' = Γ *_O Δ.
      It returns None when m is not well-typed.*)
   val check_input_move :
-    interactive_ctx -> Actions.Moves.move -> interactive_ctx option
+    interactive_ctx -> Moves.move -> interactive_ctx option
 
   (* trigger_computation γ m returns (t,μ,γ).
      We might return an interactive environment γ' distinct of γ
      once taking into account linear resources.*)
   val trigger_computation :
     IntLang.interactive_env ->
-    Actions.Moves.move ->
+    Moves.move ->
     IntLang.computation * IntLang.Store.store * IntLang.interactive_env
 end
 
 module Make (IntLang : Lang.Interactive.LANG) :
   INT
     with type IntLang.Name.name = IntLang.Name.name
-     and type Actions.Moves.name = IntLang.Name.name = struct
-  module Actions = Actions.Make (Moves.Make (IntLang))
+     and type Moves.name = IntLang.Name.name = struct
+  module Moves = Moves.Make (IntLang)
   module IntLang = IntLang
   module Name = IntLang.Name
-  open Actions
 
   type interactive_ctx = {
     storectx: IntLang.Store.store_ctx;

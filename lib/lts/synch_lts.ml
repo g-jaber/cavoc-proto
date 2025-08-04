@@ -1,6 +1,6 @@
 module type INT_LTS = sig
   module Int : Interactive.INT
-  include Bipartite.LTS (*with module Actions = Int.Actions*)
+  include Bipartite.LTS
 
   (* init_aconf creates an configuration from two computations and a two name context for Opponent.
      Its store, interactive env, and name context for Proponent are all set to empty*)
@@ -24,8 +24,6 @@ module Make (IntLts : Bipartite.INT_LTS) :
     type abstract_normal_form =
       IntLts.Int.IntLang.abstract_normal_form
       * IntLts.Int.IntLang.abstract_normal_form
-    (*IntLts.Actions.Moves.kdata
-     * IntLts.Actions.Moves.kdata*)
 
     let pp_a_nf ~pp_dir fmt (kdata1, _) =
       IntLts.Int.IntLang.pp_a_nf ~pp_dir fmt kdata1
@@ -44,7 +42,7 @@ module Make (IntLts : Bipartite.INT_LTS) :
 
   (* *)
   module Int = IntLts.Int
-  module Actions = Actions.Make (Moves.Make (A_nf))
+  module Moves = Moves.Make (A_nf)
 
   type active_conf =
     IntLts.active_conf
@@ -80,42 +78,42 @@ module Make (IntLts : Bipartite.INT_LTS) :
     && IntLts.equiv_act_conf act_conf2a act_conf2b
 
   let convert_dir = function
-    | Actions.Moves.Input -> Int.Actions.Moves.Input
-    | Actions.Moves.Output -> Int.Actions.Moves.Output
-    | Actions.Moves.None -> Int.Actions.Moves.None
+    | Moves.Input -> Int.Moves.Input
+    | Moves.Output -> Int.Moves.Output
+    | Moves.None -> Int.Moves.None
 
   let fold_moves move1 move2 =
-    let kdata1 = Int.Actions.Moves.get_kdata move1 in
-    let kdata2 = Int.Actions.Moves.get_kdata move2 in
-    let dir1 = Int.Actions.Moves.get_direction move1 in
-    let dir2 = Int.Actions.Moves.get_direction move2 in
+    let kdata1 = Int.Moves.get_kdata move1 in
+    let kdata2 = Int.Moves.get_kdata move2 in
+    let dir1 = Int.Moves.get_direction move1 in
+    let dir2 = Int.Moves.get_direction move2 in
     match (dir1, dir2) with
-    | (Int.Actions.Moves.Input, Int.Actions.Moves.Input) ->
-        Actions.Moves.build (Actions.Moves.Input, (kdata1, kdata2))
-    | (Int.Actions.Moves.Output, Int.Actions.Moves.Output) ->
-        Actions.Moves.build (Actions.Moves.Output, (kdata1, kdata2))
+    | (Int.Moves.Input, Int.Moves.Input) ->
+        Moves.build (Moves.Input, (kdata1, kdata2))
+    | (Int.Moves.Output, Int.Moves.Output) ->
+        Moves.build (Moves.Output, (kdata1, kdata2))
     | _ ->
         failwith
           "Error: trying to fold moves with different directions. Please \
            report."
 
   let unfold_move move =
-    let (kdata1, kdata2) = Actions.Moves.get_kdata move in
-    let dir = convert_dir @@ Actions.Moves.get_direction move in
-    let move1 = Int.Actions.Moves.build (dir, kdata1) in
-    let move2 = Int.Actions.Moves.build (dir, kdata2) in
+    let (kdata1, kdata2) = Moves.get_kdata move in
+    let dir = convert_dir @@ Moves.get_direction move in
+    let move1 = Int.Moves.build (dir, kdata1) in
+    let move2 = Int.Moves.build (dir, kdata2) in
     (move1, move2)
 
   let p_trans (act_conf1, act_conf2, span) =
     let open EvalMonad in
     let* (move1, pas_conf1) = IntLts.p_trans act_conf1 in
     let* (move2, pas_conf2) = IntLts.p_trans act_conf2 in
-    match Int.Actions.Moves.unify_move span move1 move2 with
+    match Int.Moves.unify_move span move1 move2 with
     | None ->
         Util.Debug.print_debug @@ "Cannot synchronize output moves "
-        ^ IntLts.Int.Actions.Moves.string_of_move move1
+        ^ IntLts.Int.Moves.string_of_move move1
         ^ " and "
-        ^ IntLts.Int.Actions.Moves.string_of_move move2;
+        ^ IntLts.Int.Moves.string_of_move move2;
         EvalMonad.fail ()
     | Some span' ->
         let move = fold_moves move1 move2 in
@@ -132,7 +130,7 @@ module Make (IntLts : Bipartite.INT_LTS) :
   let o_trans_gen (pas_conf1, pas_conf2, span) =
     let* (in_move1, act_conf1) = IntLts.o_trans_gen pas_conf1 in
     let* (in_move2, act_conf2) = IntLts.o_trans_gen pas_conf2 in
-    match Int.Actions.Moves.unify_move span in_move1 in_move2 with
+    match Int.Moves.unify_move span in_move1 in_move2 with
     | None -> fail ()
     | Some span' ->
         let move = fold_moves in_move1 in_move2 in

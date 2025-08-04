@@ -16,10 +16,10 @@ end
 
 module Make (IntLTS : Bipartite.LTS) : GRAPH 
   with type conf = IntLTS.conf and 
-       type move = IntLTS.Actions.Moves.move =
+       type move = IntLTS.Moves.move =
   struct
     type conf = IntLTS.conf
-    type move = IntLTS.Actions.Moves.move
+    type move = IntLTS.Moves.move
     type id_state = int
 
     let string_of_id_state = string_of_int
@@ -56,13 +56,13 @@ module Make (IntLTS : Bipartite.LTS) : GRAPH
     let idstring_of_state (_, id) = string_of_id_state id
 
     type transition =
-      | PublicTrans of state * IntLTS.Actions.Moves.move * state
+      | PublicTrans of state * IntLTS.Moves.move * state
 
     let string_of_transition = function
       | PublicTrans (st1, act, st2) ->
           idstring_of_state st1 ^ " -> " ^ idstring_of_state st2
           ^ "[color=blue, label=\""
-          ^ IntLTS.Actions.Moves.string_of_move act
+          ^ IntLTS.Moves.string_of_move act
           ^ "\"];"
 
     type graph = {

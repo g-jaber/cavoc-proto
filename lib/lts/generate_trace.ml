@@ -1,15 +1,15 @@
 module Make (IntLTS : Bipartite.LTS) = struct
   type conf = IntLTS.conf
-  type move = IntLTS.Actions.Moves.move
+  type move = IntLTS.Moves.move
 
   type event =
-    | Trans of IntLTS.conf * IntLTS.Actions.Moves.move
+    | Trans of IntLTS.conf * IntLTS.Moves.move
 
   let string_of_event = function
     | Trans (_, move) ->
         (*IntLTS.Int.string_of_interactive_ctx ictx
           ^ " -" ^*)
-        IntLTS.Actions.Moves.string_of_move move
+        IntLTS.Moves.string_of_move move
         (*^ "-> "*)
 
   include Util.Monad.UserChooseWrite (struct
@@ -29,7 +29,7 @@ module Make (IntLTS : Bipartite.LTS) = struct
             return ()
         | Some (output_move, pas_conf) ->
             print_endline @@ "Proponent has played "
-            ^ IntLTS.Actions.Moves.string_of_move output_move;
+            ^ IntLTS.Moves.string_of_move output_move;
             let* () = emit @@ Trans (conf, output_move) in
             generate ~show_conf ~show_moves_list ~get_move
               (IntLTS.Passive pas_conf)
@@ -41,7 +41,7 @@ module Make (IntLTS : Bipartite.LTS) = struct
         let results_list = IntLTS.M.run (IntLTS.o_trans_gen pas_conf) in
         let moves_list = List.map fst results_list in
         let string_list =
-          List.map IntLTS.Actions.Moves.string_of_move moves_list in
+          List.map IntLTS.Moves.string_of_move moves_list in
         show_moves_list string_list;
         let chosen_index = get_move (List.length string_list) - 1 in
         let (input_move, act_conf) = List.nth results_list chosen_index in

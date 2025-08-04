@@ -2,7 +2,7 @@ module Make
     (IntLts : Bipartite.INT_LTS)
     (HistLts :
       Hislts.HISLTS_INIT
-        with type move = IntLts.Int.Actions.Moves.move
+        with type move = IntLts.Int.Moves.move
          and type name = IntLts.Int.Name.name) :
   Bipartite.INT_LTS with module Int = IntLts.Int = struct
   module M = IntLts.M
@@ -11,7 +11,7 @@ module Make
 
   (* *)
   module Int = IntLts.Int
-  module Actions = IntLts.Actions
+  module Moves = IntLts.Moves
 
   type active_conf = IntLts.active_conf * HistLts.active_conf
 

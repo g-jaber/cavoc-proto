@@ -2,7 +2,7 @@ module Make (Int : Lts.Interactive.INT) = struct
   module M = Int.IntLang.M
   module EvalMonad = Int.IntLang.EvalMonad
   module Int = Int
-  module Actions = Int.Actions
+  module Moves = Int.Moves
 
   type active_conf = {
     computation: Int.IntLang.computation;

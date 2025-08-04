@@ -33,7 +33,7 @@ let () =
   let module IntLang = Lang.Interactive.Make (CpsLang) in
   let module Int = Lts.Interactive.Make (IntLang) in
   let module OGS_LTS = Ogs.Ogslts.Make (Int) in
-  let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.Actions.Moves) in
+  let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.Moves) in
   let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
   Util.Debug.print_debug "Getting the program";
   let inBuffer1 = open_in !filename1 in

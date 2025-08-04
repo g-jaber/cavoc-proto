@@ -4,7 +4,7 @@ module type LTS = sig
   module EvalMonad : Util.Monad.RUNNABLE
 
   (* *)
-  module Actions : Actions.ACTIONS
+  module Moves : Moves.MOVES
 
   type active_conf
   type passive_conf
@@ -18,14 +18,14 @@ module type LTS = sig
   val equiv_act_conf : active_conf -> active_conf -> bool
 
   (* The Proponent transition function return None when an error or diverging action is performed*)
-  val p_trans : active_conf -> (Actions.Moves.move * passive_conf) EvalMonad.m
-  val o_trans : passive_conf -> Actions.Moves.move -> active_conf option
-  val o_trans_gen : passive_conf -> (Actions.Moves.move * active_conf) M.m
+  val p_trans : active_conf -> (Moves.move * passive_conf) EvalMonad.m
+  val o_trans : passive_conf -> Moves.move -> active_conf option
+  val o_trans_gen : passive_conf -> (Moves.move * active_conf) M.m
 end
 
 module type INT_LTS = sig
   module Int : Interactive.INT
-  include LTS with module Actions = Int.Actions
+  include LTS with module Moves = Int.Moves
 
   (* init_aconf creates an configuration from a computation and a name context for Opponent. 
      Its store, interactive env, and name context for Proponent are all set to empty*)
