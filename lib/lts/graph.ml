@@ -139,7 +139,7 @@ module Make (IntLTS : Bipartite.LTS) : GRAPH
           end
       | (IntLTS.Passive pas_conf, _) as pas_state ->
           let* (input_move, act_conf) =
-            para_list (IntLTS.OpponentMonad.run (IntLTS.o_trans_gen pas_conf)) in
+            para_list (IntLTS.OBranchingMonad.run (IntLTS.o_trans_gen pas_conf)) in
           let* act_state_option = find_equiv_act_conf act_conf in
           begin
             match act_state_option with

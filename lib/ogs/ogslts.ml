@@ -1,5 +1,5 @@
 module Make (Int : Lts.Interactive.INT) = struct
-  module OpponentMonad = Int.IntLang.BranchMonad
+  module OBranchingMonad = Int.IntLang.BranchMonad
   module EvalMonad = Int.IntLang.EvalMonad
   module Int = Int
   module Moves = Int.Moves
@@ -70,7 +70,7 @@ module Make (Int : Lts.Interactive.INT) = struct
         Some { computation; store; ienv; ictx }
 
   let o_trans_gen pas_conf =
-    let open OpponentMonad in
+    let open OBranchingMonad in
     let* (input_move, ictx) = Int.generate_input_moves pas_conf.ictx in
     let (computation, store', ienv) =
       Int.trigger_computation pas_conf.ienv input_move in

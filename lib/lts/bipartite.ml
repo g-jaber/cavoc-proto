@@ -1,6 +1,6 @@
 module type LTS = sig
   (* The following field is to be instantiated *)
-  module OpponentMonad : Util.Monad.BRANCH
+  module OBranchingMonad : Util.Monad.BRANCH
   module EvalMonad : Util.Monad.RUNNABLE
 
   (* *)
@@ -17,10 +17,9 @@ module type LTS = sig
   val pp_passive_conf : Format.formatter -> passive_conf -> unit
   val equiv_act_conf : active_conf -> active_conf -> bool
 
-  (* The Proponent transition function return None when an error or diverging action is performed*)
   val p_trans : active_conf -> (Moves.move * passive_conf) EvalMonad.m
   val o_trans : passive_conf -> Moves.move -> active_conf option
-  val o_trans_gen : passive_conf -> (Moves.move * active_conf) OpponentMonad.m
+  val o_trans_gen : passive_conf -> (Moves.move * active_conf) OBranchingMonad.m
 end
 
 module type INT_LTS = sig
@@ -45,4 +44,4 @@ module type INT_LTS = sig
 end
 
 module type INT_LTS_F = functor (Int : Interactive.INT) ->
-  INT_LTS with module Int = Int and module OpponentMonad = Int.IntLang.BranchMonad
+  INT_LTS with module Int = Int and module OBranchingMonad = Int.IntLang.BranchMonad

@@ -42,7 +42,7 @@ module Make (IntLTS : Bipartite.LTS) = struct
     | IntLTS.Passive pas_conf ->
         let conf_json = IntLTS.passive_conf_to_yojson pas_conf in
         show_conf conf_json;
-        let results_list = IntLTS.OpponentMonad.run (IntLTS.o_trans_gen pas_conf) in
+        let results_list = IntLTS.OBranchingMonad.run (IntLTS.o_trans_gen pas_conf) in
         let moves_list = List.map fst results_list in
         let string_list =
           List.map IntLTS.Moves.string_of_move moves_list in
