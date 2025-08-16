@@ -24,14 +24,12 @@ module type INT = sig
   val string_of_interactive_ctx : interactive_ctx -> string
   val pp_interactive_ctx : Format.formatter -> interactive_ctx -> unit
 
-  (* generate_output_move Δ nf returns a triple (m,γ,Γ,Δ')
+  (* generate_output_move Γₒ nf returns a triple (m,γ,Δ,Γₒ')
       where the output move m is formed by
       the abstracted normal form a_nf build from nf,
-      such that a_nf{γ} = nf and Δ ⊢ γ:Γ and Δ' = Γ *_P Δ.
-      We do not take into account disclosure of locations
-      currently.
-      We return Γ to be able to reset the P-name component of Δ'
-     in the POGS LTS. *)
+      such that a_nf{γ} = nf and Γₒ ⊢ γ:Δ and Γₒ' = Γₒ + Δ.
+      We do not take into account disclosure of locations currently.
+      We return Γₒ' to be ready to handle linear ressources in the future. *)
   val generate_output_move :
     interactive_ctx ->
     IntLang.normal_form ->
@@ -40,17 +38,17 @@ module type INT = sig
     * IntLang.name_ctx
     * interactive_ctx) IntLang.EvalMonad.m
 
-  (* generate_input_move Δ return
-      all the pairs (m,Δ') such that
-      there exists a name context Γ for the free names of m such that
-      Δ ⊢ m ▷ Γ  and Δ' = Γ *_O Δ.
+  (* generate_input_move Γₚ return
+      all the pairs (m,Γₚ') such that
+      there exists a name context Δ for the free names of m such that
+      Γₚ ⊢ m ▷ Δ  and Γₚ' = Γₚ + Δ.
      It uses the branching monad from IntLang.BranchMonad to do so. *)
   val generate_input_moves :
     interactive_ctx -> (Moves.move * interactive_ctx) IntLang.BranchMonad.m
 
-  (* check_input_move Δ m return Some Δ'
+  (* check_input_move Γₚ m return Some Δ
      when there exists a name context Γ for the free names of m such that
-      Δ ⊢ m ▷ Γ and Δ' = Γ *_O Δ.
+      Γₚ ⊢ m ▷ Δ and Γₚ' = Γₚ + Δ.
      It returns None when m is not well-typed.*)
   val check_input_move :
     interactive_ctx -> Moves.move -> interactive_ctx option

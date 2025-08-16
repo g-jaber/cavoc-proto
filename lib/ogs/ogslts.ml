@@ -1,4 +1,7 @@
-module Make (Int : Lts.Interactive.INT) = struct
+module Make (Int : Lts.Interactive.INT) :
+  Lts.Bipartite.INT_LTS
+    with module Int = Int
+     and module OBranchingMonad = Int.IntLang.BranchMonad = struct
   module OBranchingMonad = Int.IntLang.BranchMonad
   module EvalMonad = Int.IntLang.EvalMonad
   module Int = Int
@@ -51,14 +54,13 @@ module Make (Int : Lts.Interactive.INT) = struct
 
   let p_trans act_conf =
     let open EvalMonad in
-    let* nf =
-      Int.IntLang.compute_nf (act_conf.computation, act_conf.store) in
-      if Int.IntLang.is_error nf then fail () (* to be improved *)
-      else 
-        let* (move, ienv', _, ictx) = Int.generate_output_move act_conf.ictx nf in
-        let ienv = Int.IntLang.concat_ienv ienv' act_conf.ienv in
-        let store = Int.IntLang.get_store nf in
-        return (move, { store; ienv; ictx })
+    let* nf = Int.IntLang.compute_nf (act_conf.computation, act_conf.store) in
+    if Int.IntLang.is_error nf then fail () (* to be improved *)
+    else
+      let* (move, ienv', _, ictx) = Int.generate_output_move act_conf.ictx nf in
+      let ienv = Int.IntLang.concat_ienv ienv' act_conf.ienv in
+      let store = Int.IntLang.get_store nf in
+      return (move, { store; ienv; ictx })
 
   let o_trans pas_conf input_move =
     match Int.check_input_move pas_conf.ictx input_move with
