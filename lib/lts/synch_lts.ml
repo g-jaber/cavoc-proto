@@ -5,9 +5,9 @@ module type INT_LTS = sig
   (* init_aconf creates an configuration from two computations and a two name context for Opponent.
      Its store, interactive env, and name context for Proponent are all set to empty*)
   val init_aconf :
-    Int.IntLang.computation ->
+    Int.IntLang.opconf ->
     Int.IntLang.name_ctx ->
-    Int.IntLang.computation ->
+    Int.IntLang.opconf ->
     Int.IntLang.name_ctx ->
     active_conf
 end
@@ -77,19 +77,19 @@ module Make (IntLts : Bipartite.INT_LTS) :
     && IntLts.equiv_act_conf act_conf2a act_conf2b
 
   let convert_dir = function
-    | Moves.Input -> Int.Moves.Input
-    | Moves.Output -> Int.Moves.Output
-    | Moves.None -> Int.Moves.None
+    | Moves.Input -> IntLts.Moves.Input
+    | Moves.Output -> IntLts.Moves.Output
+    | Moves.None -> IntLts.Moves.None
 
   let fold_moves move1 move2 =
-    let kdata1 = Int.Moves.get_kdata move1 in
-    let kdata2 = Int.Moves.get_kdata move2 in
-    let dir1 = Int.Moves.get_direction move1 in
-    let dir2 = Int.Moves.get_direction move2 in
+    let kdata1 = IntLts.Moves.get_kdata move1 in
+    let kdata2 = IntLts.Moves.get_kdata move2 in
+    let dir1 = IntLts.Moves.get_direction move1 in
+    let dir2 = IntLts.Moves.get_direction move2 in
     match (dir1, dir2) with
-    | (Int.Moves.Input, Int.Moves.Input) ->
+    | (IntLts.Moves.Input, IntLts.Moves.Input) ->
         Moves.build (Moves.Input, (kdata1, kdata2))
-    | (Int.Moves.Output, Int.Moves.Output) ->
+    | (IntLts.Moves.Output, IntLts.Moves.Output) ->
         Moves.build (Moves.Output, (kdata1, kdata2))
     | _ ->
         failwith
@@ -99,20 +99,20 @@ module Make (IntLts : Bipartite.INT_LTS) :
   let unfold_move move =
     let (kdata1, kdata2) = Moves.get_kdata move in
     let dir = convert_dir @@ Moves.get_direction move in
-    let move1 = Int.Moves.build (dir, kdata1) in
-    let move2 = Int.Moves.build (dir, kdata2) in
+    let move1 = IntLts.Moves.build (dir, kdata1) in
+    let move2 = IntLts.Moves.build (dir, kdata2) in
     (move1, move2)
 
   let p_trans (act_conf1, act_conf2, span) =
     let open EvalMonad in
     let* (move1, pas_conf1) = IntLts.p_trans act_conf1 in
     let* (move2, pas_conf2) = IntLts.p_trans act_conf2 in
-    match Int.Moves.unify_move span move1 move2 with
+    match IntLts.Moves.unify_move span move1 move2 with
     | None ->
         Util.Debug.print_debug @@ "Cannot synchronize output moves "
-        ^ IntLts.Int.Moves.string_of_move move1
+        ^ IntLts.Moves.string_of_move move1
         ^ " and "
-        ^ IntLts.Int.Moves.string_of_move move2;
+        ^ IntLts.Moves.string_of_move move2;
         EvalMonad.fail ()
     | Some span' ->
         let move = fold_moves move1 move2 in
@@ -130,15 +130,15 @@ module Make (IntLts : Bipartite.INT_LTS) :
     let open OBranchingMonad in
     let* (in_move1, act_conf1) = IntLts.o_trans_gen pas_conf1 in
     let* (in_move2, act_conf2) = IntLts.o_trans_gen pas_conf2 in
-    match Int.Moves.unify_move span in_move1 in_move2 with
+    match IntLts.Moves.unify_move span in_move1 in_move2 with
     | None -> fail ()
     | Some span' ->
         let move = fold_moves in_move1 in_move2 in
         return (move, (act_conf1, act_conf2, span'))
 
-  let init_aconf comp1 namectxP1 comp2 namectxP2 =
-    let init_aconf1 = IntLts.init_aconf comp1 namectxP1 in
-    let init_aconf2 = IntLts.init_aconf comp2 namectxP2 in
+  let init_aconf opconf1 namectxP1 opconf2 namectxP2 =
+    let init_aconf1 = IntLts.init_aconf opconf1 namectxP1 in
+    let init_aconf2 = IntLts.init_aconf opconf2 namectxP2 in
     let name_l1 = IntLts.Int.IntLang.get_names_from_name_ctx namectxP1 in
     let name_l2 = IntLts.Int.IntLang.get_names_from_name_ctx namectxP2 in
     let span = Util.Namespan.combine (name_l1, name_l2) in

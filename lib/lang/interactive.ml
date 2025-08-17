@@ -1,16 +1,24 @@
 module type LANG = sig
   module Name : Names.CONT_NAMES
-
-  type computation
-
-
   module EvalMonad : Util.Monad.RUNNABLE
-
-  val string_of_computation : computation -> string
-  val pp_computation : Format.formatter -> computation -> unit
-
   module BranchMonad : Util.Monad.BRANCH
-  module Store : Language.STORE with module BranchMonad = BranchMonad
+
+  type opconf
+
+  val string_of_opconf : opconf -> string
+  val pp_opconf : Format.formatter -> opconf -> unit
+
+  type store
+
+  val string_of_store : store -> string
+  val pp_store : Format.formatter -> store -> unit
+
+  type store_ctx
+
+  val string_of_store_ctx : store_ctx -> string
+  val pp_store_ctx : Format.formatter -> store_ctx -> unit
+  val empty_store_ctx : store_ctx
+  val infer_type_store : store -> store_ctx
 
   type normal_form
 
@@ -19,11 +27,11 @@ module type LANG = sig
 
   (* Error normal form are the one that cannot interact with the environment*)
   val is_error : normal_form -> bool
-  val get_store : normal_form -> Store.store
+  val get_store : normal_form -> store
 
   (* compute_nf computes the normal form of an operational configuration,
      or None when we detect that the operational configuration diverges.*)
-  val compute_nf : computation * Store.store -> normal_form EvalMonad.m
+  val compute_nf : opconf -> normal_form EvalMonad.m
 
   (*Interactive name contexts are typing contexts mapping names to interactive types.*)
   type name_ctx [@@deriving to_yojson]
@@ -36,7 +44,6 @@ module type LANG = sig
 
   (* Interactive environments γ are partial maps from names to interactive values*)
   type interactive_env [@@deriving to_yojson]
-
 
   val empty_ienv : interactive_env
   val concat_ienv : interactive_env -> interactive_env -> interactive_env
@@ -56,8 +63,8 @@ module type LANG = sig
   val abstracting_nf :
     normal_form ->
     name_ctx ->
-    Store.store_ctx ->
-    (abstract_normal_form * interactive_env * name_ctx * Store.store_ctx) option
+    store_ctx ->
+    (abstract_normal_form * interactive_env * name_ctx * store_ctx) option
 
   val get_subject_name : abstract_normal_form -> Name.name option
   val get_support : abstract_normal_form -> Name.name list
@@ -84,7 +91,7 @@ module type LANG = sig
      Γ_P;_ ⊢ A ▷ Δ
      Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
   val generate_a_nf :
-    Store.store_ctx ->
+    store_ctx ->
     name_ctx ->
     (abstract_normal_form * name_ctx * name_ctx) BranchMonad.m
 
@@ -98,12 +105,9 @@ module type LANG = sig
     name_ctx -> name_ctx -> abstract_normal_form -> (name_ctx * name_ctx) option
 
   val concretize_a_nf :
-    interactive_env ->
-    abstract_normal_form ->
-    computation * Store.store * interactive_env
+    store -> interactive_env -> abstract_normal_form -> opconf * interactive_env
 
-  val get_store_of_a_nf : abstract_normal_form -> Store.store
-  val get_typed_term : string -> Lexing.lexbuf -> computation * name_ctx
+  val get_typed_opconf : string -> Lexing.lexbuf -> opconf * name_ctx
 
   (* The function get_typed_ienv
      retrive a module declaration and its signature from the two in_channel taken as input.
@@ -114,7 +118,7 @@ module type LANG = sig
   val get_typed_ienv :
     Lexing.lexbuf ->
     Lexing.lexbuf ->
-    interactive_env * Store.store * name_ctx * name_ctx
+    interactive_env * store * name_ctx * name_ctx
 end
 
 (* The following functor create a module of type Interactive.LANG
@@ -125,13 +129,27 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   module Name = OpLang.Name
   module BranchMonad = OpLang.AVal.BranchMonad
   module Store = OpLang.Store
-
   open EvalMonad
 
-  type computation = OpLang.term
+  type opconf = OpLang.term * Store.store
 
-  let pp_computation = OpLang.pp_term
-  let string_of_computation = Format.asprintf "%a" pp_computation
+  let pp_opconf fmt (term, store) =
+    Format.fprintf fmt "@[(@[Computation: %a@] @| @[Store: %a@])@]"
+      OpLang.pp_term term Store.pp_store store
+
+  let string_of_opconf = Format.asprintf "%a" pp_opconf
+
+  type store = OpLang.Store.store
+
+  let string_of_store = OpLang.Store.string_of_store
+  let pp_store = OpLang.Store.pp_store
+
+  type store_ctx = OpLang.Store.store_ctx
+
+  let string_of_store_ctx = OpLang.Store.string_of_store_ctx
+  let pp_store_ctx = OpLang.Store.pp_store_ctx
+  let empty_store_ctx = OpLang.Store.empty_store_ctx
+  let infer_type_store = OpLang.Store.infer_type_store
 
   type name_ctx = OpLang.name_ctx [@@deriving to_yojson]
 
@@ -158,21 +176,22 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
       OpLang.Name.pp_name fmt nf_term
 
   let string_of_nf = Format.asprintf "%a" pp_normal_form
-
   let is_error (nf_term, _) = OpLang.Nf.is_error nf_term
   let get_store (_, store) = store
 
   let compute_nf (term, store) =
-    let* (nf_term, store') = OpLang.normalize_opconf (term, store) in 
+    let* (nf_term, store') = OpLang.normalize_opconf (term, store) in
     return (OpLang.get_nf_term nf_term, store')
 
-  let concretize_a_nf ienv (a_nf_term, store) =
+  let concretize_a_nf store ienv (a_nf_term, store') =
     let f_val = OpLang.AVal.subst_names ienv in
     let f_fn nn = Util.Pmap.lookup_exn nn ienv in
     let f_cn = f_fn in
     let f_ectx () = () in
     let nf_term' = OpLang.Nf.map ~f_val ~f_fn ~f_cn ~f_ectx a_nf_term in
-    (OpLang.refold_nf_term nf_term', store, ienv)
+    Util.Debug.print_debug "Updating the store";
+    let newstore = Store.update_store store store' in
+    ((OpLang.refold_nf_term nf_term', newstore), ienv)
 
   type abstract_normal_form =
     (OpLang.AVal.abstract_val, unit, Name.name, Name.name) OpLang.Nf.nf_term
@@ -181,7 +200,6 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let labels_of_a_nf_term =
     OpLang.Nf.apply_val [] OpLang.AVal.labels_of_abstract_val
 
-  let get_store_of_a_nf (_, store) = store
   let abstracting_store = OpLang.Store.restrict
   (* TODO Deal with the abstraction process of the heap properly *)
 
@@ -256,7 +274,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
     if store = Store.empty_store then pp_a_nf_term fmt a_nf_term
     else Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term Store.pp_store store
 
-  let string_of_a_nf dir = 
+  let string_of_a_nf dir =
     let pp_dir fmt = Format.pp_print_string fmt dir in
     Format.asprintf "%a" (pp_a_nf ~pp_dir)
 
@@ -319,7 +337,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
 
   let get_typed_ienv = OpLang.get_typed_ienv
 
-  let get_typed_term nbprog lexBuffer =
+  let get_typed_opconf nbprog lexBuffer =
     let (comp, _, namectxO) = OpLang.get_typed_term nbprog lexBuffer in
-    (comp, namectxO)
+    ((comp, Store.empty_store), namectxO)
 end

@@ -7,7 +7,7 @@ module Make (IntLTS : Bipartite.LTS) = struct
 
   let string_of_event = function
     | Trans (_, move) ->
-        (*IntLTS.Int.string_of_interactive_ctx ictx
+        (*IntLTS.Int.string_of_position ictx
           ^ " -" ^*)
         IntLTS.Moves.string_of_move move
         (*^ "-> "*)

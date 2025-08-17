@@ -3,12 +3,27 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
   module EvalMonad = OpLang.EvalMonad
   module Name = OpLang.Name
   module BranchMonad = AVal.BranchMonad
-  module Store = OpLang.Store
 
   type computation = term
+  type opconf = computation * Store.store
 
-  let pp_computation = pp_term
-  let string_of_computation = Format.asprintf "%a" pp_computation
+  let pp_opconf fmt (term, store) =
+    Format.fprintf fmt "@[(@[Computation: %a@] @| @[Store: %a@])@]"
+      OpLang.pp_term term Store.pp_store store
+
+  let string_of_opconf = Format.asprintf "%a" pp_opconf
+
+  type store = OpLang.Store.store
+
+  let string_of_store = OpLang.Store.string_of_store
+  let pp_store = OpLang.Store.pp_store
+
+  type store_ctx = OpLang.Store.store_ctx
+
+  let string_of_store_ctx = OpLang.Store.string_of_store_ctx
+  let pp_store_ctx = OpLang.Store.pp_store_ctx
+  let empty_store_ctx = OpLang.Store.empty_store_ctx
+  let infer_type_store = OpLang.Store.infer_type_store
 
   (* A stack context (σ1,τ1)::(σ2,τ2)::...::(σn,τn)
      is the typing context for the stack of evaluation contexts,
@@ -132,7 +147,8 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     let* (nf_term, store') = normalize_opconf (term, store) in
     return (OpLang.get_nf_term nf_term, store')
 
-  let concretize_a_nf ((fname_env, stack_ctx) as ienv) (a_nf_term, store) =
+  let concretize_a_nf store ((fname_env, stack_ctx) as ienv) (a_nf_term, store')
+      =
     let get_ectx () =
       match stack_ctx with
       | ectx :: stack_ctx' -> (ectx, (fname_env, stack_ctx'))
@@ -146,13 +162,14 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     let (nf_term, _) = OpLang.Nf.map_val () f_val a_nf_term in
     let (nf_term', _) = OpLang.Nf.map_fn () f_fn nf_term in
     let (nf_term'', ienv') = OpLang.Nf.map_cn ienv f_cn nf_term' in
-    (refold_nf_term nf_term'', store, ienv')
+    Util.Debug.print_debug "Updating the store";
+    let newstore = Store.update_store store store' in
+    ((refold_nf_term nf_term'', newstore), ienv')
 
   type abstract_normal_form =
     (AVal.abstract_val, unit, Name.name, unit) OpLang.Nf.nf_term * Store.store
 
   let labels_of_a_nf_term = OpLang.Nf.apply_val [] AVal.labels_of_abstract_val
-  let get_store_of_a_nf (_, store) = store
   let abstracting_store = OpLang.Store.restrict
   (* TODO: Deal with the abstraction process of the heap properly *)
 
@@ -302,7 +319,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
       OpLang.get_typed_ienv lexBuffer_implem lexBuffer_signature in
     ((ienv, []), store, PropCtx (namectxP, []), OpCtx (None, namectxO))
 
-  let get_typed_term nbprog inBuffer =
+  let get_typed_opconf nbprog inBuffer =
     let (comp, ty, namectxO) = OpLang.get_typed_term nbprog inBuffer in
-    (comp, OpCtx (Some ty, namectxO))
+    ((comp, Store.empty_store), OpCtx (Some ty, namectxO))
 end

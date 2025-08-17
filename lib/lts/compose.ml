@@ -9,9 +9,9 @@ functor
   ->
   struct
     include Util.Monad.UserChooseWrite (struct
-      type t = IntLTS.Int.Moves.move
+      type t = IntLTS.Moves.move
 
-      let show = IntLTS.Int.Moves.string_of_move
+      let show = IntLTS.Moves.string_of_move
     end)
 
     type player = Proponent | Opponent

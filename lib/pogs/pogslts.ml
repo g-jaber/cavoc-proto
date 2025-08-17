@@ -1,19 +1,21 @@
-module Make (Int : Lts.Interactive.INT) = struct
-  module OBranchingMonad = Int.IntLang.BranchMonad
+module Make (Int : Lts.Interactive.INT) :
+  Lts.Bipartite.INT_LTS
+    with module Int = Int
+     and module OBranchingMonad = Int.GameLTS.BranchMonad = struct
+  module OBranchingMonad = Int.GameLTS.BranchMonad
   module EvalMonad = Int.IntLang.EvalMonad
   module Int = Int
-  module Moves = Int.Moves
+  module Moves = Int.GameLTS.Moves
 
   type active_conf = {
-    computation: Int.IntLang.computation;
-    store: Int.IntLang.Store.store;
-    ictx: Int.interactive_ctx;
+    opconf: Int.IntLang.opconf;
+    ictx: Int.GameLTS.position;
   }
 
   type passive_conf = {
     ienv: Int.IntLang.interactive_env;
-    store: Int.IntLang.Store.store;
-    ictx: Int.interactive_ctx;
+    store: Int.IntLang.store;
+    ictx: Int.GameLTS.position;
   }
 
   type conf = Active of active_conf | Passive of passive_conf
@@ -21,73 +23,65 @@ module Make (Int : Lts.Interactive.INT) = struct
   let passive_conf_to_yojson passive_conf =
     `Assoc
       [
-        ("store", `String (Int.IntLang.Store.string_of_store passive_conf.store));
+        ("store", `String (Int.IntLang.string_of_store passive_conf.store));
         ("ienv", Int.IntLang.interactive_env_to_yojson passive_conf.ienv);
-        ("ictx", Int.interactive_ctx_to_yojson passive_conf.ictx);
+        ("ictx", Int.GameLTS.position_to_yojson passive_conf.ictx);
       ]
 
   let pp_active_conf fmt act_conf =
-    Format.fprintf fmt "@[⟨%a |@, %a |@, %a⟩@]" Int.IntLang.pp_computation
-      act_conf.computation Int.IntLang.Store.pp_store act_conf.store
-      Int.pp_interactive_ctx act_conf.ictx
+    Format.fprintf fmt "@[⟨%a |@, %a ⟩@]" Int.IntLang.pp_opconf act_conf.opconf
+      Int.GameLTS.pp_position act_conf.ictx
 
   let pp_passive_conf fmt pas_conf =
-    Format.fprintf fmt "@[⟨%a |@, %a |@, %a⟩]" Int.IntLang.Store.pp_store
-      pas_conf.store Int.IntLang.pp_ienv pas_conf.ienv Int.pp_interactive_ctx
-      pas_conf.ictx
+    Format.fprintf fmt "@[⟨%a |@, %a |@, %a⟩]" Int.IntLang.pp_store
+      pas_conf.store Int.IntLang.pp_ienv pas_conf.ienv
+      Int.GameLTS.pp_position pas_conf.ictx
 
   let string_of_active_conf = Format.asprintf "%a" pp_active_conf
   let string_of_passive_conf = Format.asprintf "%a" pp_passive_conf
 
-  let extract_interactive_ctx = function
-    | Active a_iconf -> a_iconf.ictx
-    | Passive p_iconf -> p_iconf.ictx
-
   let p_trans act_conf =
     let open EvalMonad in
-    let* nf =
-      Int.IntLang.compute_nf (act_conf.computation, act_conf.store) in
-      if Int.IntLang.is_error nf then fail () (* to be improved *)
-      else 
-        let store = Int.IntLang.get_store nf in
-        (* All the store is supposed to be disclosed*)
-        let storectx = Int.IntLang.Store.infer_type_store store in
-        let ictx = Int.replace_storectx act_conf.ictx storectx in
-        let* (move, ienv, lnamectx, ictx) = Int.generate_output_move ictx nf in
-        (* We reset the P-name context of ictx using lnamectx*)
-        let ictx = Int.replace_namectxP ictx lnamectx in
-        return (move, { ienv; store; ictx })
+    let* nf = Int.IntLang.compute_nf act_conf.opconf in
+    if Int.IntLang.is_error nf then fail () (* to be improved *)
+    else
+      let store = Int.IntLang.get_store nf in
+      (* All the store is supposed to be disclosed*)
+      let storectx = Int.IntLang.infer_type_store store in
+      let ictx = Int.GameLTS.replace_storectx act_conf.ictx storectx in
+      let* (move, ienv, lnamectx, ictx) = Int.generate_output_move ictx nf in
+      (* We reset the P-name context of ictx using lnamectx*)
+      let ictx = Int.GameLTS.replace_namectxP ictx lnamectx in
+      return (move, { ienv; store; ictx })
 
   let o_trans pas_conf input_move =
-    match Int.check_input_move pas_conf.ictx input_move with
+    match Int.GameLTS.check_move pas_conf.ictx input_move with
     | None -> None
     | Some ictx ->
-        let (computation, new_store, _) =
-          Int.trigger_computation pas_conf.ienv input_move in
-        let store = Int.IntLang.Store.update_store pas_conf.store new_store in
-        Some { computation; store; ictx }
+        let (opconf, _) =
+          Int.trigger_computation pas_conf.store pas_conf.ienv input_move in
+        Some { opconf; ictx }
 
   let o_trans_gen pas_conf =
     let open OBranchingMonad in
-    let* (input_move, ictx) = Int.generate_input_moves pas_conf.ictx in
-    let (computation, store, _) =
-      Int.trigger_computation pas_conf.ienv input_move in
+    let* (input_move, ictx) = Int.GameLTS.generate_moves pas_conf.ictx in
+    let (opconf, _) =
+      Int.trigger_computation pas_conf.store pas_conf.ienv input_move in
     (*we throw away the interactive environment γ from trigger_computation, since we
       do not have interactive environment in active configurations of POGS. *)
-    return (input_move, { computation; store; ictx })
+    return (input_move, { opconf; ictx })
 
-  let init_aconf computation namectxO =
+  let init_aconf opconf namectxO =
     let ictx =
-      Int.init_interactive_ctx Int.IntLang.Store.empty_store_ctx
+      Int.GameLTS.init_position Int.IntLang.empty_store_ctx
         Int.IntLang.empty_name_ctx namectxO in
-    { computation; store= Int.IntLang.Store.empty_store; ictx }
+    { opconf; ictx }
 
   let init_pconf store ienv namectxP namectxO =
-    let store_ctx = Int.IntLang.Store.infer_type_store store in
-    let ictx = Int.init_interactive_ctx store_ctx namectxP namectxO in
+    let store_ctx = Int.IntLang.infer_type_store store in
+    let ictx = Int.GameLTS.init_position store_ctx namectxP namectxO in
     { store; ienv; ictx }
 
   let equiv_act_conf act_conf act_confb =
-    act_conf.computation = act_confb.computation
-    && act_conf.store = act_confb.store
+    act_conf.opconf = act_confb.opconf (* Fishy *)
 end

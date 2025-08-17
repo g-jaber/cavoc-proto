@@ -116,13 +116,13 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
   | Compare -> begin
       let inBuffer1 = open_in !filename1 in
       let lexBuffer1 = Lexing.from_channel inBuffer1 in
-      let (expr1, namectxO1) =
-        OGS_LTS.Int.IntLang.get_typed_term "first" lexBuffer1 in
+      let (opconf1, namectxO1) =
+        OGS_LTS.Int.IntLang.get_typed_opconf "first" lexBuffer1 in
       Util.Debug.print_debug "Getting the second program";
       let inBuffer2 = open_in !filename2 in
       let lexBuffer2 = Lexing.from_channel inBuffer2 in
-      let (expr2, namectxO2) =
-        OGS_LTS.Int.IntLang.get_typed_term "second" lexBuffer2 in
+      let (opconf2, namectxO2) =
+        OGS_LTS.Int.IntLang.get_typed_opconf "second" lexBuffer2 in
       Util.Debug.print_debug
         ("Name contexts for Opponent: "
         ^ OGS_LTS.Int.IntLang.string_of_name_ctx namectxO1
@@ -130,7 +130,7 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
         ^ OGS_LTS.Int.IntLang.string_of_name_ctx namectxO2);
       let module Synch_LTS = Lts.Synch_lts.Make (OGS_LTS) in
       let init_conf =
-        Synch_LTS.Active (Synch_LTS.init_aconf expr1 namectxO1 expr2 namectxO2)
+        Synch_LTS.Active (Synch_LTS.init_aconf opconf1 namectxO1 opconf2 namectxO2)
       in
       if !print_dot then
         let module Graph = Lts.Graph.Make (Synch_LTS) in
@@ -144,12 +144,12 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
         Util.Debug.print_debug "Getting the program";
         let expr_buffer = open_in !filename1 in
         let expr_lexbuffer = Lexing.from_channel expr_buffer in
-        let (expr, namectxO) =
-          OGS_LTS.Int.IntLang.get_typed_term "first" expr_lexbuffer in
+        let (opconf, namectxO) =
+          OGS_LTS.Int.IntLang.get_typed_opconf "first" expr_lexbuffer in
         Util.Debug.print_debug
           ("Name contexts for Opponent: "
           ^ OGS_LTS.Int.IntLang.string_of_name_ctx namectxO);
-        let init_conf = OGS_LTS.Active (OGS_LTS.init_aconf expr namectxO) in
+        let init_conf = OGS_LTS.Active (OGS_LTS.init_aconf opconf namectxO) in
         if !print_dot then
           let module Graph = Lts.Graph.Make (OGS_LTS) in
           build_graph (module Graph) init_conf
@@ -187,17 +187,17 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG) =
     let module OGS_LTS = Ogs.Ogslts.Make (Int) in
     match (!enable_wb, !enable_visibility) with
     | (true, true) ->
-        let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.Moves) in
+        let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.GameLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
-        let module VisLTS = Ogs.Vis_lts.Make (Int.Name) (Int.Moves) in
+        let module VisLTS = Ogs.Vis_lts.Make (Int.Name) (Int.GameLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (ProdLTS) (VisLTS) in
         generate (module ProdLTS)
     | (true, false) ->
-        let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.Moves) in
+        let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.GameLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
         generate (module ProdLTS)
     | (false, true) ->
-        let module VisLTS = Ogs.Vis_lts.Make (Int.Name) (Int.Moves) in
+        let module VisLTS = Ogs.Vis_lts.Make (Int.Name) (Int.GameLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (VisLTS) in
         generate (module ProdLTS)
     | (false, false) -> generate (module OGS_LTS)

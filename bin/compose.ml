@@ -33,12 +33,12 @@ let () =
   let module IntLang = Lang.Interactive.Make (CpsLang) in
   let module Int = Lts.Interactive.Make (IntLang) in
   let module OGS_LTS = Ogs.Ogslts.Make (Int) in
-  let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.Moves) in
+  let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.GameLTS.Moves) in
   let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
   Util.Debug.print_debug "Getting the program";
   let inBuffer1 = open_in !filename1 in
   let lexBuffer1 = Lexing.from_channel inBuffer1 in
-  let (expr1, namectxO) = Int.IntLang.get_typed_term "first" lexBuffer1 in
+  let (opconf, namectxO) = Int.IntLang.get_typed_opconf "first" lexBuffer1 in
   Util.Debug.print_debug "Getting the module";
   let inBuffer2 = open_in !filename2 in
   let inBuffer3 = open_in !filename3 in
@@ -54,7 +54,7 @@ let () =
   let init_aconf =
     ProdLTS.Active
       (* The following concatenation should be reworked *)
-      (ProdLTS.init_aconf expr1
+      (ProdLTS.init_aconf opconf
          (Int.IntLang.concat_name_ctx namectxO namectxO')) in
   let init_pconf =
     ProdLTS.Passive
