@@ -1,6 +1,6 @@
 module type INT = sig
   (* To be instantiated *)
-  module GameLTS : Gamelts.GAME
+  module GameLTS : Typing.LTS
 
   module IntLang :
     Lang.Interactive.LANG
@@ -40,7 +40,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
   INT
     with type GameLTS.Moves.name = IntLang.Name.name
      and type GameLTS.name_ctx = IntLang.name_ctx = struct
-  module GameLTS = Gamelts.Make (IntLang)
+  module GameLTS = Typing.Make (IntLang)
   module IntLang = IntLang
   module Name = IntLang.Name
 

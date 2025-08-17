@@ -1,4 +1,4 @@
-module type GAME = sig
+module type LTS = sig
   module Moves : Moves.MOVES
   module BranchMonad : Util.Monad.BRANCH
 
@@ -40,7 +40,7 @@ module type GAME = sig
 end
 
 module Make (IntLang : Lang.Interactive.LANG) :
-  GAME
+  LTS
     with type Moves.name = IntLang.Name.name
      and type name_ctx = IntLang.name_ctx
      and type store_ctx = IntLang.store_ctx

@@ -1,7 +1,7 @@
 - [ ] Rename bipartite.ml into strategies.ml
   - [ ] Incorporate game-indexing ?
 - [ ] In interactive.ml, generate_output_move could return the remaining name context (where used linear resources have been removed) and 
-- [ ] Remove the need for Lts.Interactive.INT, by only using Lts.Gamelts.Game and Lang.Interactive.LANG
+- [ ] Remove the need for Lts.Interactive.INT, by only using Lts.Typing.Game and Lang.Interactive.LANG
   - [ ] In both OGS and POGS
-- [ ] Rework the product LTS by using Lts.Gamelts.Game ?
+- [ ] Rework the product LTS by using Lts.Typing.Game ?
 - [ ] Implement an interface Lang.Interactive.LANG for the move-trees.
