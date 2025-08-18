@@ -1,5 +1,5 @@
 module type LANG = sig
-  module Name : Names.CONT_NAMES
+  module Names : Names.NAMES
   module EvalMonad : Util.Monad.RUNNABLE
   module BranchMonad : Util.Monad.BRANCH
 
@@ -20,19 +20,6 @@ module type LANG = sig
   val empty_store_ctx : store_ctx
   val infer_type_store : store -> store_ctx
 
-  type normal_form
-
-  val pp_normal_form : Format.formatter -> normal_form -> unit
-  val string_of_nf : normal_form -> string
-
-  (* Error normal form are the one that cannot interact with the environment*)
-  val is_error : normal_form -> bool
-  val get_store : normal_form -> store
-
-  (* compute_nf computes the normal form of an operational configuration,
-     or None when we detect that the operational configuration diverges.*)
-  val compute_nf : opconf -> normal_form EvalMonad.m
-
   (*Interactive name contexts are typing contexts mapping names to interactive types.*)
   type name_ctx [@@deriving to_yojson]
 
@@ -40,7 +27,7 @@ module type LANG = sig
   val concat_name_ctx : name_ctx -> name_ctx -> name_ctx
   val pp_name_ctx : Format.formatter -> name_ctx -> unit
   val string_of_name_ctx : name_ctx -> string
-  val get_names_from_name_ctx : name_ctx -> Name.name list
+  val get_names_from_name_ctx : name_ctx -> Names.name list
 
   (* Interactive environments γ are partial maps from names to interactive values*)
   type interactive_env [@@deriving to_yojson]
@@ -60,14 +47,17 @@ module type LANG = sig
 
   type abstract_normal_form
 
-  val abstracting_nf :
-    normal_form ->
-    name_ctx ->
-    store_ctx ->
-    (abstract_normal_form * interactive_env * name_ctx * store_ctx) option
+  val eval :
+    opconf * name_ctx * store_ctx ->
+    ((abstract_normal_form * name_ctx * store_ctx) * interactive_env * store)
+    EvalMonad.m
 
-  val get_subject_name : abstract_normal_form -> Name.name option
-  val get_support : abstract_normal_form -> Name.name list
+  (* abstracting_nf nf Γₒ Σ returns a triple (anf,γ,Δ,Σ')
+      where anf{γ} = nf and Σ;Γₒ ⊢ anf ▷ Δ,Σ' and Σ;Γₒ ⊢ γ:Δ.
+      We should check whether we take into account disclosure of locations currently.*)
+
+  val get_subject_name : abstract_normal_form -> Names.name option
+  val get_support : abstract_normal_form -> Names.name list
 
   (* The first argument is a string inserted between
      the negative part of the normal form
@@ -81,10 +71,10 @@ module type LANG = sig
   val string_of_a_nf : string -> abstract_normal_form -> string
 
   val is_equiv_a_nf :
-    Name.name Util.Namespan.namespan ->
+    Names.name Util.Namespan.namespan ->
     abstract_normal_form ->
     abstract_normal_form ->
-    Name.name Util.Namespan.namespan option
+    Names.name Util.Namespan.namespan option
 
   (* From the interactive name context Γ_P,
      we generate all the possible pairs (A,Δ,Γ'_P) formed by an abstracted normal form A such that
@@ -124,12 +114,10 @@ end
 (* The following functor create a module of type Interactive.LANG
    from a module OpLang of type Language.WITHAVAL_NEG *)
 module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
-  (*open OpLang*)
   module EvalMonad = OpLang.EvalMonad
-  module Name = OpLang.Name
+  module Names = OpLang.Names
   module BranchMonad = OpLang.AVal.BranchMonad
   module Store = OpLang.Store
-  open EvalMonad
 
   type opconf = OpLang.term * Store.store
 
@@ -167,22 +155,6 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let empty_ienv = OpLang.empty_ienv
   let concat_ienv = OpLang.concat_ienv
 
-  type normal_form = OpLang.normal_form_term * OpLang.Store.store
-
-  let pp_normal_form fmt (nf_term, _) =
-    let pp_dir fmt = Format.pp_print_string fmt "" in
-    let pp_ectx fmt () = Format.pp_print_string fmt "" in
-    OpLang.Nf.pp_nf_term ~pp_dir OpLang.pp_value pp_ectx OpLang.Name.pp_name
-      OpLang.Name.pp_name fmt nf_term
-
-  let string_of_nf = Format.asprintf "%a" pp_normal_form
-  let is_error (nf_term, _) = OpLang.Nf.is_error nf_term
-  let get_store (_, store) = store
-
-  let compute_nf (term, store) =
-    let* (nf_term, store') = OpLang.normalize_opconf (term, store) in
-    return (OpLang.get_nf_term nf_term, store')
-
   let concretize_a_nf store ienv (a_nf_term, store') =
     let f_val = OpLang.AVal.subst_names ienv in
     let f_fn nn = Util.Pmap.lookup_exn nn ienv in
@@ -194,7 +166,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
     ((OpLang.refold_nf_term nf_term', newstore), ienv)
 
   type abstract_normal_form =
-    (OpLang.AVal.abstract_val, unit, Name.name, Name.name) OpLang.Nf.nf_term
+    (OpLang.AVal.abstract_val, unit, Names.name, Names.name) OpLang.Nf.nf_term
     * Store.store
 
   let labels_of_a_nf_term =
@@ -206,7 +178,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let abstracting_nf_term nf_term namectxO =
     let namectxO' =
       Util.Pmap.filter_dom
-        (fun n -> Name.is_fname n || Name.is_cname n)
+        (fun n -> Names.is_fname n || Names.is_cname n)
         namectxO in
     let namectxO'' = Util.Pmap.map_im OpLang.negating_type namectxO' in
     (* This is bugged, we should first *)
@@ -270,13 +242,23 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
     let pp_ectx fmt () = Format.pp_print_string fmt "" in
     let pp_a_nf_term =
       OpLang.Nf.pp_nf_term ~pp_dir OpLang.AVal.pp_abstract_val pp_ectx
-        OpLang.Name.pp_name OpLang.Name.pp_name in
+        OpLang.Names.pp_name OpLang.Names.pp_name in
     if store = Store.empty_store then pp_a_nf_term fmt a_nf_term
     else Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term Store.pp_store store
 
   let string_of_a_nf dir =
     let pp_dir fmt = Format.pp_print_string fmt dir in
     Format.asprintf "%a" (pp_a_nf ~pp_dir)
+
+  let eval (opconf, namectxO, storectx_discl) =
+    let open EvalMonad in
+    let* (term', store') = OpLang.normalize_opconf opconf in
+    let nf_term = OpLang.get_nf_term term' in
+    match abstracting_nf (nf_term, store') namectxO storectx_discl with
+    | Some ((a_nf_term, discl_store), ienv, lnamectx, storectx_discl) ->
+        return
+          (((a_nf_term, discl_store), lnamectx, storectx_discl), ienv, store')
+    | None -> fail ()
 
   include OpLang.AVal.BranchMonad
 
@@ -287,7 +269,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let generate_a_nf storectx namectxP =
     let namectxP' =
       Util.Pmap.filter_dom
-        (fun n -> Name.is_fname n || Name.is_cname n)
+        (fun n -> Names.is_fname n || Names.is_cname n)
         namectxP in
     let namectxP'' = Util.Pmap.map_im OpLang.negating_type namectxP' in
     let* _ = return @@ Util.Debug.print_debug @@ "Generating the skeleton " in

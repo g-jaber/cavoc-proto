@@ -44,8 +44,8 @@ The lib/ directory contains the various subparts of the prototype:
   * interactive.ml contains the signature used to represent the focusing process that decomposes normal forms using the abstraction process of values.
   * cps.ml contains the interactive continuation-passing-style transformation of normal forms and top-level terms of a language that embeds evaluation contexts into values.
 - lts/ contains the interfaces used to represent the LTSs used to represent the interaction.
-  * The signature MOVES is given in moves.ml, and represents the basic notions of moves, that carry a direction and a mix of kind and data (called kdata). We provide a functor Make (IntLang : Lang.Interactive.LANG) that defined a module Moves using
-  abstracted normal forms as kdata.
+  * The signature MOVES is given in moves.ml, and represents the basic notions of moves, that carry a direction and a mix of kind and data (called move). We provide a functor Make (IntLang : Lang.Interactive.LANG) that defined a module Moves using
+  abstracted normal forms as move.
   * The signature ACTIONS is given in actions.ml, and embeds moves into actions.
   * The signature INT in interactive.ml provides the functions to generate moves from name contexts and normal forms,
   and to build terms from moves and interactive environments.

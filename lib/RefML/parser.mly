@@ -9,7 +9,7 @@
 %token <int> INT
 %token <Syntax.id> VAR
 %token <Syntax.id> TVAR
-%token <Syntax.id> NAME
+%token <Syntax.id> NAMES
 %token <Syntax.constructor> CONSTRUCTOR
 %token EQ
 %token PLUS MINUS MULT DIV
@@ -151,7 +151,7 @@ app_expr:
 simple_expr:
   | v=VAR             { Var v }
   | c=CONSTRUCTOR p=simple_expr    { Constructor (c, p)}
-  | n=NAME            { Name (Names.fname_of_id (Names.trim_name_id n)) }
+  | n=NAMES            { Name (Names.fname_of_id (Names.trim_name_id n)) }
   | UNIT            { Unit }
   | n=INT             { Int n }
   | TRUE            { Bool true }

@@ -1,5 +1,5 @@
 module type TYPED = sig
-  module Name : Names.CONT_NAMES
+  module Names : Names.NAMES
 
   type typ
 
@@ -12,13 +12,13 @@ module type TYPED = sig
   val string_of_negative_type : negative_type -> string
   val pp_negative_type : Format.formatter -> negative_type -> unit
 
-  type name_ctx = (Name.name, negative_type) Util.Pmap.pmap [@@deriving to_yojson]
+  type name_ctx = (Names.name, negative_type) Util.Pmap.pmap [@@deriving to_yojson]
 
   val empty_name_ctx : name_ctx
   val concat_name_ctx : name_ctx -> name_ctx -> name_ctx
   val string_of_name_ctx : name_ctx -> string
   val pp_name_ctx : Format.formatter -> name_ctx -> unit
-  val get_names_from_name_ctx : name_ctx -> Name.name list
+  val get_names_from_name_ctx : name_ctx -> Names.name list
 end
 
 module type STORE = sig
@@ -70,7 +70,7 @@ module type COMP = sig
   val string_of_negative_val : negative_val -> string
   val filter_negative_val : value -> negative_val option
 
-  type interactive_env = (Name.name, negative_val) Util.Pmap.pmap
+  type interactive_env = (Names.name, negative_val) Util.Pmap.pmap
   [@@deriving to_yojson]
 
   val empty_ienv : interactive_env
@@ -246,7 +246,7 @@ module type WITHAVAL_INOUT = sig
   val get_input_type : negative_type -> typevar list * typ
   val get_output_type : negative_type -> typ
 
-  type normal_form_term = (value, eval_context, Name.name, unit) Nf.nf_term
+  type normal_form_term = (value, eval_context, Names.name, unit) Nf.nf_term
 
   val get_nf_term : term -> normal_form_term
 
@@ -255,7 +255,7 @@ module type WITHAVAL_INOUT = sig
 
   module AVal :
     Abstract_val.AVAL
-      with type name = Name.name
+      with type name = Names.name
        and type value = value
        and type negative_val = negative_val
        and type typ = typ
@@ -275,27 +275,27 @@ module type WITHAVAL_NEG = sig
   module Nf : NF with module BranchMonad = Store.BranchMonad
 
   val type_annotating_val :
-    (Name.name, typ) Util.Pmap.pmap ->
-    ('value, 'ectx, Name.name, Name.name) Nf.nf_term ->
-    ('value * typ, 'ectx, Name.name, Name.name) Nf.nf_term
+    (Names.name, typ) Util.Pmap.pmap ->
+    ('value, 'ectx, Names.name, Names.name) Nf.nf_term ->
+    ('value * typ, 'ectx, Names.name, Names.name) Nf.nf_term
 
   val type_check_nf_term :
     empty_res:'res ->
-    name_ctx:(Name.name, negative_type) Util.Pmap.pmap ->
+    name_ctx:(Names.name, negative_type) Util.Pmap.pmap ->
     type_check_val:('value -> negative_type -> 'res option) ->
-    ('value, 'ectx, Name.name, Name.name) Nf.nf_term ->
+    ('value, 'ectx, Names.name, Names.name) Nf.nf_term ->
     'res option
 
   val generate_nf_term :
-    (Name.name, typ) Util.Pmap.pmap ->
-    (typ, unit, Name.name, Name.name) Nf.nf_term Nf.BranchMonad.m
+    (Names.name, typ) Util.Pmap.pmap ->
+    (typ, unit, Names.name, Names.name) Nf.nf_term Nf.BranchMonad.m
 
   val negating_type : negative_type -> typ
 
   (*conf_type is ⊥*)
   val conf_type : typ
 
-  type normal_form_term = (value, unit, Name.name, Name.name) Nf.nf_term
+  type normal_form_term = (value, unit, Names.name, Names.name) Nf.nf_term
 
   val get_nf_term : term -> normal_form_term
 
@@ -304,7 +304,7 @@ module type WITHAVAL_NEG = sig
 
   module AVal :
     Abstract_val.AVAL
-      with type name = Name.name
+      with type name = Names.name
        and type value = value
        and type negative_val = negative_val
        and type typ = typ

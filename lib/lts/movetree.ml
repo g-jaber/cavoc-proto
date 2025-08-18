@@ -1,3 +1,3 @@
-module Make (Moves : Moves.MOVES) (*: Lang.Interactive.LANG *) = struct
+module Make (Moves : Moves.POLMOVES) (*: Lang.Interactive.LANG *) = struct
   
 end 

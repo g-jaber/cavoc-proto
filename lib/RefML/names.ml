@@ -27,7 +27,7 @@ let count_cname = ref 0
 let fresh_cname () =
   let cn = !count_cname in
   count_cname := !count_cname + 1;
-  "c" ^ string_of_int cn
+  CName ("c" ^ string_of_int cn)
 
 let count_pname = ref 0
 

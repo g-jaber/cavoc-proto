@@ -1,14 +1,10 @@
 module type HISLTS = sig
   type move
-  type active_conf
-  type passive_conf [@@deriving to_yojson]
+  type conf [@@deriving to_yojson]
 
-  val string_of_active_conf : active_conf -> string
-  val string_of_passive_conf : passive_conf -> string
-  val pp_active_conf : Format.formatter -> active_conf -> unit
-  val pp_passive_conf : Format.formatter -> passive_conf -> unit
-  val p_trans : active_conf -> move -> passive_conf
-  val o_trans_check : passive_conf -> move -> active_conf option
+  val string_of_conf : conf -> string
+  val pp_conf : Format.formatter -> conf -> unit
+  val trans_check : conf -> move -> conf option
 end
 
 module type HISLTS_INIT = sig
@@ -16,6 +12,6 @@ module type HISLTS_INIT = sig
 
   type name
 
-  val init_aconf : name list -> active_conf
-  val init_pconf : name list -> name list -> passive_conf
+  val init_act_conf : name list -> conf
+  val init_pas_conf : name list -> name list -> conf
 end

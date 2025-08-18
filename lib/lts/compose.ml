@@ -9,9 +9,9 @@ functor
   ->
   struct
     include Util.Monad.UserChooseWrite (struct
-      type t = IntLTS.Moves.move
+      type t = IntLTS.Moves.pol_move
 
-      let show = IntLTS.Moves.string_of_move
+      let show = IntLTS.Moves.string_of_pol_move
     end)
 
     type player = Proponent | Opponent
@@ -37,14 +37,14 @@ functor
       | None ->
           Util.Debug.print_debug "Stopping composition";
           return ()
-      | Some (output_move, pas_conf') ->
+      | Some ((output_move,namectx), pas_conf') ->
           let input_move = IntLTS.Moves.switch_direction output_move in
           begin
-            match IntLTS.o_trans pas_conf input_move with
+            match IntLTS.o_trans pas_conf (input_move,namectx) with
             | None ->
                 Util.Debug.print_debug
                   ("Input move forbidden: "
-                  ^ IntLTS.Moves.string_of_move input_move
+                  ^ IntLTS.Moves.string_of_pol_move input_move
                   ^ " in the configuration "
                   ^ IntLTS.string_of_passive_conf pas_conf);
                 emit output_move
@@ -62,7 +62,7 @@ functor
                           IntLTS.Passive pas_conf' )
                   end in
                 Util.Debug.print_debug @@ "Composition succeeded with move "
-                ^ IntLTS.Moves.string_of_move moveP;
+                ^ IntLTS.Moves.string_of_pol_move moveP;
                 let* () = emit moveP in
                 compose_check confP' confO'
           end
@@ -90,8 +90,8 @@ functor
       | None ->
           Util.Debug.print_debug "Stopping composition";
           return ()
-      | Some (output_move, pas_conf') ->
-          let* (input_move, act_conf') =
+      | Some ((output_move,_), pas_conf') ->
+          let* ((input_move,_), act_conf') =
             para_list (IntLTS.OBranchingMonad.run (IntLTS.o_trans_gen pas_conf)) in
           let (moveP, moveO, confP', confO') =
             begin
@@ -109,24 +109,24 @@ functor
             end in
           Util.Debug.print_debug
             ("Composing moves "
-            ^ IntLTS.Moves.string_of_move moveP
+            ^ IntLTS.Moves.string_of_pol_move moveP
             ^ " and "
-            ^ IntLTS.Moves.string_of_move moveO);
+            ^ IntLTS.Moves.string_of_pol_move moveO);
           let moveO' = IntLTS.Moves.switch_direction moveO in
           let nspan_option =
-            IntLTS.Moves.unify_move nspan moveP moveO' in
+            IntLTS.Moves.unify_pol_move nspan moveP moveO' in
           begin
             match nspan_option with
             | None ->
                 let span_string =
-                  Util.Namespan.string_of_span IntLTS.Int.Name.string_of_name
+                  Util.Namespan.string_of_span IntLTS.Moves.Names.string_of_name
                     nspan in
                 Util.Debug.print_debug
                   ("Composing failed in namespan " ^ span_string);
                 return ()
             | Some nspan' ->
                 Util.Debug.print_debug @@ "Composing succeeded with move "
-                ^ IntLTS.Moves.string_of_move moveP;
+                ^ IntLTS.Moves.string_of_pol_move moveP;
                 let* () = emit moveP in
                 compose_gen nspan' confP' confO'
           end

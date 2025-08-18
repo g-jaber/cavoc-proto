@@ -1,7 +1,7 @@
 module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
   open OpLang
   module EvalMonad = OpLang.EvalMonad
-  module Name = OpLang.Name
+  module Names = OpLang.Names
   module BranchMonad = AVal.BranchMonad
 
   type computation = term
@@ -129,24 +129,6 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
 
   let string_of_ienv = Format.asprintf "%a" pp_ienv
 
-  type normal_form =
-    (value, eval_context, Name.name, unit) OpLang.Nf.nf_term * Store.store
-
-  let pp_normal_form fmt (nf_term, _) =
-    let pp_dir fmt = Format.pp_print_string fmt "" in
-    let pp_cn fmt () = Format.pp_print_string fmt "ret" in
-    OpLang.Nf.pp_nf_term ~pp_dir OpLang.pp_value OpLang.pp_eval_context
-      OpLang.Name.pp_name pp_cn fmt nf_term
-
-  let string_of_nf = Format.asprintf "%a" pp_normal_form
-  let is_error (nf_term, _) = OpLang.Nf.is_error nf_term
-  let get_store (_, store) = store
-
-  let compute_nf (term, store) =
-    let open EvalMonad in
-    let* (nf_term, store') = normalize_opconf (term, store) in
-    return (OpLang.get_nf_term nf_term, store')
-
   let concretize_a_nf store ((fname_env, stack_ctx) as ienv) (a_nf_term, store')
       =
     let get_ectx () =
@@ -167,7 +149,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     ((refold_nf_term nf_term'', newstore), ienv')
 
   type abstract_normal_form =
-    (AVal.abstract_val, unit, Name.name, unit) OpLang.Nf.nf_term * Store.store
+    (AVal.abstract_val, unit, Names.name, unit) OpLang.Nf.nf_term * Store.store
 
   let labels_of_a_nf_term = OpLang.Nf.apply_val [] AVal.labels_of_abstract_val
   let abstracting_store = OpLang.Store.restrict
@@ -231,13 +213,23 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     let pp_cn fmt () = Format.pp_print_string fmt "ret" in
     let pp_a_nf_term =
       OpLang.Nf.pp_nf_term ~pp_dir OpLang.AVal.pp_abstract_val pp_ectx
-        OpLang.Name.pp_name pp_cn in
+        OpLang.Names.pp_name pp_cn in
     if store = Store.empty_store then pp_a_nf_term fmt a_nf_term
     else Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term Store.pp_store store
 
   let string_of_a_nf dir =
     let pp_dir fmt = Format.pp_print_string fmt dir in
     Format.asprintf "%a" (pp_a_nf ~pp_dir)
+
+  let eval (opconf, namectxO, storectx_discl) =
+    let open EvalMonad in
+    let* (term', store') = OpLang.normalize_opconf opconf in
+    let nf_term = OpLang.get_nf_term term' in
+    match abstracting_nf (nf_term, store') namectxO storectx_discl with
+    | Some ((a_nf_term, discl_store), ienv, lnamectx, storectx_discl) ->
+        return
+          (((a_nf_term, discl_store), lnamectx, storectx_discl), ienv, store')
+    | None -> fail ()
 
   let fill_abstract_val storectx fnamectxP nf_skeleton =
     let gen_val in_ty =
@@ -250,7 +242,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     let fname_ctx =
       Util.Pmap.filter_map
         (fun (nn, ty) ->
-          if OpLang.Name.is_fname nn then
+          if OpLang.Names.is_fname nn then
             let (_, in_ty) = OpLang.get_input_type ty in
             Some (nn, (in_ty, OpLang.get_output_type ty))
           else None)
