@@ -12,10 +12,7 @@ module type LTS = sig
   type position [@@deriving to_yojson]
 
   val get_namectxO : position -> name_ctx
-  val get_namectxP : position -> name_ctx
   val get_storectx : position -> store_ctx
-  val replace_namectxP : position -> name_ctx -> position
-  val replace_storectx : position -> store_ctx -> position
   val init_position : store_ctx -> name_ctx -> name_ctx -> position
   val string_of_position : position -> string
   val pp_position : Format.formatter -> position -> unit
@@ -36,7 +33,7 @@ module type LTS = sig
   val trigger_move : position -> Moves.pol_move * name_ctx -> position
 end
 
-module Make (IntLang : Lang.Interactive.LANG) :
+module MakeOGS (IntLang : Lang.Interactive.LANG) :
   LTS
     with type Moves.Names.name = IntLang.Names.name
      and type name_ctx = IntLang.name_ctx
@@ -57,7 +54,6 @@ module Make (IntLang : Lang.Interactive.LANG) :
   }
 
   let get_namectxO ictx = ictx.namectxO
-  let get_namectxP ictx = ictx.namectxP
   let get_storectx ictx = ictx.storectx
 
   let position_to_yojson ictx =
@@ -74,8 +70,6 @@ module Make (IntLang : Lang.Interactive.LANG) :
       ictx.namectxP
 
   let string_of_position = Format.asprintf "%a" pp_position
-  let replace_namectxP ictx namectxP = { ictx with namectxP }
-  let replace_storectx ictx storectx = { ictx with storectx }
 
   let init_position storectx namectxP namectxO =
     { storectx; namectxP; namectxO }

@@ -107,6 +107,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           ("Error generating a nup on type " ^ Types.string_of_typ ty
          ^ ". Please report")
 
+  (* namectxO is needed in the following definition to check freshness*)
   let rec type_check_abstract_val namectxP namectxO ty nup =
     match (ty, nup) with
     | (TUnit, Unit) -> Some Util.Pmap.empty
@@ -147,6 +148,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
         else
           let nty = Types.force_negative_type ty in
           Some (Util.Pmap.singleton (nn, nty))
+          (*TODO: Should we check to who belongs the TName ? *)
     (* | (TExn, Constructor (c, nup')) ->  
         let (TArrow (param_ty, _)) = Util.Pmap.lookup_exn c (Util.Pmap.concat namectxP namectxO) in 
         type_check_abstract_val namectxP namectxO param_ty nup' *)

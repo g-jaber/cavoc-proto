@@ -112,19 +112,16 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
   let graph_string = Graph.string_of_graph graph in
   print_string graph_string
 
-
 let build_ogs_lts (module IntLang : Lang.Interactive.LANG) =
-  let module TypingLTS = Lts.Typing.Make (IntLang) in
   let (module OGS_LTS : Lts.Bipartite.INT_LTS
         with type opconf = IntLang.opconf
          and type name_ctx = IntLang.name_ctx
          and type store = IntLang.store
          and type interactive_env = IntLang.interactive_env) =
     match (!generate_tree, !enable_wb, !enable_visibility) with
-    | (true, _, _) -> failwith ""
-    (* let module Int = Lts.Interactive.Make (IntLang) (TypingLTS) in
-    (module Pogs.Pogslts.Make (Int) : Lts.Bipartite.INT_LTS with type opconf = IntLang.opconf)  *)
+    | (true, _, _) -> (module Pogs.Pogslts.Make (IntLang))
     | (false, true, true) ->
+        let module TypingLTS = Lts.Typing.MakeOGS (IntLang) in
         let module WBLTS = Ogs.Wblts.Make (IntLang.Names) (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
         let module VisLTS = Ogs.Vis_lts.Make (IntLang.Names) (TypingLTS.Moves)
@@ -132,16 +129,19 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG) =
         let module ProdLTS = Lts.Product_lts.Make (ProdLTS) (VisLTS) in
         (module Ogs.Ogslts.Make (IntLang) (ProdLTS))
     | (false, true, false) ->
+        let module TypingLTS = Lts.Typing.MakeOGS (IntLang) in
         let module WBLTS = Ogs.Wblts.Make (IntLang.Names) (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
         (module Ogs.Ogslts.Make (IntLang) (ProdLTS))
     | (false, false, true) ->
+        let module TypingLTS = Lts.Typing.MakeOGS (IntLang) in
         let module VisLTS = Ogs.Vis_lts.Make (IntLang.Names) (TypingLTS.Moves)
         in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (VisLTS) in
         (module Ogs.Ogslts.Make (IntLang) (ProdLTS))
-    | (false, false, false) -> (module Ogs.Ogslts.Make (IntLang) (TypingLTS))
-  in
+    | (false, false, false) ->
+        let module TypingLTS = Lts.Typing.MakeOGS (IntLang) in
+        (module Ogs.Ogslts.Make (IntLang) (TypingLTS)) in
   check_number_filenames ();
   match !is_mode with
   | Compare -> begin

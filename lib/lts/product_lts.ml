@@ -26,14 +26,7 @@ module Make
 
   let string_of_position = Format.asprintf "%a" pp_position
   let get_namectxO (pos, _) = TypingLTS.get_namectxO pos
-  let get_namectxP (pos, _) = TypingLTS.get_namectxP pos
   let get_storectx (pos, _) = TypingLTS.get_storectx pos
-
-  let replace_namectxP (pos, hconf) namectx =
-    (TypingLTS.replace_namectxP pos namectx, hconf)
-
-  let replace_storectx (pos, hconf) storectx =
-    (TypingLTS.replace_storectx pos storectx, hconf)
 
   let generate_moves (pos, hconf) =
     let open BranchMonad in
