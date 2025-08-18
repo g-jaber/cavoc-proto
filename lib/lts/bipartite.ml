@@ -5,6 +5,7 @@ module type LTS = sig
 
   (* *)
   module Moves : Moves.MOVES
+  type name_ctx
 
   type active_conf
   type passive_conf
@@ -17,9 +18,9 @@ module type LTS = sig
   val pp_passive_conf : Format.formatter -> passive_conf -> unit
   val equiv_act_conf : active_conf -> active_conf -> bool
 
-  val p_trans : active_conf -> (Moves.move * passive_conf) EvalMonad.m
-  val o_trans : passive_conf -> Moves.move -> active_conf option
-  val o_trans_gen : passive_conf -> (Moves.move * active_conf) OBranchingMonad.m
+  val p_trans : active_conf -> ((Moves.move*name_ctx) * passive_conf) EvalMonad.m
+  val o_trans : passive_conf -> (Moves.move*name_ctx) -> active_conf option
+  val o_trans_gen : passive_conf -> ((Moves.move*name_ctx) * active_conf) OBranchingMonad.m
 end
 
 module type INT_LTS = sig

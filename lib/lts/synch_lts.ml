@@ -42,6 +42,7 @@ module Make (IntLts : Bipartite.INT_LTS) :
   (* *)
   module Int = IntLts.Int
   module Moves = Moves.Make (A_nf)
+  type name_ctx = IntLts.name_ctx*IntLts.name_ctx
 
   type active_conf =
     IntLts.active_conf
@@ -105,8 +106,8 @@ module Make (IntLts : Bipartite.INT_LTS) :
 
   let p_trans (act_conf1, act_conf2, span) =
     let open EvalMonad in
-    let* (move1, pas_conf1) = IntLts.p_trans act_conf1 in
-    let* (move2, pas_conf2) = IntLts.p_trans act_conf2 in
+    let* ((move1,namectx1), pas_conf1) = IntLts.p_trans act_conf1 in
+    let* ((move2,namectx2), pas_conf2) = IntLts.p_trans act_conf2 in
     match IntLts.Moves.unify_move span move1 move2 with
     | None ->
         Util.Debug.print_debug @@ "Cannot synchronize output moves "
@@ -116,25 +117,25 @@ module Make (IntLts : Bipartite.INT_LTS) :
         EvalMonad.fail ()
     | Some span' ->
         let move = fold_moves move1 move2 in
-        return (move, (pas_conf1, pas_conf2, span'))
+        return ((move,(namectx1,namectx2)), (pas_conf1, pas_conf2, span'))
 
-  let o_trans (pas_conf1, pas_conf2, span) in_move =
+  let o_trans (pas_conf1, pas_conf2, span) (in_move,(namectx1,namectx2)) =
     let (in_move1, in_move2) = unfold_move in_move in
-    let pas_conf_opt1 = IntLts.o_trans pas_conf1 in_move1 in
-    let pas_conf_opt2 = IntLts.o_trans pas_conf2 in_move2 in
+    let pas_conf_opt1 = IntLts.o_trans pas_conf1 (in_move1,namectx1) in
+    let pas_conf_opt2 = IntLts.o_trans pas_conf2 (in_move2,namectx2) in
     match (pas_conf_opt1, pas_conf_opt2) with
     | (None, _) | (_, None) -> None
     | (Some act_conf1, Some act_conf2) -> Some (act_conf1, act_conf2, span)
 
   let o_trans_gen (pas_conf1, pas_conf2, span) =
     let open OBranchingMonad in
-    let* (in_move1, act_conf1) = IntLts.o_trans_gen pas_conf1 in
-    let* (in_move2, act_conf2) = IntLts.o_trans_gen pas_conf2 in
+    let* ((in_move1,namectx1), act_conf1) = IntLts.o_trans_gen pas_conf1 in
+    let* ((in_move2,namectx2), act_conf2) = IntLts.o_trans_gen pas_conf2 in
     match IntLts.Moves.unify_move span in_move1 in_move2 with
     | None -> fail ()
     | Some span' ->
         let move = fold_moves in_move1 in_move2 in
-        return (move, (act_conf1, act_conf2, span'))
+        return ((move,(namectx1,namectx2)), (act_conf1, act_conf2, span'))
 
   let init_aconf opconf1 namectxP1 opconf2 namectxP2 =
     let init_aconf1 = IntLts.init_aconf opconf1 namectxP1 in

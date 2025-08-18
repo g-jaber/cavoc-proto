@@ -31,7 +31,7 @@ module Make
     Util.Pmap.pp_pmap ~pp_empty pp_pair fmt vm
 
   type move = Moves.move
-  type active_conf = view_map
+  type active_conf = view_map [@@deriving to_yojson]
   type passive_conf = view * view_map [@@deriving to_yojson]
 
   let pp_active_conf fmt vm = Format.fprintf fmt "View map: %a" pp_view_map vm
@@ -40,8 +40,13 @@ module Make
     Format.fprintf fmt "@[⟨View: %a |@, View map: %a⟩@]" pp_view v pp_view_map
       vm
 
-  let string_of_active_conf = Format.asprintf "%a" pp_active_conf
-  let string_of_passive_conf = Format.asprintf "%a" pp_passive_conf
+  type conf = Active of active_conf | Passive of passive_conf [@@deriving to_yojson]
+
+  let pp_conf fmt = function
+  | Active aconf -> pp_active_conf fmt aconf
+  | Passive pconf -> pp_passive_conf fmt pconf
+
+  let string_of_conf = Format.asprintf "%a" pp_conf
 
   let get_subject_name move =
     match Moves.get_subject_name move with
@@ -57,7 +62,9 @@ module Make
            visibility on it."
           Moves.pp_move move
 
-  let p_trans vm move =
+
+  let trans_check conf move = match conf with
+  | Active vm -> 
     let nn = get_subject_name move in
     let view =
       match Util.Pmap.lookup nn vm with
@@ -66,19 +73,18 @@ module Make
           Util.Error.failwithf
             "Error: the name %a is not in the view map %a. Please report."
             ContNames.pp_name nn pp_view_map vm in
-    (view, vm)
-
-  let o_trans_check (view, vm) move =
+    Some (Passive (view, vm))
+  | Passive (view, vm) ->
     let nn = get_subject_name move in
     if List.mem nn view then
       let freshn_l = Moves.get_transmitted_names move in
       let vm_l = List.map (fun nn -> (nn, view)) freshn_l in
       let vm' = Util.Pmap.list_to_pmap vm_l in
-      Some (Util.Pmap.concat vm vm')
+      Some (Active (Util.Pmap.concat vm vm'))
     else None
 
   type name = ContNames.name
 
-  let init_aconf _ = Util.Pmap.empty
-  let init_pconf nameP _ = (nameP, Util.Pmap.empty)
+  let init_act_conf _ = Active (Util.Pmap.empty)
+  let init_pas_conf nameP _ = Passive (nameP, Util.Pmap.empty)
 end

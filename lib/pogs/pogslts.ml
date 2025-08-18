@@ -7,6 +7,8 @@ module Make (Int : Lts.Interactive.INT) :
   module Int = Int
   module Moves = Int.GameLTS.Moves
 
+  type name_ctx = Int.GameLTS.name_ctx
+
   type active_conf = {
     opconf: Int.IntLang.opconf;
     ictx: Int.GameLTS.position;
@@ -49,13 +51,13 @@ module Make (Int : Lts.Interactive.INT) :
       (* All the store is supposed to be disclosed*)
       let storectx = Int.IntLang.infer_type_store store in
       let ictx = Int.GameLTS.replace_storectx act_conf.ictx storectx in
-      let* (move, ienv, lnamectx, ictx) = Int.generate_output_move ictx nf in
+      let* ((move,lnamectx), ienv, ictx) = Int.generate_output_move ictx nf in
       (* We reset the P-name context of ictx using lnamectx*)
       let ictx = Int.GameLTS.replace_namectxP ictx lnamectx in
-      return (move, { ienv; store; ictx })
+      return ((move,lnamectx), { ienv; store; ictx })
 
-  let o_trans pas_conf input_move =
-    match Int.GameLTS.check_move pas_conf.ictx input_move with
+  let o_trans pas_conf (input_move,namectx) =
+    match Int.GameLTS.check_move pas_conf.ictx (input_move,namectx) with
     | None -> None
     | Some ictx ->
         let (opconf, _) =
@@ -64,12 +66,12 @@ module Make (Int : Lts.Interactive.INT) :
 
   let o_trans_gen pas_conf =
     let open OBranchingMonad in
-    let* (input_move, ictx) = Int.GameLTS.generate_moves pas_conf.ictx in
+    let* ((input_move,namectx), ictx) = Int.GameLTS.generate_moves pas_conf.ictx in
     let (opconf, _) =
       Int.trigger_computation pas_conf.store pas_conf.ienv input_move in
     (*we throw away the interactive environment γ from trigger_computation, since we
       do not have interactive environment in active configurations of POGS. *)
-    return (input_move, { opconf; ictx })
+    return ((input_move,namectx), { opconf; ictx })
 
   let init_aconf opconf namectxO =
     let ictx =

@@ -31,10 +31,11 @@ let () =
   let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
   let module CpsLang = Lang.Cps.MakeComp (OpLang) in
   let module IntLang = Lang.Interactive.Make (CpsLang) in
-  let module Int = Lts.Interactive.Make (IntLang) in
+  let module TypingLTS = Lts.Typing.Make (IntLang) in
+  let module WBLTS = Ogs.Wblts.Make (IntLang.Name) (TypingLTS.Moves) in
+  let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
+  let module Int = Lts.Interactive.Make (IntLang) (ProdLTS) in
   let module OGS_LTS = Ogs.Ogslts.Make (Int) in
-  let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.GameLTS.Moves) in
-  let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
   Util.Debug.print_debug "Getting the program";
   let inBuffer1 = open_in !filename1 in
   let lexBuffer1 = Lexing.from_channel inBuffer1 in
@@ -52,15 +53,15 @@ let () =
     ^ " and "
     ^ Int.IntLang.string_of_name_ctx namectxO');
   let init_aconf =
-    ProdLTS.Active
+    OGS_LTS.Active
       (* The following concatenation should be reworked *)
-      (ProdLTS.init_aconf opconf
+      (OGS_LTS.init_aconf opconf
          (Int.IntLang.concat_name_ctx namectxO namectxO')) in
   let init_pconf =
-    ProdLTS.Passive
-      (ProdLTS.init_pconf store ienv namectxO' Int.IntLang.empty_name_ctx)
+    OGS_LTS.Passive
+      (OGS_LTS.init_pconf store ienv namectxO' Int.IntLang.empty_name_ctx)
   in
-  let module Composed_LTS = Lts.Compose.Make (ProdLTS) in
+  let module Composed_LTS = Lts.Compose.Make (OGS_LTS) in
   let traces = Composed_LTS.get_traces_check init_aconf init_pconf in
   Util.Debug.print_debug "Getting the trace";
   List.iter print_endline traces

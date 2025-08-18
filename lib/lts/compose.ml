@@ -37,10 +37,10 @@ functor
       | None ->
           Util.Debug.print_debug "Stopping composition";
           return ()
-      | Some (output_move, pas_conf') ->
+      | Some ((output_move,namectx), pas_conf') ->
           let input_move = IntLTS.Moves.switch_direction output_move in
           begin
-            match IntLTS.o_trans pas_conf input_move with
+            match IntLTS.o_trans pas_conf (input_move,namectx) with
             | None ->
                 Util.Debug.print_debug
                   ("Input move forbidden: "
@@ -90,8 +90,8 @@ functor
       | None ->
           Util.Debug.print_debug "Stopping composition";
           return ()
-      | Some (output_move, pas_conf') ->
-          let* (input_move, act_conf') =
+      | Some ((output_move,_), pas_conf') ->
+          let* ((input_move,_), act_conf') =
             para_list (IntLTS.OBranchingMonad.run (IntLTS.o_trans_gen pas_conf)) in
           let (moveP, moveO, confP', confO') =
             begin

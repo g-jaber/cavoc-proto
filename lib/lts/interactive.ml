@@ -20,9 +20,8 @@ module type INT = sig
   val generate_output_move :
     GameLTS.position ->
     IntLang.normal_form ->
-    (GameLTS.Moves.move
+    ((GameLTS.Moves.move * IntLang.name_ctx)
     * IntLang.interactive_env
-    * IntLang.name_ctx
     * GameLTS.position)
     IntLang.EvalMonad.m
 
@@ -36,11 +35,18 @@ module type INT = sig
     IntLang.opconf * IntLang.interactive_env
 end
 
-module Make (IntLang : Lang.Interactive.LANG) :
+module Make
+    (IntLang : Lang.Interactive.LANG)
+    (GameLTS :
+      Typing.LTS
+        with type Moves.name = IntLang.Name.name
+         and type name_ctx = IntLang.name_ctx
+         and type store_ctx = IntLang.store_ctx
+         and type Moves.kdata = IntLang.abstract_normal_form) :
   INT
     with type GameLTS.Moves.name = IntLang.Name.name
      and type GameLTS.name_ctx = IntLang.name_ctx = struct
-  module GameLTS = Typing.Make (IntLang)
+  module GameLTS = GameLTS
   module IntLang = IntLang
   module Name = IntLang.Name
 
@@ -50,10 +56,10 @@ module Make (IntLang : Lang.Interactive.LANG) :
         (GameLTS.get_namectxO ictx)
         (GameLTS.get_storectx ictx)
     with
-    | Some (a_nf, ienv, lnamectx, storectx) ->
+    | Some (a_nf, ienv, lnamectx, _storectx) ->
         let move = GameLTS.Moves.build (GameLTS.Moves.Output, a_nf) in
-        let ictx' = GameLTS.trigger_move ictx move lnamectx storectx in
-        IntLang.EvalMonad.return (move, ienv, lnamectx, ictx')
+        let ictx' = GameLTS.trigger_move ictx (move, lnamectx) in
+        IntLang.EvalMonad.return ((move, lnamectx), ienv, ictx')
     | None ->
         Util.Error.failwithf
           "Error: the normal form %a is not typeable in the name context %a. \

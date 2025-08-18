@@ -7,6 +7,8 @@ module Make (Int : Lts.Interactive.INT) :
   module Int = Int
   module Moves = Int.GameLTS.Moves
 
+  type name_ctx = Int.GameLTS.name_ctx
+
   type active_conf = {
     opconf: Int.IntLang.opconf;
     ienv: Int.IntLang.interactive_env;
@@ -47,13 +49,13 @@ module Make (Int : Lts.Interactive.INT) :
     let* nf = Int.IntLang.compute_nf act_conf.opconf in
     if Int.IntLang.is_error nf then fail () (* to be improved *)
     else
-      let* (move, ienv', _, ictx) = Int.generate_output_move act_conf.ictx nf in
+      let* (move, ienv', ictx) = Int.generate_output_move act_conf.ictx nf in
       let ienv = Int.IntLang.concat_ienv ienv' act_conf.ienv in
       let store = Int.IntLang.get_store nf in
       return (move, { store; ienv; ictx })
 
-  let o_trans pas_conf input_move =
-    match Int.GameLTS.check_move pas_conf.ictx input_move with
+  let o_trans pas_conf (input_move, namectx) =
+    match Int.GameLTS.check_move pas_conf.ictx (input_move, namectx) with
     | None -> None
     | Some ictx ->
         let (opconf, ienv) =
@@ -62,10 +64,11 @@ module Make (Int : Lts.Interactive.INT) :
 
   let o_trans_gen pas_conf =
     let open OBranchingMonad in
-    let* (input_move, ictx) = Int.GameLTS.generate_moves pas_conf.ictx in
+    let* ((input_move, namectx), ictx) =
+      Int.GameLTS.generate_moves pas_conf.ictx in
     let (opconf, ienv) =
       Int.trigger_computation pas_conf.store pas_conf.ienv input_move in
-    return (input_move, { opconf; ienv; ictx })
+    return ((input_move, namectx), { opconf; ienv; ictx })
 
   let init_aconf opconf namectxO =
     let ictx =

@@ -33,7 +33,7 @@ module Make (IntLTS : Bipartite.LTS) = struct
           | None ->
               print_endline @@ "Proponent has quitted the game.";
               Lwt.return ()
-          | Some (output_move, pas_conf) ->
+          | Some ((output_move,_), pas_conf) ->
             let move_string = IntLTS.Moves.string_of_move output_move in
             show_move move_string;
               interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
@@ -43,12 +43,12 @@ module Make (IntLTS : Bipartite.LTS) = struct
         let conf_json = IntLTS.passive_conf_to_yojson pas_conf in
         show_conf conf_json;
         let results_list = IntLTS.OBranchingMonad.run (IntLTS.o_trans_gen pas_conf) in
-        let moves_list = List.map fst results_list in
+        let moves_list = List.map (fun ((x,_),_) -> x) results_list in
         let string_list =
           List.map IntLTS.Moves.string_of_move moves_list in
         show_moves_list string_list;
         let%lwt chosen_index = get_move @@ (List.length string_list) - 1 in
-        let (input_move, act_conf) = List.nth results_list chosen_index in
+        let ((input_move,_), act_conf) = List.nth results_list chosen_index in
         let move_string = IntLTS.Moves.string_of_move input_move in
         show_move move_string;
         interactive_build ~show_move ~show_conf ~show_moves_list ~get_move (IntLTS.Active act_conf)

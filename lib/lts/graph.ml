@@ -129,7 +129,7 @@ module Make (IntLTS : Bipartite.LTS) : GRAPH
           begin
             match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
             | None -> add_failed_state act_state
-            | Some (pmove, pas_conf) ->
+            | Some ((pmove,_), pas_conf) ->
                 let* pas_state = add_pas_state pas_conf in
                 let edge = PublicTrans (act_state, pmove, pas_state) in
                 Util.Debug.print_debug
@@ -138,7 +138,7 @@ module Make (IntLTS : Bipartite.LTS) : GRAPH
                 compute_graph_monad ~show_conf ~show_moves_list ~get_move pas_state
           end
       | (IntLTS.Passive pas_conf, _) as pas_state ->
-          let* (input_move, act_conf) =
+          let* ((input_move,_), act_conf) =
             para_list (IntLTS.OBranchingMonad.run (IntLTS.o_trans_gen pas_conf)) in
           let* act_state_option = find_equiv_act_conf act_conf in
           begin

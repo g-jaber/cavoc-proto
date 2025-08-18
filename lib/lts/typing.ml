@@ -7,6 +7,8 @@ module type LTS = sig
 
   (* *)
 
+  val domain_of_name_ctx : name_ctx -> Moves.name list
+
   type position [@@deriving to_yojson]
 
   val get_namectxO : position -> name_ctx
@@ -27,16 +29,16 @@ module type LTS = sig
       Γₓ ⊢ m ▷ Δ  and Γₓ' = Γₓ + Δ.
      It uses the branching monad from BranchMonad to do so. *)
   val generate_moves :
-    position -> (Moves.move * position) BranchMonad.m
+    position -> ((Moves.move*name_ctx)*position) BranchMonad.m
 
   (* check_move Γₓ m return Some Δ
      when there exists a name context Γ for the free names of m such that
       Γₓ ⊢ m ▷ Δ.
      It returns None when m is not well-typed.*)
-  val check_move : position -> Moves.move -> position option
+  val check_move : position -> (Moves.move*name_ctx) -> position option
 
   val trigger_move :
-    position -> Moves.move -> name_ctx -> store_ctx -> position
+    position -> (Moves.move*name_ctx) -> position
 end
 
 module Make (IntLang : Lang.Interactive.LANG) :
@@ -50,6 +52,8 @@ module Make (IntLang : Lang.Interactive.LANG) :
 
   type name_ctx = IntLang.name_ctx
   type store_ctx = IntLang.store_ctx
+
+  let domain_of_name_ctx namectx = IntLang.get_names_from_name_ctx namectx 
 
   type position = {
     storectx: IntLang.store_ctx;
@@ -88,12 +92,12 @@ module Make (IntLang : Lang.Interactive.LANG) :
       IntLang.generate_a_nf ictx.storectx ictx.namectxP in
     let namectxO = IntLang.concat_name_ctx lnamectx ictx.namectxO in
     Util.Debug.print_debug @@ "New name context :"
-    ^ IntLang.string_of_name_ctx namectxP
+    ^ IntLang.string_of_name_ctx lnamectx
     ^ " and "
     ^ IntLang.string_of_name_ctx namectxO;
-    return (Moves.build (Moves.Input, a_nf), { ictx with namectxP; namectxO })
+    return ((Moves.build (Moves.Input, a_nf),lnamectx), { ictx with namectxP; namectxO })
 
-  let check_move ictx move =
+  let check_move ictx (move,_) =
     let a_nf = Moves.get_kdata move in
     let lnamectx_opt =
       match Moves.get_direction move with
@@ -107,14 +111,14 @@ module Make (IntLang : Lang.Interactive.LANG) :
         Some { ictx with namectxO; namectxP }
     | None -> None
 
-  let trigger_move ictx move lnamectx storectx =
+  let trigger_move ictx (move,lnamectx) =
     match Moves.get_direction move with
     | Moves.Output ->
         let namectxP = IntLang.concat_name_ctx lnamectx ictx.namectxP in
-        { ictx with namectxP; storectx }
+        { ictx with namectxP }
     | Moves.Input ->
         let namectxO = IntLang.concat_name_ctx lnamectx ictx.namectxO in
-        { ictx with namectxO; storectx }
+        { ictx with namectxO }
     | Moves.None ->
         failwith "Trying to trigger an undirected move. Please report."
 end

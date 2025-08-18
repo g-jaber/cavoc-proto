@@ -1,70 +1,68 @@
 module Make
-    (GameLTS : Gamelts.GAME)
+    (TypingLTS : Typing.LTS)
     (HistLts :
       Hislts.HISLTS_INIT
-        with type move = GameLTS.Moves.move) :
-  Gamelts.GAME with module Moves = GameLTS.Moves = struct
-  module Moves = GameLTS.Moves
-  module BranchMonad = GameLTS.BranchMonad
-  type namectx = GameLTS.name_ctx
-  type storectx = GameLTS.store_ctx
+        with type move = TypingLTS.Moves.move
+         and type name = TypingLTS.Moves.name) :
+  Typing.LTS
+    with module Moves = TypingLTS.Moves
+     and type name_ctx = TypingLTS.name_ctx 
+     and type store_ctx = TypingLTS.store_ctx = struct
+  module Moves = TypingLTS.Moves
+  module BranchMonad = TypingLTS.BranchMonad
+
+  type name_ctx = TypingLTS.name_ctx
+  type store_ctx = TypingLTS.store_ctx
 
   (* *)
 
-  type position = GameLTS.position * HistLts.active_conf [@@deriving to_yojson]
+  let domain_of_name_ctx = TypingLTS.domain_of_name_ctx
 
-  type active_conf = GameLTS.active_conf * HistLts.active_conf
+  type position = TypingLTS.position * HistLts.conf [@@deriving to_yojson]
 
-  type passive_conf = GameLTS.passive_conf * HistLts.passive_conf
-  [@@deriving to_yojson]
+  let pp_position fmt (pos, hconf) =
+    Format.fprintf fmt "@[%a |@, %a@]" TypingLTS.pp_position pos HistLts.pp_conf
+      hconf
 
-  type conf = Active of active_conf | Passive of passive_conf
+  let string_of_position = Format.asprintf "%a" pp_position
+  let get_namectxO (pos, _) = TypingLTS.get_namectxO pos
+  let get_namectxP (pos, _) = TypingLTS.get_namectxP pos
+  let get_storectx (pos, _) = TypingLTS.get_storectx pos
 
-  let pp_active_conf fmt (iconf, hconf) =
-    Format.fprintf fmt "@[%a |@, %a@]" GameLTS.pp_active_conf iconf
-      HistLts.pp_active_conf hconf
+  let replace_namectxP (pos, hconf) namectx =
+    (TypingLTS.replace_namectxP pos namectx, hconf)
 
-  let pp_passive_conf fmt (iconf, hconf) =
-    Format.fprintf fmt "@[%a |@, %a@]" GameLTS.pp_passive_conf iconf
-      HistLts.pp_passive_conf hconf
+  let replace_storectx (pos, hconf) storectx =
+    (TypingLTS.replace_storectx pos storectx, hconf)
 
-  let string_of_active_conf = Format.asprintf "%a" pp_active_conf
-  let string_of_passive_conf = Format.asprintf "%a" pp_passive_conf
-  let equiv_act_conf _ _ = failwith "Not yet implemented"
+  let generate_moves (pos, hconf) =
+    let open BranchMonad in
+    let* ((move, lnamectx), pos') = TypingLTS.generate_moves pos in
+    match HistLts.trans_check hconf move with
+    | None -> fail ()
+    | Some hconf' -> return ((move, lnamectx), (pos', hconf'))
 
-  let p_trans (active_iconf, active_hconf) =
-    let open EvalMonad in
-    let* (output_move, passive_iconf) = GameLTS.p_trans active_iconf in
-    let passive_hconf = HistLts.p_trans active_hconf output_move in
-    return (output_move, (passive_iconf, passive_hconf))
-
-  let o_trans (passive_iconf, passive_hconf) input_move =
+  (* check_move Γₓ m return Some Δ
+     when there exists a name context Γ for the free names of m such that
+      Γₓ ⊢ m ▷ Δ.
+     It returns None when m is not well-typed.*)
+  let check_move (pos, hconf) (move, lnamectx) =
     match
-      ( GameLTS.o_trans passive_iconf input_move,
-        HistLts.o_trans_check passive_hconf input_move )
+      (TypingLTS.check_move pos (move, lnamectx), HistLts.trans_check hconf move)
     with
     | (None, _) | (_, None) -> None
-    | (Some active_iconf, Some active_hconf) -> Some (active_iconf, active_hconf)
+    | (Some pos', Some hconf') -> Some (pos', hconf')
 
-  let o_trans_gen (passive_iconf, passive_hconf) =
-    let open BranchMonad in
-    let* (input_move, active_iconf) = GameLTS.o_trans_gen passive_iconf in
-    match HistLts.o_trans_check passive_hconf input_move with
-    | None -> fail ()
-    | Some active_hconf -> return (input_move, (active_iconf, active_hconf))
+  let trigger_move (pos, hconf) (move, namectx) =
+    let pos' = TypingLTS.trigger_move pos (move, namectx) in
+    match HistLts.trans_check hconf move with
+    | None -> failwith ""
+    | Some hconf' -> (pos', hconf')
 
-  let init_aconf comp namectxP =
-    let init_iconf = GameLTS.init_aconf comp namectxP in
-    let init_hconf =
-      HistLts.init_aconf (GameLTS.Int.IntLang.get_names_from_name_ctx namectxP)
-    in
-    (init_iconf, init_hconf)
-
-  let init_pconf store ienv namectxP namectxO =
-    let init_iconf = GameLTS.init_pconf store ienv namectxP namectxO in
-    let init_hconf =
-      HistLts.init_pconf
-        (GameLTS.Int.IntLang.get_names_from_name_ctx namectxP)
-        (GameLTS.Int.IntLang.get_names_from_name_ctx namectxO) in
-    (init_iconf, init_hconf)
+  let init_position storectx namectxP namectxO =
+    let pos = TypingLTS.init_position storectx namectxP namectxO in
+    let namesP = TypingLTS.domain_of_name_ctx namectxP in
+    let namesO = TypingLTS.domain_of_name_ctx namectxO in
+    let hconf = HistLts.init_pas_conf namesP namesO in
+    (pos, hconf)
 end

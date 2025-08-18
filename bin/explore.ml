@@ -102,11 +102,13 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
       (List.mapi (fun i m -> string_of_int (i + 1) ^ ": " ^ m) results_list)
   in
   let get_move n =
-    print_endline ("Choose an integer between 1 and " ^ string_of_int n
-    ^ " to decide what to do, or choose 0 to stop.");
+    print_endline
+      ("Choose an integer between 1 and " ^ string_of_int n
+     ^ " to decide what to do, or choose 0 to stop.");
     let i = read_int () in
     if i > 0 && i <= n then i else exit 1 in
-  let graph = Graph.compute_graph ~show_conf ~show_moves_list ~get_move init_conf in
+  let graph =
+    Graph.compute_graph ~show_conf ~show_moves_list ~get_move init_conf in
   let graph_string = Graph.string_of_graph graph in
   print_string graph_string
 
@@ -130,8 +132,8 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
         ^ OGS_LTS.Int.IntLang.string_of_name_ctx namectxO2);
       let module Synch_LTS = Lts.Synch_lts.Make (OGS_LTS) in
       let init_conf =
-        Synch_LTS.Active (Synch_LTS.init_aconf opconf1 namectxO1 opconf2 namectxO2)
-      in
+        Synch_LTS.Active
+          (Synch_LTS.init_aconf opconf1 namectxO1 opconf2 namectxO2) in
       if !print_dot then
         let module Graph = Lts.Graph.Make (Synch_LTS) in
         build_graph (module Graph) init_conf
@@ -179,28 +181,37 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
   | Compose -> failwith "Compose is not yet implemented"
 
 let build_ogs_lts (module IntLang : Lang.Interactive.LANG) =
-  let module Int = Lts.Interactive.Make (IntLang) in
+  let module TypingLTS = Lts.Typing.Make (IntLang) in
   if !generate_tree then
+    let module Int = Lts.Interactive.Make (IntLang) (TypingLTS) in
     let module POGS_LTS = Pogs.Pogslts.Make (Int) in
     generate (module POGS_LTS)
   else
-    let module OGS_LTS = Ogs.Ogslts.Make (Int) in
     match (!enable_wb, !enable_visibility) with
     | (true, true) ->
-        let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.GameLTS.Moves) in
-        let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
-        let module VisLTS = Ogs.Vis_lts.Make (Int.Name) (Int.GameLTS.Moves) in
+        let module WBLTS = Ogs.Wblts.Make (IntLang.Name) (TypingLTS.Moves) in
+        let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
+        let module VisLTS = Ogs.Vis_lts.Make (IntLang.Name) (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (ProdLTS) (VisLTS) in
-        generate (module ProdLTS)
+        let module Int = Lts.Interactive.Make (IntLang) (ProdLTS) in
+        let module OGS_LTS = Ogs.Ogslts.Make (Int) in
+        generate (module OGS_LTS)
     | (true, false) ->
-        let module WBLTS = Ogs.Wblts.Make (Int.Name) (Int.GameLTS.Moves) in
-        let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (WBLTS) in
-        generate (module ProdLTS)
+        let module WBLTS = Ogs.Wblts.Make (IntLang.Name) (TypingLTS.Moves) in
+        let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
+        let module Int = Lts.Interactive.Make (IntLang) (ProdLTS) in
+        let module OGS_LTS = Ogs.Ogslts.Make (Int) in
+        generate (module OGS_LTS)
     | (false, true) ->
-        let module VisLTS = Ogs.Vis_lts.Make (Int.Name) (Int.GameLTS.Moves) in
-        let module ProdLTS = Lts.Product_lts.Make (OGS_LTS) (VisLTS) in
-        generate (module ProdLTS)
-    | (false, false) -> generate (module OGS_LTS)
+        let module VisLTS = Ogs.Vis_lts.Make (IntLang.Name) (TypingLTS.Moves) in
+        let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (VisLTS) in
+        let module Int = Lts.Interactive.Make (IntLang) (ProdLTS) in
+        let module OGS_LTS = Ogs.Ogslts.Make (Int) in
+        generate (module OGS_LTS)
+    | (false, false) ->
+        let module Int = Lts.Interactive.Make (IntLang) (TypingLTS) in
+        let module OGS_LTS = Ogs.Ogslts.Make (Int) in
+        generate (module OGS_LTS)
 
 let () =
   Arg.parse speclist get_filename usage_msg;
