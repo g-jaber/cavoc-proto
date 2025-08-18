@@ -11,12 +11,7 @@ module type INT = sig
 
   module Names : Lang.Names.NAMES with type name = IntLang.Names.name
 
-  (* generate_output_move Γₒ nf returns a triple (m,γ,Δ,Γₒ')
-      where the output move m is formed by
-      the abstracted normal form a_nf build from nf,
-      such that a_nf{γ} = nf and Γₒ ⊢ γ:Δ and Γₒ' = Γₒ + Δ.
-      We do not take into account disclosure of locations currently.
-      We return Γₒ' to be ready to handle linear ressources in the future. *)
+
   val generate_output_move :
     GameLTS.position ->
     IntLang.normal_form ->

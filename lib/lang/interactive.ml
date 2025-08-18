@@ -60,6 +60,10 @@ module type LANG = sig
 
   type abstract_normal_form
 
+      (* abstracting_nf nf Γₒ Σ returns a triple (anf,γ,Δ,Σ')
+      where anf{γ} = nf and Σ;Γₒ ⊢ anf ▷ Δ,Σ' and Σ;Γₒ ⊢ γ:Δ.
+      We should check whether we take into account disclosure of locations currently.*)
+
   val abstracting_nf :
     normal_form ->
     name_ctx ->
@@ -85,6 +89,8 @@ module type LANG = sig
     abstract_normal_form ->
     abstract_normal_form ->
     Names.name Util.Namespan.namespan option
+
+
 
   (* From the interactive name context Γ_P,
      we generate all the possible pairs (A,Δ,Γ'_P) formed by an abstracted normal form A such that
