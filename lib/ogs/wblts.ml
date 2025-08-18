@@ -44,6 +44,6 @@ module Make
 
   type name = Moves.Names.name
 
-  let init_act_conf _ = (Active, [])
+  let init_act_conf _ _ = (Active, [])
   let init_pas_conf _ _ = (Passive, [])
 end

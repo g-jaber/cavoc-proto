@@ -13,7 +13,8 @@ module type LTS = sig
 
   val get_namectxO : position -> name_ctx
   val get_storectx : position -> store_ctx
-  val init_position : store_ctx -> name_ctx -> name_ctx -> position
+  val init_act_pos : store_ctx -> name_ctx -> name_ctx -> position
+  val init_pas_pos : store_ctx -> name_ctx -> name_ctx -> position
   val string_of_position : position -> string
   val pp_position : Format.formatter -> position -> unit
 
@@ -31,82 +32,4 @@ module type LTS = sig
      It returns None when m is not well-typed.*)
   val check_move : position -> Moves.pol_move * name_ctx -> position option
   val trigger_move : position -> Moves.pol_move * name_ctx -> position
-end
-
-module MakeOGS (IntLang : Lang.Interactive.LANG) :
-  LTS
-    with type Moves.Names.name = IntLang.Names.name
-     and type name_ctx = IntLang.name_ctx
-     and type store_ctx = IntLang.store_ctx
-     and type Moves.move = IntLang.abstract_normal_form = struct
-  module Moves = Moves.Make (IntLang)
-  module BranchMonad = IntLang.BranchMonad
-
-  type name_ctx = IntLang.name_ctx
-  type store_ctx = IntLang.store_ctx
-
-  let domain_of_name_ctx namectx = IntLang.get_names_from_name_ctx namectx
-
-  type position = {
-    storectx: IntLang.store_ctx;
-    namectxP: IntLang.name_ctx;
-    namectxO: IntLang.name_ctx;
-  }
-
-  let get_namectxO ictx = ictx.namectxO
-  let get_storectx ictx = ictx.storectx
-
-  let position_to_yojson ictx =
-    `Assoc
-      [
-        ("storectx", `String (IntLang.string_of_store_ctx ictx.storectx));
-        ("namectxP", IntLang.name_ctx_to_yojson ictx.namectxP);
-        ("namectxO", IntLang.name_ctx_to_yojson ictx.namectxO);
-      ]
-
-  let pp_position fmt ictx =
-    Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a |@, ΔP: %a⟩@]" IntLang.pp_store_ctx
-      ictx.storectx IntLang.pp_name_ctx ictx.namectxO IntLang.pp_name_ctx
-      ictx.namectxP
-
-  let string_of_position = Format.asprintf "%a" pp_position
-
-  let init_position storectx namectxP namectxO =
-    { storectx; namectxP; namectxO }
-
-  let generate_moves ictx =
-    Util.Debug.print_debug "Generating moves";
-    let open IntLang.BranchMonad in
-    let* (a_nf, lnamectx, namectxP) =
-      IntLang.generate_a_nf ictx.storectx ictx.namectxP in
-    let namectxO = IntLang.concat_name_ctx lnamectx ictx.namectxO in
-    Util.Debug.print_debug @@ "New name context :"
-    ^ IntLang.string_of_name_ctx lnamectx
-    ^ " and "
-    ^ IntLang.string_of_name_ctx namectxO;
-    return
-      ( ((Moves.Input, a_nf), lnamectx),
-        { ictx with namectxP; namectxO } )
-
-  let check_move ictx ((dir,a_nf), _) =
-    let lnamectx_opt =
-      match dir with
-      | Moves.Output -> IntLang.type_check_a_nf ictx.namectxO ictx.namectxP a_nf
-      | Moves.Input -> IntLang.type_check_a_nf ictx.namectxP ictx.namectxO a_nf
-    in
-    match lnamectx_opt with
-    | Some (lnamectx, namectxP) ->
-        let namectxO = IntLang.concat_name_ctx lnamectx ictx.namectxO in
-        (* We suppose only dealing with inputs here !! *)
-        Some { ictx with namectxO; namectxP }
-    | None -> None
-
-  let trigger_move ictx ((dir,_), lnamectx) =
-    match dir with
-    | Moves.Output ->
-        let namectxP = IntLang.concat_name_ctx lnamectx ictx.namectxP in
-        { ictx with namectxP }
-    | Moves.Input ->
-        let namectxO = IntLang.concat_name_ctx lnamectx ictx.namectxO in
-        { ictx with namectxO }
 end

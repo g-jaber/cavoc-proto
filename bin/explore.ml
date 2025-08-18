@@ -121,7 +121,7 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG) =
     match (!generate_tree, !enable_wb, !enable_visibility) with
     | (true, _, _) -> (module Pogs.Pogslts.Make (IntLang))
     | (false, true, true) ->
-        let module TypingLTS = Lts.Typing.MakeOGS (IntLang) in
+        let module TypingLTS = Ogs.Typing.Make (IntLang) in
         let module WBLTS = Ogs.Wblts.Make (IntLang.Names) (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
         let module VisLTS = Ogs.Vis_lts.Make (IntLang.Names) (TypingLTS.Moves)
@@ -129,18 +129,18 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG) =
         let module ProdLTS = Lts.Product_lts.Make (ProdLTS) (VisLTS) in
         (module Ogs.Ogslts.Make (IntLang) (ProdLTS))
     | (false, true, false) ->
-        let module TypingLTS = Lts.Typing.MakeOGS (IntLang) in
+        let module TypingLTS = Ogs.Typing.Make (IntLang) in
         let module WBLTS = Ogs.Wblts.Make (IntLang.Names) (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
         (module Ogs.Ogslts.Make (IntLang) (ProdLTS))
     | (false, false, true) ->
-        let module TypingLTS = Lts.Typing.MakeOGS (IntLang) in
+        let module TypingLTS = Ogs.Typing.Make (IntLang) in
         let module VisLTS = Ogs.Vis_lts.Make (IntLang.Names) (TypingLTS.Moves)
         in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (VisLTS) in
         (module Ogs.Ogslts.Make (IntLang) (ProdLTS))
     | (false, false, false) ->
-        let module TypingLTS = Lts.Typing.MakeOGS (IntLang) in
+        let module TypingLTS = Ogs.Typing.Make (IntLang) in
         (module Ogs.Ogslts.Make (IntLang) (TypingLTS)) in
   check_number_filenames ();
   match !is_mode with

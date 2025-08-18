@@ -66,8 +66,9 @@ module Make (IntLang : Lang.Interactive.LANG) :
     | Passive pos -> pos.storectx
 
   let string_of_position = Format.asprintf "%a" pp_position
+  let init_act_pos storectx _ namectxO = Active { storectx; namectxO }
 
-  let init_position storectx namectxP namectxO =
+  let init_pas_pos storectx namectxP namectxO =
     Passive { storectx; namectxP; namectxO }
 
   let generate_moves pos =
@@ -75,8 +76,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
     let open IntLang.BranchMonad in
     match pos with
     | Passive { storectx; namectxP; namectxO } ->
-        let* (a_nf, lnamectx, _) =
-          IntLang.generate_a_nf storectx namectxP in
+        let* (a_nf, lnamectx, _) = IntLang.generate_a_nf storectx namectxP in
         let namectxO = IntLang.concat_name_ctx lnamectx namectxO in
         return (((Moves.Input, a_nf), lnamectx), Active { storectx; namectxO })
     | Active { storectx; namectxO } ->
@@ -96,17 +96,19 @@ module Make (IntLang : Lang.Interactive.LANG) :
       end
     | (Moves.Input, Passive { storectx; namectxO; namectxP }) -> begin
         match IntLang.type_check_a_nf namectxP namectxO a_nf with
-        | Some (namectxO, _) -> Some (Passive { storectx; namectxP; namectxO })
+        | Some (namectxO, _) -> Some (Active { storectx; namectxO })
         | None -> None
       end
     | _ -> None
 
   let trigger_move pos ((dir, _), lnamectx) =
-    match (dir,pos) with
+    match (dir, pos) with
     | (Moves.Output, Active { storectx; namectxO }) ->
-        Passive { namectxP = lnamectx; storectx; namectxO }
-    | (Moves.Input, Passive { storectx; namectxO; _ })   ->
+        Passive { namectxP= lnamectx; storectx; namectxO }
+    | (Moves.Input, Passive { storectx; namectxO; _ }) ->
         let namectxO = IntLang.concat_name_ctx lnamectx namectxO in
         Active { storectx; namectxO }
-        | _ -> failwith ""
+    | _ ->
+        failwith
+          "Trying to trigger a move of the wrong polarity. Please report."
 end

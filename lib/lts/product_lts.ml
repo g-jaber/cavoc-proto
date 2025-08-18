@@ -6,7 +6,7 @@ module Make
          and type name = TypingLTS.Moves.Names.name) :
   Typing.LTS
     with module Moves = TypingLTS.Moves
-     and type name_ctx = TypingLTS.name_ctx 
+     and type name_ctx = TypingLTS.name_ctx
      and type store_ctx = TypingLTS.store_ctx = struct
   module Moves = TypingLTS.Moves
   module BranchMonad = TypingLTS.BranchMonad
@@ -52,8 +52,15 @@ module Make
     | None -> failwith ""
     | Some hconf' -> (pos', hconf')
 
-  let init_position storectx namectxP namectxO =
-    let pos = TypingLTS.init_position storectx namectxP namectxO in
+  let init_act_pos storectx namectxP namectxO =
+    let pos = TypingLTS.init_act_pos storectx namectxP namectxO in
+    let namesP = TypingLTS.domain_of_name_ctx namectxP in
+    let namesO = TypingLTS.domain_of_name_ctx namectxO in
+    let hconf = HistLts.init_act_conf namesP namesO in
+    (pos, hconf)
+
+  let init_pas_pos storectx namectxP namectxO =
+    let pos = TypingLTS.init_pas_pos storectx namectxP namectxO in
     let namesP = TypingLTS.domain_of_name_ctx namectxP in
     let namesO = TypingLTS.domain_of_name_ctx namectxO in
     let hconf = HistLts.init_pas_conf namesP namesO in

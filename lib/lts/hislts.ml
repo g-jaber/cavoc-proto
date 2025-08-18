@@ -12,6 +12,6 @@ module type HISLTS_INIT = sig
 
   type name
 
-  val init_act_conf : name list -> conf
+  val init_act_conf : name list -> name list -> conf
   val init_pas_conf : name list -> name list -> conf
 end

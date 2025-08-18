@@ -86,6 +86,6 @@ module Make
 
   type name = Names.name
 
-  let init_act_conf _ = Active (Util.Pmap.empty)
+  let init_act_conf _ _ = Active (Util.Pmap.empty)
   let init_pas_conf nameP _ = Passive (nameP, Util.Pmap.empty)
 end
