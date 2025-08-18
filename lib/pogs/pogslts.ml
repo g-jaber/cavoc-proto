@@ -55,34 +55,17 @@ module Make
 
   let p_trans act_conf =
     let open EvalMonad in
-    let* nf = Lang.compute_nf act_conf.opconf in
-    if Lang.is_error nf then fail () (* to be improved *)
-    else
-      let store = Lang.get_store nf in
-      (* All the store is supposed to be disclosed*)
-      let storectx = Lang.infer_type_store store in
-      begin
-      match
-        Lang.abstracting_nf nf
-          (TypingLTS.get_namectxO act_conf.ictx)
-          storectx
-      with
-      | Some (a_nf, ienv, lnamectx, _storectx) ->
+    let* ((a_nf, lnamectx, _storectx_discl), ienv, store) =
+      Lang.eval
+        ( act_conf.opconf,
+          TypingLTS.get_namectxO act_conf.ictx,
+          TypingLTS.get_storectx act_conf.ictx ) 
+        in
           let move = (TypingLTS.Moves.Output, a_nf) in
-          (* We reset the Store typing context of ictx using the current storectx*)
-          let ictx = TypingLTS.replace_storectx act_conf.ictx storectx in
-          let ictx = TypingLTS.trigger_move ictx (move, lnamectx) in
+          let ictx = TypingLTS.trigger_move act_conf.ictx (move, lnamectx) in
           (* We reset the P-name context of ictx using lnamectx*)
           let ictx = TypingLTS.replace_namectxP ictx lnamectx in
-          let store = Lang.get_store nf in
-          return ((move,lnamectx), { store; ienv; ictx })
-      | None ->
-          Util.Error.failwithf
-            "Error: the normal form %a is not typeable in the name context %a. \
-             Please report."
-            Lang.pp_normal_form nf Lang.pp_name_ctx
-            (TypingLTS.get_namectxO act_conf.ictx)
-    end
+          return ((move, lnamectx), { store; ienv; ictx })
 
   let o_trans pas_conf ((_,move) as input_move, namectx) =
     match TypingLTS.check_move pas_conf.ictx (input_move, namectx) with

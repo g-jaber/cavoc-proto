@@ -2,8 +2,8 @@ module Make
     (Lang : Lang.Interactive.LANG)
     (TypingLTS :
       Lts.Typing.LTS
-        with type Moves.Names.name = Lang.Names.name 
-        and type name_ctx = Lang.name_ctx
+        with type Moves.Names.name = Lang.Names.name
+         and type name_ctx = Lang.name_ctx
          and type store_ctx = Lang.store_ctx
          and type Moves.move = Lang.abstract_normal_form) :
   Lts.Bipartite.INT_LTS
@@ -60,29 +60,18 @@ module Make
 
   let p_trans act_conf =
     let open EvalMonad in
-    let* nf = Lang.compute_nf act_conf.opconf in
-    if Lang.is_error nf then fail () (* to be improved *)
-    else begin
-      match
-        Lang.abstracting_nf nf
-          (TypingLTS.get_namectxO act_conf.ictx)
-          (TypingLTS.get_storectx act_conf.ictx)
-      with
-      | Some (a_nf, ienv, lnamectx, _storectx) ->
+    let* ((a_nf, lnamectx, _storectx_discl), ienv, store) =
+      Lang.eval
+        ( act_conf.opconf,
+          TypingLTS.get_namectxO act_conf.ictx,
+          TypingLTS.get_storectx act_conf.ictx ) 
+        in
           let move = (TypingLTS.Moves.Output, a_nf) in
           let ictx = TypingLTS.trigger_move act_conf.ictx (move, lnamectx) in
           let ienv = Lang.concat_ienv ienv act_conf.ienv in
-          let store = Lang.get_store nf in
-          return ((move,lnamectx), { store; ienv; ictx })
-      | None ->
-          Util.Error.failwithf
-            "Error: the normal form %a is not typeable in the name context %a. \
-             Please report."
-            Lang.pp_normal_form nf Lang.pp_name_ctx
-            (TypingLTS.get_namectxO act_conf.ictx)
-    end
+          return ((move, lnamectx), { store; ienv; ictx })
 
-  let o_trans pas_conf ((_,move) as input_move, namectx) =
+  let o_trans pas_conf (((_, move) as input_move), namectx) =
     match TypingLTS.check_move pas_conf.ictx (input_move, namectx) with
     | None -> None
     | Some ictx ->
@@ -92,7 +81,7 @@ module Make
 
   let o_trans_gen pas_conf =
     let open OBranchingMonad in
-    let* (((_,move) as input_move, namectx), ictx) =
+    let* ((((_, move) as input_move), namectx), ictx) =
       TypingLTS.generate_moves pas_conf.ictx in
     let (opconf, ienv) =
       Lang.concretize_a_nf pas_conf.store pas_conf.ienv move in

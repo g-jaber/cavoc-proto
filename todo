@@ -8,3 +8,4 @@
 - [x] Add a Names submodule to the Moves interface
 - [x] Remove the Int submodule of the Bipartite.INT_LTS signature
 - [ ] Design a specific Typing LTS for POGS
+- [x] Provide an eval function rather than a compute_nf + abstract_nf in Lang.Interactive.LANG signature
