@@ -218,12 +218,11 @@ let evaluate_code () =
   let module DirectLang = Lang.Direct.Make (OpLang) in
   (*  let module IntLang  = Lang.Interactive.Make (DirectLang : Lang.Interactive.LANG) in *)
   let module TypingLTS = Lts.Typing.Make (DirectLang) in
-  let module Int = Lts.Interactive.Make (DirectLang) (TypingLTS) in
-  let module OGS_LTS = Ogs.Ogslts.Make (Int) in
+  let module OGS_LTS = Ogs.Ogslts.Make (DirectLang) (TypingLTS) in
   let lexBuffer_code = Lexing.from_string !editor_content in
   let lexBuffer_sig = Lexing.from_string !signature_content in
   let (interactive_env, store, name_ctxP, name_ctxO) =
-    Int.IntLang.get_typed_ienv lexBuffer_code lexBuffer_sig in
+    DirectLang.get_typed_ienv lexBuffer_code lexBuffer_sig in
   let init_conf =
     OGS_LTS.Passive
       (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in

@@ -34,32 +34,31 @@ let () =
   let module TypingLTS = Lts.Typing.Make (IntLang) in
   let module WBLTS = Ogs.Wblts.Make (IntLang.Names) (TypingLTS.Moves) in
   let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
-  let module Int = Lts.Interactive.Make (IntLang) (ProdLTS) in
-  let module OGS_LTS = Ogs.Ogslts.Make (Int) in
+  let module OGS_LTS = Ogs.Ogslts.Make (IntLang) (ProdLTS) in
   Util.Debug.print_debug "Getting the program";
   let inBuffer1 = open_in !filename1 in
   let lexBuffer1 = Lexing.from_channel inBuffer1 in
-  let (opconf, namectxO) = Int.IntLang.get_typed_opconf "first" lexBuffer1 in
+  let (opconf, namectxO) = IntLang.get_typed_opconf "first" lexBuffer1 in
   Util.Debug.print_debug "Getting the module";
   let inBuffer2 = open_in !filename2 in
   let inBuffer3 = open_in !filename3 in
   let lexBuffer2 = Lexing.from_channel inBuffer2 in
   let lexBuffer3 = Lexing.from_channel inBuffer3 in
   let (ienv, store, namectxO', _) =
-    Int.IntLang.get_typed_ienv lexBuffer2 lexBuffer3 in
+    IntLang.get_typed_ienv lexBuffer2 lexBuffer3 in
   Util.Debug.print_debug
     ("Name contexts for Opponent: "
-    ^ Int.IntLang.string_of_name_ctx namectxO
+    ^ IntLang.string_of_name_ctx namectxO
     ^ " and "
-    ^ Int.IntLang.string_of_name_ctx namectxO');
+    ^ IntLang.string_of_name_ctx namectxO');
   let init_aconf =
     OGS_LTS.Active
       (* The following concatenation should be reworked *)
       (OGS_LTS.init_aconf opconf
-         (Int.IntLang.concat_name_ctx namectxO namectxO')) in
+         (IntLang.concat_name_ctx namectxO namectxO')) in
   let init_pconf =
     OGS_LTS.Passive
-      (OGS_LTS.init_pconf store ienv namectxO' Int.IntLang.empty_name_ctx)
+      (OGS_LTS.init_pconf store ienv namectxO' IntLang.empty_name_ctx)
   in
   let module Composed_LTS = Lts.Compose.Make (OGS_LTS) in
   let traces = Composed_LTS.get_traces_check init_aconf init_pconf in
