@@ -1,33 +1,33 @@
 module Make
-    (ContNames : Lang.Names.NAMES)
-    (Moves : Lts.Moves.MOVES with type name = ContNames.name) :
+    (Names : Lang.Names.NAMES)
+    (Moves : Lts.Moves.MOVES with type Names.name = Names.name) :
   Lts.Hislts.HISLTS_INIT
     with type move = Moves.move
-     and type name = ContNames.name = struct
+     and type name = Names.name = struct
   (* the view contains the names that Proponent has provided to Opponent. *)
-  type view = Moves.name list
+  type view = Moves.Names.name list
 
   let view_to_yojson nn_l =
-    `List (List.map (fun x -> `String (ContNames.string_of_name x)) nn_l)
+    `List (List.map (fun x -> `String (Names.string_of_name x)) nn_l)
 
   (* the view map associate to each Opponent name the set of Proponent names
      available when it was introduced. *)
-  type view_map = (Moves.name, view) Util.Pmap.pmap
+  type view_map = (Moves.Names.name, view) Util.Pmap.pmap
 
   let view_map_to_yojson vmap =
     let to_string (nn, view) =
-      (ContNames.string_of_name nn, view_to_yojson view) in
+      (Names.string_of_name nn, view_to_yojson view) in
     `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string vmap)
 
   let pp_view fmt v =
     let pp_sep fmt () = Format.pp_print_char fmt ',' in
-    let pp_view_aux = Format.pp_print_list ~pp_sep ContNames.pp_name in
+    let pp_view_aux = Format.pp_print_list ~pp_sep Names.pp_name in
     Format.fprintf fmt "{%a}" pp_view_aux v
 
   let pp_view_map fmt vm =
     let pp_empty fmt () = Format.pp_print_char fmt '.' in
     let pp_pair fmt (n, v) =
-      Format.fprintf fmt "%a ↦ %a" ContNames.pp_name n pp_view v in
+      Format.fprintf fmt "%a ↦ %a" Names.pp_name n pp_view v in
     Util.Pmap.pp_pmap ~pp_empty pp_pair fmt vm
 
   type move = Moves.move
@@ -72,7 +72,7 @@ module Make
       | None ->
           Util.Error.failwithf
             "Error: the name %a is not in the view map %a. Please report."
-            ContNames.pp_name nn pp_view_map vm in
+            Names.pp_name nn pp_view_map vm in
     Some (Passive (view, vm))
   | Passive (view, vm) ->
     let nn = get_subject_name move in
@@ -83,7 +83,7 @@ module Make
       Some (Active (Util.Pmap.concat vm vm'))
     else None
 
-  type name = ContNames.name
+  type name = Names.name
 
   let init_act_conf _ = Active (Util.Pmap.empty)
   let init_pas_conf nameP _ = Passive (nameP, Util.Pmap.empty)

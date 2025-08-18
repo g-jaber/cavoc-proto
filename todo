@@ -6,4 +6,5 @@
 - [x] Rework the product LTS by using Lts.Typing.Game
 - [ ] Introduce the notion of History-enhancement as a functor from Typing.LTS to Typing.LTS  rather than a module of signature Hislts.HISLTS
 - [ ] Implement an interface Lang.Interactive.LANG for the move-trees.
-- [ ] Remove the need for NAMES
+- [x] Remove the need for CONT_NAMES
+- [x] Add a Names submodule to the Moves interface

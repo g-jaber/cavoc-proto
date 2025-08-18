@@ -7,7 +7,7 @@ module type LTS = sig
 
   (* *)
 
-  val domain_of_name_ctx : name_ctx -> Moves.name list
+  val domain_of_name_ctx : name_ctx -> Moves.Names.name list
 
   type position [@@deriving to_yojson]
 
@@ -43,7 +43,7 @@ end
 
 module Make (IntLang : Lang.Interactive.LANG) :
   LTS
-    with type Moves.name = IntLang.Names.name
+    with type Moves.Names.name = IntLang.Names.name
      and type name_ctx = IntLang.name_ctx
      and type store_ctx = IntLang.store_ctx
      and type Moves.kdata = IntLang.abstract_normal_form = struct

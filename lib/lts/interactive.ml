@@ -4,7 +4,7 @@ module type INT = sig
 
   module IntLang :
     Lang.Interactive.LANG
-      with type Names.name = GameLTS.Moves.name
+      with type Names.name = GameLTS.Moves.Names.name
        and type abstract_normal_form = GameLTS.Moves.kdata
        and type name_ctx = GameLTS.name_ctx
        and type store_ctx = GameLTS.store_ctx
@@ -39,12 +39,12 @@ module Make
     (IntLang : Lang.Interactive.LANG)
     (GameLTS :
       Typing.LTS
-        with type Moves.name = IntLang.Names.name
+        with type Moves.Names.name = IntLang.Names.name
          and type name_ctx = IntLang.name_ctx
          and type store_ctx = IntLang.store_ctx
          and type Moves.kdata = IntLang.abstract_normal_form) :
   INT
-    with type GameLTS.Moves.name = IntLang.Names.name
+    with type GameLTS.Moves.Names.name = IntLang.Names.name
      and type GameLTS.name_ctx = IntLang.name_ctx = struct
   module GameLTS = GameLTS
   module IntLang = IntLang

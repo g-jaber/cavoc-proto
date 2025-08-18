@@ -1,6 +1,6 @@
 module Make
     (Names : Lang.Names.NAMES)
-    (Moves : Lts.Moves.MOVES with type name = Names.name) :
+    (Moves : Lts.Moves.MOVES with type Names.name = Names.name) :
   Lts.Hislts.HISLTS_INIT
     with type move = Moves.move
      and type name = Names.name = struct
@@ -36,7 +36,7 @@ module Make
     | ([], _) -> Some (Active,cstack) (* Really ?*)
     | (_, _) -> None
 
-  type name = Moves.name
+  type name = Moves.Names.name
 
   let init_act_conf _ = (Active,[])
   let init_pas_conf _ _ = (Passive,[])
