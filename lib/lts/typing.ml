@@ -43,7 +43,7 @@ end
 
 module Make (IntLang : Lang.Interactive.LANG) :
   LTS
-    with type Moves.name = IntLang.Name.name
+    with type Moves.name = IntLang.Names.name
      and type name_ctx = IntLang.name_ctx
      and type store_ctx = IntLang.store_ctx
      and type Moves.kdata = IntLang.abstract_normal_form = struct

@@ -1,7 +1,6 @@
 module Names :
-  Lang.Names.CONT_NAMES
-    with type name = Names.name
-     and type cont_name = Names.cont_name = struct
+  Lang.Names.NAMES
+    with type name = Names.name = struct
   include Names
 end
 
@@ -9,8 +8,8 @@ module Typed :
   Lang.Language.TYPED
     with type typ = Types.typ
      and type negative_type = Types.negative_type
-     and module Name = Names = struct
-  module Name = Names
+     and module Names = Names = struct
+  module Names = Names
 
   type typ = Types.typ
 
@@ -23,7 +22,7 @@ module Typed :
   let pp_negative_type = Types.pp_negative_type
   let get_negative_type = Types.get_negative_type
 
-  type name_ctx = (Name.name, negative_type) Util.Pmap.pmap
+  type name_ctx = (Names.name, negative_type) Util.Pmap.pmap
 
   let name_ctx_to_yojson ienv =
     let to_string (nn, nty) =
@@ -59,7 +58,7 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
      and type negative_type = Types.negative_type
      and type Store.label = Syntax.label
      and type Store.store_ctx = Store.store_ctx
-     and module Name = Names
+     and module Names = Names
      and module Store.BranchMonad = BranchMonad = struct
   include Syntax
   include Typed
@@ -163,7 +162,7 @@ module WithAVal (BranchMonad : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT
   let generate_nf_term_call = Nf_gen.generate_nf_term_call
   let generate_nf_term_ret = Nf_gen.generate_nf_term_ret
 
-  type normal_form_term = (value, eval_context, Name.name, unit) Nf.nf_term
+  type normal_form_term = (value, eval_context, Names.name, unit) Nf.nf_term
 
   let refold_nf_term = Syntax.refold_nf_term
   let get_nf_term = Syntax.get_nf_term
@@ -174,7 +173,7 @@ module WithAVal (BranchMonad : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT
 
   module AVal :
     Lang.Abstract_val.AVAL
-      with type name = Name.name
+      with type name = Names.name
        and type value = Syntax.value
        and type negative_val = Syntax.negative_val
        and type typ = Types.typ

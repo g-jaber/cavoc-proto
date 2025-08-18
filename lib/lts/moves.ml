@@ -24,25 +24,25 @@ module type MOVES = sig
 end
 
 module type A_NF = sig
-  module Name : Lang.Names.CONT_NAMES
+  module Names : Lang.Names.NAMES
   type abstract_normal_form
 
   val pp_a_nf : pp_dir:(Format.formatter -> unit) -> Format.formatter -> abstract_normal_form -> unit
   val string_of_a_nf : string -> abstract_normal_form -> string
-  val get_subject_name : abstract_normal_form -> Name.name option
-  val get_support : abstract_normal_form -> Name.name list
+  val get_subject_name : abstract_normal_form -> Names.name option
+  val get_support : abstract_normal_form -> Names.name list
 
   val is_equiv_a_nf :
-    Name.name Util.Namespan.namespan ->
+    Names.name Util.Namespan.namespan ->
     abstract_normal_form ->
     abstract_normal_form ->
-    Name.name Util.Namespan.namespan option
+    Names.name Util.Namespan.namespan option
 end
 
 module Make (A_nf : A_NF) :
-  MOVES with type name = A_nf.Name.name and type kdata = A_nf.abstract_normal_form =
+  MOVES with type name = A_nf.Names.name and type kdata = A_nf.abstract_normal_form =
 struct
-  type name = A_nf.Name.name
+  type name = A_nf.Names.name
   type kdata = A_nf.abstract_normal_form
   type direction = Input | Output | None
 

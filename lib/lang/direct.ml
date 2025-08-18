@@ -1,7 +1,7 @@
 module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
   open OpLang
   module EvalMonad = OpLang.EvalMonad
-  module Name = OpLang.Name
+  module Names = OpLang.Names
   module BranchMonad = AVal.BranchMonad
 
   type computation = term
@@ -130,13 +130,13 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
   let string_of_ienv = Format.asprintf "%a" pp_ienv
 
   type normal_form =
-    (value, eval_context, Name.name, unit) OpLang.Nf.nf_term * Store.store
+    (value, eval_context, Names.name, unit) OpLang.Nf.nf_term * Store.store
 
   let pp_normal_form fmt (nf_term, _) =
     let pp_dir fmt = Format.pp_print_string fmt "" in
     let pp_cn fmt () = Format.pp_print_string fmt "ret" in
     OpLang.Nf.pp_nf_term ~pp_dir OpLang.pp_value OpLang.pp_eval_context
-      OpLang.Name.pp_name pp_cn fmt nf_term
+      OpLang.Names.pp_name pp_cn fmt nf_term
 
   let string_of_nf = Format.asprintf "%a" pp_normal_form
   let is_error (nf_term, _) = OpLang.Nf.is_error nf_term
@@ -167,7 +167,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     ((refold_nf_term nf_term'', newstore), ienv')
 
   type abstract_normal_form =
-    (AVal.abstract_val, unit, Name.name, unit) OpLang.Nf.nf_term * Store.store
+    (AVal.abstract_val, unit, Names.name, unit) OpLang.Nf.nf_term * Store.store
 
   let labels_of_a_nf_term = OpLang.Nf.apply_val [] AVal.labels_of_abstract_val
   let abstracting_store = OpLang.Store.restrict
@@ -231,7 +231,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     let pp_cn fmt () = Format.pp_print_string fmt "ret" in
     let pp_a_nf_term =
       OpLang.Nf.pp_nf_term ~pp_dir OpLang.AVal.pp_abstract_val pp_ectx
-        OpLang.Name.pp_name pp_cn in
+        OpLang.Names.pp_name pp_cn in
     if store = Store.empty_store then pp_a_nf_term fmt a_nf_term
     else Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term Store.pp_store store
 
@@ -250,7 +250,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     let fname_ctx =
       Util.Pmap.filter_map
         (fun (nn, ty) ->
-          if OpLang.Name.is_fname nn then
+          if OpLang.Names.is_fname nn then
             let (_, in_ty) = OpLang.get_input_type ty in
             Some (nn, (in_ty, OpLang.get_output_type ty))
           else None)

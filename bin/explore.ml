@@ -189,21 +189,21 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG) =
   else
     match (!enable_wb, !enable_visibility) with
     | (true, true) ->
-        let module WBLTS = Ogs.Wblts.Make (IntLang.Name) (TypingLTS.Moves) in
+        let module WBLTS = Ogs.Wblts.Make (IntLang.Names) (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
-        let module VisLTS = Ogs.Vis_lts.Make (IntLang.Name) (TypingLTS.Moves) in
+        let module VisLTS = Ogs.Vis_lts.Make (IntLang.Names) (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (ProdLTS) (VisLTS) in
         let module Int = Lts.Interactive.Make (IntLang) (ProdLTS) in
         let module OGS_LTS = Ogs.Ogslts.Make (Int) in
         generate (module OGS_LTS)
     | (true, false) ->
-        let module WBLTS = Ogs.Wblts.Make (IntLang.Name) (TypingLTS.Moves) in
+        let module WBLTS = Ogs.Wblts.Make (IntLang.Names) (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
         let module Int = Lts.Interactive.Make (IntLang) (ProdLTS) in
         let module OGS_LTS = Ogs.Ogslts.Make (Int) in
         generate (module OGS_LTS)
     | (false, true) ->
-        let module VisLTS = Ogs.Vis_lts.Make (IntLang.Name) (TypingLTS.Moves) in
+        let module VisLTS = Ogs.Vis_lts.Make (IntLang.Names) (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (VisLTS) in
         let module Int = Lts.Interactive.Make (IntLang) (ProdLTS) in
         let module OGS_LTS = Ogs.Ogslts.Make (Int) in

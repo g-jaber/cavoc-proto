@@ -4,12 +4,12 @@ module type INT = sig
 
   module IntLang :
     Lang.Interactive.LANG
-      with type Name.name = GameLTS.Moves.name
+      with type Names.name = GameLTS.Moves.name
        and type abstract_normal_form = GameLTS.Moves.kdata
        and type name_ctx = GameLTS.name_ctx
        and type store_ctx = GameLTS.store_ctx
 
-  module Name : Lang.Names.CONT_NAMES with type name = IntLang.Name.name
+  module Names : Lang.Names.NAMES with type name = IntLang.Names.name
 
   (* generate_output_move Γₒ nf returns a triple (m,γ,Δ,Γₒ')
       where the output move m is formed by
@@ -39,16 +39,16 @@ module Make
     (IntLang : Lang.Interactive.LANG)
     (GameLTS :
       Typing.LTS
-        with type Moves.name = IntLang.Name.name
+        with type Moves.name = IntLang.Names.name
          and type name_ctx = IntLang.name_ctx
          and type store_ctx = IntLang.store_ctx
          and type Moves.kdata = IntLang.abstract_normal_form) :
   INT
-    with type GameLTS.Moves.name = IntLang.Name.name
+    with type GameLTS.Moves.name = IntLang.Names.name
      and type GameLTS.name_ctx = IntLang.name_ctx = struct
   module GameLTS = GameLTS
   module IntLang = IntLang
-  module Name = IntLang.Name
+  module Names = IntLang.Names
 
   let generate_output_move ictx nf =
     match

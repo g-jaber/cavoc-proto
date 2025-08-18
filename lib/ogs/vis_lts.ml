@@ -1,5 +1,5 @@
 module Make
-    (ContNames : Lang.Names.CONT_NAMES)
+    (ContNames : Lang.Names.NAMES)
     (Moves : Lts.Moves.MOVES with type name = ContNames.name) :
   Lts.Hislts.HISLTS_INIT
     with type move = Moves.move

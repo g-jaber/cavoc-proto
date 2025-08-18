@@ -91,7 +91,7 @@ rule token = parse
   | integer as n  { INT (int_of_string n) }
   | ident as id  { VAR id }
   | tvar as t  { TVAR t }
-  | name as nn { NAME nn }
+  | name as nn { NAMES nn }
   | constructor as c { CONSTRUCTOR c }
 
   | _  { failwith (Printf.sprintf "Unexpected char at %d" lexbuf.lex_curr_p.pos_cnum) }

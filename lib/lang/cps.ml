@@ -3,31 +3,34 @@
    This is done by introducing named terms and named evaluation contexts,
    and by embedding named evaluation contexts in values. *)
 module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
-  Language.WITHAVAL_NEG with module Name = OpLang.Name = struct
+  Language.WITHAVAL_NEG with module Names = OpLang.Names = struct
   module EvalMonad = OpLang.EvalMonad
-  module Name = OpLang.Name
+  module Names = OpLang.Names
   open EvalMonad
   (* *)
 
   (* We consider named terms, as in the λμ-calculus *)
-  type term = NTerm of (Name.cont_name * OpLang.term)
+  type cont_name = Names.name
+  let pp_cont_name = Names.pp_name
+  let inj_cont_name = Fun.id
+  type term = NTerm of (cont_name * OpLang.term)
 
   let pp_term fmt (NTerm (cn, term)) =
-    Format.fprintf fmt "[%a]%a" OpLang.Name.pp_cont_name cn OpLang.pp_term term
+    Format.fprintf fmt "[%a]%a" pp_cont_name cn OpLang.pp_term term
 
   let string_of_term = Format.asprintf "%a" pp_term
 
-  type neval_context = NCtx of (Name.cont_name * OpLang.eval_context)
+  type neval_context = NCtx of (cont_name * OpLang.eval_context)
 
   let pp_neval_context fmt (NCtx (cn, ectx)) =
-    Format.fprintf fmt "[%a]%a" Name.pp_cont_name cn OpLang.pp_eval_context ectx
+    Format.fprintf fmt "[%a]%a" pp_cont_name cn OpLang.pp_eval_context ectx
 
   (*We refine the type of values to allow pairs (V,E) and (V,c) *)
   type value =
     | GVal of OpLang.value
     | GPairIn of OpLang.value * neval_context
-    | GPairOut of OpLang.value * Name.cont_name
-    | GPackOut of OpLang.typename list * OpLang.value * Name.cont_name
+    | GPairOut of OpLang.value * cont_name
+    | GPackOut of OpLang.typename list * OpLang.value * cont_name
   (* Since we are in Curry-style, we could merge GPairOut and GPackOut *)
 
   let pp_value fmt = function
@@ -35,7 +38,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     | GPairIn (value, nctx) ->
         Format.fprintf fmt "(%a,%a)" OpLang.pp_value value pp_neval_context nctx
     | GPairOut (value, cn) | GPackOut (_, value, cn) ->
-        Format.fprintf fmt "(%a,%a)" OpLang.pp_value value Name.pp_cont_name cn
+        Format.fprintf fmt "(%a,%a)" OpLang.pp_value value pp_cont_name cn
 
   let string_of_value = Format.asprintf "%a" pp_value
 
@@ -44,7 +47,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   let pp_negative_val fmt = function
     | IVal value -> OpLang.pp_negative_val fmt value
     | ICtx (NCtx (cn, ectx)) ->
-        Format.fprintf fmt "[%a]%a" Name.pp_cont_name cn OpLang.pp_eval_context
+        Format.fprintf fmt "[%a]%a" pp_cont_name cn OpLang.pp_eval_context
           ectx
 
   let string_of_negative_val = Format.asprintf "%a" pp_negative_val
@@ -57,18 +60,18 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
       end
     | GPairIn _ | GPairOut _ | GPackOut _ -> None
 
-  type interactive_env = (OpLang.Name.name, negative_val) Util.Pmap.pmap
+  type interactive_env = (OpLang.Names.name, negative_val) Util.Pmap.pmap
 
   let interactive_env_to_yojson ienv =
     let to_string (nn, nval) =
-      (OpLang.Name.string_of_name nn, `String (string_of_negative_val nval))
+      (OpLang.Names.string_of_name nn, `String (string_of_negative_val nval))
     in
     `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string ienv)
 
   let pp_ienv fmt ienv =
     let pp_sep fmt () = Format.pp_print_string fmt " ⋅ " in
     let pp_pair fmt (n, nval) =
-      Format.fprintf fmt "%a ↦ (%a)" OpLang.Name.pp_name n pp_negative_val nval
+      Format.fprintf fmt "%a ↦ (%a)" OpLang.Names.pp_name n pp_negative_val nval
     in
     let pp_ienv_aux = Util.Pmap.pp_pmap ~pp_sep pp_pair in
     Format.fprintf fmt "[%a]" pp_ienv_aux ienv
@@ -110,11 +113,11 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   let string_of_negative_type = Format.asprintf "%a" pp_negative_type
 
-  type name_ctx = (Name.name, negative_type) Util.Pmap.pmap
+  type name_ctx = (Names.name, negative_type) Util.Pmap.pmap
 
   let name_ctx_to_yojson nctx =
     let to_string (nn, nval) =
-      (Name.string_of_name nn, `String (string_of_negative_type nval)) in
+      (Names.string_of_name nn, `String (string_of_negative_type nval)) in
     `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string nctx)
 
   let extract_name_ctx =
@@ -131,7 +134,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     let pp_sep fmt () = Format.fprintf fmt ", " in
     let pp_empty fmt () = Format.fprintf fmt "⋅" in
     let pp_pair fmt (n, nty) =
-      Format.fprintf fmt "%a : %a" Name.pp_name n pp_negative_type nty in
+      Format.fprintf fmt "%a : %a" Names.pp_name n pp_negative_type nty in
     Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt name_ctx
 
   let string_of_name_ctx = Format.asprintf "%a" pp_name_ctx
@@ -153,10 +156,10 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   let get_typed_term nbprog inBuffer =
     let (term, typ, namectxO) = OpLang.get_typed_term nbprog inBuffer in
-    let cn = Name.fresh_cname () in
+    let cn = Names.fresh_cname () in
     let nterm = NTerm (cn, term) in
     let namectxO' =
-      Util.Pmap.add (Name.inj_cont_name cn, INeg typ) (embed_name_ctx namectxO)
+      Util.Pmap.add (inj_cont_name cn, INeg typ) (embed_name_ctx namectxO)
     in
     (nterm, GEmpty, namectxO')
 
@@ -177,8 +180,8 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   let type_annotating_val name_ctx =
     let inj_ty ty = GType ty in
-    let fname_ctx = Util.Pmap.filter_dom Name.is_fname name_ctx in
-    let cname_ctx = Util.Pmap.filter_dom Name.is_cname name_ctx in
+    let fname_ctx = Util.Pmap.filter_dom Names.is_fname name_ctx in
+    let cname_ctx = Util.Pmap.filter_dom Names.is_cname name_ctx in
     OpLang.type_annotating_val ~inj_ty ~fname_ctx ~cname_ctx
 
   let conf_type = GEmpty
@@ -189,12 +192,12 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     let fname_ctx =
       Util.Pmap.filter_map
         (fun (nn, nty) ->
-          if OpLang.Name.is_fname nn then Some (nn, nty) else None)
+          if OpLang.Names.is_fname nn then Some (nn, nty) else None)
         name_ctx in
     let cname_ctx =
       Util.Pmap.filter_map
         (fun (nn, nty) ->
-          if OpLang.Name.is_cname nn then
+          if OpLang.Names.is_cname nn then
             match nty with
             | INeg ty_hole -> Some (nn, (GType ty_hole, GEmpty))
             | IType _ ->
@@ -219,12 +222,12 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     let fname_ctx =
       Util.Pmap.filter_map
         (fun (fn, ty) ->
-          if Name.is_fname fn then Some (fn, (ty, GEmpty)) else None)
+          if Names.is_fname fn then Some (fn, (ty, GEmpty)) else None)
         namectx in
     let cname_ctx =
       Util.Pmap.filter_map
         (fun (cn, ty) ->
-          if Name.is_cname cn then Some (cn, (ty, GEmpty)) else None)
+          if Names.is_cname cn then Some (cn, (ty, GEmpty)) else None)
         namectx in
     (* For both, the type provided must be ⊥, but we do not check it.*)
     let open OpLang.AVal.BranchMonad in
@@ -249,10 +252,10 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
         end
     | INeg ty -> GType ty
 
-  type normal_form_term = (value, unit, Name.name, Name.name) Nf.nf_term
+  type normal_form_term = (value, unit, Names.name, Names.name) Nf.nf_term
 
   let insert_cn cn nf_term =
-    let f_cn () = OpLang.Name.inj_cont_name cn in
+    let f_cn () = inj_cont_name cn in
     let f_fn fn = fn in
     let f_val value = value in
     let f_ectx ectx = NCtx (cn, ectx) in
@@ -295,7 +298,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   module AVal :
     Abstract_val.AVAL
-      with type name = Name.name
+      with type name = Names.name
        and type value = value_temp
        and type negative_val = negative_val_temp
        and type typ = typ_temp
@@ -303,7 +306,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
        and type label = Store.label
        and type store_ctx = Store.store_ctx
        and module BranchMonad = Store.BranchMonad = struct
-    type name = Name.name
+    type name = Names.name
     type label = OpLang.AVal.label
     type value = value_temp
     type negative_val = negative_val_temp
@@ -317,28 +320,28 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
     type abstract_val =
       | AVal of OpLang.AVal.abstract_val
-      | APair of OpLang.AVal.abstract_val * Name.cont_name
+      | APair of OpLang.AVal.abstract_val * cont_name
       | APack of
-          OpLang.typename list * OpLang.AVal.abstract_val * Name.cont_name
+          OpLang.typename list * OpLang.AVal.abstract_val * cont_name
 
     let pp_abstract_val fmt = function
       | AVal aval -> OpLang.AVal.pp_abstract_val fmt aval
       | APair (aval, cn) ->
           Format.fprintf fmt "(%a,%a)" OpLang.AVal.pp_abstract_val aval
-            Name.pp_cont_name cn
+            pp_cont_name cn
       | APack (tname_l, aval, cn) ->
           let string_l =
             String.concat "," @@ List.map OpLang.string_of_typename tname_l
             (*TODO: introduce a pp_tname_l pretty printer*) in
           Format.fprintf fmt "(%s,%a,%a)" string_l OpLang.AVal.pp_abstract_val
-            aval Name.pp_cont_name cn
+            aval pp_cont_name cn
 
     let string_of_abstract_val = Format.asprintf "%a" pp_abstract_val
 
     let names_of_abstract_val = function
       | AVal aval -> OpLang.AVal.names_of_abstract_val aval
       | APair (aval, cn) | APack (_, aval, cn) ->
-          Name.inj_cont_name cn :: OpLang.AVal.names_of_abstract_val aval
+          inj_cont_name cn :: OpLang.AVal.names_of_abstract_val aval
 
     let labels_of_abstract_val = function
       | AVal aval | APair (aval, _) | APack (_, aval, _) ->
@@ -357,7 +360,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
           | Some lnamectx -> Some (embed_name_ctx lnamectx)
         end
       | (GProd (ty, tyhole), APair (aval, cn)) ->
-          let nn = Name.inj_cont_name cn in
+          let nn = inj_cont_name cn in
           if Util.Pmap.mem nn namectxP || Util.Pmap.mem nn namectxO then None
             (* the name cn has to be fresh for the abstract value to be well-typed *)
           else begin
@@ -378,12 +381,12 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
       | (GPairIn (value, ectx), GProd (ty_v, ty_c)) ->
           let (aval, val_env, lnamectx) =
             OpLang.AVal.abstracting_value value ty_v in
-          let cn = Name.fresh_cname () in
+          let cn = Names.fresh_cname () in
           let ienv = embed_value_env val_env in
-          let ienv' = Util.Pmap.add (Name.inj_cont_name cn, ICtx ectx) ienv in
+          let ienv' = Util.Pmap.add (inj_cont_name cn, ICtx ectx) ienv in
           let lnamectx = embed_name_ctx lnamectx in
           let lnamectx' =
-            Util.Pmap.add (Name.inj_cont_name cn, INeg ty_c) lnamectx in
+            Util.Pmap.add (inj_cont_name cn, INeg ty_c) lnamectx in
           (APair (aval, cn), ienv', lnamectx')
       | (GVal value, GType ty) ->
           let (aval, val_env, lnamectx) =
@@ -410,10 +413,10 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
       | GProd (ty, tyhole) ->
           let* (aval, lnamectx) =
             OpLang.AVal.generate_abstract_val storectx lnamectx' ty in
-          let cn = Name.fresh_cname () in
+          let cn = Names.fresh_cname () in
           let lnamectx' =
             Util.Pmap.add
-              (Name.inj_cont_name cn, INeg tyhole)
+              (inj_cont_name cn, INeg tyhole)
               (embed_name_ctx lnamectx) in
           return (APair (aval, cn), lnamectx')
       | GExists (tvar_l, ty, tyhole) ->
@@ -424,10 +427,10 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
           let tyhole' = OpLang.apply_type_subst tyhole type_subst in
           let* (aval, lnamectx) =
             OpLang.AVal.generate_abstract_val storectx lnamectx' ty' in
-          let cn = Name.fresh_cname () in
+          let cn = Names.fresh_cname () in
           let lnamectx' =
             Util.Pmap.add
-              (Name.inj_cont_name cn, INeg tyhole')
+              (inj_cont_name cn, INeg tyhole')
               (embed_name_ctx lnamectx) in
           return (APack (tname_l, aval, cn), lnamectx')
       | _ -> failwith "The glue type is not valid. Please report."
@@ -441,7 +444,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
             | None -> None
             | Some nspan1 ->
                 Util.Namespan.add_nspan
-                  (OpLang.Name.inj_cont_name cn1, OpLang.Name.inj_cont_name cn2)
+                  (inj_cont_name cn1, inj_cont_name cn2)
                   nspan1
           end
       | (AVal aval1, AVal aval2) ->

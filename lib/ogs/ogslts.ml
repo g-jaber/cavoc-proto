@@ -1,3 +1,5 @@
+(*module Make (Lang : Lang.Interactive.LANG) (TypingLTS : Lts.Typing.LTS with type name_ctx = Lang.name_ctx and type store_ctx = Lang.store_ctx) :*)
+
 module Make (Int : Lts.Interactive.INT) :
   Lts.Bipartite.INT_LTS
     with module Int = Int

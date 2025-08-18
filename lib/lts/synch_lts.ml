@@ -18,7 +18,7 @@ module Make (IntLts : Bipartite.INT_LTS) :
   module EvalMonad = IntLts.EvalMonad
 
   module A_nf = struct
-    module Name = IntLts.Int.IntLang.Name
+    module Names = IntLts.Int.IntLang.Names
 
     type abstract_normal_form =
       IntLts.Int.IntLang.abstract_normal_form
@@ -47,12 +47,12 @@ module Make (IntLts : Bipartite.INT_LTS) :
   type active_conf =
     IntLts.active_conf
     * IntLts.active_conf
-    * IntLts.Int.Name.name Util.Namespan.namespan
+    * IntLts.Int.Names.name Util.Namespan.namespan
 
   type passive_conf =
     IntLts.passive_conf
     * IntLts.passive_conf
-    * IntLts.Int.Name.name Util.Namespan.namespan
+    * IntLts.Int.Names.name Util.Namespan.namespan
 
   let passive_conf_to_yojson _ = failwith "Not implemented"
 
@@ -61,13 +61,13 @@ module Make (IntLts : Bipartite.INT_LTS) :
   let pp_active_conf fmt (act_conf1, act_conf2, namespan) =
     Format.fprintf fmt "@[⟨%a |@, %a |@, %a⟩]" IntLts.pp_active_conf act_conf1
       IntLts.pp_active_conf act_conf2
-      (Util.Namespan.pp_namespan IntLts.Int.Name.pp_name)
+      (Util.Namespan.pp_namespan IntLts.Int.Names.pp_name)
       namespan
 
   let pp_passive_conf fmt (pas_conf1, pas_conf2, namespan) =
     Format.fprintf fmt "@[⟨%a |@, %a |@, %a⟩]" IntLts.pp_passive_conf pas_conf1
       IntLts.pp_passive_conf pas_conf2
-      (Util.Namespan.pp_namespan IntLts.Int.Name.pp_name)
+      (Util.Namespan.pp_namespan IntLts.Int.Names.pp_name)
       namespan
 
   let string_of_active_conf = Format.asprintf "%a" pp_active_conf
