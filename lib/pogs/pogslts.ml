@@ -1,18 +1,18 @@
 module Make (Int : Lts.Interactive.INT) :
   Lts.Bipartite.INT_LTS
-    with module Int = Int
-     and module OBranchingMonad = Int.GameLTS.BranchMonad = struct
+    with module OBranchingMonad = Int.GameLTS.BranchMonad = struct
   module OBranchingMonad = Int.GameLTS.BranchMonad
   module EvalMonad = Int.IntLang.EvalMonad
-  module Int = Int
   module Moves = Int.GameLTS.Moves
 
   type name_ctx = Int.GameLTS.name_ctx
+  type opconf = Int.IntLang.opconf
+  type store = Int.IntLang.store
+  type interactive_env = Int.IntLang.interactive_env
 
-  type active_conf = {
-    opconf: Int.IntLang.opconf;
-    ictx: Int.GameLTS.position;
-  }
+  let get_names_from_name_ctx = Int.IntLang.get_names_from_name_ctx
+
+  type active_conf = { opconf: Int.IntLang.opconf; ictx: Int.GameLTS.position }
 
   type passive_conf = {
     ienv: Int.IntLang.interactive_env;
@@ -36,8 +36,8 @@ module Make (Int : Lts.Interactive.INT) :
 
   let pp_passive_conf fmt pas_conf =
     Format.fprintf fmt "@[⟨%a |@, %a |@, %a⟩]" Int.IntLang.pp_store
-      pas_conf.store Int.IntLang.pp_ienv pas_conf.ienv
-      Int.GameLTS.pp_position pas_conf.ictx
+      pas_conf.store Int.IntLang.pp_ienv pas_conf.ienv Int.GameLTS.pp_position
+      pas_conf.ictx
 
   let string_of_active_conf = Format.asprintf "%a" pp_active_conf
   let string_of_passive_conf = Format.asprintf "%a" pp_passive_conf
@@ -51,13 +51,13 @@ module Make (Int : Lts.Interactive.INT) :
       (* All the store is supposed to be disclosed*)
       let storectx = Int.IntLang.infer_type_store store in
       let ictx = Int.GameLTS.replace_storectx act_conf.ictx storectx in
-      let* ((move,lnamectx), ienv, ictx) = Int.generate_output_move ictx nf in
+      let* ((move, lnamectx), ienv, ictx) = Int.generate_output_move ictx nf in
       (* We reset the P-name context of ictx using lnamectx*)
       let ictx = Int.GameLTS.replace_namectxP ictx lnamectx in
-      return ((move,lnamectx), { ienv; store; ictx })
+      return ((move, lnamectx), { ienv; store; ictx })
 
-  let o_trans pas_conf (input_move,namectx) =
-    match Int.GameLTS.check_move pas_conf.ictx (input_move,namectx) with
+  let o_trans pas_conf (input_move, namectx) =
+    match Int.GameLTS.check_move pas_conf.ictx (input_move, namectx) with
     | None -> None
     | Some ictx ->
         let (opconf, _) =
@@ -66,12 +66,13 @@ module Make (Int : Lts.Interactive.INT) :
 
   let o_trans_gen pas_conf =
     let open OBranchingMonad in
-    let* ((input_move,namectx), ictx) = Int.GameLTS.generate_moves pas_conf.ictx in
+    let* ((input_move, namectx), ictx) =
+      Int.GameLTS.generate_moves pas_conf.ictx in
     let (opconf, _) =
       Int.trigger_computation pas_conf.store pas_conf.ienv input_move in
     (*we throw away the interactive environment γ from trigger_computation, since we
       do not have interactive environment in active configurations of POGS. *)
-    return ((input_move,namectx), { opconf; ictx })
+    return ((input_move, namectx), { opconf; ictx })
 
   let init_aconf opconf namectxO =
     let ictx =

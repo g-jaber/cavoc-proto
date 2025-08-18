@@ -2,14 +2,21 @@
 
 module Make (Int : Lts.Interactive.INT) :
   Lts.Bipartite.INT_LTS
-    with module Int = Int
-     and module OBranchingMonad = Int.GameLTS.BranchMonad = struct
+    with module OBranchingMonad = Int.GameLTS.BranchMonad
+     and type name_ctx = Int.IntLang.name_ctx
+     and type opconf = Int.IntLang.opconf
+     and type store = Int.IntLang.store
+     and type interactive_env = Int.IntLang.interactive_env = struct
   module OBranchingMonad = Int.GameLTS.BranchMonad
   module EvalMonad = Int.IntLang.EvalMonad
-  module Int = Int
   module Moves = Int.GameLTS.Moves
 
   type name_ctx = Int.GameLTS.name_ctx
+  type opconf = Int.IntLang.opconf
+  type store = Int.IntLang.store
+  type interactive_env = Int.IntLang.interactive_env
+
+  let get_names_from_name_ctx = Int.IntLang.get_names_from_name_ctx
 
   type active_conf = {
     opconf: Int.IntLang.opconf;

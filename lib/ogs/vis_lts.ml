@@ -1,8 +1,8 @@
 module Make
     (Names : Lang.Names.NAMES)
-    (Moves : Lts.Moves.MOVES with type Names.name = Names.name) :
+    (Moves : Lts.Moves.POLMOVES with type Names.name = Names.name) :
   Lts.Hislts.HISLTS_INIT
-    with type move = Moves.move
+    with type move = Moves.pol_move
      and type name = Names.name = struct
   (* the view contains the names that Proponent has provided to Opponent. *)
   type view = Moves.Names.name list
@@ -30,7 +30,7 @@ module Make
       Format.fprintf fmt "%a ↦ %a" Names.pp_name n pp_view v in
     Util.Pmap.pp_pmap ~pp_empty pp_pair fmt vm
 
-  type move = Moves.move
+  type move = Moves.pol_move
   type active_conf = view_map [@@deriving to_yojson]
   type passive_conf = view * view_map [@@deriving to_yojson]
 
@@ -63,8 +63,8 @@ module Make
           Moves.pp_move move
 
 
-  let trans_check conf move = match conf with
-  | Active vm -> 
+  let trans_check conf (dir,move) = match (conf,dir) with
+  | (Active vm,Moves.Output) -> 
     let nn = get_subject_name move in
     let view =
       match Util.Pmap.lookup nn vm with
@@ -74,7 +74,7 @@ module Make
             "Error: the name %a is not in the view map %a. Please report."
             Names.pp_name nn pp_view_map vm in
     Some (Passive (view, vm))
-  | Passive (view, vm) ->
+  | (Passive (view, vm),Moves.Input) ->
     let nn = get_subject_name move in
     if List.mem nn view then
       let freshn_l = Moves.get_transmitted_names move in
@@ -82,6 +82,7 @@ module Make
       let vm' = Util.Pmap.list_to_pmap vm_l in
       Some (Active (Util.Pmap.concat vm vm'))
     else None
+    | _ -> None
 
   type name = Names.name
 

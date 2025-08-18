@@ -2,7 +2,7 @@ module Make
     (TypingLTS : Typing.LTS)
     (HistLts :
       Hislts.HISLTS_INIT
-        with type move = TypingLTS.Moves.move
+        with type move = TypingLTS.Moves.pol_move
          and type name = TypingLTS.Moves.Names.name) :
   Typing.LTS
     with module Moves = TypingLTS.Moves

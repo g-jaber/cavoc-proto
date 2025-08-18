@@ -5,7 +5,7 @@ module type INT = sig
   module IntLang :
     Lang.Interactive.LANG
       with type Names.name = GameLTS.Moves.Names.name
-       and type abstract_normal_form = GameLTS.Moves.kdata
+       and type abstract_normal_form = GameLTS.Moves.move
        and type name_ctx = GameLTS.name_ctx
        and type store_ctx = GameLTS.store_ctx
 
@@ -20,7 +20,7 @@ module type INT = sig
   val generate_output_move :
     GameLTS.position ->
     IntLang.normal_form ->
-    ((GameLTS.Moves.move * IntLang.name_ctx)
+    ((GameLTS.Moves.pol_move * IntLang.name_ctx)
     * IntLang.interactive_env
     * GameLTS.position)
     IntLang.EvalMonad.m
@@ -31,7 +31,7 @@ module type INT = sig
   val trigger_computation :
     IntLang.store ->
     IntLang.interactive_env ->
-    GameLTS.Moves.move ->
+    GameLTS.Moves.pol_move ->
     IntLang.opconf * IntLang.interactive_env
 end
 
@@ -42,7 +42,7 @@ module Make
         with type Moves.Names.name = IntLang.Names.name
          and type name_ctx = IntLang.name_ctx
          and type store_ctx = IntLang.store_ctx
-         and type Moves.kdata = IntLang.abstract_normal_form) :
+         and type Moves.move = IntLang.abstract_normal_form) :
   INT
     with type GameLTS.Moves.Names.name = IntLang.Names.name
      and type GameLTS.name_ctx = IntLang.name_ctx = struct
@@ -57,7 +57,7 @@ module Make
         (GameLTS.get_storectx ictx)
     with
     | Some (a_nf, ienv, lnamectx, _storectx) ->
-        let move = GameLTS.Moves.build (GameLTS.Moves.Output, a_nf) in
+        let move = (GameLTS.Moves.Output, a_nf) in
         let ictx' = GameLTS.trigger_move ictx (move, lnamectx) in
         IntLang.EvalMonad.return ((move, lnamectx), ienv, ictx')
     | None ->
@@ -67,17 +67,16 @@ module Make
           IntLang.pp_normal_form nf IntLang.pp_name_ctx
           (GameLTS.get_namectxO ictx)
 
-  let trigger_computation store ienv input_move =
+  let trigger_computation store ienv ((dir,move) as input_move) =
     Util.Debug.print_debug "Triggering a new computation.";
-    let kdata = GameLTS.Moves.get_kdata input_move in
     match
-      ( GameLTS.Moves.get_direction input_move,
-        IntLang.concretize_a_nf store ienv kdata )
+      ( dir,
+        IntLang.concretize_a_nf store ienv move )
     with
     | (GameLTS.Moves.Input, (opconf, ienv')) -> (opconf, ienv')
     | _ ->
         failwith
           ("Error: the move "
-          ^ GameLTS.Moves.string_of_move input_move
+          ^ GameLTS.Moves.string_of_pol_move input_move
           ^ " is not an Opponent move. Please report.")
 end

@@ -112,28 +112,29 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
   let graph_string = Graph.string_of_graph graph in
   print_string graph_string
 
-let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
+let generate (module Int : Lts.Interactive.INT) =
   check_number_filenames ();
+  let module OGS_LTS = Ogs.Ogslts.Make (Int) in
   match !is_mode with
   | Compare -> begin
       let inBuffer1 = open_in !filename1 in
       let lexBuffer1 = Lexing.from_channel inBuffer1 in
       let (opconf1, namectxO1) =
-        OGS_LTS.Int.IntLang.get_typed_opconf "first" lexBuffer1 in
+        Int.IntLang.get_typed_opconf "first" lexBuffer1 in
       Util.Debug.print_debug "Getting the second program";
       let inBuffer2 = open_in !filename2 in
       let lexBuffer2 = Lexing.from_channel inBuffer2 in
       let (opconf2, namectxO2) =
-        OGS_LTS.Int.IntLang.get_typed_opconf "second" lexBuffer2 in
+        Int.IntLang.get_typed_opconf "second" lexBuffer2 in
       Util.Debug.print_debug
         ("Name contexts for Opponent: "
-        ^ OGS_LTS.Int.IntLang.string_of_name_ctx namectxO1
+        ^ Int.IntLang.string_of_name_ctx namectxO1
         ^ " and "
-        ^ OGS_LTS.Int.IntLang.string_of_name_ctx namectxO2);
+        ^ Int.IntLang.string_of_name_ctx namectxO2);
       let module Synch_LTS = Lts.Synch_lts.Make (OGS_LTS) in
       let init_conf =
         Synch_LTS.Active
-          (Synch_LTS.init_aconf opconf1 namectxO1 opconf2 namectxO2) in
+          (Synch_LTS.init_aconf (opconf1,opconf2) (namectxO1,namectxO2)) in
       if !print_dot then
         let module Graph = Lts.Graph.Make (Synch_LTS) in
         build_graph (module Graph) init_conf
@@ -147,10 +148,10 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
         let expr_buffer = open_in !filename1 in
         let expr_lexbuffer = Lexing.from_channel expr_buffer in
         let (opconf, namectxO) =
-          OGS_LTS.Int.IntLang.get_typed_opconf "first" expr_lexbuffer in
+          Int.IntLang.get_typed_opconf "first" expr_lexbuffer in
         Util.Debug.print_debug
           ("Name contexts for Opponent: "
-          ^ OGS_LTS.Int.IntLang.string_of_name_ctx namectxO);
+          ^ Int.IntLang.string_of_name_ctx namectxO);
         let init_conf = OGS_LTS.Active (OGS_LTS.init_aconf opconf namectxO) in
         if !print_dot then
           let module Graph = Lts.Graph.Make (OGS_LTS) in
@@ -166,7 +167,7 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
         let signature_buffer = open_in !filename2 in
         let signature_lexbuffer = Lexing.from_channel signature_buffer in
         let (interactive_env, store, name_ctxP, name_ctxO) =
-          OGS_LTS.Int.IntLang.get_typed_ienv decl_lexbuffer signature_lexbuffer
+          Int.IntLang.get_typed_ienv decl_lexbuffer signature_lexbuffer
         in
         let init_conf =
           OGS_LTS.Passive
@@ -182,11 +183,11 @@ let generate (module OGS_LTS : Lts.Bipartite.INT_LTS) =
 
 let build_ogs_lts (module IntLang : Lang.Interactive.LANG) =
   let module TypingLTS = Lts.Typing.Make (IntLang) in
-  if !generate_tree then
+  (*if !generate_tree then
     let module Int = Lts.Interactive.Make (IntLang) (TypingLTS) in
     let module POGS_LTS = Pogs.Pogslts.Make (Int) in
     generate (module POGS_LTS)
-  else
+  else *)
     match (!enable_wb, !enable_visibility) with
     | (true, true) ->
         let module WBLTS = Ogs.Wblts.Make (IntLang.Names) (TypingLTS.Moves) in
@@ -194,24 +195,20 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG) =
         let module VisLTS = Ogs.Vis_lts.Make (IntLang.Names) (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (ProdLTS) (VisLTS) in
         let module Int = Lts.Interactive.Make (IntLang) (ProdLTS) in
-        let module OGS_LTS = Ogs.Ogslts.Make (Int) in
-        generate (module OGS_LTS)
+        generate (module Int)
     | (true, false) ->
         let module WBLTS = Ogs.Wblts.Make (IntLang.Names) (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
         let module Int = Lts.Interactive.Make (IntLang) (ProdLTS) in
-        let module OGS_LTS = Ogs.Ogslts.Make (Int) in
-        generate (module OGS_LTS)
+        generate (module Int)
     | (false, true) ->
         let module VisLTS = Ogs.Vis_lts.Make (IntLang.Names) (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (VisLTS) in
         let module Int = Lts.Interactive.Make (IntLang) (ProdLTS) in
-        let module OGS_LTS = Ogs.Ogslts.Make (Int) in
-        generate (module OGS_LTS)
+        generate (module Int)
     | (false, false) ->
         let module Int = Lts.Interactive.Make (IntLang) (TypingLTS) in
-        let module OGS_LTS = Ogs.Ogslts.Make (Int) in
-        generate (module OGS_LTS)
+        generate (module Int)
 
 let () =
   Arg.parse speclist get_filename usage_msg;

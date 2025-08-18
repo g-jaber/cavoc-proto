@@ -1,5 +1,5 @@
 module type LTS = sig
-  module Moves : Moves.MOVES
+  module Moves : Moves.POLMOVES
   module BranchMonad : Util.Monad.BRANCH
 
   type name_ctx
@@ -16,10 +16,7 @@ module type LTS = sig
   val get_storectx : position -> store_ctx
   val replace_namectxP : position -> name_ctx -> position
   val replace_storectx : position -> store_ctx -> position
-
-  val init_position :
-    store_ctx -> name_ctx -> name_ctx -> position
-
+  val init_position : store_ctx -> name_ctx -> name_ctx -> position
   val string_of_position : position -> string
   val pp_position : Format.formatter -> position -> unit
 
@@ -29,16 +26,14 @@ module type LTS = sig
       Γₓ ⊢ m ▷ Δ  and Γₓ' = Γₓ + Δ.
      It uses the branching monad from BranchMonad to do so. *)
   val generate_moves :
-    position -> ((Moves.move*name_ctx)*position) BranchMonad.m
+    position -> ((Moves.pol_move * name_ctx) * position) BranchMonad.m
 
   (* check_move Γₓ m return Some Δ
      when there exists a name context Γ for the free names of m such that
       Γₓ ⊢ m ▷ Δ.
      It returns None when m is not well-typed.*)
-  val check_move : position -> (Moves.move*name_ctx) -> position option
-
-  val trigger_move :
-    position -> (Moves.move*name_ctx) -> position
+  val check_move : position -> Moves.pol_move * name_ctx -> position option
+  val trigger_move : position -> Moves.pol_move * name_ctx -> position
 end
 
 module Make (IntLang : Lang.Interactive.LANG) :
@@ -46,14 +41,14 @@ module Make (IntLang : Lang.Interactive.LANG) :
     with type Moves.Names.name = IntLang.Names.name
      and type name_ctx = IntLang.name_ctx
      and type store_ctx = IntLang.store_ctx
-     and type Moves.kdata = IntLang.abstract_normal_form = struct
+     and type Moves.move = IntLang.abstract_normal_form = struct
   module Moves = Moves.Make (IntLang)
   module BranchMonad = IntLang.BranchMonad
 
   type name_ctx = IntLang.name_ctx
   type store_ctx = IntLang.store_ctx
 
-  let domain_of_name_ctx namectx = IntLang.get_names_from_name_ctx namectx 
+  let domain_of_name_ctx namectx = IntLang.get_names_from_name_ctx namectx
 
   type position = {
     storectx: IntLang.store_ctx;
@@ -95,15 +90,16 @@ module Make (IntLang : Lang.Interactive.LANG) :
     ^ IntLang.string_of_name_ctx lnamectx
     ^ " and "
     ^ IntLang.string_of_name_ctx namectxO;
-    return ((Moves.build (Moves.Input, a_nf),lnamectx), { ictx with namectxP; namectxO })
+    return
+      ( ((Moves.Input, a_nf), lnamectx),
+        { ictx with namectxP; namectxO } )
 
-  let check_move ictx (move,_) =
-    let a_nf = Moves.get_kdata move in
+  let check_move ictx ((dir,a_nf), _) =
     let lnamectx_opt =
-      match Moves.get_direction move with
+      match dir with
       | Moves.Output -> IntLang.type_check_a_nf ictx.namectxO ictx.namectxP a_nf
       | Moves.Input -> IntLang.type_check_a_nf ictx.namectxP ictx.namectxO a_nf
-      | Moves.None -> None in
+    in
     match lnamectx_opt with
     | Some (lnamectx, namectxP) ->
         let namectxO = IntLang.concat_name_ctx lnamectx ictx.namectxO in
@@ -111,14 +107,12 @@ module Make (IntLang : Lang.Interactive.LANG) :
         Some { ictx with namectxO; namectxP }
     | None -> None
 
-  let trigger_move ictx (move,lnamectx) =
-    match Moves.get_direction move with
+  let trigger_move ictx ((dir,_), lnamectx) =
+    match dir with
     | Moves.Output ->
         let namectxP = IntLang.concat_name_ctx lnamectx ictx.namectxP in
         { ictx with namectxP }
     | Moves.Input ->
         let namectxO = IntLang.concat_name_ctx lnamectx ictx.namectxO in
         { ictx with namectxO }
-    | Moves.None ->
-        failwith "Trying to trigger an undirected move. Please report."
 end

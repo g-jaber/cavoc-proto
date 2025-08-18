@@ -223,7 +223,7 @@ let evaluate_code () =
   let lexBuffer_code = Lexing.from_string !editor_content in
   let lexBuffer_sig = Lexing.from_string !signature_content in
   let (interactive_env, store, name_ctxP, name_ctxO) =
-    OGS_LTS.Int.IntLang.get_typed_ienv lexBuffer_code lexBuffer_sig in
+    Int.IntLang.get_typed_ienv lexBuffer_code lexBuffer_sig in
   let init_conf =
     OGS_LTS.Passive
       (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
