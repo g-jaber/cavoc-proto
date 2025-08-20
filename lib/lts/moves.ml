@@ -34,6 +34,38 @@ module type POLMOVES = sig
     Names.name Util.Namespan.namespan option
 end
 
+module type TYPED_MOVES = sig
+  include MOVES
+
+  module Namectx : Lang.Namectx.NAMECTX with type name = Names.name
+
+  module BranchMonad : Util.Monad.BRANCH
+
+  val generate_moves : Namectx.name_ctx -> (move * Namectx.name_ctx) BranchMonad.m
+  val infer_type_move : Namectx.name_ctx -> move -> Namectx.name_ctx option
+  val check_type_move : Namectx.name_ctx -> move * Namectx.name_ctx -> bool
+end
+
+module type NAMED_TYPED_MOVES = sig
+  type copattern
+  type name
+
+  include TYPED_MOVES with type move = name * copattern and type Names.name = name
+end
+
+(* module POLARIZE (Moves : MOVES) : POLMOVES = struct
+include Moves
+
+  type direction = Input | Output
+  type pol_move = direction * move
+
+  let fmt pp_pol_move : Format.formatter -> pol_move -> unit
+  val string_of_pol_move : pol_move -> string
+  val switch_direction : pol_move -> pol_move
+
+  val unify_pol_move :
+end *)
+
 module type A_NF = sig
   module Names : Lang.Names.NAMES
 
@@ -90,7 +122,7 @@ module Make (A_nf : A_NF) :
     match A_nf.get_subject_name move with Some n -> [ n ] | None -> []
 
   let unify_move = A_nf.is_equiv_a_nf
-  let unify_pol_move span (dir1,move1) (dir2,move2) =
-    if dir1 = dir2 then unify_move span move1 move2
-    else None
+
+  let unify_pol_move span (dir1, move1) (dir2, move2) =
+    if dir1 = dir2 then unify_move span move1 move2 else None
 end

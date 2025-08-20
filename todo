@@ -3,7 +3,8 @@
 - [x] Remove the need for Lts.Interactive.INT, by only using Lts.Typing.Game and Lang.Interactive.LANG
 - [x] Rework the product LTS by using Lts.Typing.Game
 - [ ] Introduce the notion of History-enhancement as a functor from Typing.LTS to Typing.LTS  rather than a module of signature Hislts.HISLTS
-- [ ] Implement an interface Lang.Interactive.LANG for the move-trees
+- [x] Define a MOVETREE interface
+- [ ] Implement a functor from MOVETREE to Lang.Interactive.LANG
 - [x] Remove the need for CONT_NAMES
 - [x] Add a Names submodule to the Moves interface
 - [x] Remove the Int submodule of the Bipartite.INT_LTS signature
@@ -11,3 +12,7 @@
 - [x] Provide an eval function rather than a compute_nf + abstract_nf in Lang.Interactive.LANG signature
 - [ ] Rework type_check_abstract_val in nup.ml to handle type name polarities
 - [ ] Add a store typing context for moves
+- [ ] Define a functor from MOVES to POLMOVES
+- [x] Propose a specified signature NAMEDMOVES where move type is defined as name*a_nf
+- [x] Add a Namectx signature
+- [ ] Create a specific signature Lang.Interactive.LANG_WITH_INIT 
