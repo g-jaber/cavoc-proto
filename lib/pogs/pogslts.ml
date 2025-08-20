@@ -1,6 +1,6 @@
 module Make (Lang : Lang.Interactive.LANG) :
   Lts.Bipartite.INT_LTS
-    with type name_ctx = Lang.name_ctx
+    with type name_ctx = Lang.Namectx.t
      and type opconf = Lang.opconf
      and type store = Lang.store
      and type interactive_env = Lang.interactive_env = struct
@@ -14,7 +14,7 @@ module Make (Lang : Lang.Interactive.LANG) :
   type store = Lang.store
   type interactive_env = Lang.interactive_env
 
-  let get_names_from_name_ctx = Lang.get_names_from_name_ctx
+  let get_names = Lang.Namectx.get_names
 
   type active_conf = { opconf: Lang.opconf; pos: TypingLTS.position }
 
@@ -75,7 +75,7 @@ module Make (Lang : Lang.Interactive.LANG) :
 
   let init_aconf opconf namectxO =
     let pos =
-      TypingLTS.init_act_pos Lang.empty_store_ctx Lang.empty_name_ctx namectxO
+      TypingLTS.init_act_pos Lang.empty_store_ctx Lang.Namectx.empty namectxO
     in
     { opconf; pos }
 

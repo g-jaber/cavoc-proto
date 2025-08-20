@@ -18,7 +18,7 @@ module type TYPED = sig
   val concat_name_ctx : name_ctx -> name_ctx -> name_ctx
   val string_of_name_ctx : name_ctx -> string
   val pp_name_ctx : Format.formatter -> name_ctx -> unit
-  val get_names_from_name_ctx : name_ctx -> Names.name list
+  val get_names : name_ctx -> Names.name list
 end
 
 module type STORE = sig

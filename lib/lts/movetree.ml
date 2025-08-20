@@ -3,8 +3,8 @@ module type MOVETREE = sig
 
   type movetree = {
     root: Moves.name;
-    namectxP: Moves.Namectx.name_ctx;
-    namectxO: Moves.Namectx.name_ctx;
+    namectxP: Moves.Namectx.t;
+    namectxO: Moves.Namectx.t;
     map: (Moves.move, Moves.move) Util.Pmap.pmap;
   }
 
@@ -17,8 +17,8 @@ module Make (Moves : Moves.NAMED_TYPED_MOVES) : MOVETREE = struct
 
   type movetree = {
     root: Moves.name;
-    namectxP: Moves.Namectx.name_ctx;
-    namectxO: Moves.Namectx.name_ctx;
+    namectxP: Moves.Namectx.t;
+    namectxO: Moves.Namectx.t;
     map: (Moves.move, Moves.move) Util.Pmap.pmap;
   }
 
@@ -57,14 +57,7 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
   let string_of_opconf : opconf -> string = failwith ""
   let pp_opconf : Format.formatter -> opconf -> unit = failwith ""
 
-  type name_ctx = MoveTree.Moves.Namectx.name_ctx
-
-  let name_ctx_to_yojson = MoveTree.Moves.Namectx.name_ctx_to_yojson
-  let empty_name_ctx : name_ctx = failwith ""
-  let concat_name_ctx : name_ctx -> name_ctx -> name_ctx = failwith ""
-  let pp_name_ctx : Format.formatter -> name_ctx -> unit = failwith ""
-  let string_of_name_ctx : name_ctx -> string = failwith ""
-  let get_names_from_name_ctx : name_ctx -> Names.name list = failwith ""
+  module Namectx = MoveTree.Moves.Namectx
 
   type interactive_env =
     (MoveTree.Moves.name, MoveTree.Moves.name) Util.Pmap.pmap
@@ -81,7 +74,7 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
   type abstract_normal_form = MoveTree.Moves.move
 
   let eval ((move, movetree), namectx, storectx) :
-      ((abstract_normal_form * name_ctx * store_ctx) * interactive_env * store)
+      ((abstract_normal_form * Namectx.t * store_ctx) * interactive_env * store)
       EvalMonad.m =
     match MoveTree.trigger movetree move with
     | None -> EvalMonad.fail ()
@@ -109,16 +102,16 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
 
   let generate_a_nf :
       store_ctx ->
-      name_ctx ->
-      (abstract_normal_form * name_ctx * name_ctx) BranchMonad.m =
+      Namectx.t ->
+      (abstract_normal_form * Namectx.t * Namectx.t) BranchMonad.m =
     (*MoveTree.Moves.generate_moves - Need to handle storectx*)
     failwith ""
 
   let type_check_a_nf :
-      name_ctx ->
-      name_ctx ->
+      Namectx.t ->
+      Namectx.t ->
       abstract_normal_form ->
-      (name_ctx * name_ctx) option =
+      (Namectx.t * Namectx.t) option =
     failwith ""
   (* There's a mismatch with the signature of MoveTree.Move.check_type_move *)
 

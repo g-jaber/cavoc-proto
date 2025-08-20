@@ -37,13 +37,13 @@ end
 module type TYPED_MOVES = sig
   include MOVES
 
-  module Namectx : Lang.Namectx.NAMECTX with type name = Names.name
+  module Namectx : Lang.Typectx.TYPECTX with type name = Names.name
 
   module BranchMonad : Util.Monad.BRANCH
 
-  val generate_moves : Namectx.name_ctx -> (move * Namectx.name_ctx) BranchMonad.m
-  val infer_type_move : Namectx.name_ctx -> move -> Namectx.name_ctx option
-  val check_type_move : Namectx.name_ctx -> move * Namectx.name_ctx -> bool
+  val generate_moves : Namectx.t -> (move * Namectx.t) BranchMonad.m
+  val infer_type_move : Namectx.t -> move -> Namectx.t option
+  val check_type_move : Namectx.t -> move * Namectx.t -> bool
 end
 
 module type NAMED_TYPED_MOVES = sig

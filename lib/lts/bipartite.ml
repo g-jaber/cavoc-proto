@@ -6,7 +6,7 @@ module type LTS = sig
   (* *)
   module Moves : Moves.POLMOVES
   type name_ctx
-  val get_names_from_name_ctx : name_ctx -> Moves.Names.name list
+  val get_names : name_ctx -> Moves.Names.name list
 
   type active_conf
   type passive_conf

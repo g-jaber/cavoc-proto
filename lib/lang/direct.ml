@@ -1,20 +1,18 @@
-module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG_WITH_INIT = struct
-  open OpLang
+module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG_WITH_INIT =
+struct
   module EvalMonad = OpLang.EvalMonad
   module Names = OpLang.Names
-  module BranchMonad = AVal.BranchMonad
+  module BranchMonad = OpLang.AVal.BranchMonad
 
-  type computation = term
-  type opconf = computation * Store.store
+  type computation = OpLang.term
+  type store = OpLang.Store.store
+  type opconf = computation * OpLang.Store.store
 
   let pp_opconf fmt (term, store) =
     Format.fprintf fmt "@[(@[Computation: %a@] @| @[Store: %a@])@]"
-      OpLang.pp_term term Store.pp_store store
+      OpLang.pp_term term OpLang.Store.pp_store store
 
   let string_of_opconf = Format.asprintf "%a" pp_opconf
-
-  type store = OpLang.Store.store
-
   let string_of_store = OpLang.Store.string_of_store
   let pp_store = OpLang.Store.pp_store
 
@@ -25,77 +23,78 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG_WITH_INIT = st
   let empty_store_ctx = OpLang.Store.empty_store_ctx
   let infer_type_store = OpLang.Store.infer_type_store
 
-  (* A stack context (σ1,τ1)::(σ2,τ2)::...::(σn,τn)
+  module Namectx = struct
+    (* A stack context (σ1,τ1)::(σ2,τ2)::...::(σn,τn)
      is the typing context for the stack of evaluation contexts,
      with σi the type of the hole and τi the return type )*)
-  type stack_ctx = (OpLang.typ * OpLang.typ) list
+    type stack_ctx = (OpLang.typ * OpLang.typ) list
 
-  let stack_ctx_to_yojson stack =
-    let to_string (ty1, ty2) =
-      `String (OpLang.string_of_type ty1 ^ " ⇝ " ^ OpLang.string_of_type ty2)
-    in
-    `List (List.map to_string stack)
+    let stack_ctx_to_yojson stack =
+      let to_string (ty1, ty2) =
+        `String (OpLang.string_of_type ty1 ^ " ⇝ " ^ OpLang.string_of_type ty2)
+      in
+      `List (List.map to_string stack)
 
-  (* The active context PropCtx have a type for the toplevel term*)
-  type name_ctx =
-    | OpCtx of OpLang.typ option * OpLang.name_ctx
-    | PropCtx of OpLang.name_ctx * stack_ctx
+    type name = OpLang.Names.name
 
-  let name_ctx_to_yojson = function
-    | OpCtx (None, name_ctx) -> OpLang.name_ctx_to_yojson name_ctx
-    | OpCtx (Some ty, name_ctx) ->
-        `Assoc
-          [
-            ("type", `String (OpLang.string_of_type ty));
-            ("name_ctx", OpLang.name_ctx_to_yojson name_ctx);
-          ]
-    | PropCtx (name_ctx, stack_ctx) ->
-        `Assoc
-          [
-            ("name_ctx", OpLang.name_ctx_to_yojson name_ctx);
-            ("stack_ctx", stack_ctx_to_yojson stack_ctx);
-          ]
+    (* The active context PropCtx have a type for the toplevel term*)
+    type t =
+      | OpCtx of OpLang.typ option * OpLang.name_ctx
+      | PropCtx of OpLang.name_ctx * stack_ctx
 
-  let empty_name_ctx = PropCtx (OpLang.empty_name_ctx, [])
+    let to_yojson = function
+      | OpCtx (None, name_ctx) -> OpLang.name_ctx_to_yojson name_ctx
+      | OpCtx (Some ty, name_ctx) ->
+          `Assoc
+            [
+              ("type", `String (OpLang.string_of_type ty));
+              ("name_ctx", OpLang.name_ctx_to_yojson name_ctx);
+            ]
+      | PropCtx (name_ctx, stack_ctx) ->
+          `Assoc
+            [
+              ("name_ctx", OpLang.name_ctx_to_yojson name_ctx);
+              ("stack_ctx", stack_ctx_to_yojson stack_ctx);
+            ]
 
-  let pp_stack_ctx fmt = function
-    | [] -> Format.fprintf fmt "⋅"
-    | stack_ctx ->
-        let pp_pair fmt (ty1, ty2) =
-          Format.fprintf fmt "%a ⇝ %a" OpLang.pp_type ty1 OpLang.pp_type ty2
-        in
-        Format.pp_print_list pp_pair fmt stack_ctx
+    let empty = PropCtx (OpLang.empty_name_ctx, [])
 
-  let pp_name_ctx fmt = function
-    | OpCtx (None, name_ctx) -> OpLang.pp_name_ctx fmt name_ctx
-    | OpCtx (Some ty, name_ctx) ->
-        Format.fprintf fmt "%a | %a" OpLang.pp_type ty OpLang.pp_name_ctx
-          name_ctx
-    | PropCtx (name_ctx, stack_ctx) ->
-        Format.fprintf fmt "%a | %a" OpLang.pp_name_ctx name_ctx pp_stack_ctx
-          stack_ctx
+    let pp_stack_ctx fmt = function
+      | [] -> Format.fprintf fmt "⋅"
+      | stack_ctx ->
+          let pp_pair fmt (ty1, ty2) =
+            Format.fprintf fmt "%a ⇝ %a" OpLang.pp_type ty1 OpLang.pp_type ty2
+          in
+          Format.pp_print_list pp_pair fmt stack_ctx
 
-  let string_of_name_ctx = Format.asprintf "%a" pp_name_ctx
+    let pp fmt = function
+      | OpCtx (None, name_ctx) -> OpLang.pp_name_ctx fmt name_ctx
+      | OpCtx (Some ty, name_ctx) ->
+          Format.fprintf fmt "%a | %a" OpLang.pp_type ty OpLang.pp_name_ctx
+            name_ctx
+      | PropCtx (name_ctx, stack_ctx) ->
+          Format.fprintf fmt "%a | %a" OpLang.pp_name_ctx name_ctx pp_stack_ctx
+            stack_ctx
 
-  let concat_name_ctx namectx1 namectx2 =
-    match (namectx1, namectx2) with
-    | (PropCtx (fnamectx1, stackctx1), PropCtx (fnamectx2, stackctx2)) ->
-        PropCtx
-          (OpLang.concat_name_ctx fnamectx1 fnamectx2, stackctx1 @ stackctx2)
-    | (OpCtx (ty, fnamectx1), OpCtx (_, fnamectx2)) ->
-        OpCtx (ty, OpLang.concat_name_ctx fnamectx1 fnamectx2)
-    | _ ->
-        failwith
-        @@ "Trying to concatenate two interactive typing contexts of different \
-            polarities: "
-        ^ string_of_name_ctx namectx1
-        ^ " and "
-        ^ string_of_name_ctx namectx2
-        ^ ". Please report."
+    let to_string = Format.asprintf "%a" pp
 
-  let get_names_from_name_ctx = function
-    | PropCtx (fnamectx, _) | OpCtx (_, fnamectx) ->
-        OpLang.get_names_from_name_ctx fnamectx
+    let concat namectx1 namectx2 =
+      match (namectx1, namectx2) with
+      | (PropCtx (fnamectx1, stackctx1), PropCtx (fnamectx2, stackctx2)) ->
+          PropCtx
+            (OpLang.concat_name_ctx fnamectx1 fnamectx2, stackctx1 @ stackctx2)
+      | (OpCtx (ty, fnamectx1), OpCtx (_, fnamectx2)) ->
+          OpCtx (ty, OpLang.concat_name_ctx fnamectx1 fnamectx2)
+      | _ ->
+          failwith
+          @@ "Trying to concatenate two interactive typing contexts of \
+              different polarities: " ^ to_string namectx1 ^ " and "
+          ^ to_string namectx2 ^ ". Please report."
+
+    let get_names = function
+      | PropCtx (fnamectx, _) | OpCtx (_, fnamectx) ->
+          OpLang.get_names fnamectx
+  end
 
   (* Interactive environments γ are pairs formed by partial maps from functional names to functional values,
      and a stack of evaluation contexts. *)
@@ -138,31 +137,32 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG_WITH_INIT = st
           failwith
             "Error: trying to concretize a returning abstract normal form in \
              an empty stack. Please report" in
-    let f_val aval = (AVal.subst_names fname_env aval, ()) in
+    let f_val aval = (OpLang.AVal.subst_names fname_env aval, ()) in
     let f_fn fn = (Util.Pmap.lookup_exn fn fname_env, ()) in
     let f_cn () = get_ectx () in
     let (nf_term, _) = OpLang.Nf.map_val () f_val a_nf_term in
     let (nf_term', _) = OpLang.Nf.map_fn () f_fn nf_term in
     let (nf_term'', ienv') = OpLang.Nf.map_cn ienv f_cn nf_term' in
     Util.Debug.print_debug "Updating the store";
-    let newstore = Store.update_store store store' in
-    ((refold_nf_term nf_term'', newstore), ienv')
+    let newstore = OpLang.Store.update_store store store' in
+    ((OpLang.refold_nf_term nf_term'', newstore), ienv')
 
   type abstract_normal_form =
-    (AVal.abstract_val, unit, Names.name, unit) OpLang.Nf.nf_term * Store.store
+    (OpLang.AVal.abstract_val, unit, Names.name, unit) OpLang.Nf.nf_term
+    * OpLang.Store.store
 
-  let labels_of_a_nf_term = OpLang.Nf.apply_val [] AVal.labels_of_abstract_val
+  let labels_of_a_nf_term = OpLang.Nf.apply_val [] OpLang.AVal.labels_of_abstract_val
   let abstracting_store = OpLang.Store.restrict
   (* TODO: Deal with the abstraction process of the heap properly *)
 
   let[@warning "-8"] abstracting_nf_term nf_term
-      (OpCtx (Some ty_out, fnamectxO)) =
+      (Namectx.OpCtx (Some ty_out, fnamectxO)) =
     let inj_ty ty = ty in
     let fname_ctx =
-      Util.Pmap.map_im (fun nty -> snd @@ get_input_type nty) fnamectxO in
+      Util.Pmap.map_im (fun nty -> snd @@ OpLang.get_input_type nty) fnamectxO in
     (* TODO: we should do something with the tvar_l *)
     let fname_ctx_hole =
-      Util.Pmap.map_im (fun nty -> get_output_type nty) fnamectxO in
+      Util.Pmap.map_im (fun nty -> OpLang.get_output_type nty) fnamectxO in
     let cname_ctx = Util.Pmap.singleton ((), ty_out) in
     let nf_typed_term =
       OpLang.type_annotating_val ~inj_ty ~fname_ctx ~cname_ctx nf_term in
@@ -178,7 +178,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG_WITH_INIT = st
       OpLang.Nf.map_val empty_res f_val nf_typed_term' in
     let (a_nf_term', (stack, stack_ctx)) =
       OpLang.Nf.map_ectx ([], []) f_ectx a_nf_term in
-    (a_nf_term', ((ienv, stack), PropCtx (lnamectx, stack_ctx)))
+    (a_nf_term', ((ienv, stack), Namectx.PropCtx (lnamectx, stack_ctx)))
 
   let abstracting_nf (nf_term, store) namectxO storectx_discl =
     let (a_nf_term, (ienv, lnamectx)) = abstracting_nf_term nf_term namectxO in
@@ -205,7 +205,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG_WITH_INIT = st
     snd @@ OpLang.Nf.map_fn None f_fn a_nf_term
 
   let get_support (a_nf_term, _) =
-    OpLang.Nf.apply_val [] AVal.names_of_abstract_val a_nf_term
+    OpLang.Nf.apply_val [] OpLang.AVal.names_of_abstract_val a_nf_term
   (*TODO: take into account the store part*)
 
   let pp_a_nf ~pp_dir fmt (a_nf_term, store) =
@@ -214,8 +214,10 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG_WITH_INIT = st
     let pp_a_nf_term =
       OpLang.Nf.pp_nf_term ~pp_dir OpLang.AVal.pp_abstract_val pp_ectx
         OpLang.Names.pp_name pp_cn in
-    if store = Store.empty_store then pp_a_nf_term fmt a_nf_term
-    else Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term Store.pp_store store
+    if store = OpLang.Store.empty_store then pp_a_nf_term fmt a_nf_term
+    else
+      Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term OpLang.Store.pp_store
+        store
 
   let string_of_a_nf dir =
     let pp_dir fmt = Format.pp_print_string fmt dir in
@@ -234,11 +236,11 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG_WITH_INIT = st
   let fill_abstract_val storectx fnamectxP nf_skeleton =
     let gen_val in_ty =
       (*TODO: We should take into account the type var list*)
-      AVal.generate_abstract_val storectx fnamectxP in_ty in
+      OpLang.AVal.generate_abstract_val storectx fnamectxP in_ty in
     OpLang.Nf.abstract_nf_term_m ~gen_val nf_skeleton
 
   let[@warning "-8"] generate_a_nf_call storectx
-      (PropCtx (fnamectx, _) as namectxP) =
+      (Namectx.PropCtx (fnamectx, _) as namectxP) =
     let fname_ctx =
       Util.Pmap.filter_map
         (fun (nn, ty) ->
@@ -250,21 +252,21 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG_WITH_INIT = st
     let open BranchMonad in
     let* (skel, typ) = OpLang.generate_nf_term_call fname_ctx in
     let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx skel in
-    let* store = Store.generate_store storectx in
-    let namectxO = OpCtx (Some typ, lnamectx) in
+    let* store = OpLang.Store.generate_store storectx in
+    let namectxO = Namectx.OpCtx (Some typ, lnamectx) in
     return ((a_nf_term, store), namectxO, namectxP)
 
   let[@warning "-8"] generate_a_nf_ret storectx = function
-    | PropCtx (_, []) -> BranchMonad.fail ()
-    | PropCtx (fnamectx, (ty_hole, ty_out) :: stackctx') ->
+    | Namectx.PropCtx (_, []) -> BranchMonad.fail ()
+    | Namectx.PropCtx (fnamectx, (ty_hole, ty_out) :: stackctx') ->
         let cname_ctx = Util.Pmap.singleton ((), (ty_hole, ty_out)) in
         let inj_ty ty = ty in
         let open BranchMonad in
         let* (skel, typ) = OpLang.generate_nf_term_ret inj_ty cname_ctx in
         let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx skel in
-        let* store = Store.generate_store storectx in
-        let namectxP' = PropCtx (fnamectx, stackctx') in
-        let namectxO = OpCtx (Some typ, lnamectx) in
+        let* store = OpLang.Store.generate_store storectx in
+        let namectxP' = Namectx.PropCtx (fnamectx, stackctx') in
+        let namectxO = Namectx.OpCtx (Some typ, lnamectx) in
         return ((a_nf_term, store), namectxO, namectxP')
 
   let generate_a_nf storectx namectxP =
@@ -273,10 +275,10 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG_WITH_INIT = st
       (generate_a_nf_ret storectx namectxP)
 
   let[@warning "-8"] type_check_a_nf
-      (PropCtx (fnamectxP, stack_ctx) as namectxP) (OpCtx (None, fnamectxO))
-      (nf_term, _) =
+      (Namectx.PropCtx (fnamectxP, stack_ctx) as namectxP)
+      (Namectx.OpCtx (None, fnamectxO)) (nf_term, _) =
     let inj_ty ty = ty in
-    let empty_res = (empty_name_ctx, namectxP) in
+    let empty_res = (Namectx.empty, namectxP) in
     let fname_ctx = fnamectxP in
     let cname_ctx =
       match stack_ctx with
@@ -285,19 +287,20 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG_WITH_INIT = st
     in
     let lift_lnamectx namectxP' ty_out = function
       | None -> None
-      | Some lnamectx -> Some (OpCtx (Some ty_out, lnamectx), namectxP') in
+      | Some lnamectx -> Some (Namectx.OpCtx (Some ty_out, lnamectx), namectxP')
+    in
     let type_check_call aval nty =
       let (_, ty_arg) = OpLang.get_input_type nty in
       let ty_out = OpLang.get_output_type nty in
       lift_lnamectx namectxP ty_out
-      @@ AVal.type_check_abstract_val fnamectxP fnamectxO ty_arg aval in
+      @@ OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_arg aval in
     let type_check_ret aval ty_hole ty_out =
       match stack_ctx with
       | [] -> None
       | _ :: stack_ctx' ->
-          let namectxP' = PropCtx (fnamectxP, stack_ctx') in
+          let namectxP' = Namectx.PropCtx (fnamectxP, stack_ctx') in
           lift_lnamectx namectxP' ty_out
-          @@ AVal.type_check_abstract_val fnamectxP fnamectxO ty_hole aval in
+          @@ OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_hole aval in
     OpLang.type_check_nf_term ~inj_ty ~empty_res ~fname_ctx ~cname_ctx
       ~type_check_call ~type_check_ret nf_term
 
@@ -309,9 +312,12 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG_WITH_INIT = st
   let get_typed_ienv lexBuffer_implem lexBuffer_signature =
     let (ienv, store, namectxP, namectxO) =
       OpLang.get_typed_ienv lexBuffer_implem lexBuffer_signature in
-    ((ienv, []), store, PropCtx (namectxP, []), OpCtx (None, namectxO))
+    ( (ienv, []),
+      store,
+      Namectx.PropCtx (namectxP, []),
+      Namectx.OpCtx (None, namectxO) )
 
   let get_typed_opconf nbprog inBuffer =
     let (opconf, ty, namectxO) = OpLang.get_typed_opconf nbprog inBuffer in
-    (opconf, OpCtx (Some ty, namectxO))
+    (opconf, Namectx.OpCtx (Some ty, namectxO))
 end

@@ -1,50 +1,50 @@
 module Make (IntLang : Lang.Interactive.LANG) :
   Lts.Typing.LTS
     with type Moves.Names.name = IntLang.Names.name
-     and type name_ctx = IntLang.name_ctx
+     and type name_ctx = IntLang.Namectx.t
      and type store_ctx = IntLang.store_ctx
      and type Moves.move = IntLang.abstract_normal_form = struct
   module Moves = Lts.Moves.Make (IntLang)
   module BranchMonad = IntLang.BranchMonad
 
-  type name_ctx = IntLang.name_ctx
+  type name_ctx = IntLang.Namectx.t
   type store_ctx = IntLang.store_ctx
 
-  let domain_of_name_ctx namectx = IntLang.get_names_from_name_ctx namectx
+  let domain_of_name_ctx namectx = IntLang.Namectx.get_names namectx
 
   type act_position = {
     storectx: IntLang.store_ctx;
-    namectxO: IntLang.name_ctx;
+    namectxO: IntLang.Namectx.t;
   }
 
   let act_position_to_yojson ictx =
     `Assoc
       [
         ("storectx", `String (IntLang.string_of_store_ctx ictx.storectx));
-        ("namectxO", IntLang.name_ctx_to_yojson ictx.namectxO);
+        ("namectxO", IntLang.Namectx.to_yojson ictx.namectxO);
       ]
 
   let pp_act_position fmt ictx =
     Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a⟩@]" IntLang.pp_store_ctx
-      ictx.storectx IntLang.pp_name_ctx ictx.namectxO
+      ictx.storectx IntLang.Namectx.pp ictx.namectxO
 
   type pas_position = {
     storectx: IntLang.store_ctx;
-    namectxP: IntLang.name_ctx;
-    namectxO: IntLang.name_ctx;
+    namectxP: IntLang.Namectx.t;
+    namectxO: IntLang.Namectx.t;
   }
 
   let pas_position_to_yojson ictx =
     `Assoc
       [
         ("storectx", `String (IntLang.string_of_store_ctx ictx.storectx));
-        ("namectxP", IntLang.name_ctx_to_yojson ictx.namectxP);
-        ("namectxO", IntLang.name_ctx_to_yojson ictx.namectxO);
+        ("namectxP", IntLang.Namectx.to_yojson ictx.namectxP);
+        ("namectxO", IntLang.Namectx.to_yojson ictx.namectxO);
       ]
 
   let pp_pas_position fmt ictx =
     Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a |@, ΔP: %a⟩@]" IntLang.pp_store_ctx
-      ictx.storectx IntLang.pp_name_ctx ictx.namectxO IntLang.pp_name_ctx
+      ictx.storectx IntLang.Namectx.pp ictx.namectxO IntLang.Namectx.pp
       ictx.namectxP
 
   type position = Active of act_position | Passive of pas_position
@@ -77,7 +77,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
     match pos with
     | Passive { storectx; namectxP; namectxO } ->
         let* (a_nf, lnamectx, _) = IntLang.generate_a_nf storectx namectxP in
-        let namectxO = IntLang.concat_name_ctx lnamectx namectxO in
+        let namectxO = IntLang.Namectx.concat lnamectx namectxO in
         return (((Moves.Input, a_nf), lnamectx), Active { storectx; namectxO })
     | Active { storectx; namectxO } ->
         let* (a_nf, namectxP, namectxO) =
@@ -89,7 +89,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
   let check_move pos ((dir, a_nf), _) =
     match (dir, pos) with
     | (Moves.Output, Active { storectx; namectxO }) -> begin
-        match IntLang.type_check_a_nf IntLang.empty_name_ctx namectxO a_nf with
+        match IntLang.type_check_a_nf IntLang.Namectx.empty namectxO a_nf with
         | Some (namectxP, namectxO) ->
             Some (Passive { storectx; namectxP; namectxO })
         | None -> None
@@ -106,7 +106,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
     | (Moves.Output, Active { storectx; namectxO }) ->
         Passive { namectxP= lnamectx; storectx; namectxO }
     | (Moves.Input, Passive { storectx; namectxO; _ }) ->
-        let namectxO = IntLang.concat_name_ctx lnamectx namectxO in
+        let namectxO = IntLang.Namectx.concat lnamectx namectxO in
         Active { storectx; namectxO }
     | _ ->
         failwith

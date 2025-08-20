@@ -66,9 +66,9 @@ struct
   (* *)
   type name_ctx = IntLts.name_ctx * IntLts.name_ctx
 
-  let get_names_from_name_ctx (namectx1, namectx2) =
-    IntLts.get_names_from_name_ctx namectx1
-    @ IntLts.get_names_from_name_ctx namectx2
+  let get_names (namectx1, namectx2) =
+    IntLts.get_names namectx1
+    @ IntLts.get_names namectx2
   (* Dubious *)
 
   type active_conf =
@@ -153,8 +153,8 @@ struct
   let init_aconf (opconf1, opconf2) (namectxP1, namectxP2) =
     let init_aconf1 = IntLts.init_aconf opconf1 namectxP1 in
     let init_aconf2 = IntLts.init_aconf opconf2 namectxP2 in
-    let name_l1 = IntLts.get_names_from_name_ctx namectxP1 in
-    let name_l2 = IntLts.get_names_from_name_ctx namectxP2 in
+    let name_l1 = IntLts.get_names namectxP1 in
+    let name_l2 = IntLts.get_names namectxP2 in
     let span = Util.Namespan.combine (name_l1, name_l2) in
     (init_aconf1, init_aconf2, span)
 
@@ -162,8 +162,8 @@ struct
       (namectxO1, namectxO2) =
     let init_pconf1 = IntLts.init_pconf store1 ienv1 namectxP1 namectxO1 in
     let init_pconf2 = IntLts.init_pconf store2 ienv2 namectxP2 namectxO2 in
-    let name_l1 = IntLts.get_names_from_name_ctx namectxP1 in
-    let name_l2 = IntLts.get_names_from_name_ctx namectxP2 in
+    let name_l1 = IntLts.get_names namectxP1 in
+    let name_l2 = IntLts.get_names namectxP2 in
     let span = Util.Namespan.combine (name_l1, name_l2) in
     (* Should we also use namectxO1 and namectxO2 to build a span ? Or should they be checked to be equal ?*)
     (init_pconf1, init_pconf2, span)

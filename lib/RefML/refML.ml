@@ -31,7 +31,7 @@ module Typed :
 
   let empty_name_ctx = Util.Pmap.empty
   let concat_name_ctx = Util.Pmap.concat
-  let get_names_from_name_ctx = Util.Pmap.dom
+  let get_names = Util.Pmap.dom
 
   let string_of_name_ctx =
     Util.Pmap.string_of_pmap "[]" "::" Names.string_of_name

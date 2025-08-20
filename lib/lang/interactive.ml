@@ -20,14 +20,9 @@ module type LANG = sig
   val empty_store_ctx : store_ctx
   val infer_type_store : store -> store_ctx
 
-  (*Interactive name contexts are typing contexts mapping names to interactive types.*)
-  type name_ctx [@@deriving to_yojson]
+  module Namectx : Typectx.TYPECTX with type name = Names.name
 
-  val empty_name_ctx : name_ctx
-  val concat_name_ctx : name_ctx -> name_ctx -> name_ctx
-  val pp_name_ctx : Format.formatter -> name_ctx -> unit
-  val string_of_name_ctx : name_ctx -> string
-  val get_names_from_name_ctx : name_ctx -> Names.name list
+  (*Interactive name contexts are typing contexts mapping names to interactive types.*)
 
   (* Interactive environments γ are partial maps from names to interactive values*)
   type interactive_env [@@deriving to_yojson]
@@ -48,8 +43,10 @@ module type LANG = sig
   type abstract_normal_form
 
   val eval :
-    opconf * name_ctx * store_ctx ->
-    ((abstract_normal_form * name_ctx * store_ctx) * interactive_env * store)
+    opconf * Namectx.t * store_ctx ->
+    ((abstract_normal_form * Namectx.t * store_ctx)
+    * interactive_env
+    * store)
     EvalMonad.m
 
   (* abstracting_nf nf Γₒ Σ returns a triple (anf,γ,Δ,Σ')
@@ -82,8 +79,8 @@ module type LANG = sig
      Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
   val generate_a_nf :
     store_ctx ->
-    name_ctx ->
-    (abstract_normal_form * name_ctx * name_ctx) BranchMonad.m
+    Namectx.t ->
+    (abstract_normal_form * Namectx.t * Namectx.t) BranchMonad.m
 
   (* The typing judgment of an abstracted normal form Γ_P;Γ_O ⊢ A ▷ Δ
      produces the interactive name context (Δ,Γ'_P) of fresh names introduced by A.
@@ -92,7 +89,10 @@ module type LANG = sig
      The contexts Γ_O is used to check for freshness of names *)
 
   val type_check_a_nf :
-    name_ctx -> name_ctx -> abstract_normal_form -> (name_ctx * name_ctx) option
+    Namectx.t ->
+    Namectx.t ->
+    abstract_normal_form ->
+    (Namectx.t * Namectx.t) option
 
   val concretize_a_nf :
     store -> interactive_env -> abstract_normal_form -> opconf * interactive_env
@@ -101,7 +101,7 @@ end
 module type LANG_WITH_INIT = sig
   include LANG
 
-  val get_typed_opconf : string -> Lexing.lexbuf -> opconf * name_ctx
+  val get_typed_opconf : string -> Lexing.lexbuf -> opconf * Namectx.t
 
   (* The function get_typed_ienv
      retrive a module declaration and its signature from the two in_channel taken as input.
@@ -112,7 +112,7 @@ module type LANG_WITH_INIT = sig
   val get_typed_ienv :
     Lexing.lexbuf ->
     Lexing.lexbuf ->
-    interactive_env * store * name_ctx * name_ctx
+    interactive_env * store * Namectx.t * Namectx.t
 end
 
 (* The following functor create a module of type Interactive.LANG_WITH_INIT
@@ -140,13 +140,16 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
   let empty_store_ctx = OpLang.Store.empty_store_ctx
   let infer_type_store = OpLang.Store.infer_type_store
 
-  type name_ctx = OpLang.name_ctx [@@deriving to_yojson]
+  module Namectx = struct
+    type name = OpLang.Names.name
+    type t = OpLang.name_ctx [@@deriving to_yojson]
 
-  let pp_name_ctx = OpLang.pp_name_ctx
-  let string_of_name_ctx = Format.asprintf "%a" pp_name_ctx
-  let empty_name_ctx = OpLang.empty_name_ctx
-  let concat_name_ctx = OpLang.concat_name_ctx
-  let get_names_from_name_ctx = OpLang.get_names_from_name_ctx
+    let pp = OpLang.pp_name_ctx
+    let to_string = Format.asprintf "%a" pp
+    let empty = OpLang.empty_name_ctx
+    let concat = OpLang.concat_name_ctx
+    let get_names = OpLang.get_names
+  end
 
   (* Interactive environments γ are partial maps from names to interactive values*)
   type interactive_env = OpLang.interactive_env [@@deriving to_yojson]

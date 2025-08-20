@@ -48,17 +48,17 @@ let () =
     IntLang.get_typed_ienv lexBuffer2 lexBuffer3 in
   Util.Debug.print_debug
     ("Name contexts for Opponent: "
-    ^ IntLang.string_of_name_ctx namectxO
+    ^ IntLang.Namectx.to_string namectxO
     ^ " and "
-    ^ IntLang.string_of_name_ctx namectxO');
+    ^ IntLang.Namectx.to_string namectxO');
   let init_aconf =
     OGS_LTS.Active
       (* The following concatenation should be reworked *)
       (OGS_LTS.init_aconf opconf
-         (IntLang.concat_name_ctx namectxO namectxO')) in
+         (IntLang.Namectx.concat namectxO namectxO')) in
   let init_pconf =
     OGS_LTS.Passive
-      (OGS_LTS.init_pconf store ienv namectxO' IntLang.empty_name_ctx)
+      (OGS_LTS.init_pconf store ienv namectxO' IntLang.Namectx.empty)
   in
   let module Composed_LTS = Lts.Compose.Make (OGS_LTS) in
   let traces = Composed_LTS.get_traces_check init_aconf init_pconf in

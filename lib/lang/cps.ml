@@ -129,7 +129,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   let embed_name_ctx = Util.Pmap.map_im (fun ty -> IType ty)
   let empty_name_ctx = Util.Pmap.empty
   let concat_name_ctx = Util.Pmap.concat
-  let get_names_from_name_ctx = Util.Pmap.dom
+  let get_names = Util.Pmap.dom
 
   let pp_name_ctx fmt name_ctx =
     let pp_sep fmt () = Format.fprintf fmt ", " in
