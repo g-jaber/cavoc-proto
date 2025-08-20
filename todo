@@ -15,4 +15,4 @@
 - [ ] Define a functor from MOVES to POLMOVES
 - [x] Propose a specified signature NAMEDMOVES where move type is defined as name*a_nf
 - [x] Add a Namectx signature
-- [ ] Create a specific signature Lang.Interactive.LANG_WITH_INIT 
+- [x] Create a specific signature Lang.Interactive.LANG_WITH_INIT 

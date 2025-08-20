@@ -1,4 +1,4 @@
-module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
+module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG_WITH_INIT = struct
   open OpLang
   module EvalMonad = OpLang.EvalMonad
   module Names = OpLang.Names

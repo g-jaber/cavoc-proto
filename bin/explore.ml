@@ -112,7 +112,7 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
   let graph_string = Graph.string_of_graph graph in
   print_string graph_string
 
-let build_ogs_lts (module IntLang : Lang.Interactive.LANG) =
+let build_ogs_lts (module IntLang : Lang.Interactive.LANG_WITH_INIT) =
   let (module OGS_LTS : Lts.Bipartite.INT_LTS
         with type opconf = IntLang.opconf
          and type name_ctx = IntLang.name_ctx

@@ -96,6 +96,10 @@ module type LANG = sig
 
   val concretize_a_nf :
     store -> interactive_env -> abstract_normal_form -> opconf * interactive_env
+end
+
+module type LANG_WITH_INIT = sig
+  include LANG
 
   val get_typed_opconf : string -> Lexing.lexbuf -> opconf * name_ctx
 
@@ -111,9 +115,9 @@ module type LANG = sig
     interactive_env * store * name_ctx * name_ctx
 end
 
-(* The following functor create a module of type Interactive.LANG
+(* The following functor create a module of type Interactive.LANG_WITH_INIT
    from a module OpLang of type Language.WITHAVAL_NEG *)
-module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
+module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
   module EvalMonad = OpLang.EvalMonad
   module Names = OpLang.Names
   module BranchMonad = OpLang.AVal.BranchMonad
