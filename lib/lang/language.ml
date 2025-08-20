@@ -80,6 +80,8 @@ module type COMP = sig
 
   type opconf = term * Store.store
 
+  val pp_opconf : Format.formatter -> opconf -> unit
+
   (* Evaluation of programs may produces:
      - divergence
      - uncatchable error
@@ -91,7 +93,7 @@ module type COMP = sig
   module EvalMonad : Util.Monad.RUNNABLE
 
   val normalize_opconf : opconf -> opconf EvalMonad.m
-  val get_typed_term : string -> Lexing.lexbuf -> term * typ * name_ctx
+  val get_typed_opconf : string -> Lexing.lexbuf -> opconf * typ * name_ctx
 
   (* We retrive a module declaration and its signature from the two in_channel taken as input.
      We evaluate the list of computation declarations into a list of value declarations together with the store

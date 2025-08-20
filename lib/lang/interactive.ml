@@ -119,12 +119,9 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   module BranchMonad = OpLang.AVal.BranchMonad
   module Store = OpLang.Store
 
-  type opconf = OpLang.term * Store.store
+  type opconf = OpLang.opconf
 
-  let pp_opconf fmt (term, store) =
-    Format.fprintf fmt "@[(@[Computation: %a@] @| @[Store: %a@])@]"
-      OpLang.pp_term term Store.pp_store store
-
+  let pp_opconf = OpLang.pp_opconf
   let string_of_opconf = Format.asprintf "%a" pp_opconf
 
   type store = OpLang.Store.store
@@ -320,6 +317,6 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG = struct
   let get_typed_ienv = OpLang.get_typed_ienv
 
   let get_typed_opconf nbprog lexBuffer =
-    let (comp, _, namectxO) = OpLang.get_typed_term nbprog lexBuffer in
-    ((comp, Store.empty_store), namectxO)
+    let (opconf, _, namectxO) = OpLang.get_typed_opconf nbprog lexBuffer in
+    (opconf, namectxO)
 end

@@ -312,6 +312,6 @@ module Make (OpLang : Language.WITHAVAL_INOUT) : Interactive.LANG = struct
     ((ienv, []), store, PropCtx (namectxP, []), OpCtx (None, namectxO))
 
   let get_typed_opconf nbprog inBuffer =
-    let (comp, ty, namectxO) = OpLang.get_typed_term nbprog inBuffer in
-    ((comp, Store.empty_store), OpCtx (Some ty, namectxO))
+    let (opconf, ty, namectxO) = OpLang.get_typed_opconf nbprog inBuffer in
+    (opconf, OpCtx (Some ty, namectxO))
 end

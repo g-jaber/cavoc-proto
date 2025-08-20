@@ -75,9 +75,13 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
 
   type opconf = Interpreter.opconf
 
+    let pp_opconf fmt (term, store) =
+    Format.fprintf fmt "@[(@[Computation: %a@] @| @[Store: %a@])@]"
+      pp_term term Store.pp_store store
+
   let normalize_opconf = Interpreter.normalize_opconf
 
-  let get_typed_term nbprog lexBuffer =
+  let get_typed_opconf nbprog lexBuffer =
     try
       let expr = Parser.fullexpr Lexer.token lexBuffer in
       let type_ctx = Type_ctx.build_type_ctx expr in
@@ -85,7 +89,7 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
       Util.Debug.print_debug
         ("Type checking of " ^ Syntax.string_of_term expr ^ " provides "
        ^ Types.string_of_typ ty);
-      (expr, ty, Type_ctx.get_name_ctx type_ctx)
+      ((expr, Store.empty_store), ty, Type_ctx.get_name_ctx type_ctx)
     with
     | Lexer.SyntaxError msg ->
         failwith ("Lexing Error in the " ^ nbprog ^ " program:" ^ msg)

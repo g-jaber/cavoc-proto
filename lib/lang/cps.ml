@@ -11,8 +11,10 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   (* We consider named terms, as in the λμ-calculus *)
   type cont_name = Names.name
+
   let pp_cont_name = Names.pp_name
   let inj_cont_name = Fun.id
+
   type term = NTerm of (cont_name * OpLang.term)
 
   let pp_term fmt (NTerm (cn, term)) =
@@ -47,8 +49,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
   let pp_negative_val fmt = function
     | IVal value -> OpLang.pp_negative_val fmt value
     | ICtx (NCtx (cn, ectx)) ->
-        Format.fprintf fmt "[%a]%a" pp_cont_name cn OpLang.pp_eval_context
-          ectx
+        Format.fprintf fmt "[%a]%a" pp_cont_name cn OpLang.pp_eval_context ectx
 
   let string_of_negative_val = Format.asprintf "%a" pp_negative_val
 
@@ -143,6 +144,10 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   type opconf = term * Store.store
 
+  let pp_opconf fmt (term, store) =
+    Format.fprintf fmt "@[(@[Computation: %a@] @| @[Store: %a@])@]" pp_term term
+      Store.pp_store store
+
   let normalize_opconf (NTerm (cn, term), store) =
     let* (nf_term, store') = OpLang.normalize_opconf (term, store) in
     return (NTerm (cn, nf_term), store')
@@ -154,14 +159,13 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
       | (n, IVal value) -> Some (n, value)
       | (_, ICtx _) -> None)
 
-  let get_typed_term nbprog inBuffer =
-    let (term, typ, namectxO) = OpLang.get_typed_term nbprog inBuffer in
+  let get_typed_opconf nbprog inBuffer =
+    let ((term,store), typ, namectxO) = OpLang.get_typed_opconf nbprog inBuffer in
     let cn = Names.fresh_cname () in
     let nterm = NTerm (cn, term) in
     let namectxO' =
-      Util.Pmap.add (inj_cont_name cn, INeg typ) (embed_name_ctx namectxO)
-    in
-    (nterm, GEmpty, namectxO')
+      Util.Pmap.add (inj_cont_name cn, INeg typ) (embed_name_ctx namectxO) in
+    ((nterm,store), GEmpty, namectxO')
 
   let get_typed_ienv lexBuffer_implem lexBuffer_signature =
     let (int_env, store, namectxP, namectxO) =
@@ -321,8 +325,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     type abstract_val =
       | AVal of OpLang.AVal.abstract_val
       | APair of OpLang.AVal.abstract_val * cont_name
-      | APack of
-          OpLang.typename list * OpLang.AVal.abstract_val * cont_name
+      | APack of OpLang.typename list * OpLang.AVal.abstract_val * cont_name
 
     let pp_abstract_val fmt = function
       | AVal aval -> OpLang.AVal.pp_abstract_val fmt aval
@@ -385,8 +388,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
           let ienv = embed_value_env val_env in
           let ienv' = Util.Pmap.add (inj_cont_name cn, ICtx ectx) ienv in
           let lnamectx = embed_name_ctx lnamectx in
-          let lnamectx' =
-            Util.Pmap.add (inj_cont_name cn, INeg ty_c) lnamectx in
+          let lnamectx' = Util.Pmap.add (inj_cont_name cn, INeg ty_c) lnamectx in
           (APair (aval, cn), ienv', lnamectx')
       | (GVal value, GType ty) ->
           let (aval, val_env, lnamectx) =
