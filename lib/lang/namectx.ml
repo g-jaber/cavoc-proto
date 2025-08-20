@@ -1,7 +1,7 @@
 module type NAMECTX = sig
   type name
 
-  type name_ctx
+  type name_ctx [@@deriving to_yojson]
 
   val empty_name_ctx : name_ctx
   val concat_name_ctx : name_ctx -> name_ctx -> name_ctx

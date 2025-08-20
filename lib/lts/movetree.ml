@@ -7,6 +7,7 @@ module type MOVETREE = sig
     namectxO: Moves.Namectx.name_ctx;
     map: (Moves.move, Moves.move) Util.Pmap.pmap;
   }
+
   val trigger : movetree -> Moves.move -> Moves.move option
   val update : movetree -> Moves.move * Moves.move -> movetree option
 end
@@ -34,8 +35,92 @@ module Make (Moves : Moves.NAMED_TYPED_MOVES) : MOVETREE = struct
         | Some _ -> Some movetree)
 end
 
-(*
-module MakeLang (MoveTree:MOVETREE) : Lang.Interactive.LANG = struct
+module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
+  module Names = MoveTree.Moves.Names
+  module EvalMonad = Util.Monad.Option
+  module BranchMonad = MoveTree.Moves.BranchMonad
 
+  type store = MoveTree.movetree
+
+  let string_of_store : store -> string = failwith ""
+  let pp_store : Format.formatter -> store -> unit = failwith ""
+
+  type store_ctx = unit
+
+  let string_of_store_ctx : store_ctx -> string = failwith ""
+  let pp_store_ctx : Format.formatter -> store_ctx -> unit = failwith ""
+  let empty_store_ctx : store_ctx = failwith ""
+  let infer_type_store : store -> store_ctx = failwith ""
+
+  type opconf = MoveTree.Moves.move * store
+
+  let string_of_opconf : opconf -> string = failwith ""
+  let pp_opconf : Format.formatter -> opconf -> unit = failwith ""
+
+  type name_ctx = MoveTree.Moves.Namectx.name_ctx
+
+  let name_ctx_to_yojson = MoveTree.Moves.Namectx.name_ctx_to_yojson
+  let empty_name_ctx : name_ctx = failwith ""
+  let concat_name_ctx : name_ctx -> name_ctx -> name_ctx = failwith ""
+  let pp_name_ctx : Format.formatter -> name_ctx -> unit = failwith ""
+  let string_of_name_ctx : name_ctx -> string = failwith ""
+  let get_names_from_name_ctx : name_ctx -> Names.name list = failwith ""
+
+  type interactive_env =
+    (MoveTree.Moves.name, MoveTree.Moves.name) Util.Pmap.pmap
+
+  let interactive_env_to_yojson = failwith ""
+  let empty_ienv : interactive_env = Util.Pmap.empty
+
+  let concat_ienv : interactive_env -> interactive_env -> interactive_env =
+    Util.Pmap.concat
+
+  let pp_ienv : Format.formatter -> interactive_env -> unit = failwith ""
+  let string_of_ienv : interactive_env -> string = failwith ""
+
+  type abstract_normal_form = MoveTree.Moves.move
+
+  let eval ((move, movetree), namectx, storectx) :
+      ((abstract_normal_form * name_ctx * store_ctx) * interactive_env * store)
+      EvalMonad.m =
+    match MoveTree.trigger movetree move with
+    | None -> EvalMonad.fail ()
+    | Some moveOut ->
+        EvalMonad.return ((moveOut, namectx, storectx), empty_ienv, movetree)
+
+  let get_subject_name : abstract_normal_form -> Names.name option = failwith ""
+  let get_support : abstract_normal_form -> Names.name list = failwith ""
+
+  let pp_a_nf :
+      pp_dir:(Format.formatter -> unit) ->
+      Format.formatter ->
+      abstract_normal_form ->
+      unit =
+    failwith "" (*MoveTree.Moves.pp_move - Need to handle pp_dir *)
+
+  let string_of_a_nf : string -> abstract_normal_form -> string = failwith ""
+
+  let is_equiv_a_nf :
+      Names.name Util.Namespan.namespan ->
+      abstract_normal_form ->
+      abstract_normal_form ->
+      Names.name Util.Namespan.namespan option =
+    MoveTree.Moves.unify_move
+
+  let generate_a_nf :
+      store_ctx ->
+      name_ctx ->
+      (abstract_normal_form * name_ctx * name_ctx) BranchMonad.m =
+    (*MoveTree.Moves.generate_moves - Need to handle storectx*)
+    failwith ""
+
+  let type_check_a_nf :
+      name_ctx ->
+      name_ctx ->
+      abstract_normal_form ->
+      (name_ctx * name_ctx) option =
+    failwith ""
+  (* There's a mismatch with the signature of MoveTree.Move.check_type_move *)
+
+  let concretize_a_nf movetree renaming move = ((move, movetree), renaming)
 end
-*)
