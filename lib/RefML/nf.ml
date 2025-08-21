@@ -92,12 +92,12 @@ let map_cn empty_res f_cn = function
       let (cn', res) = f_cn cn in
       (NFRaise (cn', value), res)
 
-let type_annotating_val ~inj_ty ~fname_ctx ~cname_ctx = function
+let type_annotating_val ~inj_ty ~fname_ty ~cname_ty = function
   | NFCallback (fn, value, ectx) ->
-      let ty_arg = Util.Pmap.lookup_exn fn fname_ctx in
+      let ty_arg = fname_ty fn in
       NFCallback (fn, (value, ty_arg), ectx)
   | NFValue (cn, value) ->
-      let ty = Util.Pmap.lookup_exn cn cname_ctx in
+      let ty = cname_ty cn in
       NFValue (cn, (value, ty))
   | NFError _ as res -> res
   | NFRaise (cn, value) -> NFRaise (cn, (value, inj_ty Types.TExn))

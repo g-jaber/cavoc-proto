@@ -189,9 +189,9 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   let type_annotating_val name_ctx =
     let inj_ty ty = GType ty in
-    let fname_ctx = Util.Pmap.filter_dom Names.is_fname name_ctx in
-    let cname_ctx = Util.Pmap.filter_dom Names.is_cname name_ctx in
-    OpLang.type_annotating_val ~inj_ty ~fname_ctx ~cname_ctx
+    let fname_ty fn = Util.Pmap.lookup_exn fn name_ctx in
+    let cname_ty cn = Util.Pmap.lookup_exn cn name_ctx in
+    OpLang.type_annotating_val ~inj_ty ~fname_ty ~cname_ty
 
   let conf_type = GEmpty
 

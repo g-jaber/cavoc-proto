@@ -17,6 +17,7 @@ struct
   let pp_store = OpLang.Store.pp_store
 
   module Storectx = OpLang.Store.Storectx
+
   let infer_type_store = OpLang.Store.infer_type_store
 
   module Namectx = struct
@@ -147,21 +148,24 @@ struct
     (OpLang.AVal.abstract_val, unit, Names.name, unit) OpLang.Nf.nf_term
     * OpLang.Store.store
 
-  let labels_of_a_nf_term = OpLang.Nf.apply_val [] OpLang.AVal.labels_of_abstract_val
+  let labels_of_a_nf_term =
+    OpLang.Nf.apply_val [] OpLang.AVal.labels_of_abstract_val
+
   let abstracting_store = OpLang.Store.restrict
   (* TODO: Deal with the abstraction process of the heap properly *)
 
   let[@warning "-8"] abstracting_nf_term nf_term
       (Namectx.OpCtx (Some ty_out, fnamectxO)) =
     let inj_ty ty = ty in
-    let fname_ctx =
-      Util.Pmap.map_im (fun nty -> snd @@ OpLang.get_input_type nty) fnamectxO in
-    (* TODO: we should do something with the tvar_l *)
+    let fname_ty fn =
+      let nty = Util.Pmap.lookup_exn fn fnamectxO in
+      snd @@ OpLang.get_input_type nty
+      (* TODO: we should do something with the tvar_l *) in
     let fname_ctx_hole =
       Util.Pmap.map_im (fun nty -> OpLang.get_output_type nty) fnamectxO in
-    let cname_ctx = Util.Pmap.singleton ((), ty_out) in
+    let cname_ty () = ty_out in
     let nf_typed_term =
-      OpLang.type_annotating_val ~inj_ty ~fname_ctx ~cname_ctx nf_term in
+      OpLang.type_annotating_val ~inj_ty ~fname_ty ~cname_ty nf_term in
     let nf_typed_term' =
       OpLang.type_annotating_ectx fname_ctx_hole ty_out nf_typed_term in
     let f_val (value, nty) =
@@ -289,14 +293,16 @@ struct
       let (_, ty_arg) = OpLang.get_input_type nty in
       let ty_out = OpLang.get_output_type nty in
       lift_lnamectx namectxP ty_out
-      @@ OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_arg aval in
+      @@ OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_arg aval
+    in
     let type_check_ret aval ty_hole ty_out =
       match stack_ctx with
       | [] -> None
       | _ :: stack_ctx' ->
           let namectxP' = Namectx.PropCtx (fnamectxP, stack_ctx') in
           lift_lnamectx namectxP' ty_out
-          @@ OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_hole aval in
+          @@ OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_hole
+               aval in
     OpLang.type_check_nf_term ~inj_ty ~empty_res ~fname_ctx ~cname_ctx
       ~type_check_call ~type_check_ret nf_term
 
