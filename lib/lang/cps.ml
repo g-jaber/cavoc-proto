@@ -187,10 +187,10 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
        and module BranchMonad = OpLang.AVal.BranchMonad =
     OpLang.Nf
 
-  let type_annotating_val name_ctx =
+  let type_annotating_val get_ty =
     let inj_ty ty = GType ty in
-    let fname_ty fn = Util.Pmap.lookup_exn fn name_ctx in
-    let cname_ty cn = Util.Pmap.lookup_exn cn name_ctx in
+    let fname_ty = get_ty in
+    let cname_ty = get_ty in
     OpLang.type_annotating_val ~inj_ty ~fname_ty ~cname_ty
 
   let conf_type = GEmpty

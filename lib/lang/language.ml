@@ -267,7 +267,7 @@ module type WITHAVAL_NEG = sig
   module Nf : NF with module BranchMonad = Store.BranchMonad
 
   val type_annotating_val :
-    (Names.name, typ) Util.Pmap.pmap ->
+    (Names.name -> typ) ->
     ('value, 'ectx, Names.name, Names.name) Nf.nf_term ->
     ('value * typ, 'ectx, Names.name, Names.name) Nf.nf_term
 

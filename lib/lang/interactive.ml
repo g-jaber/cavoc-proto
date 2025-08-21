@@ -163,13 +163,10 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
   (* TODO Deal with the abstraction process of the heap properly *)
 
   let abstracting_nf_term nf_term namectxO =
-    let namectxO' =
-      Util.Pmap.filter_dom
-        (fun n -> Names.is_fname n || Names.is_cname n)
-        namectxO in
-    let namectxO'' = Util.Pmap.map_im OpLang.negating_type namectxO' in
     (* This is bugged, we should first *)
-    let nf_typed_term = OpLang.type_annotating_val namectxO'' nf_term in
+    let get_ty nn = let nty = Util.Pmap.lookup_exn nn namectxO in
+    OpLang.negating_type nty in
+    let nf_typed_term = OpLang.type_annotating_val get_ty nf_term in
     let f_val (value, nty) =
       let (aval, ienv, lnamectx) = OpLang.AVal.abstracting_value value nty in
       (aval, (ienv, lnamectx)) in
