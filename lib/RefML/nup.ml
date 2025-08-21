@@ -7,7 +7,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
      and type negative_type = Types.negative_type
      and type label = Syntax.label
      and type store_ctx = Store.Storectx.t
-     and type name_ctx = (Names.name, Types.negative_type) Util.Pmap.pmap
+     and type name_ctx = Namectx.t
      and module BranchMonad = BranchMonad = struct
   (* Instantiation *)
   type name = Names.name
@@ -16,8 +16,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
   type negative_val = Syntax.negative_val
   type typ = Types.typ
   type negative_type = Types.negative_type
-  type store_ctx = Store.Storectx.t  
-  type name_ctx = (name, negative_type) Util.Pmap.pmap
+  type store_ctx = Store.Storectx.t
+  type name_ctx = Namectx.t
   (* *)
 
   open Syntax
@@ -80,9 +80,9 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     let lnup2' = List.map (fun (nup,nctx) -> (Inj (2,nup),nctx)) lnup1 in
     lnup1'@lnup2' *)
     | TArrow _ as ty ->
-        let fn = Names.fresh_name () in
         let nty = Types.force_negative_type ty in
-        return (Name fn, Util.Pmap.singleton (fn, nty))
+        let (fn, lnamectx) = Namectx.singleton nty in
+        return (Name fn, lnamectx)
     | TId _ as ty ->
         let pn_list = Util.Pmap.select_im ty namectxP_pmap in
         let* pn = para_list @@ pn_list in
