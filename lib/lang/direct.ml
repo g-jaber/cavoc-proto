@@ -33,6 +33,7 @@ struct
       `List (List.map to_string stack)
 
     type name = OpLang.Names.name
+    type typ = OpLang.negative_type
 
     (* The active context PropCtx have a type for the toplevel term*)
     type t =
@@ -91,6 +92,8 @@ struct
     let get_names = function
       | PropCtx (fnamectx, _) | OpCtx (_, fnamectx) ->
           OpLang.Namectx.get_names fnamectx
+
+    let lookup_exn (name_ctx:t) fn = match name_ctx with | OpCtx (_, fnamectx)| PropCtx (fnamectx, _) -> Util.Pmap.lookup_exn fn fnamectx
   end
 
   (* Interactive environments γ are pairs formed by partial maps from functional names to functional values,

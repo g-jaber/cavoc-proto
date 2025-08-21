@@ -164,8 +164,9 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
 
   let abstracting_nf_term nf_term namectxO =
     (* This is bugged, we should first *)
-    let get_ty nn = let nty = Util.Pmap.lookup_exn nn namectxO in
-    OpLang.negating_type nty in
+    let get_ty nn =
+      let nty = Namectx.lookup_exn namectxO nn in
+      OpLang.negating_type nty in
     let nf_typed_term = OpLang.type_annotating_val get_ty nf_term in
     let f_val (value, nty) =
       let (aval, ienv, lnamectx) = OpLang.AVal.abstracting_value value nty in

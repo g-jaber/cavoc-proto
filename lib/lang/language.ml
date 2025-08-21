@@ -12,7 +12,11 @@ module type TYPED = sig
   val string_of_negative_type : negative_type -> string
   val pp_negative_type : Format.formatter -> negative_type -> unit
 
-  module Namectx : Typectx.TYPECTX with type name = Names.name and type t = (Names.name, negative_type) Util.Pmap.pmap
+  module Namectx :
+    Typectx.TYPECTX
+      with type name = Names.name
+       and type typ = negative_type
+       and type t = (Names.name, negative_type) Util.Pmap.pmap
 end
 
 module type STORE = sig
@@ -24,6 +28,7 @@ module type STORE = sig
   val empty_store : store
 
   module Storectx : Typectx.TYPECTX with type name = location
+
   val infer_type_store : store -> Storectx.t
 
   (* update_store μ μ' is equal to μ[μ'] *)

@@ -36,6 +36,7 @@ let embed_cons_ctx cons_ctx = (Util.Pmap.empty, Util.Pmap.empty, cons_ctx)
 module Storectx = struct
   type t = Type_ctx.loc_ctx * Type_ctx.cons_ctx
   type name = location
+  type typ = Types.typ
 
   let pp fmt (loc_ctx, cons_ctx) =
     if Util.Pmap.is_empty cons_ctx then
@@ -75,6 +76,8 @@ module Storectx = struct
     let loc_l = List.map (fun l -> Loc l) (Util.Pmap.dom loc_ctx) in
     let cons_l = List.map (fun c -> Cons c) (Util.Pmap.dom cons_ctx) in
     loc_l @ cons_l
+
+  let lookup_exn ((loc_ctx, cons_ctx):t) (loc:location) = match loc with | Loc l -> Util.Pmap.lookup_exn l loc_ctx | Cons c -> Util.Pmap.lookup_exn c cons_ctx
 end
 
 let infer_type_store (_, heap, cons_ctx) = (Heap.loc_ctx_of_heap heap, cons_ctx)

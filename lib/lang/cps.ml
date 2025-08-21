@@ -3,7 +3,7 @@
    This is done by introducing named terms and named evaluation contexts,
    and by embedding named evaluation contexts in values. *)
 module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
-  Language.WITHAVAL_NEG with module Names = OpLang.Names = struct
+  Language.WITHAVAL_NEG = struct
   module EvalMonad = OpLang.EvalMonad
   module Names = OpLang.Names
   open EvalMonad
@@ -112,30 +112,11 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     | IType ty -> OpLang.pp_negative_type fmt ty
     | INeg ty -> Format.fprintf fmt "¬(%a)" OpLang.pp_type ty
 
+  let negative_type_to_yojson = failwith ""
+
   let string_of_negative_type = Format.asprintf "%a" pp_negative_type
 
-  module Namectx = struct
-    type name = Names.name
-    type t = (name, negative_type) Util.Pmap.pmap
-
-    let to_yojson nctx =
-      let to_string (nn, nval) =
-        (Names.string_of_name nn, `String (string_of_negative_type nval)) in
-      `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string nctx)
-
-    let empty = Util.Pmap.empty
-    let concat = Util.Pmap.concat
-    let get_names = Util.Pmap.dom
-
-    let pp fmt name_ctx =
-      let pp_sep fmt () = Format.fprintf fmt ", " in
-      let pp_empty fmt () = Format.fprintf fmt "⋅" in
-      let pp_pair fmt (n, nty) =
-        Format.fprintf fmt "%a : %a" Names.pp_name n pp_negative_type nty in
-      Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt name_ctx
-
-    let to_string = Format.asprintf "%a" pp
-  end
+  module Namectx = Typectx.Make_PMAP (Names) (struct type t = negative_type let to_yojson = negative_type_to_yojson let pp = pp_negative_type end)
 
   let extract_name_ctx =
     Util.Pmap.filter_map (function

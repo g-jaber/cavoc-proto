@@ -48,6 +48,7 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
   module Storectx = struct
     type name = unit
     type t = unit
+    type typ = unit
 
     let to_string : t -> string = failwith ""
     let pp : Format.formatter -> t -> unit = failwith ""
@@ -55,6 +56,7 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
     let concat = failwith ""
     let to_yojson = failwith ""
     let get_names = failwith ""
+    let lookup_exn = failwith ""
   end
 
   let infer_type_store : store -> Storectx.t = failwith ""

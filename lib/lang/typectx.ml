@@ -1,5 +1,6 @@
 module type TYPECTX = sig
   type name
+  type typ
   type t [@@deriving to_yojson]
 
   val empty : t
@@ -7,19 +8,21 @@ module type TYPECTX = sig
   val to_string : t -> string
   val pp : Format.formatter -> t -> unit
   val get_names : t -> name list
+
+  val lookup_exn : t -> name -> typ
 end
 
 module type TYPECTX_PMAP = sig
   type n
-  type typ
+  type ty
 
-  include TYPECTX with type name = n and type t = (n, typ) Util.Pmap.pmap
+  include TYPECTX with type name = n and type typ = ty and type t = (n, ty) Util.Pmap.pmap
 end
 
 module type TYPECTX_LIST = sig
-  type typ
+  type ty
 
-  include TYPECTX with type name = int and type t = typ list
+  include TYPECTX with type name = int and type typ = ty and type t = ty list
 end
 
 module Make_PMAP
@@ -31,8 +34,10 @@ module Make_PMAP
     end) :
   TYPECTX
     with type name = Names.name
+    and type typ = Types.t
      and type t = (Names.name, Types.t) Util.Pmap.pmap = struct
   type name = Names.name
+  type typ = Types.t
   type t = (name, Types.t) Util.Pmap.pmap
 
   let empty = Util.Pmap.empty
@@ -48,17 +53,20 @@ module Make_PMAP
   let to_string = Format.asprintf "%a" pp
   let get_names = Util.Pmap.dom
 
-  let to_yojson nctx =
+  let to_yojson name_ctx =
     let to_string (nn, ty) = (Names.string_of_name nn, Types.to_yojson ty) in
-    `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string nctx)
+    `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string name_ctx)
+
+  let lookup_exn name_ctx nn = Util.Pmap.lookup_exn nn name_ctx
 end
 
 module Make_List (Types : sig
   type t [@@deriving to_yojson]
 
   val pp : Format.formatter -> t -> unit
-end) : TYPECTX with type name = int and type t = Types.t list = struct
+end) : TYPECTX with type name = int and type typ = Types.t and type t = Types.t list = struct
   type name = int
+  type typ = Types.t
   type t = Types.t list
 
   let empty = []
@@ -73,4 +81,5 @@ end) : TYPECTX with type name = int and type t = Types.t list = struct
   let to_string = Format.asprintf "%a" pp
   let get_names = List.mapi (fun i _ -> i)
   let to_yojson nctx = `List (List.map Types.to_yojson nctx)
+  let lookup_exn = List.nth
 end

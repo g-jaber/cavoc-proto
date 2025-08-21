@@ -23,6 +23,7 @@ module Typed :
   module Namectx = struct
     type name = Names.name
     type t = (name, negative_type) Util.Pmap.pmap
+      type typ = Types.typ
 
     let to_yojson ienv =
       let to_string (nn, nty) =
@@ -38,6 +39,7 @@ module Typed :
         Types.string_of_negative_type
 
     let pp = Type_ctx.pp_name_ctx
+    let lookup_exn name_ctx nn = Util.Pmap.lookup_exn nn name_ctx
   end
 end
 
