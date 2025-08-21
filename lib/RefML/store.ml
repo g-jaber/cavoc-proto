@@ -77,7 +77,20 @@ module Storectx = struct
     let cons_l = List.map (fun c -> Cons c) (Util.Pmap.dom cons_ctx) in
     loc_l @ cons_l
 
-  let lookup_exn ((loc_ctx, cons_ctx):t) (loc:location) = match loc with | Loc l -> Util.Pmap.lookup_exn l loc_ctx | Cons c -> Util.Pmap.lookup_exn c cons_ctx
+  let lookup_exn ((loc_ctx, cons_ctx) : t) (loc : location) =
+    match loc with
+    | Loc l -> Util.Pmap.lookup_exn l loc_ctx
+    | Cons c -> Util.Pmap.lookup_exn c cons_ctx
+
+  let add ((loc_ctx, cons_ctx) : t) (loc : location) (ty : typ) =
+    match loc with
+    | Loc l -> (Util.Pmap.add (l, ty) loc_ctx, cons_ctx)
+    | Cons c -> (loc_ctx, Util.Pmap.add (c, ty) cons_ctx)
+
+  let to_pmap ((loc_ctx, cons_ctx) : t) =
+    let loc_ctx' = Util.Pmap.map_dom (fun l -> Loc l) loc_ctx in
+    let cons_ctx' = Util.Pmap.map_dom (fun c -> Cons c) cons_ctx in
+    Util.Pmap.concat loc_ctx' cons_ctx'
 end
 
 let infer_type_store (_, heap, cons_ctx) = (Heap.loc_ctx_of_heap heap, cons_ctx)

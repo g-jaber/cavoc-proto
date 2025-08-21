@@ -171,7 +171,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let f_val (value, nty) =
       let (aval, ienv, lnamectx) = OpLang.AVal.abstracting_value value nty in
       (aval, (ienv, lnamectx)) in
-    let empty_res = (Util.Pmap.empty, Util.Pmap.empty) in
+    let empty_res = (empty_ienv, Namectx.empty) in
     OpLang.Nf.map_val empty_res f_val nf_typed_term
   (*
     let f_call (nn, value, ()) = 
@@ -247,20 +247,21 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
 
   include OpLang.AVal.BranchMonad
 
-  let fill_abstract_val storectx namectxP nf_skeleton =
-    let gen_val ty = OpLang.AVal.generate_abstract_val storectx namectxP ty in
+  let fill_abstract_val storectx namectxP_pmap nf_skeleton =
+    let gen_val ty = OpLang.AVal.generate_abstract_val storectx namectxP_pmap ty in
     OpLang.Nf.abstract_nf_term_m ~gen_val nf_skeleton
 
   let generate_a_nf storectx namectxP =
-    let namectxP' =
+    let namectxP_pmap = OpLang.Namectx.to_pmap namectxP in
+    let namectxP_pmap' =
       Util.Pmap.filter_dom
         (fun n -> Names.is_fname n || Names.is_cname n)
-        namectxP in
-    let namectxP'' = Util.Pmap.map_im OpLang.negating_type namectxP' in
+        namectxP_pmap in
+    let namectxP_pmap'' = Util.Pmap.map_im OpLang.negating_type namectxP_pmap' in
     let* _ = return @@ Util.Debug.print_debug @@ "Generating the skeleton " in
-    let* skel = OpLang.generate_nf_term namectxP'' in
+    let* skel = OpLang.generate_nf_term namectxP_pmap'' in
     let* _ = return @@ Util.Debug.print_debug @@ "Filling the skeleton " in
-    let* (a_nf_term, lnamectx) = fill_abstract_val storectx namectxP skel in
+    let* (a_nf_term, lnamectx) = fill_abstract_val storectx namectxP_pmap skel in
     let* store = Store.generate_store storectx in
     return ((a_nf_term, store), lnamectx, namectxP)
 
@@ -269,7 +270,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let type_check_val aval nty =
       let ty = OpLang.negating_type nty in
       OpLang.AVal.type_check_abstract_val namectxP namectxO ty aval in
-    let empty_res = Util.Pmap.empty in
+    let empty_res = Namectx.empty in
     match
       OpLang.type_check_nf_term ~empty_res ~name_ctx ~type_check_val nf_term
     with

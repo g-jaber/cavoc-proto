@@ -1,4 +1,4 @@
-type typevar = string
+type typevar = string [@@deriving to_yojson]
 type id = string
 
 type typ =
@@ -15,7 +15,7 @@ type typ =
   | TId of id (* Implementation is only known by Proponent.  *)
   | TName of
       id (* Generated dynamically while instantiating Forall quantifiers. *)
-  | TUndef
+  | TUndef [@@deriving to_yojson]
 (* Used to represent the absence of type annotation in fun and fix terms *)
 
 val string_of_typ : typ -> string
@@ -41,7 +41,7 @@ val apply_type_env : typ -> type_env -> typ
 val mgu_type : type_env -> typ * typ -> type_subst option
 val refresh_forall : typ -> typ
 
-type negative_type = typ
+type negative_type = typ [@@deriving to_yojson]
 
 val pp_negative_type : Format.formatter -> negative_type -> unit
 val get_negative_type : typ -> negative_type option

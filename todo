@@ -19,3 +19,9 @@
 - [x] Use Typectx for storectx
 - [x] Create a module signature for renamings
 - [x] Create a functor from Names and Types to Namectx
+- [x] Make the type Namectx abstract in lang/
+- [ ] Add a functor to aggregate two Typectx
+- [ ] Rework Typectx.add
+- [ ] Embed a Namectx module in AVAL
+- [ ] Make namectx abstract in RefML/nup.ml
+- [ ] Switch to a presentation using De Bruijn indices

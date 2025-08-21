@@ -92,35 +92,35 @@ let map_cn empty_res f_cn = function
       let (cn', res) = f_cn cn in
       (NFRaise (cn', value), res)
 
-let type_annotating_val ~inj_ty ~fname_ty ~cname_ty = function
+let type_annotating_val ~inj_ty ~get_type_fname ~get_type_cname = function
   | NFCallback (fn, value, ectx) ->
-      let ty_arg = fname_ty fn in
+      let ty_arg = get_type_fname fn in
       NFCallback (fn, (value, ty_arg), ectx)
   | NFValue (cn, value) ->
-      let ty = cname_ty cn in
+      let ty = get_type_cname cn in
       NFValue (cn, (value, ty))
   | NFError _ as res -> res
   | NFRaise (cn, value) -> NFRaise (cn, (value, inj_ty Types.TExn))
 
-let type_annotating_ectx fname_ctx ty_out = function
+let type_annotating_ectx ~get_type_fname ty_out = function
   | NFCallback (fn, value, ectx) ->
-      let ty_hole = Util.Pmap.lookup_exn fn fname_ctx in
+      let ty_hole = get_type_fname fn in
       NFCallback (fn, value, (ectx, (ty_hole, ty_out)))
   | NFValue (cn, value) -> NFValue (cn, value)
   | NFError _ as res -> res
   | NFRaise (cn, value) -> NFRaise (cn, value)
 
-let type_check_nf_term ~inj_ty ~empty_res ~fname_ctx ~cname_ctx ~type_check_call
+let type_check_nf_term ~inj_ty ~empty_res ~get_type_fname ~get_type_cname ~type_check_call
     ~type_check_ret = function
   | NFCallback (fn, value, _) ->
-      let nty = Util.Pmap.lookup_exn fn fname_ctx in
+      let nty = get_type_fname fn  in
       type_check_call value nty
   | NFValue (cn, value) ->
-      let (ty_in, ty_out) = Util.Pmap.lookup_exn cn cname_ctx in
+      let (ty_in, ty_out) = get_type_cname cn in
       type_check_ret value ty_in ty_out
   | NFError _ -> Some empty_res
   | NFRaise (cn, value) ->
-      let (_, ty_out) = Util.Pmap.lookup_exn cn cname_ctx in
+      let (_, ty_out) = get_type_cname cn in
       let ty_in = inj_ty Types.TExn in
       type_check_ret value ty_in ty_out
 

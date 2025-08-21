@@ -2,8 +2,8 @@
    into a module of signature Language.WITHAVAL_NEG.
    This is done by introducing named terms and named evaluation contexts,
    and by embedding named evaluation contexts in values. *)
-module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
-  Language.WITHAVAL_NEG = struct
+module MakeComp (OpLang : Language.WITHAVAL_INOUT) : Language.WITHAVAL_NEG =
+struct
   module EvalMonad = OpLang.EvalMonad
   module Names = OpLang.Names
   open EvalMonad
@@ -85,9 +85,9 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     | GType of OpLang.typ
     | GProd of OpLang.typ * OpLang.typ
     | GExists of OpLang.typevar list * OpLang.typ * OpLang.typ
-    | GEmpty
+    | GEmpty [@@deriving to_yojson]
 
-  type negative_type = IType of OpLang.negative_type | INeg of OpLang.typ
+  type negative_type = IType of OpLang.negative_type | INeg of OpLang.typ [@@deriving to_yojson]
 
   let pp_type fmt = function
     | GType typ -> OpLang.pp_type fmt typ
@@ -112,18 +112,66 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     | IType ty -> OpLang.pp_negative_type fmt ty
     | INeg ty -> Format.fprintf fmt "¬(%a)" OpLang.pp_type ty
 
-  let negative_type_to_yojson = failwith ""
-
   let string_of_negative_type = Format.asprintf "%a" pp_negative_type
 
-  module Namectx = Typectx.Make_PMAP (Names) (struct type t = negative_type let to_yojson = negative_type_to_yojson let pp = pp_negative_type end)
+  module CNamectx =
+    Typectx.Make_PMAP
+      (Names)
+      (struct
+        type t = OpLang.typ
 
-  let extract_name_ctx =
-    Util.Pmap.filter_map (function
-      | (n, IType ty) -> Some (n, ty)
-      | (_, INeg _) -> None)
+        let to_yojson = OpLang.typ_to_yojson
+        let pp = OpLang.pp_type
+      end)
 
-  let embed_name_ctx = Util.Pmap.map_im (fun ty -> IType ty)
+  module Namectx = struct
+    type name = Names.name
+    type typ = negative_type
+    type t = OpLang.Namectx.t * CNamectx.t [@@deriving to_yojson]
+
+    let empty = (OpLang.Namectx.empty, CNamectx.empty)
+
+    let concat (namectx1, cnamectx1) (namectx2, cnamectx2) =
+      ( OpLang.Namectx.concat namectx1 namectx2,
+        CNamectx.concat cnamectx1 cnamectx2 )
+
+    let pp fmt (namectx, cnamectx) =
+      Format.fprintf fmt "(%a,%a)" OpLang.Namectx.pp namectx CNamectx.pp
+        cnamectx
+
+    let to_string = Format.asprintf "%a" pp
+
+    let get_names (namectx, cnamectx) =
+      OpLang.Namectx.get_names namectx @ CNamectx.get_names cnamectx
+
+    let lookup_exn (namectx, cnamectx) nn =
+      if Names.is_cname nn then INeg (CNamectx.lookup_exn cnamectx nn)
+      else IType (OpLang.Namectx.lookup_exn namectx nn)
+
+    let add (namectx, cnamectx) nn nty =
+      match (Names.is_cname nn, nty) with
+      | (true, INeg ty) ->
+          let cnamectx' = Util.Pmap.add (nn, ty) cnamectx in
+          (namectx, cnamectx')
+      | (false, IType _ty) -> failwith ""
+      | _ ->
+          failwith
+            "Trying to add a name of the wrong type in the name context. \
+             Pleasse report."
+
+    let mem (_namectx, cnamectx) nn =
+      if Names.is_cname nn then Util.Pmap.mem nn cnamectx else failwith ""
+
+    let to_pmap (namectx, cnamectx) =
+      let namectx_pmap = OpLang.Namectx.to_pmap namectx in
+      let namectx_pmap' = Util.Pmap.map_im (fun ty -> IType ty) namectx_pmap in
+      let cnamectx_pmap = CNamectx.to_pmap cnamectx in
+      let cnamectx_pmap' = Util.Pmap.map_im (fun ty -> INeg ty) cnamectx_pmap in
+      Util.Pmap.concat namectx_pmap' cnamectx_pmap'
+  end
+
+  let extract_name_ctx (namectx, _) = namectx
+  let embed_name_ctx namectx = (namectx, CNamectx.empty)
 
   module Store = OpLang.Store
 
@@ -150,7 +198,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     let cn = Names.fresh_cname () in
     let nterm = NTerm (cn, term) in
     let namectxO' =
-      Util.Pmap.add (inj_cont_name cn, INeg typ) (embed_name_ctx namectxO) in
+      Namectx.add (embed_name_ctx namectxO) (inj_cont_name cn) (INeg typ) in
     ((nterm, store), GEmpty, namectxO')
 
   let get_typed_ienv lexBuffer_implem lexBuffer_signature =
@@ -170,32 +218,20 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   let type_annotating_val get_ty =
     let inj_ty ty = GType ty in
-    let fname_ty = get_ty in
-    let cname_ty = get_ty in
-    OpLang.type_annotating_val ~inj_ty ~fname_ty ~cname_ty
+    let get_type_fname = get_ty in
+    let get_type_cname = get_ty in
+    OpLang.type_annotating_val ~inj_ty ~get_type_fname ~get_type_cname
 
   let conf_type = GEmpty
 
   let[@warning "-27"] type_check_nf_term ~empty_res ~name_ctx ~type_check_val nf
       =
     let inj_ty ty = GType ty in
-    let fname_ctx =
-      Util.Pmap.filter_map
-        (fun (nn, nty) ->
-          if OpLang.Names.is_fname nn then Some (nn, nty) else None)
-        name_ctx in
-    let cname_ctx =
-      Util.Pmap.filter_map
-        (fun (nn, nty) ->
-          if OpLang.Names.is_cname nn then
-            match nty with
-            | INeg ty_hole -> Some (nn, (GType ty_hole, GEmpty))
-            | IType _ ->
-                failwith
-                  "Error: a continuation name is typed with a non-negated \
-                   type. Please report."
-          else None)
-        name_ctx in
+    let (_, cnamectx) = name_ctx in
+    let get_type_fname fn = Namectx.lookup_exn name_ctx fn in
+    let get_type_cname cn =
+      let ty_hole = CNamectx.lookup_exn cnamectx cn in
+      (GType ty_hole, GEmpty) in
     let type_check_call = type_check_val in
     let type_check_ret value ty_hole ty_out =
       match (ty_hole, ty_out) with
@@ -204,7 +240,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
           failwith
             "Error: tring to type an evaluation context with a return type \
              different of ⊥. Please report." in
-    OpLang.type_check_nf_term ~inj_ty ~empty_res ~fname_ctx ~cname_ctx
+    OpLang.type_check_nf_term ~inj_ty ~empty_res ~get_type_fname ~get_type_cname
       ~type_check_call ~type_check_ret nf
 
   let generate_nf_term namectx =
@@ -295,6 +331,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
        and type negative_type = negative_type_temp
        and type label = Store.label
        and type store_ctx = Store.Storectx.t
+       and type name_ctx = Namectx.t
        and module BranchMonad = Store.BranchMonad = struct
     type name = Names.name
     type label = OpLang.AVal.label
@@ -305,7 +342,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     type store_ctx = Store.Storectx.t
 
     (*    type negative_type = OpLang.negative_type*)
-    type name_ctx = (name, negative_type) Util.Pmap.pmap
+    type name_ctx = Namectx.t
     type interactive_env = (name, negative_val) Util.Pmap.pmap
 
     type abstract_val =
@@ -350,7 +387,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
         end
       | (GProd (ty, tyhole), APair (aval, cn)) ->
           let nn = inj_cont_name cn in
-          if Util.Pmap.mem nn namectxP || Util.Pmap.mem nn namectxO then None
+          if Namectx.mem namectxP nn || Namectx.mem namectxO nn then None
             (* the name cn has to be fresh for the abstract value to be well-typed *)
           else begin
             match
@@ -361,7 +398,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
             with
             | None -> None
             | Some lnamectx ->
-                Some (Util.Pmap.add (nn, INeg tyhole) (embed_name_ctx lnamectx))
+                Some (Namectx.add (embed_name_ctx lnamectx) nn (INeg tyhole))
           end
       | _ -> None
 
@@ -374,7 +411,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
           let ienv = embed_value_env val_env in
           let ienv' = Util.Pmap.add (inj_cont_name cn, ICtx ectx) ienv in
           let lnamectx = embed_name_ctx lnamectx in
-          let lnamectx' = Util.Pmap.add (inj_cont_name cn, INeg ty_c) lnamectx in
+          let lnamectx' = Namectx.add lnamectx (inj_cont_name cn) (INeg ty_c) in
           (APair (aval, cn), ienv', lnamectx')
       | (GVal value, GType ty) ->
           let (aval, val_env, lnamectx) =
@@ -386,26 +423,25 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
     module BranchMonad = OpLang.AVal.BranchMonad
 
-    (* From the interactive name context Γ_P and a glue type τ,
+    (* From the list-presented interactive name context Γ_P and a glue type τ,
        we generate all the possible pairs (A,Δ) such that
        Γ_P;_ ⊢ A : τ ▷ Δ
        Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
-    let generate_abstract_val storectx lnamectx gtype =
-      let lnamectx' = extract_name_ctx lnamectx in
+    let generate_abstract_val storectx namectxP_pmap gtype =
+      let namectxP_pmap' = Util.Pmap.filter_map (fun (nn,ty) -> match ty with | IType nty -> Some (nn,nty) | _ -> None) namectxP_pmap in
       let open OpLang.AVal.BranchMonad in
       match gtype with
       | GType ty ->
           let* (aval, lnamectx) =
-            OpLang.AVal.generate_abstract_val storectx lnamectx' ty in
+            OpLang.AVal.generate_abstract_val storectx namectxP_pmap' ty in
           return (AVal aval, embed_name_ctx lnamectx)
       | GProd (ty, tyhole) ->
           let* (aval, lnamectx) =
-            OpLang.AVal.generate_abstract_val storectx lnamectx' ty in
+            OpLang.AVal.generate_abstract_val storectx namectxP_pmap' ty in
           let cn = Names.fresh_cname () in
           let lnamectx' =
-            Util.Pmap.add
-              (inj_cont_name cn, INeg tyhole)
-              (embed_name_ctx lnamectx) in
+            Namectx.add (embed_name_ctx lnamectx) (inj_cont_name cn)
+              (INeg tyhole) in
           return (APair (aval, cn), lnamectx')
       | GExists (tvar_l, ty, tyhole) ->
           Util.Debug.print_debug
@@ -414,12 +450,11 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
           let ty' = OpLang.apply_type_subst ty type_subst in
           let tyhole' = OpLang.apply_type_subst tyhole type_subst in
           let* (aval, lnamectx) =
-            OpLang.AVal.generate_abstract_val storectx lnamectx' ty' in
+            OpLang.AVal.generate_abstract_val storectx namectxP_pmap' ty' in
           let cn = Names.fresh_cname () in
           let lnamectx' =
-            Util.Pmap.add
-              (inj_cont_name cn, INeg tyhole')
-              (embed_name_ctx lnamectx) in
+            Namectx.add (embed_name_ctx lnamectx) (inj_cont_name cn)
+              (INeg tyhole') in
           return (APack (tname_l, aval, cn), lnamectx')
       | _ -> failwith "The glue type is not valid. Please report."
 

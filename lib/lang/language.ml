@@ -1,12 +1,12 @@
 module type TYPED = sig
   module Names : Names.NAMES
 
-  type typ
+  type typ [@@deriving to_yojson]
 
   val string_of_type : typ -> string
   val pp_type : Format.formatter -> typ -> unit
 
-  type negative_type
+  type negative_type [@@deriving to_yojson]
 
   val get_negative_type : typ -> negative_type option
   val string_of_negative_type : negative_type -> string
@@ -16,7 +16,6 @@ module type TYPED = sig
     Typectx.TYPECTX
       with type name = Names.name
        and type typ = negative_type
-       and type t = (Names.name, negative_type) Util.Pmap.pmap
 end
 
 module type STORE = sig
@@ -196,7 +195,7 @@ module type WITHAVAL_INOUT = sig
   module Nf : NF with module BranchMonad = Store.BranchMonad
 
   type eval_context
-  type typevar
+  type typevar [@@deriving to_yojson]
   type typename
 
   val pp_eval_context : Format.formatter -> eval_context -> unit
@@ -206,13 +205,13 @@ module type WITHAVAL_INOUT = sig
 
   val type_annotating_val :
     inj_ty:(typ -> 'ty) ->
-    fname_ty:('fname -> 'ty) ->
-    cname_ty:('cname -> 'ty) ->
+    get_type_fname:('fname -> 'ty) ->
+    get_type_cname:('cname -> 'ty) ->
     ('value, 'ectx, 'fname, 'cname) Nf.nf_term ->
     ('value * 'ty, 'ectx, 'fname, 'cname) Nf.nf_term
 
   val type_annotating_ectx :
-    ('fname, typ) Util.Pmap.pmap ->
+    get_type_fname:('fname -> typ) ->
     typ ->
     ('value, 'ectx, 'fname, 'cname) Nf.nf_term ->
     ('value, 'ectx * (typ * typ), 'fname, 'cname) Nf.nf_term
@@ -220,8 +219,8 @@ module type WITHAVAL_INOUT = sig
   val type_check_nf_term :
     inj_ty:(typ -> 'ty) ->
     empty_res:'res ->
-    fname_ctx:('fname, 'nty) Util.Pmap.pmap ->
-    cname_ctx:('cname, 'ty * 'ty) Util.Pmap.pmap ->
+    get_type_fname:('fname -> 'nty) ->
+    get_type_cname:('cname -> 'ty * 'ty) ->
     type_check_call:('value -> 'nty -> 'res option) ->
     type_check_ret:('value -> 'ty -> 'ty -> 'res option) ->
     ('value, 'ectx, 'fname, 'cname) Nf.nf_term ->
@@ -259,6 +258,7 @@ module type WITHAVAL_INOUT = sig
        and type negative_type = negative_type
        and type label = Store.label
        and type store_ctx = Store.Storectx.t
+       and type name_ctx = Namectx.t
        and module BranchMonad = Store.BranchMonad
 end
 
@@ -278,7 +278,7 @@ module type WITHAVAL_NEG = sig
 
   val type_check_nf_term :
     empty_res:'res ->
-    name_ctx:(Names.name, negative_type) Util.Pmap.pmap ->
+    name_ctx:Namectx.t ->
     type_check_val:('value -> negative_type -> 'res option) ->
     ('value, 'ectx, Names.name, Names.name) Nf.nf_term ->
     'res option
@@ -308,5 +308,6 @@ module type WITHAVAL_NEG = sig
        and type negative_type = negative_type
        and type label = Store.label
        and type store_ctx = Store.Storectx.t
+       and type name_ctx = Namectx.t
        and module BranchMonad = Store.BranchMonad
 end

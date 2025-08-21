@@ -7,6 +7,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
      and type negative_type = Types.negative_type
      and type label = Syntax.label
      and type store_ctx = Store.Storectx.t
+     and type name_ctx = (Names.name, Types.negative_type) Util.Pmap.pmap
      and module BranchMonad = BranchMonad = struct
   (* Instantiation *)
   type name = Names.name
@@ -15,18 +16,17 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
   type negative_val = Syntax.negative_val
   type typ = Types.typ
   type negative_type = Types.negative_type
-  type store_ctx = Store.Storectx.t
+  type store_ctx = Store.Storectx.t  
+  type name_ctx = (name, negative_type) Util.Pmap.pmap
   (* *)
 
   open Syntax
   open Types
 
-  type name_ctx = (name, negative_type) Util.Pmap.pmap
   type interactive_env = (name, negative_val) Util.Pmap.pmap
   type abstract_val = Syntax.value
 
   let pp_abstract_val = Syntax.pp_term
-
   let string_of_abstract_val = Format.asprintf "%a" pp_abstract_val
   let names_of_abstract_val = Syntax.get_names
   let labels_of_abstract_val = Syntax.get_labels
@@ -59,7 +59,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
   module BranchMonad = BranchMonad
   open BranchMonad
 
-  let rec generate_abstract_val ((_, cons_ctx) as storectx) namectxP = function
+  let rec generate_abstract_val ((_, cons_ctx) as storectx) namectxP_pmap =
+    function
     | TUnit -> return (Unit, Util.Pmap.empty)
     | TBool ->
         let* b = para_list @@ [ true; false ] in
@@ -68,8 +69,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
         let* i = BranchMonad.pick_int () in
         return (Int i, Util.Pmap.empty)
     | TProd (ty1, ty2) ->
-        let* (nup1, nctx1) = generate_abstract_val storectx namectxP ty1 in
-        let* (nup2, nctx2) = generate_abstract_val storectx namectxP ty2 in
+        let* (nup1, nctx1) = generate_abstract_val storectx namectxP_pmap ty1 in
+        let* (nup2, nctx2) = generate_abstract_val storectx namectxP_pmap ty2 in
         return (Pair (nup1, nup2), Util.Pmap.concat nctx1 nctx2)
     | TSum _ ->
         failwith "Need to add injection to the syntax of expressions"
@@ -83,7 +84,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
         let nty = Types.force_negative_type ty in
         return (Name fn, Util.Pmap.singleton (fn, nty))
     | TId _ as ty ->
-        let pn_list = Util.Pmap.select_im ty namectxP in
+        let pn_list = Util.Pmap.select_im ty namectxP_pmap in
         let* pn = para_list @@ pn_list in
         return (Name pn, Util.Pmap.empty)
     | TName _ as ty ->
@@ -94,12 +95,17 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
         Util.Debug.print_debug
         @@ "Generating exception abstract values in the store context "
         ^ Store.Storectx.to_string storectx;
-        let exn_cons_map = Util.Pmap.filter_map_im (fun ty -> match ty with TArrow (_, TExn) -> Some ty | _ ->  None) cons_ctx in
+        let exn_cons_map =
+          Util.Pmap.filter_map_im
+            (fun ty -> match ty with TArrow (_, TExn) -> Some ty | _ -> None)
+            cons_ctx in
         let* (c, cons_ty) = para_list @@ Util.Pmap.to_list exn_cons_map in
         begin
-          match cons_ty with 
-          | TArrow(pty, _) -> let* (nup, nctx) = generate_abstract_val storectx namectxP pty in
-               return (Constructor (c, nup), nctx)
+          match cons_ty with
+          | TArrow (pty, _) ->
+              let* (nup, nctx) =
+                generate_abstract_val storectx namectxP_pmap pty in
+              return (Constructor (c, nup), nctx)
           | _ -> failwith ""
         end
     | ty ->
@@ -148,7 +154,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
         else
           let nty = Types.force_negative_type ty in
           Some (Util.Pmap.singleton (nn, nty))
-          (*TODO: Should we check to who belongs the TName ? *)
+    (*TODO: Should we check to who belongs the TName ? *)
     (* | (TExn, Constructor (c, nup')) ->  
         let (TArrow (param_ty, _)) = Util.Pmap.lookup_exn c (Util.Pmap.concat namectxP namectxO) in 
         type_check_abstract_val namectxP namectxO param_ty nup' *)
@@ -162,8 +168,12 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
 
   let rec abstracting_value (value : value) ty =
     match (value, ty) with
-    | (Fun _, TArrow _) | (Fix _, TArrow _) | (Name _, TArrow _)
-    | (Fun _, TForall (_,TArrow _) )| (Fix _, TForall (_,TArrow _)) | (Name _, TForall (_,TArrow _)) ->
+    | (Fun _, TArrow _)
+    | (Fix _, TArrow _)
+    | (Name _, TArrow _)
+    | (Fun _, TForall (_, TArrow _))
+    | (Fix _, TForall (_, TArrow _))
+    | (Name _, TForall (_, TArrow _)) ->
         let fn = Names.fresh_fname () in
         let nval = Syntax.force_negative_val value in
         let nty = Types.force_negative_type ty in

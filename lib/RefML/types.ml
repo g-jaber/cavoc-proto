@@ -1,4 +1,4 @@
-type typevar = string
+type typevar = string [@@deriving to_yojson]
 type id = string
 
 (* Types *)
@@ -58,6 +58,7 @@ and pp_par_typ fmt = function
   | typ -> pp_typ fmt typ
 
 let string_of_typ = Format.asprintf "%a" pp_typ
+let typ_to_yojson ty = `String (string_of_typ ty)
 
 (* We provide a way to generate fresh type variables,
    that are used in the type checker *)
@@ -184,9 +185,9 @@ let mgu_type tenv (ty1, ty2) =
         match mgu_type_aux ty11 ty21 tsubst with
         | None -> None
         | Some tsubst' ->
-          let ty12' = apply_type_subst ty12 tsubst' in
-          let ty22' = apply_type_subst ty22 tsubst' in
-          mgu_type_aux ty12' ty22' tsubst'
+            let ty12' = apply_type_subst ty12 tsubst' in
+            let ty22' = apply_type_subst ty22 tsubst' in
+            mgu_type_aux ty12' ty22' tsubst'
       end
     | (TVar tvar1, TVar tvar2) when tvar1 = tvar2 -> Some tsubst
     | (TVar tvar, ty) | (ty, TVar tvar) ->
@@ -200,7 +201,10 @@ let mgu_type tenv (ty1, ty2) =
         | Some ty' -> mgu_type_aux ty ty' tsubst
         | None -> None
       end
-    | (TForall _, TForall _) -> failwith "Computing the MGU of forall types is not yet supported. Please report."
+    | (TForall _, TForall _) ->
+        failwith
+          "Computing the MGU of forall types is not yet supported. Please \
+           report."
     | (ty1, ty2) ->
         Util.Debug.print_debug
           ("Cannot unify " ^ string_of_typ ty1 ^ " and " ^ string_of_typ ty2);
@@ -224,6 +228,7 @@ type negative_type = typ
 
 let string_of_negative_type = string_of_typ
 let pp_negative_type = pp_typ
+let negative_type_to_yojson ty = `String (string_of_negative_type ty)
 
 let get_negative_type ty =
   match ty with TArrow _ | TForall _ -> Some ty | _ -> None

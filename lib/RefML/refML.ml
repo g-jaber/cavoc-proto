@@ -6,41 +6,28 @@ module Typed :
   Lang.Language.TYPED
     with type typ = Types.typ
      and type negative_type = Types.negative_type
+     and type Namectx.t = (Names.name,Types.negative_type) Util.Pmap.pmap
      and module Names = Names = struct
   module Names = Names
 
   type typ = Types.typ
+  let typ_to_yojson = Types.typ_to_yojson
 
   let string_of_type = Types.string_of_typ
   let pp_type = Types.pp_typ
 
   type negative_type = Types.negative_type
+  let negative_type_to_yojson = Types.negative_type_to_yojson
 
   let string_of_negative_type = Types.string_of_negative_type
   let pp_negative_type = Types.pp_negative_type
   let get_negative_type = Types.get_negative_type
 
-  module Namectx = struct
-    type name = Names.name
-    type t = (name, negative_type) Util.Pmap.pmap
-      type typ = Types.typ
-
-    let to_yojson ienv =
-      let to_string (nn, nty) =
-        (Names.string_of_name nn, `String (string_of_negative_type nty)) in
-      `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string ienv)
-
-    let empty = Util.Pmap.empty
-    let concat = Util.Pmap.concat
-    let get_names = Util.Pmap.dom
-
-    let to_string =
-      Util.Pmap.string_of_pmap "[]" "::" Names.string_of_name
-        Types.string_of_negative_type
-
-    let pp = Type_ctx.pp_name_ctx
-    let lookup_exn name_ctx nn = Util.Pmap.lookup_exn nn name_ctx
-  end
+  module Namectx = Lang.Typectx.Make_PMAP (Names) (struct
+        type t = negative_type
+        let to_yojson = Types.negative_type_to_yojson
+        let pp = pp_negative_type
+      end)
 end
 
 module MakeStore (BranchMonad : Util.Monad.BRANCH) :
@@ -62,6 +49,7 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
      and type negative_type = Types.negative_type
      and type Store.label = Syntax.label
      and type Store.Storectx.t = Store.Storectx.t
+     and type Namectx.t = (Names.name,Types.negative_type) Util.Pmap.pmap
      and module Names = Names
      and module Store.BranchMonad = BranchMonad = struct
   include Syntax
@@ -139,7 +127,7 @@ module WithAVal (BranchMonad : Util.Monad.BRANCH) :
   let pp_eval_context = Syntax.pp_eval_context
   let string_of_eval_context = Syntax.string_of_eval_context
 
-  type typevar = Types.typevar
+  type typevar = Types.typevar [@@deriving to_yojson]
   type typename = Types.id
 
   let string_of_typename id = id
@@ -189,6 +177,7 @@ module WithAVal (BranchMonad : Util.Monad.BRANCH) :
        and type negative_type = Types.negative_type
        and type label = Syntax.label
        and type store_ctx = Store.Storectx.t
+       and type name_ctx = Namectx.t
        and module BranchMonad = BranchMonad =
     Nup.Make (BranchMonad)
 end

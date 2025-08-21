@@ -93,7 +93,18 @@ struct
       | PropCtx (fnamectx, _) | OpCtx (_, fnamectx) ->
           OpLang.Namectx.get_names fnamectx
 
-    let lookup_exn (name_ctx:t) fn = match name_ctx with | OpCtx (_, fnamectx)| PropCtx (fnamectx, _) -> Util.Pmap.lookup_exn fn fnamectx
+    let lookup_exn (name_ctx : t) fn =
+      match name_ctx with
+      | OpCtx (_, fnamectx) | PropCtx (fnamectx, _) ->
+          OpLang.Namectx.lookup_exn fnamectx fn
+
+    let add (namectx : t) nn nty =
+      match namectx with
+      | OpCtx (ty, fnamectx) -> OpCtx (ty, OpLang.Namectx.add fnamectx nn nty)
+      | PropCtx (fnamectx, stackctx) ->
+          PropCtx (OpLang.Namectx.add fnamectx nn nty, stackctx)
+
+    let to_pmap = failwith "TODO"
   end
 
   (* Interactive environments γ are pairs formed by partial maps from functional names to functional values,
@@ -160,23 +171,24 @@ struct
   let[@warning "-8"] abstracting_nf_term nf_term
       (Namectx.OpCtx (Some ty_out, fnamectxO)) =
     let inj_ty ty = ty in
-    let fname_ty fn =
-      let nty = Util.Pmap.lookup_exn fn fnamectxO in
+    let get_type_fname fn =
+      let nty = OpLang.Namectx.lookup_exn fnamectxO fn in
       snd @@ OpLang.get_input_type nty
       (* TODO: we should do something with the tvar_l *) in
-    let fname_ctx_hole =
-      Util.Pmap.map_im (fun nty -> OpLang.get_output_type nty) fnamectxO in
-    let cname_ty () = ty_out in
+    let get_type_cname () = ty_out in
     let nf_typed_term =
-      OpLang.type_annotating_val ~inj_ty ~fname_ty ~cname_ty nf_term in
+      OpLang.type_annotating_val ~inj_ty ~get_type_fname ~get_type_cname nf_term in
+    let get_type_fname fn =
+      let nty = OpLang.Namectx.lookup_exn fnamectxO fn in
+      OpLang.get_output_type nty in
     let nf_typed_term' =
-      OpLang.type_annotating_ectx fname_ctx_hole ty_out nf_typed_term in
+      OpLang.type_annotating_ectx ~get_type_fname ty_out nf_typed_term in
     let f_val (value, nty) =
       let (aval, ienv, lnamectx) = OpLang.AVal.abstracting_value value nty in
       (aval, (ienv, lnamectx)) in
     let f_ectx (ectx, (ty_hole, ty_out)) =
       ((), ([ ectx ], [ (ty_hole, ty_out) ])) in
-    let empty_res = (Util.Pmap.empty, Util.Pmap.empty) in
+    let empty_res = (OpLang.empty_ienv, OpLang.Namectx.empty) in
     let (a_nf_term, (ienv, lnamectx)) =
       OpLang.Nf.map_val empty_res f_val nf_typed_term' in
     let (a_nf_term', (stack, stack_ctx)) =
@@ -244,17 +256,18 @@ struct
 
   let[@warning "-8"] generate_a_nf_call storectx
       (Namectx.PropCtx (fnamectx, _) as namectxP) =
-    let fname_ctx =
+    let fnamectx_pmap = OpLang.Namectx.to_pmap fnamectx in
+    let fnamectx_split =
       Util.Pmap.filter_map
         (fun (nn, ty) ->
           if OpLang.Names.is_fname nn then
             let (_, in_ty) = OpLang.get_input_type ty in
             Some (nn, (in_ty, OpLang.get_output_type ty))
           else None)
-        fnamectx in
+        fnamectx_pmap in
     let open BranchMonad in
-    let* (skel, typ) = OpLang.generate_nf_term_call fname_ctx in
-    let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx skel in
+    let* (skel, typ) = OpLang.generate_nf_term_call fnamectx_split in
+    let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx_pmap skel in
     let* store = OpLang.Store.generate_store storectx in
     let namectxO = Namectx.OpCtx (Some typ, lnamectx) in
     return ((a_nf_term, store), namectxO, namectxP)
@@ -262,11 +275,13 @@ struct
   let[@warning "-8"] generate_a_nf_ret storectx = function
     | Namectx.PropCtx (_, []) -> BranchMonad.fail ()
     | Namectx.PropCtx (fnamectx, (ty_hole, ty_out) :: stackctx') ->
-        let cname_ctx = Util.Pmap.singleton ((), (ty_hole, ty_out)) in
+        let cnamectx_pmap = Util.Pmap.singleton ((), (ty_hole, ty_out)) in
+        let fnamectx_pmap = OpLang.Namectx.to_pmap fnamectx in
         let inj_ty ty = ty in
         let open BranchMonad in
-        let* (skel, typ) = OpLang.generate_nf_term_ret inj_ty cname_ctx in
-        let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx skel in
+        let* (skel, typ) = OpLang.generate_nf_term_ret inj_ty cnamectx_pmap in
+        let* (a_nf_term, lnamectx) =
+          fill_abstract_val storectx fnamectx_pmap skel in
         let* store = OpLang.Store.generate_store storectx in
         let namectxP' = Namectx.PropCtx (fnamectx, stackctx') in
         let namectxO = Namectx.OpCtx (Some typ, lnamectx) in
@@ -282,31 +297,32 @@ struct
       (Namectx.OpCtx (None, fnamectxO)) (nf_term, _) =
     let inj_ty ty = ty in
     let empty_res = (Namectx.empty, namectxP) in
-    let fname_ctx = fnamectxP in
-    let cname_ctx =
+    let get_type_fname fn = OpLang.Namectx.lookup_exn fnamectxP fn in
+    let get_type_cname () =
       match stack_ctx with
-      | [] -> Util.Pmap.empty
-      | (ty_hole, ty_out) :: _ -> Util.Pmap.singleton ((), (ty_hole, ty_out))
-    in
-    let lift_lnamectx namectxP' ty_out = function
+      | [] -> failwith "Empty stack typing context. Please report"
+      | (ty_hole, ty_out) :: _ -> (ty_hole, ty_out) in
+    let lift_lnamectx namectxP ty_out = function
       | None -> None
-      | Some lnamectx -> Some (Namectx.OpCtx (Some ty_out, lnamectx), namectxP')
+      | Some lnamectx -> Some (Namectx.OpCtx (Some ty_out, lnamectx), namectxP)
     in
     let type_check_call aval nty =
       let (_, ty_arg) = OpLang.get_input_type nty in
       let ty_out = OpLang.get_output_type nty in
-      lift_lnamectx namectxP ty_out
-      @@ OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_arg aval
-    in
+      let lnamectx =
+        OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_arg aval
+      in
+      lift_lnamectx namectxP ty_out lnamectx in
     let type_check_ret aval ty_hole ty_out =
       match stack_ctx with
       | [] -> None
       | _ :: stack_ctx' ->
           let namectxP' = Namectx.PropCtx (fnamectxP, stack_ctx') in
-          lift_lnamectx namectxP' ty_out
-          @@ OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_hole
-               aval in
-    OpLang.type_check_nf_term ~inj_ty ~empty_res ~fname_ctx ~cname_ctx
+          let lnamectx =
+            OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_hole aval
+          in
+          lift_lnamectx namectxP' ty_out lnamectx in
+    OpLang.type_check_nf_term ~inj_ty ~empty_res ~get_type_fname ~get_type_cname
       ~type_check_call ~type_check_ret nf_term
 
   (* Beware that is_equiv_a_nf does not check the equivalence of
