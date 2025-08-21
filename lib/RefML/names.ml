@@ -41,17 +41,3 @@ let string_of_name = function FName f -> f | CName c -> c | PName p -> p
 let pp_name fmt = function
   | FName id | CName id | PName id -> Format.fprintf fmt "%s" id
 
-let cname_of_id id = CName id
-let cname_to_id = function CName cn -> Some cn | _ -> None
-
-type cont_name = id
-
-let string_of_cont_name cn = cn
-let pp_cont_name fmt cn = Format.fprintf fmt "%s" cn
-let get_cont_name = cname_to_id
-let inj_cont_name = cname_of_id
-
-let is_callable = function
-  | FName _ -> true
-  | CName _ -> true
-  | PName _ -> false
