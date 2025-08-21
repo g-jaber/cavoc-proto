@@ -1,4 +1,5 @@
 type store = Syntax.val_env * Heap.heap * Type_ctx.cons_ctx
+type location = Loc of Syntax.loc | Cons of Syntax.constructor
 
 (*TODO: We should also print the other components *)
 let pp_store fmt (_, heap, _) = Heap.pp_heap fmt heap
@@ -32,22 +33,49 @@ let cons_add (valenv, heap, cons_ctx) (cons, ty) =
 
 let embed_cons_ctx cons_ctx = (Util.Pmap.empty, Util.Pmap.empty, cons_ctx)
 
-type store_ctx = Type_ctx.loc_ctx * Type_ctx.cons_ctx
+module Storectx = struct
+  type t = Type_ctx.loc_ctx * Type_ctx.cons_ctx
+  type name = location
 
-let pp_store_ctx fmt (loc_ctx, cons_ctx) =
-  if Util.Pmap.is_empty cons_ctx then
-    Format.fprintf fmt "%a" Type_ctx.pp_loc_ctx loc_ctx
-  else
-    Format.fprintf fmt "%a ; %a" Type_ctx.pp_loc_ctx loc_ctx
-      Type_ctx.pp_cons_ctx cons_ctx
+  let pp fmt (loc_ctx, cons_ctx) =
+    if Util.Pmap.is_empty cons_ctx then
+      Format.fprintf fmt "%a" Type_ctx.pp_loc_ctx loc_ctx
+    else
+      Format.fprintf fmt "%a ; %a" Type_ctx.pp_loc_ctx loc_ctx
+        Type_ctx.pp_cons_ctx cons_ctx
 
-let string_of_store_ctx = Format.asprintf "%a" pp_store_ctx
-let empty_store_ctx = (Type_ctx.empty_loc_ctx, Type_ctx.empty_cons_ctx)
+  let to_string = Format.asprintf "%a" pp
 
-let concat_store_ctx (loc_ctx1, cons_ctx1) (loc_ctx2, cons_ctx2) =
-  let loc_ctx = Util.Pmap.concat loc_ctx1 loc_ctx2 in
-  let cons_ctx = Util.Pmap.concat cons_ctx1 cons_ctx2 in
-  (loc_ctx, cons_ctx)
+  let to_yojson (loc_ctx, cons_ctx) =
+    `Tuple
+      [
+        `Assoc
+          (Util.Pmap.to_list
+          @@ Util.Pmap.map
+               (fun (loc, ty) ->
+                 (Syntax.string_of_loc loc, `String (Types.string_of_typ ty)))
+               loc_ctx);
+        `Assoc
+          (Util.Pmap.to_list
+          @@ Util.Pmap.map
+               (fun (cons, ty) ->
+                 ( Syntax.string_of_constructor cons,
+                   `String (Types.string_of_typ ty) ))
+               cons_ctx);
+      ]
+
+  let empty = (Type_ctx.empty_loc_ctx, Type_ctx.empty_cons_ctx)
+
+  let concat (loc_ctx1, cons_ctx1) (loc_ctx2, cons_ctx2) =
+    let loc_ctx = Util.Pmap.concat loc_ctx1 loc_ctx2 in
+    let cons_ctx = Util.Pmap.concat cons_ctx1 cons_ctx2 in
+    (loc_ctx, cons_ctx)
+
+  let get_names (loc_ctx, cons_ctx) =
+    let loc_l = List.map (fun l -> Loc l) (Util.Pmap.dom loc_ctx) in
+    let cons_l = List.map (fun c -> Cons c) (Util.Pmap.dom cons_ctx) in
+    loc_l @ cons_l
+end
 
 let infer_type_store (_, heap, cons_ctx) = (Heap.loc_ctx_of_heap heap, cons_ctx)
 

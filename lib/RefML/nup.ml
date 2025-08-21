@@ -6,7 +6,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
      and type typ = Types.typ
      and type negative_type = Types.negative_type
      and type label = Syntax.label
-     and type store_ctx = Store.store_ctx
+     and type store_ctx = Store.Storectx.t
      and module BranchMonad = BranchMonad = struct
   (* Instantiation *)
   type name = Names.name
@@ -15,7 +15,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
   type negative_val = Syntax.negative_val
   type typ = Types.typ
   type negative_type = Types.negative_type
-  type store_ctx = Store.store_ctx
+  type store_ctx = Store.Storectx.t
   (* *)
 
   open Syntax
@@ -93,7 +93,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     | TExn ->
         Util.Debug.print_debug
         @@ "Generating exception abstract values in the store context "
-        ^ Store.string_of_store_ctx storectx;
+        ^ Store.Storectx.to_string storectx;
         let exn_cons_map = Util.Pmap.filter_map_im (fun ty -> match ty with TArrow (_, TExn) -> Some ty | _ ->  None) cons_ctx in
         let* (c, cons_ty) = para_list @@ Util.Pmap.to_list exn_cons_map in
         begin

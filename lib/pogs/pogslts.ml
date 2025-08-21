@@ -75,7 +75,7 @@ module Make (Lang : Lang.Interactive.LANG) :
 
   let init_aconf opconf namectxO =
     let pos =
-      TypingLTS.init_act_pos Lang.empty_store_ctx Lang.Namectx.empty namectxO
+      TypingLTS.init_act_pos Lang.Storectx.empty Lang.Namectx.empty namectxO
     in
     { opconf; pos }
 

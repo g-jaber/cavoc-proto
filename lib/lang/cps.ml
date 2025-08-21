@@ -308,7 +308,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
        and type typ = typ_temp
        and type negative_type = negative_type_temp
        and type label = Store.label
-       and type store_ctx = Store.store_ctx
+       and type store_ctx = Store.Storectx.t
        and module BranchMonad = Store.BranchMonad = struct
     type name = Names.name
     type label = OpLang.AVal.label
@@ -316,7 +316,8 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     type negative_val = negative_val_temp
     type typ = typ_temp
     type negative_type = negative_type_temp
-    type store_ctx = Store.store_ctx
+    
+    type store_ctx = Store.Storectx.t
 
     (*    type negative_type = OpLang.negative_type*)
     type name_ctx = (name, negative_type) Util.Pmap.pmap

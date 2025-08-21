@@ -16,3 +16,6 @@
 - [x] Propose a specified signature NAMEDMOVES where move type is defined as name*a_nf
 - [x] Add a Namectx signature
 - [x] Create a specific signature Lang.Interactive.LANG_WITH_INIT 
+- [ ] Use Typectx for storectx
+- [ ] Create a module signature for renamings
+ 

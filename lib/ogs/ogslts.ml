@@ -4,7 +4,7 @@ module Make
       Lts.Typing.LTS
         with type Moves.Names.name = Lang.Names.name
          and type name_ctx = Lang.Namectx.t
-         and type store_ctx = Lang.store_ctx
+         and type store_ctx = Lang.Storectx.t
          and type Moves.move = Lang.abstract_normal_form) :
   Lts.Bipartite.INT_LTS
     with module OBranchingMonad = TypingLTS.BranchMonad
@@ -89,12 +89,12 @@ module Make
 
   let init_aconf opconf namectxO =
     let pos =
-      TypingLTS.init_act_pos Lang.empty_store_ctx Lang.Namectx.empty namectxO
+      TypingLTS.init_act_pos Lang.Storectx.empty Lang.Namectx.empty namectxO
     in
     { opconf; ienv= Lang.empty_ienv; pos }
 
   let init_pconf store ienv namectxP namectxO =
-    let store_ctx = Lang.empty_store_ctx in
+    let store_ctx = Lang.Storectx.empty in
     (* we suppose that the initial store is not shared *)
     let pos = TypingLTS.init_pas_pos store_ctx namectxP namectxO in
     { store; ienv; pos }

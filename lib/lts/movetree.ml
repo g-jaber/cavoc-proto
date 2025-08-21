@@ -45,12 +45,19 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
   let string_of_store : store -> string = failwith ""
   let pp_store : Format.formatter -> store -> unit = failwith ""
 
-  type store_ctx = unit
+  module Storectx = struct
+    type name = unit
+    type t = unit
 
-  let string_of_store_ctx : store_ctx -> string = failwith ""
-  let pp_store_ctx : Format.formatter -> store_ctx -> unit = failwith ""
-  let empty_store_ctx : store_ctx = failwith ""
-  let infer_type_store : store -> store_ctx = failwith ""
+    let to_string : t -> string = failwith ""
+    let pp : Format.formatter -> t -> unit = failwith ""
+    let empty : t = failwith ""
+    let concat = failwith ""
+    let to_yojson = failwith ""
+    let get_names = failwith ""
+  end
+
+  let infer_type_store : store -> Storectx.t = failwith ""
 
   type opconf = MoveTree.Moves.move * store
 
@@ -74,7 +81,9 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
   type abstract_normal_form = MoveTree.Moves.move
 
   let eval ((move, movetree), namectx, storectx) :
-      ((abstract_normal_form * Namectx.t * store_ctx) * interactive_env * store)
+      ((abstract_normal_form * Namectx.t * Storectx.t)
+      * interactive_env
+      * store)
       EvalMonad.m =
     match MoveTree.trigger movetree move with
     | None -> EvalMonad.fail ()
@@ -101,7 +110,7 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
     MoveTree.Moves.unify_move
 
   let generate_a_nf :
-      store_ctx ->
+      Storectx.t ->
       Namectx.t ->
       (abstract_normal_form * Namectx.t * Namectx.t) BranchMonad.m =
     (*MoveTree.Moves.generate_moves - Need to handle storectx*)

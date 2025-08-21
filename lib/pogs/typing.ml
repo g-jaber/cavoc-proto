@@ -2,34 +2,34 @@ module Make (IntLang : Lang.Interactive.LANG) :
   Lts.Typing.LTS
     with type Moves.Names.name = IntLang.Names.name
      and type name_ctx = IntLang.Namectx.t
-     and type store_ctx = IntLang.store_ctx
+     and type store_ctx = IntLang.Storectx.t
      and type Moves.move = IntLang.abstract_normal_form = struct
   module Moves = Lts.Moves.Make (IntLang)
   module BranchMonad = IntLang.BranchMonad
 
   type name_ctx = IntLang.Namectx.t
-  type store_ctx = IntLang.store_ctx
+  type store_ctx = IntLang.Storectx.t
 
   let domain_of_name_ctx namectx = IntLang.Namectx.get_names namectx
 
   type act_position = {
-    storectx: IntLang.store_ctx;
+    storectx: IntLang.Storectx.t;
     namectxO: IntLang.Namectx.t;
   }
 
   let act_position_to_yojson ictx =
     `Assoc
       [
-        ("storectx", `String (IntLang.string_of_store_ctx ictx.storectx));
+        ("storectx", (IntLang.Storectx.to_yojson ictx.storectx));
         ("namectxO", IntLang.Namectx.to_yojson ictx.namectxO);
       ]
 
   let pp_act_position fmt ictx =
-    Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a⟩@]" IntLang.pp_store_ctx
+    Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a⟩@]" IntLang.Storectx.pp
       ictx.storectx IntLang.Namectx.pp ictx.namectxO
 
   type pas_position = {
-    storectx: IntLang.store_ctx;
+    storectx: IntLang.Storectx.t;
     namectxP: IntLang.Namectx.t;
     namectxO: IntLang.Namectx.t;
   }
@@ -37,13 +37,13 @@ module Make (IntLang : Lang.Interactive.LANG) :
   let pas_position_to_yojson ictx =
     `Assoc
       [
-        ("storectx", `String (IntLang.string_of_store_ctx ictx.storectx));
+        ("storectx", IntLang.Storectx.to_yojson ictx.storectx);
         ("namectxP", IntLang.Namectx.to_yojson ictx.namectxP);
         ("namectxO", IntLang.Namectx.to_yojson ictx.namectxO);
       ]
 
   let pp_pas_position fmt ictx =
-    Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a |@, ΔP: %a⟩@]" IntLang.pp_store_ctx
+    Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a |@, ΔP: %a⟩@]" IntLang.Storectx.pp
       ictx.storectx IntLang.Namectx.pp ictx.namectxO IntLang.Namectx.pp
       ictx.namectxP
 

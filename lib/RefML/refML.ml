@@ -44,7 +44,8 @@ module MakeStore (BranchMonad : Util.Monad.BRANCH) :
   Lang.Language.STORE
     with type store = Store.store
      and type label = Syntax.label
-     and type store_ctx = Store.store_ctx
+     and type Storectx.t = Store.Storectx.t
+     and type location = Store.location
      and module BranchMonad = BranchMonad = struct
   include Store_gen.Make (BranchMonad)
 end
@@ -57,7 +58,7 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
      and type typ = Types.typ
      and type negative_type = Types.negative_type
      and type Store.label = Syntax.label
-     and type Store.store_ctx = Store.store_ctx
+     and type Store.Storectx.t = Store.Storectx.t
      and module Names = Names
      and module Store.BranchMonad = BranchMonad = struct
   include Syntax
@@ -183,7 +184,7 @@ module WithAVal (BranchMonad : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT
        and type typ = Types.typ
        and type negative_type = Types.negative_type
        and type label = Syntax.label
-       and type store_ctx = Store.store_ctx
+       and type store_ctx = Store.Storectx.t
        and module BranchMonad = BranchMonad =
     Nup.Make (BranchMonad)
 end

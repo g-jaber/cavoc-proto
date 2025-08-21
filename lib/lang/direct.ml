@@ -16,11 +16,7 @@ struct
   let string_of_store = OpLang.Store.string_of_store
   let pp_store = OpLang.Store.pp_store
 
-  type store_ctx = OpLang.Store.store_ctx
-
-  let string_of_store_ctx = OpLang.Store.string_of_store_ctx
-  let pp_store_ctx = OpLang.Store.pp_store_ctx
-  let empty_store_ctx = OpLang.Store.empty_store_ctx
+  module Storectx = OpLang.Store.Storectx
   let infer_type_store = OpLang.Store.infer_type_store
 
   module Namectx = struct
@@ -187,12 +183,12 @@ struct
       let label_l = labels_of_a_nf_term a_nf_term in
       let storectx = OpLang.Store.infer_type_store store in
       Util.Debug.print_debug @@ "The full store context is "
-      ^ OpLang.Store.string_of_store_ctx storectx;
+      ^ OpLang.Store.Storectx.to_string storectx;
       let storectx_discl' = OpLang.Store.restrict_ctx storectx label_l in
       let storectx_discl'' =
-        OpLang.Store.concat_store_ctx storectx_discl storectx_discl' in
+        OpLang.Store.Storectx.concat storectx_discl storectx_discl' in
       Util.Debug.print_debug @@ "The new diclosed store context is "
-      ^ OpLang.Store.string_of_store_ctx storectx_discl'';
+      ^ OpLang.Store.Storectx.to_string storectx_discl'';
       let store_discl = abstracting_store storectx_discl' store in
       Some ((a_nf_term, store_discl), ienv, lnamectx, storectx_discl'')
 

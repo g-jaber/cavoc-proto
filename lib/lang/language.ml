@@ -23,31 +23,27 @@ end
 
 module type STORE = sig
   type store
+  type location
 
   val string_of_store : store -> string
   val pp_store : Format.formatter -> store -> unit
   val empty_store : store
 
-  type store_ctx
-
-  val empty_store_ctx : store_ctx
-  val string_of_store_ctx : store_ctx -> string
-  val pp_store_ctx : Format.formatter -> store_ctx -> unit
-  val concat_store_ctx : store_ctx -> store_ctx -> store_ctx
-  val infer_type_store : store -> store_ctx
+  module Storectx : Typectx.TYPECTX with type name = location
+  val infer_type_store : store -> Storectx.t
 
   (* update_store μ μ' is equal to μ[μ'] *)
   val update_store : store -> store -> store
-  val restrict : store_ctx -> store -> store
+  val restrict : Storectx.t -> store -> store
 
   type label
 
-  val restrict_ctx : store_ctx -> label list -> store_ctx
+  val restrict_ctx : Storectx.t -> label list -> Storectx.t
 
   module BranchMonad : Util.Monad.BRANCH
   (* *)
 
-  val generate_store : store_ctx -> store BranchMonad.m
+  val generate_store : Storectx.t -> store BranchMonad.m
 end
 
 module type COMP = sig
@@ -263,7 +259,7 @@ module type WITHAVAL_INOUT = sig
        and type typ = typ
        and type negative_type = negative_type
        and type label = Store.label
-       and type store_ctx = Store.store_ctx
+       and type store_ctx = Store.Storectx.t
        and module BranchMonad = Store.BranchMonad
 end
 
@@ -312,6 +308,6 @@ module type WITHAVAL_NEG = sig
        and type typ = typ
        and type negative_type = negative_type
        and type label = Store.label
-       and type store_ctx = Store.store_ctx
+       and type store_ctx = Store.Storectx.t
        and module BranchMonad = Store.BranchMonad
 end

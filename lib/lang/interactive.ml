@@ -13,12 +13,9 @@ module type LANG = sig
   val string_of_store : store -> string
   val pp_store : Format.formatter -> store -> unit
 
-  type store_ctx
+  module Storectx : Typectx.TYPECTX
 
-  val string_of_store_ctx : store_ctx -> string
-  val pp_store_ctx : Format.formatter -> store_ctx -> unit
-  val empty_store_ctx : store_ctx
-  val infer_type_store : store -> store_ctx
+  val infer_type_store : store -> Storectx.t
 
   module Namectx : Typectx.TYPECTX with type name = Names.name
 
@@ -43,10 +40,8 @@ module type LANG = sig
   type abstract_normal_form
 
   val eval :
-    opconf * Namectx.t * store_ctx ->
-    ((abstract_normal_form * Namectx.t * store_ctx)
-    * interactive_env
-    * store)
+    opconf * Namectx.t * Storectx.t ->
+    ((abstract_normal_form * Namectx.t * Storectx.t) * interactive_env * store)
     EvalMonad.m
 
   (* abstracting_nf nf Γₒ Σ returns a triple (anf,γ,Δ,Σ')
@@ -78,7 +73,7 @@ module type LANG = sig
      Γ_P;_ ⊢ A ▷ Δ
      Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
   val generate_a_nf :
-    store_ctx ->
+    Storectx.t ->
     Namectx.t ->
     (abstract_normal_form * Namectx.t * Namectx.t) BranchMonad.m
 
@@ -133,11 +128,8 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
   let string_of_store = OpLang.Store.string_of_store
   let pp_store = OpLang.Store.pp_store
 
-  type store_ctx = OpLang.Store.store_ctx
+  module Storectx = OpLang.Store.Storectx
 
-  let string_of_store_ctx = OpLang.Store.string_of_store_ctx
-  let pp_store_ctx = OpLang.Store.pp_store_ctx
-  let empty_store_ctx = OpLang.Store.empty_store_ctx
   let infer_type_store = OpLang.Store.infer_type_store
 
   module Namectx = struct
@@ -217,12 +209,12 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
       let label_l = labels_of_a_nf_term a_nf_term in
       let storectx = OpLang.Store.infer_type_store store in
       Util.Debug.print_debug @@ "The full store context is "
-      ^ OpLang.Store.string_of_store_ctx storectx;
+      ^ OpLang.Store.Storectx.to_string storectx;
       let storectx_discl' = OpLang.Store.restrict_ctx storectx label_l in
       let storectx_discl'' =
-        OpLang.Store.concat_store_ctx storectx_discl storectx_discl' in
+        OpLang.Store.Storectx.concat storectx_discl storectx_discl' in
       Util.Debug.print_debug @@ "The new diclosed store context is "
-      ^ OpLang.Store.string_of_store_ctx storectx_discl'';
+      ^ OpLang.Store.Storectx.to_string storectx_discl'';
       let store_discl = abstracting_store storectx_discl' store in
       Some ((a_nf_term, store_discl), ienv, lnamectx, storectx_discl'')
 

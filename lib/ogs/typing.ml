@@ -2,13 +2,13 @@ module Make (IntLang : Lang.Interactive.LANG) :
   Lts.Typing.LTS
     with type Moves.Names.name = IntLang.Names.name
      and type name_ctx = IntLang.Namectx.t
-     and type store_ctx = IntLang.store_ctx
+     and type store_ctx = IntLang.Storectx.t
      and type Moves.move = IntLang.abstract_normal_form = struct
   module Moves = Lts.Moves.Make (IntLang)
   module BranchMonad = IntLang.BranchMonad
 
   type name_ctx = IntLang.Namectx.t
-  type store_ctx = IntLang.store_ctx
+  type store_ctx = IntLang.Storectx.t
 
   let domain_of_name_ctx namectx =
     IntLang.Namectx.get_names namectx
@@ -17,7 +17,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
 
   type position = {
     status: status;
-    storectx: IntLang.store_ctx;
+    storectx: IntLang.Storectx.t;
     namectxP: IntLang.Namectx.t;
     namectxO: IntLang.Namectx.t;
   }
@@ -28,13 +28,13 @@ module Make (IntLang : Lang.Interactive.LANG) :
   let position_to_yojson pos =
     `Assoc
       [
-        ("storectx", `String (IntLang.string_of_store_ctx pos.storectx));
+        ("storectx", IntLang.Storectx.to_yojson pos.storectx);
         ("namectxP", IntLang.Namectx.to_yojson pos.namectxP);
         ("namectxO", IntLang.Namectx.to_yojson pos.namectxO);
       ]
 
   let pp_position fmt pos =
-    Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a |@, ΔP: %a⟩@]" IntLang.pp_store_ctx
+    Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a |@, ΔP: %a⟩@]" IntLang.Storectx.pp
       pos.storectx IntLang.Namectx.pp pos.namectxO
       IntLang.Namectx.pp pos.namectxP
 
