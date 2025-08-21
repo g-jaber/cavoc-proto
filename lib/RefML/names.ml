@@ -7,7 +7,7 @@
 type id = string
 type name = FName of id | CName of id | PName of id
 
-let is_fname = function FName _ -> true | _ -> false
+let is_callable = function FName _ -> true | _ -> false
 let is_cname = function CName _ -> true | _ -> false
 
 let trim_name_id id =

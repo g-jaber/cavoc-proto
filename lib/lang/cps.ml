@@ -15,7 +15,7 @@ struct
 
     let pp_name fmt = Format.fprintf fmt "%s"
     let string_of_name = Format.asprintf "%a" pp_name
-    let is_fname _ = false
+    let is_callable _ = true
     let is_cname _ = true
     let count_name = ref 0
 
@@ -38,9 +38,9 @@ struct
     let inj_cont_name cn = CName cn
     let string_of_name = Format.asprintf "%a" pp_name
 
-    let is_fname = function
-      | N nn -> OpLang.Names.is_fname nn
-      | CName _ -> false
+    let is_callable = function
+      | N nn -> OpLang.Names.is_callable nn
+      | CName _ -> true
 
     let is_cname = function N _ -> false | CName _ -> true
   end
@@ -298,8 +298,10 @@ struct
     let inj_ty ty = GType ty in
     let fname_ctx =
       Util.Pmap.filter_map
-        (fun (fn, ty) ->
-          if Names.is_fname fn then Some (fn, (ty, GEmpty)) else None)
+        (fun (nn, ty) -> match nn with
+        | Names.N nn -> 
+          if OpLang.Names.is_callable nn then Some (Names.N nn, (ty, GEmpty)) else None
+          | _ -> None)
         namectx in
     let cname_ctx =
       Util.Pmap.filter_map

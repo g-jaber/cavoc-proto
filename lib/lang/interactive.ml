@@ -255,7 +255,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let namectxP_pmap = OpLang.Namectx.to_pmap namectxP in
     let namectxP_pmap' =
       Util.Pmap.filter_dom
-        (fun n -> Names.is_fname n || Names.is_cname n)
+        Names.is_callable
         namectxP_pmap in
     let namectxP_pmap'' = Util.Pmap.map_im OpLang.negating_type namectxP_pmap' in
     let* _ = return @@ Util.Debug.print_debug @@ "Generating the skeleton " in

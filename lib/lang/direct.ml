@@ -266,7 +266,7 @@ struct
     let fnamectx_split =
       Util.Pmap.filter_map
         (fun (nn, ty) ->
-          if OpLang.Names.is_fname nn then
+          if OpLang.Names.is_callable nn then
             let (_, in_ty) = OpLang.get_input_type ty in
             Some (nn, (in_ty, OpLang.get_output_type ty))
           else None)
