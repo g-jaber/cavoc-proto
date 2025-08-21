@@ -49,7 +49,7 @@ module Make
   let trigger_move (pos, hconf) (move, namectx) =
     let pos' = TypingLTS.trigger_move pos (move, namectx) in
     match HistLts.trans_check hconf move with
-    | None -> failwith ""
+    | None -> failwith "TODO"
     | Some hconf' -> (pos', hconf')
 
   let init_act_pos storectx namectxP namectxO =

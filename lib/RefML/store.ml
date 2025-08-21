@@ -91,6 +91,12 @@ module Storectx = struct
     let loc_ctx' = Util.Pmap.map_dom (fun l -> Loc l) loc_ctx in
     let cons_ctx' = Util.Pmap.map_dom (fun c -> Cons c) cons_ctx in
     Util.Pmap.concat loc_ctx' cons_ctx'
+
+    let mem ((loc_ctx, cons_ctx) : t) = function
+    | Loc l -> Util.Pmap.mem l loc_ctx
+    | Cons c -> Util.Pmap.mem c cons_ctx
+
+    let singleton _ = failwith "Singleton not relevant for store typing context. Please report."
 end
 
 let infer_type_store (_, heap, cons_ctx) = (Heap.loc_ctx_of_heap heap, cons_ctx)

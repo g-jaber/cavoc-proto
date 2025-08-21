@@ -1,4 +1,4 @@
-module Names : Lang.Names.NAMES with type name = Names.name = struct
+module Names : Lang.Names.NAMES_GEN with type name = Names.name = struct
   include Names
 end
 

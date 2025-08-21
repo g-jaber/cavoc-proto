@@ -59,6 +59,11 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
     let lookup_exn _ = failwith ""
     let add _ = failwith ""
     let to_pmap _ = failwith ""
+
+    let mem () () = true
+
+    let singleton () = ((),())
+
   end
 
   let infer_type_store : store -> Storectx.t = failwith ""

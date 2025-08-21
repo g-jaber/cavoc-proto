@@ -80,7 +80,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     let lnup2' = List.map (fun (nup,nctx) -> (Inj (2,nup),nctx)) lnup1 in
     lnup1'@lnup2' *)
     | TArrow _ as ty ->
-        let fn = Names.fresh_fname () in
+        let fn = Names.fresh_name () in
         let nty = Types.force_negative_type ty in
         return (Name fn, Util.Pmap.singleton (fn, nty))
     | TId _ as ty ->
@@ -106,7 +106,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
               let* (nup, nctx) =
                 generate_abstract_val storectx namectxP_pmap pty in
               return (Constructor (c, nup), nctx)
-          | _ -> failwith ""
+          | _ -> failwith "TODO"
         end
     | ty ->
         failwith
@@ -114,7 +114,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
          ^ ". Please report")
 
   (* namectxO is needed in the following definition to check freshness*)
-  let rec type_check_abstract_val namectxP namectxO ty nup =
+  let rec infer_type_abstract_val namectxP namectxO ty nup =
     match (ty, nup) with
     | (TUnit, Unit) -> Some Util.Pmap.empty
     | (TUnit, _) -> None
@@ -124,8 +124,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     | (TInt, _) -> None
     | (TProd (ty1, ty2), Pair (nup1, nup2)) -> begin
         match
-          ( type_check_abstract_val namectxP namectxO ty1 nup1,
-            type_check_abstract_val namectxP namectxO ty2 nup2 )
+          ( infer_type_abstract_val namectxP namectxO ty1 nup1,
+            infer_type_abstract_val namectxP namectxO ty2 nup2 )
         with
         | (None, _) | (_, None) -> None
         | (Some namectxO1, Some namectxO2) ->
@@ -157,7 +157,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     (*TODO: Should we check to who belongs the TName ? *)
     (* | (TExn, Constructor (c, nup')) ->  
         let (TArrow (param_ty, _)) = Util.Pmap.lookup_exn c (Util.Pmap.concat namectxP namectxO) in 
-        type_check_abstract_val namectxP namectxO param_ty nup' *)
+        infer_type_abstract_val namectxP namectxO param_ty nup' *)
     | (TName _, _) -> None
     | (TVar _, _) ->
         failwith @@ "Error: trying to type-check a nup of type "
@@ -174,7 +174,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     | (Fun _, TForall (_, TArrow _))
     | (Fix _, TForall (_, TArrow _))
     | (Name _, TForall (_, TArrow _)) ->
-        let fn = Names.fresh_fname () in
+        let fn = Names.fresh_name () in
         let nval = Syntax.force_negative_val value in
         let nty = Types.force_negative_type ty in
         let ienv = Util.Pmap.singleton (fn, nval) in

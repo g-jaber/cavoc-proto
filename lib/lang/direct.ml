@@ -105,6 +105,11 @@ struct
           PropCtx (OpLang.Namectx.add fnamectx nn nty, stackctx)
 
     let to_pmap = failwith "TODO"
+
+    let singleton _ty =
+      failwith "TODO" (* Not clear if it should be an OpCtx or a PropCtx *)
+
+    let mem _ = failwith "TODO"
   end
 
   (* Interactive environments γ are pairs formed by partial maps from functional names to functional values,
@@ -177,7 +182,8 @@ struct
       (* TODO: we should do something with the tvar_l *) in
     let get_type_cname () = ty_out in
     let nf_typed_term =
-      OpLang.type_annotating_val ~inj_ty ~get_type_fname ~get_type_cname nf_term in
+      OpLang.type_annotating_val ~inj_ty ~get_type_fname ~get_type_cname nf_term
+    in
     let get_type_fname fn =
       let nty = OpLang.Namectx.lookup_exn fnamectxO fn in
       OpLang.get_output_type nty in
@@ -310,7 +316,7 @@ struct
       let (_, ty_arg) = OpLang.get_input_type nty in
       let ty_out = OpLang.get_output_type nty in
       let lnamectx =
-        OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_arg aval
+        OpLang.AVal.infer_type_abstract_val fnamectxP fnamectxO ty_arg aval
       in
       lift_lnamectx namectxP ty_out lnamectx in
     let type_check_ret aval ty_hole ty_out =
@@ -319,7 +325,7 @@ struct
       | _ :: stack_ctx' ->
           let namectxP' = Namectx.PropCtx (fnamectxP, stack_ctx') in
           let lnamectx =
-            OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_hole aval
+            OpLang.AVal.infer_type_abstract_val fnamectxP fnamectxO ty_hole aval
           in
           lift_lnamectx namectxP' ty_out lnamectx in
     OpLang.type_check_nf_term ~inj_ty ~empty_res ~get_type_fname ~get_type_cname

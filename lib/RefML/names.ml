@@ -17,18 +17,10 @@ let trim_name_id id =
 let fname_of_id id = FName id
 let count_fname = ref 0
 
-let fresh_fname () =
+let fresh_name () =
   let fn = !count_fname in
   count_fname := !count_fname + 1;
   FName ("f" ^ string_of_int fn)
-
-let count_cname = ref 0
-
-let fresh_cname () =
-  let cn = !count_cname in
-  count_cname := !count_cname + 1;
-  CName ("c" ^ string_of_int cn)
-
 let count_pname = ref 0
 
 let fresh_pname () =
