@@ -8,3 +8,69 @@ module type TYPECTX = sig
   val pp : Format.formatter -> t -> unit
   val get_names : t -> name list
 end
+
+module type TYPECTX_PMAP = sig
+  type n
+  type typ
+
+  include TYPECTX with type name = n and type t = (n, typ) Util.Pmap.pmap
+end
+
+module type TYPECTX_LIST = sig
+  type typ
+
+  include TYPECTX with type name = int and type t = typ list
+end
+
+module Make_PMAP
+    (Names : Names.NAMES)
+    (Types : sig
+      type t [@@deriving to_yojson]
+
+      val pp : Format.formatter -> t -> unit
+    end) :
+  TYPECTX
+    with type name = Names.name
+     and type t = (Names.name, Types.t) Util.Pmap.pmap = struct
+  type name = Names.name
+  type t = (name, Types.t) Util.Pmap.pmap
+
+  let empty = Util.Pmap.empty
+  let concat = Util.Pmap.concat
+
+  let pp fmt name_ctx =
+    let pp_sep fmt () = Format.fprintf fmt ", " in
+    let pp_empty fmt () = Format.fprintf fmt "⋅" in
+    let pp_pair fmt (n, ty) =
+      Format.fprintf fmt "%a : %a" Names.pp_name n Types.pp ty in
+    Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt name_ctx
+
+  let to_string = Format.asprintf "%a" pp
+  let get_names = Util.Pmap.dom
+
+  let to_yojson nctx =
+    let to_string (nn, ty) = (Names.string_of_name nn, Types.to_yojson ty) in
+    `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string nctx)
+end
+
+module Make_List (Types : sig
+  type t [@@deriving to_yojson]
+
+  val pp : Format.formatter -> t -> unit
+end) : TYPECTX with type name = int and type t = Types.t list = struct
+  type name = int
+  type t = Types.t list
+
+  let empty = []
+  let concat = List.append
+
+  let pp fmt = function
+    | [] -> Format.fprintf fmt "⋅"
+    | name_ctx ->
+        let pp_sep fmt () = Format.fprintf fmt ", " in
+        Format.pp_print_list ~pp_sep Types.pp fmt name_ctx
+
+  let to_string = Format.asprintf "%a" pp
+  let get_names = List.mapi (fun i _ -> i)
+  let to_yojson nctx = `List (List.map Types.to_yojson nctx)
+end

@@ -114,12 +114,28 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
 
   let string_of_negative_type = Format.asprintf "%a" pp_negative_type
 
-  type name_ctx = (Names.name, negative_type) Util.Pmap.pmap
+  module Namectx = struct
+    type name = Names.name
+    type t = (name, negative_type) Util.Pmap.pmap
 
-  let name_ctx_to_yojson nctx =
-    let to_string (nn, nval) =
-      (Names.string_of_name nn, `String (string_of_negative_type nval)) in
-    `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string nctx)
+    let to_yojson nctx =
+      let to_string (nn, nval) =
+        (Names.string_of_name nn, `String (string_of_negative_type nval)) in
+      `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string nctx)
+
+    let empty = Util.Pmap.empty
+    let concat = Util.Pmap.concat
+    let get_names = Util.Pmap.dom
+
+    let pp fmt name_ctx =
+      let pp_sep fmt () = Format.fprintf fmt ", " in
+      let pp_empty fmt () = Format.fprintf fmt "⋅" in
+      let pp_pair fmt (n, nty) =
+        Format.fprintf fmt "%a : %a" Names.pp_name n pp_negative_type nty in
+      Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt name_ctx
+
+    let to_string = Format.asprintf "%a" pp
+  end
 
   let extract_name_ctx =
     Util.Pmap.filter_map (function
@@ -127,18 +143,6 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
       | (_, INeg _) -> None)
 
   let embed_name_ctx = Util.Pmap.map_im (fun ty -> IType ty)
-  let empty_name_ctx = Util.Pmap.empty
-  let concat_name_ctx = Util.Pmap.concat
-  let get_names = Util.Pmap.dom
-
-  let pp_name_ctx fmt name_ctx =
-    let pp_sep fmt () = Format.fprintf fmt ", " in
-    let pp_empty fmt () = Format.fprintf fmt "⋅" in
-    let pp_pair fmt (n, nty) =
-      Format.fprintf fmt "%a : %a" Names.pp_name n pp_negative_type nty in
-    Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt name_ctx
-
-  let string_of_name_ctx = Format.asprintf "%a" pp_name_ctx
 
   module Store = OpLang.Store
 
@@ -160,12 +164,13 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
       | (_, ICtx _) -> None)
 
   let get_typed_opconf nbprog inBuffer =
-    let ((term,store), typ, namectxO) = OpLang.get_typed_opconf nbprog inBuffer in
+    let ((term, store), typ, namectxO) =
+      OpLang.get_typed_opconf nbprog inBuffer in
     let cn = Names.fresh_cname () in
     let nterm = NTerm (cn, term) in
     let namectxO' =
       Util.Pmap.add (inj_cont_name cn, INeg typ) (embed_name_ctx namectxO) in
-    ((nterm,store), GEmpty, namectxO')
+    ((nterm, store), GEmpty, namectxO')
 
   let get_typed_ienv lexBuffer_implem lexBuffer_signature =
     let (int_env, store, namectxP, namectxO) =
@@ -316,7 +321,6 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) :
     type negative_val = negative_val_temp
     type typ = typ_temp
     type negative_type = negative_type_temp
-    
     type store_ctx = Store.Storectx.t
 
     (*    type negative_type = OpLang.negative_type*)

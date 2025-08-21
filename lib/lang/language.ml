@@ -12,13 +12,10 @@ module type TYPED = sig
   val string_of_negative_type : negative_type -> string
   val pp_negative_type : Format.formatter -> negative_type -> unit
 
-  type name_ctx = (Names.name, negative_type) Util.Pmap.pmap [@@deriving to_yojson]
-
-  val empty_name_ctx : name_ctx
-  val concat_name_ctx : name_ctx -> name_ctx -> name_ctx
-  val string_of_name_ctx : name_ctx -> string
-  val pp_name_ctx : Format.formatter -> name_ctx -> unit
-  val get_names : name_ctx -> Names.name list
+  module Namectx :
+    Typectx.TYPECTX
+      with type name = Names.name
+(*       and type t = (Names.name, negative_type) Util.Pmap.pmap *)
 end
 
 module type STORE = sig
@@ -30,6 +27,7 @@ module type STORE = sig
   val empty_store : store
 
   module Storectx : Typectx.TYPECTX with type name = location
+
   val infer_type_store : store -> Storectx.t
 
   (* update_store μ μ' is equal to μ[μ'] *)
@@ -89,7 +87,7 @@ module type COMP = sig
   module EvalMonad : Util.Monad.RUNNABLE
 
   val normalize_opconf : opconf -> opconf EvalMonad.m
-  val get_typed_opconf : string -> Lexing.lexbuf -> opconf * typ * name_ctx
+  val get_typed_opconf : string -> Lexing.lexbuf -> opconf * typ * Namectx.t
 
   (* We retrive a module declaration and its signature from the two in_channel taken as input.
      We evaluate the list of computation declarations into a list of value declarations together with the store
@@ -99,7 +97,7 @@ module type COMP = sig
   val get_typed_ienv :
     Lexing.lexbuf ->
     Lexing.lexbuf ->
-    interactive_env * Store.store * name_ctx * name_ctx
+    interactive_env * Store.store * Namectx.t * Namectx.t
 end
 
 module type NF = sig

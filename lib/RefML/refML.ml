@@ -1,6 +1,4 @@
-module Names :
-  Lang.Names.NAMES
-    with type name = Names.name = struct
+module Names : Lang.Names.NAMES with type name = Names.name = struct
   include Names
 end
 
@@ -22,22 +20,25 @@ module Typed :
   let pp_negative_type = Types.pp_negative_type
   let get_negative_type = Types.get_negative_type
 
-  type name_ctx = (Names.name, negative_type) Util.Pmap.pmap
+  module Namectx = struct
+    type name = Names.name
+    type t = (name, negative_type) Util.Pmap.pmap
 
-  let name_ctx_to_yojson ienv =
-    let to_string (nn, nty) =
-      (Names.string_of_name nn, `String (string_of_negative_type nty)) in
-    `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string ienv)
+    let to_yojson ienv =
+      let to_string (nn, nty) =
+        (Names.string_of_name nn, `String (string_of_negative_type nty)) in
+      `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string ienv)
 
-  let empty_name_ctx = Util.Pmap.empty
-  let concat_name_ctx = Util.Pmap.concat
-  let get_names = Util.Pmap.dom
+    let empty = Util.Pmap.empty
+    let concat = Util.Pmap.concat
+    let get_names = Util.Pmap.dom
 
-  let string_of_name_ctx =
-    Util.Pmap.string_of_pmap "[]" "::" Names.string_of_name
-      Types.string_of_negative_type
+    let to_string =
+      Util.Pmap.string_of_pmap "[]" "::" Names.string_of_name
+        Types.string_of_negative_type
 
-  let pp_name_ctx = Type_ctx.pp_name_ctx
+    let pp = Type_ctx.pp_name_ctx
+  end
 end
 
 module MakeStore (BranchMonad : Util.Monad.BRANCH) :
@@ -70,15 +71,15 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
 
     let return x = Some x
     let ( let* ) a f = match a with None -> None | Some x -> f x
-    let run x = x 
+    let run x = x
     let fail () = None
   end
 
   type opconf = Interpreter.opconf
 
-    let pp_opconf fmt (term, store) =
-    Format.fprintf fmt "@[(@[Computation: %a@] @| @[Store: %a@])@]"
-      pp_term term Store.pp_store store
+  let pp_opconf fmt (term, store) =
+    Format.fprintf fmt "@[(@[Computation: %a@] @| @[Store: %a@])@]" pp_term term
+      Store.pp_store store
 
   let normalize_opconf = Interpreter.normalize_opconf
 
@@ -127,7 +128,8 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
     | Type_checker.TypingError msg -> failwith ("Typing Error: " ^ msg)
 end
 
-module WithAVal (BranchMonad : Util.Monad.BRANCH) : Lang.Language.WITHAVAL_INOUT = struct
+module WithAVal (BranchMonad : Util.Monad.BRANCH) :
+  Lang.Language.WITHAVAL_INOUT = struct
   include MakeComp (BranchMonad)
 
   type eval_context = Syntax.eval_context

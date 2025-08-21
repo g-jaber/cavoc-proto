@@ -35,25 +35,25 @@ struct
 
     (* The active context PropCtx have a type for the toplevel term*)
     type t =
-      | OpCtx of OpLang.typ option * OpLang.name_ctx
-      | PropCtx of OpLang.name_ctx * stack_ctx
+      | OpCtx of OpLang.typ option * OpLang.Namectx.t
+      | PropCtx of OpLang.Namectx.t * stack_ctx
 
     let to_yojson = function
-      | OpCtx (None, name_ctx) -> OpLang.name_ctx_to_yojson name_ctx
+      | OpCtx (None, name_ctx) -> OpLang.Namectx.to_yojson name_ctx
       | OpCtx (Some ty, name_ctx) ->
           `Assoc
             [
               ("type", `String (OpLang.string_of_type ty));
-              ("name_ctx", OpLang.name_ctx_to_yojson name_ctx);
+              ("name_ctx", OpLang.Namectx.to_yojson name_ctx);
             ]
       | PropCtx (name_ctx, stack_ctx) ->
           `Assoc
             [
-              ("name_ctx", OpLang.name_ctx_to_yojson name_ctx);
+              ("name_ctx", OpLang.Namectx.to_yojson name_ctx);
               ("stack_ctx", stack_ctx_to_yojson stack_ctx);
             ]
 
-    let empty = PropCtx (OpLang.empty_name_ctx, [])
+    let empty = PropCtx (OpLang.Namectx.empty, [])
 
     let pp_stack_ctx fmt = function
       | [] -> Format.fprintf fmt "⋅"
@@ -64,12 +64,12 @@ struct
           Format.pp_print_list pp_pair fmt stack_ctx
 
     let pp fmt = function
-      | OpCtx (None, name_ctx) -> OpLang.pp_name_ctx fmt name_ctx
+      | OpCtx (None, name_ctx) -> OpLang.Namectx.pp fmt name_ctx
       | OpCtx (Some ty, name_ctx) ->
-          Format.fprintf fmt "%a | %a" OpLang.pp_type ty OpLang.pp_name_ctx
+          Format.fprintf fmt "%a | %a" OpLang.pp_type ty OpLang.Namectx.pp
             name_ctx
       | PropCtx (name_ctx, stack_ctx) ->
-          Format.fprintf fmt "%a | %a" OpLang.pp_name_ctx name_ctx pp_stack_ctx
+          Format.fprintf fmt "%a | %a" OpLang.Namectx.pp name_ctx pp_stack_ctx
             stack_ctx
 
     let to_string = Format.asprintf "%a" pp
@@ -78,9 +78,9 @@ struct
       match (namectx1, namectx2) with
       | (PropCtx (fnamectx1, stackctx1), PropCtx (fnamectx2, stackctx2)) ->
           PropCtx
-            (OpLang.concat_name_ctx fnamectx1 fnamectx2, stackctx1 @ stackctx2)
+            (OpLang.Namectx.concat fnamectx1 fnamectx2, stackctx1 @ stackctx2)
       | (OpCtx (ty, fnamectx1), OpCtx (_, fnamectx2)) ->
-          OpCtx (ty, OpLang.concat_name_ctx fnamectx1 fnamectx2)
+          OpCtx (ty, OpLang.Namectx.concat fnamectx1 fnamectx2)
       | _ ->
           failwith
           @@ "Trying to concatenate two interactive typing contexts of \
@@ -89,7 +89,7 @@ struct
 
     let get_names = function
       | PropCtx (fnamectx, _) | OpCtx (_, fnamectx) ->
-          OpLang.get_names fnamectx
+          OpLang.Namectx.get_names fnamectx
   end
 
   (* Interactive environments γ are pairs formed by partial maps from functional names to functional values,

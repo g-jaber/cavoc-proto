@@ -132,16 +132,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
 
   let infer_type_store = OpLang.Store.infer_type_store
 
-  module Namectx = struct
-    type name = OpLang.Names.name
-    type t = OpLang.name_ctx [@@deriving to_yojson]
-
-    let pp = OpLang.pp_name_ctx
-    let to_string = Format.asprintf "%a" pp
-    let empty = OpLang.empty_name_ctx
-    let concat = OpLang.concat_name_ctx
-    let get_names = OpLang.get_names
-  end
+  module Namectx = OpLang.Namectx
 
   (* Interactive environments γ are partial maps from names to interactive values*)
   type interactive_env = OpLang.interactive_env [@@deriving to_yojson]
