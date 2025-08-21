@@ -6,7 +6,7 @@ module Typed :
   Lang.Language.TYPED
     with type typ = Types.typ
      and type negative_type = Types.negative_type
-     and type Namectx.t = (Names.name,Types.negative_type) Util.Pmap.pmap
+     and type Namectx.t = Namectx.t
      and module Names = Names = struct
   module Names = Names
 
@@ -23,11 +23,7 @@ module Typed :
   let pp_negative_type = Types.pp_negative_type
   let get_negative_type = Types.get_negative_type
 
-  module Namectx = Lang.Typectx.Make_PMAP (Names) (struct
-        type t = negative_type
-        let to_yojson = Types.negative_type_to_yojson
-        let pp = pp_negative_type
-      end)
+  module Namectx = Namectx
 end
 
 module MakeStore (BranchMonad : Util.Monad.BRANCH) :
@@ -49,7 +45,7 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
      and type negative_type = Types.negative_type
      and type Store.label = Syntax.label
      and type Store.Storectx.t = Store.Storectx.t
-     and type Namectx.t = (Names.name,Types.negative_type) Util.Pmap.pmap
+     and type Namectx.t = Namectx.t
      and module Names = Names
      and module Store.BranchMonad = BranchMonad = struct
   include Syntax
@@ -98,13 +94,13 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
       let signature_decl_l = Parser.signature Lexer.token lexBuffer_signature in
       let (comp_env, namectxO, cons_ctx) =
         Declaration.get_typed_comp_env implem_decl_l signature_decl_l in
-      let namectxO' = Util.Pmap.filter_map_im Types.get_negative_type namectxO in
+      let namectxO' = Util.Pmap.filter_map_im Types.get_negative_type namectxO in (* To be reworked *)
       let (val_assign, heap, cons_ctx') =
         Interpreter.normalize_term_env cons_ctx comp_env in
       let (val_env, namectxP) =
         Declaration.get_typed_val_env val_assign signature_decl_l in
       let int_env = Util.Pmap.filter_map_im Syntax.filter_negative_val val_env in
-      let namectxP' = Util.Pmap.filter_map_im Types.get_negative_type namectxP in
+      let namectxP' = Util.Pmap.filter_map_im Types.get_negative_type namectxP in (* To be reworked *)
       (int_env, (val_assign, heap, cons_ctx'), namectxP', namectxO')
     with
     | Lexer.SyntaxError msg -> failwith ("Lexing Error: " ^ msg)
