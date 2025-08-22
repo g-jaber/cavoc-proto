@@ -2,7 +2,7 @@
    into a module of signature Language.WITHAVAL_NEG.
    This is done by introducing named terms and named evaluation contexts,
    and by embedding named evaluation contexts in values. *)
-module MakeComp (OpLang : Language.WITHAVAL_INOUT) : Language.WITHAVAL_NEG =
+module MakeComp (OpLang : Language.WITHAVAL_INOUT) () : Language.WITHAVAL_NEG =
 struct
   module EvalMonad = OpLang.EvalMonad
   open EvalMonad
@@ -10,23 +10,14 @@ struct
 
   (* We consider continuation names, also called covariables in the λμ-calculus *)
 
-  module CNames : Names.NAMES_GEN = struct
-    type name = string
-
-    let pp_name fmt = Format.fprintf fmt "%s"
-    let string_of_name = Format.asprintf "%a" pp_name
-    let is_callable _ = true
-    let is_cname _ = true
-    let count_name = ref 0
-
-    let fresh_name () =
-      let cn = !count_name in
-      count_name := !count_name + 1;
-      "c" ^ string_of_int cn
+  module Mode : Names.MODE = struct
+    let is_callable = true let is_cname = true
   end
 
-  module Names = struct
+  module Prefix : Names.PREFIX = struct let prefix = "c" end
+  module CNames : Names.NAMES_GEN = Names.MakeGen (Mode) (Prefix) ()
 
+  module Names = struct
     type name =
       | N of OpLang.Names.name
       | CName of CNames.name (*[@@deriving to_yojson]*)
@@ -218,6 +209,15 @@ struct
       | IType ty ->
           let (nn, namectx) = OpLang.Namectx.singleton ty in
           (Names.N nn, (namectx, CNamectx.empty))
+
+    let add_fresh (namectx, cnamectx) nty =
+      match nty with
+      | INeg ty ->
+          let (cn, cnamectx') = CNamectx.add_fresh cnamectx ty in
+          (Names.inj_cont_name cn, (namectx, cnamectx'))
+      | IType ty ->
+          let (nn, namectx') = OpLang.Namectx.add_fresh namectx ty in
+          (Names.N nn, (namectx', cnamectx))
   end
 
   let extract_name_ctx (namectx, _) = namectx
@@ -298,9 +298,11 @@ struct
     let inj_ty ty = GType ty in
     let fname_ctx =
       Util.Pmap.filter_map
-        (fun (nn, ty) -> match nn with
-        | Names.N nn -> 
-          if OpLang.Names.is_callable nn then Some (Names.N nn, (ty, GEmpty)) else None
+        (fun (nn, ty) ->
+          match nn with
+          | Names.N nn ->
+              if OpLang.Names.is_callable nn then Some (Names.N nn, (ty, GEmpty))
+              else None
           | _ -> None)
         namectx in
     let cname_ctx =

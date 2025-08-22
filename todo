@@ -26,7 +26,7 @@
 - [ ] Write functors for creating callable or non-callable NAMES modules
 - [ ] Use different NAMES modules for Polymorphic names and for Function names
 - [ ] Add a functor to aggregate two Typectx
-- [ ] Rework Typectx.add
+- [x] Implement a function Typectx.add_fresh
 - [ ] Embed a Namectx module in AVAL
 - [ ] Use TYPECTX interface in RefML/type_ctx.ml
 - [ ] Make namectx abstract in RefML/nup.ml

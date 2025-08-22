@@ -151,7 +151,7 @@ app_expr:
 simple_expr:
   | v=VAR             { Var v }
   | c=CONSTRUCTOR p=simple_expr    { Constructor (c, p)}
-  | n=NAMES            { Name (Names.fname_of_id (Names.trim_name_id n)) }
+  | n=NAMES            { Name (Names.from_string (Names.trim_name_id n)) }
   | UNIT            { Unit }
   | n=INT             { Int n }
   | TRUE            { Bool true }

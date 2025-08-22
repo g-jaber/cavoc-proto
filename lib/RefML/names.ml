@@ -4,17 +4,16 @@
    - Polymorphic names
 *)
 
-type id = string
-type name = FName of id | CName of id | PName of id
+type name = FName of string | CName of string | PName of string
 
-let is_callable = function FName _ -> true | _ -> false
+let is_callable = function FName _ | CName _ -> true | _ -> false
 let is_cname = function CName _ -> true | _ -> false
 
 let trim_name_id id =
   if id.[0] = '_' then String.sub id 1 (String.length id - 1)
   else failwith @@ "The id " ^ id ^ "does not start with _. It is not a name."
 
-let fname_of_id id = FName id
+let from_string id = FName id
 let count_fname = ref 0
 
 let fresh_name () =

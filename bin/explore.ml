@@ -210,7 +210,7 @@ let () =
   fix_mode ();
   let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
   if !enable_cps then
-    let module CpsLang = Lang.Cps.MakeComp (OpLang) in
+    let module CpsLang = Lang.Cps.MakeComp (OpLang) () in
     let module IntLang = Lang.Interactive.Make (CpsLang) in
     build_ogs_lts (module IntLang)
   else

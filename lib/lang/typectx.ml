@@ -11,8 +11,9 @@ module type TYPECTX = sig
   val lookup_exn : t -> name -> typ
   val add : t -> name -> typ -> t
   val to_pmap : t -> (name, typ) Util.Pmap.pmap
-  val singleton : typ -> (name*t)
+  val singleton : typ -> name * t
   val mem : t -> name -> bool
+  val add_fresh : t -> typ -> name * t
 end
 
 module type TYPECTX_PMAP = sig
@@ -68,11 +69,15 @@ module Make_PMAP
   let add name_ctx nn ty = Util.Pmap.add (nn, ty) name_ctx
   let to_pmap = Fun.id
 
-  let singleton ty = 
+  let singleton ty =
     let nn = Names.fresh_name () in
-     (nn,Util.Pmap.singleton (nn,ty))
+    (nn, Util.Pmap.singleton (nn, ty))
 
   let mem namectx nn = Util.Pmap.mem nn namectx
+
+  let add_fresh name_ctx ty =
+    let nn = Names.fresh_name () in
+    (nn, Util.Pmap.add (nn, ty) name_ctx)
 end
 
 module Make_List (Types : sig
@@ -106,8 +111,10 @@ struct
   let to_pmap name_ctx =
     Util.Pmap.list_to_pmap @@ List.mapi (fun i ty -> (i, ty)) name_ctx
 
-  let singleton ty = 
-     (0,[ty])
-
+  let singleton ty = (0, [ ty ])
   let mem namectx nn = nn < List.length namectx
+
+  let add_fresh name_ctx ty = 
+    let nn = List.length name_ctx in
+    (nn,name_ctx @ [ ty ])
 end

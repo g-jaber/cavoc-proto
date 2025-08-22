@@ -110,6 +110,15 @@ struct
       failwith "TODO" (* Not clear if it should be an OpCtx or a PropCtx *)
 
     let mem _ = failwith "TODO"
+
+    let add_fresh (namectx : t) nty =
+      match namectx with
+      | OpCtx (ty, fnamectx) ->
+          let (nn, fnamectx') = OpLang.Namectx.add_fresh fnamectx nty in
+          (nn, OpCtx (ty, fnamectx'))
+      | PropCtx (fnamectx, stackctx) ->
+          let (nn, fnamectx') = OpLang.Namectx.add_fresh fnamectx nty in
+          (nn, PropCtx (fnamectx', stackctx))
   end
 
   (* Interactive environments γ are pairs formed by partial maps from functional names to functional values,

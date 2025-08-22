@@ -29,7 +29,7 @@ let () =
   parse speclist get_filename usage_msg;
   check_number_filenames ();
   let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
-  let module CpsLang = Lang.Cps.MakeComp (OpLang) in
+  let module CpsLang = Lang.Cps.MakeComp (OpLang) () in
   let module IntLang = Lang.Interactive.Make (CpsLang) in
   let module TypingLTS = Ogs.Typing.Make (IntLang) in
   let module WBLTS = Ogs.Wblts.Make (IntLang.Names) (TypingLTS.Moves) in

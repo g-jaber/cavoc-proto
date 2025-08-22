@@ -61,13 +61,13 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
 
   let rec generate_abstract_val ((_, cons_ctx) as storectx) namectxP_pmap =
     function
-    | TUnit -> return (Unit, Util.Pmap.empty)
+    | TUnit -> return (Unit, Namectx.empty)
     | TBool ->
         let* b = para_list @@ [ true; false ] in
-        return (Bool b, Util.Pmap.empty)
+        return (Bool b, Namectx.empty)
     | TInt ->
         let* i = BranchMonad.pick_int () in
-        return (Int i, Util.Pmap.empty)
+        return (Int i, Namectx.empty)
     | TProd (ty1, ty2) ->
         let* (nup1, nctx1) = generate_abstract_val storectx namectxP_pmap ty1 in
         let* (nup2, nctx2) = generate_abstract_val storectx namectxP_pmap ty2 in
@@ -86,7 +86,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     | TId _ as ty ->
         let pn_list = Util.Pmap.select_im ty namectxP_pmap in
         let* pn = para_list @@ pn_list in
-        return (Name pn, Util.Pmap.empty)
+        return (Name pn, Namectx.empty)
     | TName _ as ty ->
         let pn = Names.fresh_pname () in
         let nty = Types.force_negative_type ty in
@@ -116,11 +116,11 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
   (* namectxO is needed in the following definition to check freshness, while namectxP is needed for checking existence of box names*)
   let rec infer_type_abstract_val namectxP namectxO ty nup =
     match (ty, nup) with
-    | (TUnit, Unit) -> Some Util.Pmap.empty
+    | (TUnit, Unit) -> Some Namectx.empty
     | (TUnit, _) -> None
-    | (TBool, Bool _) -> Some Util.Pmap.empty
+    | (TBool, Bool _) -> Some Namectx.empty
     | (TBool, _) -> None
-    | (TInt, Int _) -> Some Util.Pmap.empty
+    | (TInt, Int _) -> Some Namectx.empty
     | (TInt, _) -> None
     | (TProd (ty1, ty2), Pair (nup1, nup2)) -> begin
         match
@@ -135,19 +135,19 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
       end
     | (TProd _, _) -> None
     | (TArrow _, Name nn) | (TForall _, Name nn) ->
-          let nty = Types.force_negative_type ty in
-          Some (Util.Pmap.singleton (nn, nty))
+        let nty = Types.force_negative_type ty in
+        Some (Util.Pmap.singleton (nn, nty))
     | (TArrow _, _) | (TForall _, _) -> None
     | (TId id, Name bn) -> begin
         match Util.Pmap.lookup bn namectxP with
         | None -> None
-        | Some (TId id') when id = id' -> Some Util.Pmap.empty
+        | Some (TId id') when id = id' -> Some Namectx.empty
         | Some _ -> None
       end
     | (TId _, _) -> None
     | (TName _, Name nn) ->
-          let nty = Types.force_negative_type ty in
-          Some (Util.Pmap.singleton (nn, nty))
+        let nty = Types.force_negative_type ty in
+        Some (Util.Pmap.singleton (nn, nty))
     (*TODO: Should we check to who belongs the TName ? *)
     (* | (TExn, Constructor (c, nup')) ->  
         let (TArrow (param_ty, _)) = Util.Pmap.lookup_exn c (Util.Pmap.concat namectxP namectxO) in 
@@ -160,40 +160,40 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
         failwith @@ "Error: type-checking a nup of type "
         ^ Types.string_of_typ ty ^ " is not yet supported."
 
-  let rec abstracting_value (value : value) ty =
-    match (value, ty) with
-    | (Fun _, TArrow _)
-    | (Fix _, TArrow _)
-    | (Name _, TArrow _)
-    | (Fun _, TForall (_, TArrow _))
-    | (Fix _, TForall (_, TArrow _))
-    | (Name _, TForall (_, TArrow _)) ->
-        let nval = Syntax.force_negative_val value in
-        let nty = Types.force_negative_type ty in
-        let (fn,lnamectx) = Namectx.singleton nty in
-        let ienv = Util.Pmap.singleton (fn, nval) in
-        (Name fn, ienv, lnamectx)
-    | (Unit, TUnit) | (Bool _, TBool) | (Int _, TInt) ->
-        (value, Util.Pmap.empty, Util.Pmap.empty)
-    | (Pair (value1, value2), TProd (ty1, ty2)) ->
-        let (nup1, ienv1, lnamectx1) = abstracting_value value1 ty1 in
-        let (nup2, ienv2, lnamectx2) = abstracting_value value2 ty2 in
-        ( Pair (nup1, nup2),
-          Util.Pmap.concat ienv1 ienv2,
-          Util.Pmap.concat lnamectx1 lnamectx2 )
-    | (_, TId _) ->
-        let pn = Names.fresh_pname () in
-        let nval = Syntax.force_negative_val value in
-        let ienv = Util.Pmap.singleton (pn, nval) in
-        let nty = Types.force_negative_type ty in
-        let lnamectx = Util.Pmap.singleton (pn, nty) in
-        (Name pn, ienv, lnamectx)
-    | (Name _, TName _) -> (value, Util.Pmap.empty, Util.Pmap.empty)
-    | (Constructor _, TExn) -> (value, Util.Pmap.empty, Util.Pmap.empty)
-    | _ ->
-        failwith
-          ("Error: " ^ string_of_term value ^ " of type " ^ string_of_typ ty
-         ^ " cannot be abstracted because it is not a value.")
+  let abstracting_value (value : value) ty =
+    let rec aux lnamectx ienv value ty =
+      match (value, ty) with
+      | (Fun _, TArrow _)
+      | (Fix _, TArrow _)
+      | (Name _, TArrow _)
+      | (Fun _, TForall (_, TArrow _))
+      | (Fix _, TForall (_, TArrow _))
+      | (Name _, TForall (_, TArrow _)) ->
+          let nval = Syntax.force_negative_val value in
+          let nty = Types.force_negative_type ty in
+          let (fn, lnamectx') = Namectx.add_fresh lnamectx nty in
+          let ienv = Util.Pmap.singleton (fn, nval) in
+          (Name fn, ienv, lnamectx')
+      | (Unit, TUnit) | (Bool _, TBool) | (Int _, TInt) ->
+          (value, empty_ienv, Namectx.empty)
+      | (Pair (value1, value2), TProd (ty1, ty2)) ->
+          let (nup1, ienv1, lnamectx1) = aux lnamectx ienv value1 ty1 in
+          let (nup2, ienv2, lnamectx2) = aux lnamectx1 ienv1 value2 ty2 in
+          (Pair (nup1, nup2), ienv2, lnamectx2)
+      | (_, TId _) ->
+          let pn = Names.fresh_pname () in
+          let nval = Syntax.force_negative_val value in
+          let ienv' = Util.Pmap.add (pn, nval) ienv in
+          let nty = Types.force_negative_type ty in
+          let lnamectx' = Util.Pmap.singleton (pn, nty) in
+          (Name pn, ienv', lnamectx')
+      | (Name _, TName _) -> (value, empty_ienv, Namectx.empty)
+      | (Constructor _, TExn) -> (value, empty_ienv, Namectx.empty)
+      | _ ->
+          failwith
+            ("Error: " ^ string_of_term value ^ " of type " ^ string_of_typ ty
+           ^ " cannot be abstracted because it is not a value.") in
+    aux Namectx.empty empty_ienv value ty
 
   let subst_names ienv nup =
     let aux nup (nn, nval) =
