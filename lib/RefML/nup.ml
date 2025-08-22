@@ -135,23 +135,17 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
       end
     | (TProd _, _) -> None
     | (TArrow _, Name nn) | (TForall _, Name nn) ->
-        if Util.Pmap.mem nn namectxP || Util.Pmap.mem nn namectxO then None
-          (* the name nn has to be fresh to be well-typed *)
-        else
           let nty = Types.force_negative_type ty in
           Some (Util.Pmap.singleton (nn, nty))
     | (TArrow _, _) | (TForall _, _) -> None
-    | (TId id, Name nn) -> begin
-        match Util.Pmap.lookup nn namectxP with
+    | (TId id, Name bn) -> begin
+        match Util.Pmap.lookup bn namectxP with
         | None -> None
         | Some (TId id') when id = id' -> Some Util.Pmap.empty
         | Some _ -> None
       end
     | (TId _, _) -> None
     | (TName _, Name nn) ->
-        if Util.Pmap.mem nn namectxP || Util.Pmap.mem nn namectxO then None
-          (* the name nn has to be fresh to be well-typed *)
-        else
           let nty = Types.force_negative_type ty in
           Some (Util.Pmap.singleton (nn, nty))
     (*TODO: Should we check to who belongs the TName ? *)
