@@ -113,7 +113,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           ("Error generating a nup on type " ^ Types.string_of_typ ty
          ^ ". Please report")
 
-  (* namectxO is needed in the following definition to check freshness*)
+  (* namectxO is needed in the following definition to check freshness, while namectxP is needed for checking existence of box names*)
   let rec infer_type_abstract_val namectxP namectxO ty nup =
     match (ty, nup) with
     | (TUnit, Unit) -> Some Util.Pmap.empty
@@ -168,11 +168,10 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     | (Fun _, TForall (_, TArrow _))
     | (Fix _, TForall (_, TArrow _))
     | (Name _, TForall (_, TArrow _)) ->
-        let fn = Names.fresh_name () in
         let nval = Syntax.force_negative_val value in
         let nty = Types.force_negative_type ty in
+        let (fn,lnamectx) = Namectx.singleton nty in
         let ienv = Util.Pmap.singleton (fn, nval) in
-        let lnamectx = Util.Pmap.singleton (fn, nty) in
         (Name fn, ienv, lnamectx)
     | (Unit, TUnit) | (Bool _, TBool) | (Int _, TInt) ->
         (value, Util.Pmap.empty, Util.Pmap.empty)
