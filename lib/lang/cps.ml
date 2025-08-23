@@ -146,79 +146,24 @@ struct
         let pp = OpLang.pp_type
       end)
 
-  module Namectx = struct
-    type name = Names.name
-    type typ = negative_type
-    type t = OpLang.Namectx.t * CNamectx.t [@@deriving to_yojson]
+  module Namectx =
+    Typectx.AggregateDisjoint (OpLang.Namectx) (CNamectx)
+      (struct
+        type t = Names.name
 
-    let empty = (OpLang.Namectx.empty, CNamectx.empty)
+        let embed1 nn = Names.N nn
+        let embed2 cn = Names.CName cn
+        let extract1 = function Names.N nn -> Some nn | Names.CName _ -> None
+        let extract2 = function Names.CName cn -> Some cn | Names.N _ -> None
+      end)
+      (struct
+        type t = negative_type [@@deriving to_yojson]
 
-    let concat (namectx1, cnamectx1) (namectx2, cnamectx2) =
-      ( OpLang.Namectx.concat namectx1 namectx2,
-        CNamectx.concat cnamectx1 cnamectx2 )
-
-    let pp fmt (namectx, cnamectx) =
-      Format.fprintf fmt "(%a,%a)" OpLang.Namectx.pp namectx CNamectx.pp
-        cnamectx
-
-    let to_string = Format.asprintf "%a" pp
-
-    let get_names (namectx, cnamectx) =
-      List.map (fun nn -> Names.N nn) (OpLang.Namectx.get_names namectx)
-      @ List.map
-          (fun nn -> Names.inj_cont_name nn)
-          (CNamectx.get_names cnamectx)
-
-    let lookup_exn (namectx, cnamectx) = function
-      | Names.CName cn -> INeg (CNamectx.lookup_exn cnamectx cn)
-      | Names.N nn -> IType (OpLang.Namectx.lookup_exn namectx nn)
-
-    let add (namectx, cnamectx) nn nty =
-      match (nn, nty) with
-      | (Names.CName cn, INeg ty) ->
-          let cnamectx' = CNamectx.add cnamectx cn ty in
-          (namectx, cnamectx')
-      | (Names.N nn, IType ty) ->
-          let namectx' = OpLang.Namectx.add namectx nn ty in
-          (namectx', cnamectx)
-      | _ ->
-          failwith
-            "Trying to add a name of the wrong type in the name context. \
-             Pleasse report."
-
-    let mem (namectx, cnamectx) = function
-      | Names.N nn -> OpLang.Namectx.mem namectx nn
-      | Names.CName cn -> CNamectx.mem cnamectx cn
-
-    let to_pmap (namectx, cnamectx) =
-      let namectx_pmap = OpLang.Namectx.to_pmap namectx in
-      let namectx_pmap' =
-        Util.Pmap.map (fun (nn, ty) -> (Names.N nn, IType ty)) namectx_pmap
-      in
-      let cnamectx_pmap = CNamectx.to_pmap cnamectx in
-      let cnamectx_pmap' =
-        Util.Pmap.map
-          (fun (cn, ty) -> (Names.inj_cont_name cn, INeg ty))
-          cnamectx_pmap in
-      Util.Pmap.concat namectx_pmap' cnamectx_pmap'
-
-    let singleton = function
-      | INeg ty ->
-          let (cn, cnamectx) = CNamectx.singleton ty in
-          (Names.inj_cont_name cn, (OpLang.Namectx.empty, cnamectx))
-      | IType ty ->
-          let (nn, namectx) = OpLang.Namectx.singleton ty in
-          (Names.N nn, (namectx, CNamectx.empty))
-
-    let add_fresh (namectx, cnamectx) nty =
-      match nty with
-      | INeg ty ->
-          let (cn, cnamectx') = CNamectx.add_fresh cnamectx ty in
-          (Names.inj_cont_name cn, (namectx, cnamectx'))
-      | IType ty ->
-          let (nn, namectx') = OpLang.Namectx.add_fresh namectx ty in
-          (Names.N nn, (namectx', cnamectx))
-  end
+        let embed1 ty = IType ty
+        let embed2 ty = INeg ty
+        let extract1 = function IType ty -> Some ty | INeg _ -> None
+        let extract2 = function INeg ty -> Some ty | IType _ -> None
+      end)
 
   let extract_name_ctx (namectx, _) = namectx
   let embed_name_ctx namectx = (namectx, CNamectx.empty)
@@ -294,7 +239,7 @@ struct
     OpLang.type_check_nf_term ~inj_ty ~empty_res ~get_type_fname ~get_type_cname
       ~type_check_call ~type_check_ret nf
 
-  let generate_nf_term namectx =
+  let generate_nf_term namectx_pmap =
     let inj_ty ty = GType ty in
     let fname_ctx =
       Util.Pmap.filter_map
@@ -304,12 +249,12 @@ struct
               if OpLang.Names.is_callable nn then Some (Names.N nn, (ty, GEmpty))
               else None
           | _ -> None)
-        namectx in
+        namectx_pmap in
     let cname_ctx =
       Util.Pmap.filter_map
         (fun (cn, ty) ->
           if Names.is_cname cn then Some (cn, (ty, GEmpty)) else None)
-        namectx in
+        namectx_pmap in
     (* For both, the type provided must be ⊥, but we do not check it.*)
     let open OpLang.AVal.BranchMonad in
     let* (a, _) =
@@ -488,20 +433,16 @@ struct
        we generate all the possible pairs (A,Δ) such that
        Γ_P;_ ⊢ A : τ ▷ Δ
        Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
-    let generate_abstract_val storectx namectxP_pmap gtype =
-      let namectxP_pmap' =
-        Util.Pmap.filter_map
-          (function (Names.N nn, IType nty) -> Some (nn, nty) | _ -> None)
-          namectxP_pmap in
+    let generate_abstract_val storectx (namectx, _) gtype =
       let open OpLang.AVal.BranchMonad in
       match gtype with
       | GType ty ->
           let* (aval, lnamectx) =
-            OpLang.AVal.generate_abstract_val storectx namectxP_pmap' ty in
+            OpLang.AVal.generate_abstract_val storectx namectx ty in
           return (AVal aval, embed_name_ctx lnamectx)
       | GProd (ty, tyhole) ->
           let* (aval, lnamectx) =
-            OpLang.AVal.generate_abstract_val storectx namectxP_pmap' ty in
+            OpLang.AVal.generate_abstract_val storectx namectx ty in
           let (cn, cnamectx) = CNamectx.singleton tyhole in
           let lnamectx' = (lnamectx, cnamectx) in
           return (APair (aval, cn), lnamectx')
@@ -512,7 +453,7 @@ struct
           let ty' = OpLang.apply_type_subst ty type_subst in
           let tyhole' = OpLang.apply_type_subst tyhole type_subst in
           let* (aval, lnamectx) =
-            OpLang.AVal.generate_abstract_val storectx namectxP_pmap' ty' in
+            OpLang.AVal.generate_abstract_val storectx namectx ty' in
           let (cn, cnamectx) = CNamectx.singleton tyhole' in
           let lnamectx' = (lnamectx, cnamectx) in
           return (APack (tname_l, aval, cn), lnamectx')

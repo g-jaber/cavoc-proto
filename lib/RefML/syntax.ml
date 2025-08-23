@@ -173,7 +173,7 @@ type name_set = Names.name list
 let empty_name_set = []
 
 let rec get_new_names lnames = function
-  | Name n -> if List.mem n lnames then lnames else n :: lnames
+  | Name nn -> if List.mem nn lnames then lnames else nn :: lnames
   | Var _ | Loc _ | Unit | Int _ | Bool _ | Hole | Error -> lnames
   | Constructor (_, e)
   | UnaryOp (_, e)

@@ -21,7 +21,7 @@ val extract_type_subst : implem_decl list -> Types.type_subst
 type comp_env = (Syntax.id * Syntax.term) list
 
 val get_typed_comp_env :
-  implem_decl list -> signature_decl list -> comp_env * Type_ctx.name_ctx * Type_ctx.cons_ctx
+  implem_decl list -> signature_decl list -> comp_env * Namectx.t * Type_ctx.cons_ctx
 
 (* get_typed_val_env  takes a map from variables to values (i.e. evaluated computations) and a signature,
 and return a map from (Proponent) names to values, together with the typing contexts of these Proponent names.
@@ -29,4 +29,4 @@ The Proponent names corresponds to the variables that are declared in the given 
 val get_typed_val_env :
   Syntax.val_env ->
   signature_decl list ->
-  (Names.name, Syntax.value) Util.Pmap.pmap * Type_ctx.name_ctx
+  (Names.name, Syntax.value) Util.Pmap.pmap * Namectx.t

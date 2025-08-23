@@ -44,17 +44,17 @@ let rec infer_type type_ctx type_subst expr =
             ("Error: the constructor "
             ^ Syntax.string_of_constructor cons
             ^ " is not defined in the environment "
-            ^ Type_ctx.string_of_name_ctx type_ctx.name_ctx
+            ^ Type_ctx.string_of_cons_ctx type_ctx.cons_ctx
             ^ " .")
     end
   | Name n -> begin
-      match Util.Pmap.lookup n type_ctx.name_ctx with
-      | Some ty -> (ty, type_subst)
-      | None ->
+      match Namectx.lookup_exn (Type_ctx.get_name_ctx type_ctx) n with
+      | ty -> (ty, type_subst)
+      | exception Not_found ->
           Util.Error.fail_error
             ("Error: the name " ^ Names.string_of_name n
            ^ " is not defined in the environment "
-            ^ Type_ctx.string_of_name_ctx type_ctx.name_ctx
+            ^ Namectx.to_string type_ctx.name_ctx
             ^ " .")
     end
   | Loc l -> begin

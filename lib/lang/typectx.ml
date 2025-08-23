@@ -14,6 +14,7 @@ module type TYPECTX = sig
   val singleton : typ -> name * t
   val mem : t -> name -> bool
   val add_fresh : t -> typ -> name * t
+  val map : (typ -> typ) -> t -> t
 end
 
 module type TYPECTX_PMAP = sig
@@ -78,6 +79,8 @@ module Make_PMAP
   let add_fresh name_ctx ty =
     let nn = Names.fresh_name () in
     (nn, Util.Pmap.add (nn, ty) name_ctx)
+
+  let map = Util.Pmap.map_im
 end
 
 module Make_List (Types : sig
@@ -114,7 +117,407 @@ struct
   let singleton ty = (0, [ ty ])
   let mem namectx nn = nn < List.length namectx
 
-  let add_fresh name_ctx ty = 
+  let add_fresh name_ctx ty =
     let nn = List.length name_ctx in
-    (nn,name_ctx @ [ ty ])
+    (nn, name_ctx @ [ ty ])
+
+  let map = List.map
+end
+
+module AggregateCommon
+    (Namectx1 : TYPECTX)
+    (Namectx2 : TYPECTX with type typ = Namectx1.typ)
+    (EmbedNames : sig
+      type t
+
+      val embed1 : Namectx1.name -> t
+      val embed2 : Namectx2.name -> t
+      val extract1 : t -> Namectx1.name option
+      val extract2 : t -> Namectx2.name option
+    end)
+    (ClassifyTyp : sig
+      val classify : Namectx1.typ -> bool
+    end) :
+  TYPECTX
+    with type name = EmbedNames.t
+     and type typ = Namectx1.typ
+     and type t = Namectx1.t * Namectx2.t = struct
+  type t = Namectx1.t * Namectx2.t [@@deriving to_yojson]
+  type name = EmbedNames.t
+  type typ = Namectx1.typ
+
+  let empty = (Namectx1.empty, Namectx2.empty)
+
+  let concat (namectx11, namectx12) (namectx21, namectx22) =
+    (Namectx1.concat namectx11 namectx21, Namectx2.concat namectx12 namectx22)
+
+  let pp fmt (namectx1, namectx2) =
+    Format.fprintf fmt "(%a,%a)" Namectx1.pp namectx1 Namectx2.pp namectx2
+
+  let to_string = Format.asprintf "%a" pp
+
+  let get_names (namectx1, namectx2) =
+    List.map (fun nn -> EmbedNames.embed1 nn) (Namectx1.get_names namectx1)
+    @ List.map (fun nn -> EmbedNames.embed2 nn) (Namectx2.get_names namectx2)
+
+  let lookup_exn (namectx1, namectx2) nn =
+    match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with
+    | (Some nn', None) -> Namectx1.lookup_exn namectx1 nn'
+    | (None, Some nn') -> Namectx2.lookup_exn namectx2 nn'
+    | _ ->
+        failwith
+          "Error while performing a lookup on an aggregated context. Please \
+           report."
+
+  let add (namectx1, namectx2) nn ty =
+    match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with
+    | (None, Some nn') ->
+        let namectx2' = Namectx2.add namectx2 nn' ty in
+        (namectx1, namectx2')
+    | (Some nn', None) ->
+        let namectx1' = Namectx1.add namectx1 nn' ty in
+        (namectx1', namectx2)
+    | _ ->
+        failwith
+          "Aggregating two typing contexts with non-disjoint set of names. \
+           Please report."
+
+  let mem (namectx1, namectx2) nn =
+    match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with
+    | (None, Some nn') -> Namectx2.mem namectx2 nn'
+    | (Some nn', None) -> Namectx1.mem namectx1 nn'
+    | _ ->
+        failwith
+          "Aggregating two typing contexts with non-disjoint set of names. \
+           Please report."
+
+  let to_pmap (namectx1, namectx2) =
+    let namectx1_pmap = Namectx1.to_pmap namectx1 in
+    let namectx1_pmap' =
+      Util.Pmap.map (fun (nn, ty) -> (EmbedNames.embed1 nn, ty)) namectx1_pmap
+    in
+    let namectx2_pmap = Namectx2.to_pmap namectx2 in
+    let namectx2_pmap' =
+      Util.Pmap.map (fun (cn, ty) -> (EmbedNames.embed2 cn, ty)) namectx2_pmap
+    in
+    Util.Pmap.concat namectx1_pmap' namectx2_pmap'
+
+  let singleton ty =
+    if ClassifyTyp.classify ty then
+      let (nn, namectx) = Namectx1.singleton ty in
+      (EmbedNames.embed1 nn, (namectx, Namectx2.empty))
+    else
+      let (nn, namectx2) = Namectx2.singleton ty in
+      (EmbedNames.embed2 nn, (Namectx1.empty, namectx2))
+
+  let add_fresh (namectx1, namectx2) ty =
+    if ClassifyTyp.classify ty then
+      let (nn, namectx) = Namectx1.add_fresh namectx1 ty in
+      (EmbedNames.embed1 nn, (namectx, namectx2))
+    else
+      let (nn, namectx) = Namectx2.add_fresh namectx2 ty in
+      (EmbedNames.embed2 nn, (namectx1, namectx))
+
+  let map f (namectx1, namectx2) =
+    (Namectx1.map f namectx1, Namectx2.map f namectx2)
+end
+
+module AggregateCommonType
+    (Namectx1 : TYPECTX)
+    (Namectx2 : TYPECTX with type typ = Namectx1.typ)
+    (ClassifyTyp : sig
+      val classify : Namectx1.typ -> bool
+    end) : TYPECTX = struct
+  type name = N1 of Namectx1.name | N2 of Namectx2.name
+  type typ = Namectx1.typ
+  type t = Namectx1.t * Namectx2.t [@@deriving to_yojson]
+
+  let empty = (Namectx1.empty, Namectx2.empty)
+
+  let concat (namectx11, namectx12) (namectx21, namectx22) =
+    (Namectx1.concat namectx11 namectx21, Namectx2.concat namectx12 namectx22)
+
+  let pp fmt (namectx1, namectx2) =
+    Format.fprintf fmt "(%a,%a)" Namectx1.pp namectx1 Namectx2.pp namectx2
+
+  let to_string = Format.asprintf "%a" pp
+
+  let get_names (namectx1, namectx2) =
+    List.map (fun nn -> N1 nn) (Namectx1.get_names namectx1)
+    @ List.map (fun nn -> N2 nn) (Namectx2.get_names namectx2)
+
+  let lookup_exn (namectx1, namectx2) = function
+    | N1 nn -> Namectx1.lookup_exn namectx1 nn
+    | N2 nn -> Namectx2.lookup_exn namectx2 nn
+
+  let add (namectx1, namectx2) nn ty =
+    match nn with
+    | N2 cn ->
+        let namectx2' = Namectx2.add namectx2 cn ty in
+        (namectx1, namectx2')
+    | N1 nn ->
+        let namectx1' = Namectx1.add namectx1 nn ty in
+        (namectx1', namectx2)
+
+  let mem (namectx1, namectx2) = function
+    | N1 nn -> Namectx1.mem namectx1 nn
+    | N2 cn -> Namectx2.mem namectx2 cn
+
+  let to_pmap (namectx1, namectx2) =
+    let namectx1_pmap = Namectx1.to_pmap namectx1 in
+    let namectx1_pmap' =
+      Util.Pmap.map (fun (nn, ty) -> (N1 nn, ty)) namectx1_pmap in
+    let namectx2_pmap = Namectx2.to_pmap namectx2 in
+    let namectx2_pmap' =
+      Util.Pmap.map (fun (cn, ty) -> (N2 cn, ty)) namectx2_pmap in
+    Util.Pmap.concat namectx1_pmap' namectx2_pmap'
+
+  let singleton ty =
+    if ClassifyTyp.classify ty then
+      let (nn, namectx) = Namectx1.singleton ty in
+      (N1 nn, (namectx, Namectx2.empty))
+    else
+      let (nn, namectx2) = Namectx2.singleton ty in
+      (N2 nn, (Namectx1.empty, namectx2))
+
+  let add_fresh (namectx1, namectx2) ty =
+    if ClassifyTyp.classify ty then
+      let (nn, namectx) = Namectx1.add_fresh namectx1 ty in
+      (N1 nn, (namectx, namectx2))
+    else
+      let (nn, namectx) = Namectx2.add_fresh namectx2 ty in
+      (N2 nn, (namectx1, namectx))
+
+  let map f (namectx1, namectx2) =
+    (Namectx1.map f namectx1, Namectx2.map f namectx2)
+end
+
+module AggregateDisjoint
+    (Namectx1 : TYPECTX)
+    (Namectx2 : TYPECTX)
+    (EmbedNames : sig
+      type t
+
+      val embed1 : Namectx1.name -> t
+      val embed2 : Namectx2.name -> t
+      val extract1 : t -> Namectx1.name option
+      val extract2 : t -> Namectx2.name option
+    end)
+    (EmbedTypes : sig
+      type t [@@deriving to_yojson]
+
+      val embed1 : Namectx1.typ -> t
+      val embed2 : Namectx2.typ -> t
+      val extract1 : t -> Namectx1.typ option
+      val extract2 : t -> Namectx2.typ option
+    end) :
+  TYPECTX
+    with type name = EmbedNames.t
+     and type typ = EmbedTypes.t
+     and type t = Namectx1.t * Namectx2.t = struct
+  type t = Namectx1.t * Namectx2.t [@@deriving to_yojson]
+  type name = EmbedNames.t
+  type typ = EmbedTypes.t
+
+  let empty = (Namectx1.empty, Namectx2.empty)
+
+  let concat (namectx11, namectx12) (namectx21, namectx22) =
+    (Namectx1.concat namectx11 namectx21, Namectx2.concat namectx12 namectx22)
+
+  let pp fmt (namectx1, namectx2) =
+    Format.fprintf fmt "(%a,%a)" Namectx1.pp namectx1 Namectx2.pp namectx2
+
+  let to_string = Format.asprintf "%a" pp
+
+  let get_names (namectx1, namectx2) =
+    List.map (fun nn -> EmbedNames.embed1 nn) (Namectx1.get_names namectx1)
+    @ List.map (fun nn -> EmbedNames.embed2 nn) (Namectx2.get_names namectx2)
+
+  let lookup_exn (namectx1, namectx2) nn =
+    match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with
+    | (Some nn', None) -> EmbedTypes.embed1 @@ Namectx1.lookup_exn namectx1 nn'
+    | (None, Some nn') -> EmbedTypes.embed2 @@ Namectx2.lookup_exn namectx2 nn'
+    | _ ->
+        failwith
+          "Error while performing a lookup on an aggregated context. Please \
+           report."
+
+  let add (namectx1, namectx2) nn ty =
+    match
+      ( EmbedNames.extract1 nn,
+        EmbedTypes.extract1 ty,
+        EmbedNames.extract2 nn,
+        EmbedTypes.extract2 ty )
+    with
+    | (None, None, Some nn', Some ty') ->
+        let namectx2' = Namectx2.add namectx2 nn' ty' in
+        (namectx1, namectx2')
+    | (Some nn', Some ty', None, None) ->
+        let namectx1' = Namectx1.add namectx1 nn' ty' in
+        (namectx1', namectx2)
+    | _ ->
+        failwith
+          "Aggregating two typing contexts with non-disjoint set of names. \
+           Please report."
+
+  let mem (namectx1, namectx2) nn =
+    match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with
+    | (None, Some nn') -> Namectx2.mem namectx2 nn'
+    | (Some nn', None) -> Namectx1.mem namectx1 nn'
+    | _ ->
+        failwith
+          "Aggregating two typing contexts with non-disjoint set of names. \
+           Please report."
+
+  let to_pmap (namectx1, namectx2) =
+    let namectx1_pmap = Namectx1.to_pmap namectx1 in
+    let namectx1_pmap' =
+      Util.Pmap.map
+        (fun (nn, ty) -> (EmbedNames.embed1 nn, EmbedTypes.embed1 ty))
+        namectx1_pmap in
+    let namectx2_pmap = Namectx2.to_pmap namectx2 in
+    let namectx2_pmap' =
+      Util.Pmap.map
+        (fun (cn, ty) -> (EmbedNames.embed2 cn, EmbedTypes.embed2 ty))
+        namectx2_pmap in
+    Util.Pmap.concat namectx1_pmap' namectx2_pmap'
+
+  let singleton ty =
+    match (EmbedTypes.extract1 ty, EmbedTypes.extract2 ty) with
+    | (None, Some ty) ->
+        let (nn, namectx2) = Namectx2.singleton ty in
+        (EmbedNames.embed2 nn, (Namectx1.empty, namectx2))
+    | (Some ty, None) ->
+        let (nn, namectx1) = Namectx1.singleton ty in
+        (EmbedNames.embed1 nn, (namectx1, Namectx2.empty))
+    | (Some _, Some _) ->
+        failwith
+          "Aggregating two typing contexts with non-disjoint set of types. \
+           Please report."
+    | (None, None) ->
+        failwith
+          "Aggregating two typing contexts with missing types. Please report."
+
+  let add_fresh (namectx1, namectx2) ty =
+    match (EmbedTypes.extract1 ty, EmbedTypes.extract2 ty) with
+    | (None, Some ty) ->
+        let (nn, namectx2') = Namectx2.add_fresh namectx2 ty in
+        (EmbedNames.embed2 nn, (namectx1, namectx2'))
+    | (Some ty, None) ->
+        let (nn, namectx') = Namectx1.add_fresh namectx1 ty in
+        (EmbedNames.embed1 nn, (namectx', namectx2))
+    | (Some _, Some _) ->
+        failwith
+          "Aggregating two typing contexts with non-disjoint set of types. \
+           Please report."
+    | (None, None) ->
+        failwith
+          "Aggregating two typing contexts with missing types. Please report."
+
+  let map f (namectx1, namectx2) =
+    let f_lift1 ty =
+      match EmbedTypes.extract1 @@ f (EmbedTypes.embed1 ty) with
+      | Some ty' -> ty'
+      | None -> failwith "Map does not preserve type embeding. Please report"
+    in
+    let f_lift2 ty =
+      match EmbedTypes.extract2 @@ f (EmbedTypes.embed2 ty) with
+      | Some ty' -> ty'
+      | None -> failwith "Map does not preserve type embeding. Please report"
+    in
+    (Namectx1.map f_lift1 namectx1, Namectx2.map f_lift2 namectx2)
+end
+
+module AggregateDisjointTypes
+    (Namectx1 : TYPECTX)
+    (Namectx2 : TYPECTX)
+    (Types : sig
+      type t [@@deriving to_yojson]
+
+      val embed1 : Namectx1.typ -> t
+      val embed2 : Namectx2.typ -> t
+      val extract1 : t -> Namectx1.typ option
+      val extract2 : t -> Namectx2.typ option
+    end) =
+struct
+  type name = N1 of Namectx1.name | N2 of Namectx2.name
+  type typ = Types.t
+
+  let empty = (Namectx1.empty, Namectx2.empty)
+
+  let concat (namectx1, cnamectx1) (namectx2, cnamectx2) =
+    (Namectx1.concat namectx1 namectx2, Namectx2.concat cnamectx1 cnamectx2)
+
+  let pp fmt (namectx, cnamectx) =
+    Format.fprintf fmt "(%a,%a)" Namectx1.pp namectx Namectx2.pp cnamectx
+
+  let to_string = Format.asprintf "%a" pp
+
+  let get_names (namectx, cnamectx) =
+    List.map (fun nn -> N1 nn) (Namectx1.get_names namectx)
+    @ List.map (fun nn -> N2 nn) (Namectx2.get_names cnamectx)
+
+  let lookup_exn (namectx, cnamectx) = function
+    | N2 cn -> Types.embed2 (Namectx2.lookup_exn cnamectx cn)
+    | N1 nn -> Types.embed1 (Namectx1.lookup_exn namectx nn)
+
+  let add (namectx, cnamectx) nn nty =
+    match (nn, Types.extract1 nty, Types.extract2 nty) with
+    | (N2 cn, None, Some ty) ->
+        let cnamectx' = Namectx2.add cnamectx cn ty in
+        (namectx, cnamectx')
+    | (N1 nn, Some ty, None) ->
+        let namectx' = Namectx1.add namectx nn ty in
+        (namectx', cnamectx)
+    | _ ->
+        failwith
+          "Aggregating two typing contexts with non-disjoint set of types. \
+           Please report."
+
+  let mem (namectx, cnamectx) = function
+    | N1 nn -> Namectx1.mem namectx nn
+    | N2 cn -> Namectx2.mem cnamectx cn
+
+  let to_pmap (namectx, cnamectx) =
+    let namectx_pmap = Namectx1.to_pmap namectx in
+    let namectx_pmap' =
+      Util.Pmap.map (fun (nn, ty) -> (N1 nn, Types.embed1 ty)) namectx_pmap
+    in
+    let cnamectx_pmap = Namectx2.to_pmap cnamectx in
+    let cnamectx_pmap' =
+      Util.Pmap.map (fun (cn, ty) -> (N2 cn, Types.embed2 ty)) cnamectx_pmap
+    in
+    Util.Pmap.concat namectx_pmap' cnamectx_pmap'
+
+  let singleton ty =
+    match (Types.extract1 ty, Types.extract2 ty) with
+    | (None, Some ty) ->
+        let (cn, cnamectx) = Namectx2.singleton ty in
+        (N2 cn, (Namectx1.empty, cnamectx))
+    | (Some ty, None) ->
+        let (nn, namectx) = Namectx1.singleton ty in
+        (N1 nn, (namectx, Namectx2.empty))
+    | (Some _, Some _) ->
+        failwith
+          "Aggregating two typing contexts with non-disjoint set of types. \
+           Please report."
+    | (None, None) ->
+        failwith
+          "Aggregating two typing contexts with missing types. Please report."
+
+  let add_fresh (namectx, cnamectx) ty =
+    match (Types.extract1 ty, Types.extract2 ty) with
+    | (None, Some ty) ->
+        let (cn, cnamectx') = Namectx2.add_fresh cnamectx ty in
+        (N2 cn, (namectx, cnamectx'))
+    | (Some ty, None) ->
+        let (nn, namectx') = Namectx1.add_fresh namectx ty in
+        (N1 nn, (namectx', cnamectx))
+    | (Some _, Some _) ->
+        failwith
+          "Aggregating two typing contexts with non-disjoint set of types. \
+           Please report."
+    | (None, None) ->
+        failwith
+          "Aggregating two typing contexts with missing types. Please report."
 end

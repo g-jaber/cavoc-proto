@@ -1,4 +1,4 @@
-module Names : Lang.Names.NAMES_GEN with type name = Names.name = struct
+module Names : Lang.Names.NAMES with type name = Names.name = struct
   include Names
 end
 
@@ -92,16 +92,16 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
     try
       let implem_decl_l = Parser.prog Lexer.token lexBuffer_implem in
       let signature_decl_l = Parser.signature Lexer.token lexBuffer_signature in
-      let (comp_env, namectxO, cons_ctx) =
+      let (comp_env, (fnamectxO,pnamectxO), cons_ctx) =
         Declaration.get_typed_comp_env implem_decl_l signature_decl_l in
-      let namectxO' = Util.Pmap.filter_map_im Types.get_negative_type namectxO in (* To be reworked *)
+      let fnamectxO' = Util.Pmap.filter_map_im Types.get_negative_type fnamectxO in (* To be reworked *)
       let (val_assign, heap, cons_ctx') =
         Interpreter.normalize_term_env cons_ctx comp_env in
-      let (val_env, namectxP) =
+      let (val_env, (fnamectxP,pnamectxP)) =
         Declaration.get_typed_val_env val_assign signature_decl_l in
       let int_env = Util.Pmap.filter_map_im Syntax.filter_negative_val val_env in
-      let namectxP' = Util.Pmap.filter_map_im Types.get_negative_type namectxP in (* To be reworked *)
-      (int_env, (val_assign, heap, cons_ctx'), namectxP', namectxO')
+      let fnamectxP' = Util.Pmap.filter_map_im Types.get_negative_type fnamectxP in (* To be reworked *)
+      (int_env, (val_assign, heap, cons_ctx'), (fnamectxP',pnamectxP), (fnamectxO',pnamectxO))
     with
     | Lexer.SyntaxError msg -> failwith ("Lexing Error: " ^ msg)
     | Parser.Error ->

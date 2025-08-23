@@ -50,7 +50,7 @@ module type AVAL = sig
      we generate all the possible pairs (A,Δ) such that
      Γ_P;_ ⊢ A : τ ▷ Δ
      Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
-  val generate_abstract_val : store_ctx -> (name, negative_type) Util.Pmap.pmap -> typ -> (abstract_val * name_ctx) BranchMonad.m
+  val generate_abstract_val : store_ctx -> name_ctx -> typ -> (abstract_val * name_ctx) BranchMonad.m
 
   val unify_abstract_val :
     name Util.Namespan.namespan ->

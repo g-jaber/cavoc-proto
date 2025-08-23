@@ -14,16 +14,17 @@ module type NAMES_GEN = sig
   val from_string : string -> name
 end
 
-module type MODE =  sig val is_callable : bool val is_cname : bool end
+module type MODE = sig
+  val is_callable : bool 
+  val is_cname : bool
+end
+
 module type PREFIX = sig
-      val prefix : string
-    end
+  val prefix : string
+end
 
 (* A generative functor to create a new NAMES_GEN module *)
-module MakeGen
-    (Mode:MODE)
-    (Prefix:PREFIX)
-    () : NAMES_GEN = struct
+module MakeGen (Mode : MODE) (Prefix : PREFIX) () : NAMES_GEN = struct
   type name = int * string
 
   let string_of_name (_, s) = s

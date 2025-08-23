@@ -100,12 +100,7 @@ let build_name_ctx comp_env =
     List.fold_left
       (fun n_set (_, expr) -> Syntax.get_new_names n_set expr)
       Syntax.empty_name_set comp_env in
-  Util.Pmap.list_to_pmap
-  @@ List.map
-       (fun n ->
-         let tid = Types.fresh_typevar () in
-         (n, tid))
-       name_set
+  Namectx.build_name_ctx name_set
 
 let rec type_priv_included implem_type_decls = function
   | [] -> ()
@@ -197,7 +192,7 @@ let get_typed_comp_env implem_decl_l sign_decl_l =
     {
       var_ctx= Type_ctx.empty_var_ctx;
       loc_ctx= Type_ctx.empty_loc_ctx;
-      name_ctx=name_ctxO;
+      name_ctx= name_ctxO;
       cons_ctx;
       type_env;
     } in
@@ -210,10 +205,10 @@ let get_typed_val_env var_val_env sign_decl_l =
   let type_env = Util.Pmap.list_to_pmap type_publ_decl_l in
   let aux (var, ty) =
     let value = Util.Pmap.lookup_exn var var_val_env in
-    let nn = Names.from_string var in
+    let fn = Names.FNames.from_string var in
     let ty' = Types.generalize_type @@ Types.apply_type_env ty type_env in
-    ((nn, value), (nn, ty')) in
+    ((Names.FName fn, value), (fn, ty')) in
   let (val_env_l, name_ctx_l) = List.split @@ List.map aux var_ctx_l in
-  let name_ctx = Util.Pmap.list_to_pmap name_ctx_l in
+  let name_ctx = (Util.Pmap.list_to_pmap name_ctx_l, Pnamectx.empty) in
   let val_env = Util.Pmap.list_to_pmap val_env_l in
   (val_env, name_ctx)

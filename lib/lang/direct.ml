@@ -119,6 +119,8 @@ struct
       | PropCtx (fnamectx, stackctx) ->
           let (nn, fnamectx') = OpLang.Namectx.add_fresh fnamectx nty in
           (nn, PropCtx (fnamectx', stackctx))
+
+    let map _ = failwith "TODO"
   end
 
   (* Interactive environments γ are pairs formed by partial maps from functional names to functional values,
@@ -282,7 +284,7 @@ struct
         fnamectx_pmap in
     let open BranchMonad in
     let* (skel, typ) = OpLang.generate_nf_term_call fnamectx_split in
-    let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx_pmap skel in
+    let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx skel in
     let* store = OpLang.Store.generate_store storectx in
     let namectxO = Namectx.OpCtx (Some typ, lnamectx) in
     return ((a_nf_term, store), namectxO, namectxP)
@@ -291,12 +293,11 @@ struct
     | Namectx.PropCtx (_, []) -> BranchMonad.fail ()
     | Namectx.PropCtx (fnamectx, (ty_hole, ty_out) :: stackctx') ->
         let cnamectx_pmap = Util.Pmap.singleton ((), (ty_hole, ty_out)) in
-        let fnamectx_pmap = OpLang.Namectx.to_pmap fnamectx in
         let inj_ty ty = ty in
         let open BranchMonad in
         let* (skel, typ) = OpLang.generate_nf_term_ret inj_ty cnamectx_pmap in
         let* (a_nf_term, lnamectx) =
-          fill_abstract_val storectx fnamectx_pmap skel in
+          fill_abstract_val storectx fnamectx skel in
         let* store = OpLang.Store.generate_store storectx in
         let namectxP' = Namectx.PropCtx (fnamectx, stackctx') in
         let namectxO = Namectx.OpCtx (Some typ, lnamectx) in

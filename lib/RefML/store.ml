@@ -101,6 +101,9 @@ module Storectx = struct
 
   let add_fresh _ =
     failwith "add_fresh not relevant for store typing context. Please report."
+
+  let map f (loc_ctx, cons_ctx) =
+    (Util.Pmap.map_im f loc_ctx, Util.Pmap.map_im f cons_ctx)
 end
 
 let infer_type_store (_, heap, cons_ctx) = (Heap.loc_ctx_of_heap heap, cons_ctx)
