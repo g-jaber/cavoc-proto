@@ -28,9 +28,10 @@
 - [x] Add a functor to aggregate two Typectx
 - [x] Implement a function Typectx.add_fresh
 - [x] Encapsulate all the use of fresh_name in add_fresh
-- [ ] Embed a Namectx module in AVAL
-- [ ] Use TYPECTX interface in RefML/type_ctx.ml
-- [ ] Make namectx abstract in RefML/nup.ml
+- [x] Inline a lnamectx parameter in Direct.generate_abstract_val
+- [x] Use TYPECTX interface in RefML/type_ctx.ml
+- [x] Make namectx abstract in RefML/nup.ml
 - [ ] Switch to a presentation using De Bruijn indices
 - [ ] Remove the need of get_transmitted_names
 - [ ] Remove the need of get_negative_type
+- [ ] Remove the need of infer_type_abstract_val

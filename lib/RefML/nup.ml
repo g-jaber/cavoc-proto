@@ -63,62 +63,65 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
   module BranchMonad = BranchMonad
   open BranchMonad
 
-  let rec generate_abstract_val ((_, cons_ctx) as storectx)
-      ((_, pnamectx) as namectxP) = function
-    | TUnit -> return (Unit, empty_namectx)
-    | TBool ->
-        let* b = para_list @@ [ true; false ] in
-        return (Bool b, empty_namectx)
-    | TInt ->
-        let* i = BranchMonad.pick_int () in
-        return (Int i, empty_namectx)
-    | TProd (ty1, ty2) ->
-        let* (nup1, nctx1) = generate_abstract_val storectx namectxP ty1 in
-        let* (nup2, nctx2) = generate_abstract_val storectx namectxP ty2 in
-        return (Pair (nup1, nup2), concat_namectx nctx1 nctx2)
-    | TSum _ ->
-        failwith "Need to add injection to the syntax of expressions"
-        (*
+  let generate_abstract_val ((_, cons_ctx) as storectx)
+      ((_, pnamectxP)) ty =
+    let rec aux ((fnamectx, pnamectx) as lnamectx) = function
+      | TUnit -> return (Unit, empty_namectx)
+      | TBool ->
+          let* b = para_list @@ [ true; false ] in
+          return (Bool b, empty_namectx)
+      | TInt ->
+          let* i = BranchMonad.pick_int () in
+          return (Int i, empty_namectx)
+      | TProd (ty1, ty2) ->
+          let* (nup1, lnamectx1) = aux lnamectx ty1 in
+          let* (nup2, lnamectx2) = aux lnamectx1 ty2 in
+          return (Pair (nup1, nup2), lnamectx2)
+      | TSum _ ->
+          failwith "Need to add injection to the syntax of expressions"
+          (*
     let lnup1 = generate_nup ty1 in
     let lnup1' = List.map (fun (nup,nctx) -> (Inj (1,nup),nctx)) lnup1 in
     let lnup2' = List.map (fun (nup,nctx) -> (Inj (2,nup),nctx)) lnup1 in
     lnup1'@lnup2' *)
-    | TArrow _ as ty ->
-        let nty = Types.force_negative_type ty in
-        let (fn, fnamectx) = Fnamectx.singleton nty in
-        return (Name (FName fn), (fnamectx, Pnamectx.empty))
-    | TId _ as ty ->
-        let pnamectx_pmap = Pnamectx.to_pmap pnamectx in
-        let pn_list = Util.Pmap.select_im ty pnamectx_pmap in
-        let* pn = para_list @@ pn_list in
-        return (Name (PName pn), empty_namectx)
-    | TName _ as ty ->
-        let nty = Types.force_negative_type ty in
-        let (pn,pnamectx) = Pnamectx.singleton nty in
-        return (Name (PName pn), (Fnamectx.empty, pnamectx))
-    | TExn ->
-        Util.Debug.print_debug
-        @@ "Generating exception abstract values in the store context "
-        ^ Store.Storectx.to_string storectx;
-        let exn_cons_map =
-          Util.Pmap.filter_map_im
-            (fun ty -> match ty with TArrow (_, TExn) -> Some ty | _ -> None)
-            cons_ctx in
-        let* (c, cons_ty) = para_list @@ Util.Pmap.to_list exn_cons_map in
-        begin
-          match cons_ty with
-          | TArrow (pty, _) ->
-              let* (nup, nctx) = generate_abstract_val storectx namectxP pty in
-              return (Constructor (c, nup), nctx)
-          | _ -> failwith "TODO"
-        end
-    | ty ->
-        failwith
-          ("Error generating a nup on type " ^ Types.string_of_typ ty
-         ^ ". Please report")
+      | TArrow _ as ty ->
+          let nty = Types.force_negative_type ty in
+          let (fn, fnamectx') = Fnamectx.add_fresh fnamectx nty in
+          return (Name (FName fn), (fnamectx', pnamectx))
+      | TId _ as ty ->
+          let pnamectxP_pmap = Pnamectx.to_pmap pnamectxP in
+          let pn_list = Util.Pmap.select_im ty pnamectxP_pmap in
+          let* pn = para_list @@ pn_list in
+          return (Name (PName pn), lnamectx)
+      | TName _ as ty ->
+          let nty = Types.force_negative_type ty in
+          let (pn, pnamectx') = Pnamectx.add_fresh pnamectx nty in
+          return (Name (PName pn), (fnamectx, pnamectx'))
+      | TExn ->
+          Util.Debug.print_debug
+          @@ "Generating exception abstract values in the store context "
+          ^ Store.Storectx.to_string storectx;
+          let exn_cons_map =
+            Util.Pmap.filter_map_im
+              (fun ty ->
+                match ty with TArrow (_, TExn) -> Some ty | _ -> None)
+              cons_ctx in
+          let* (c, cons_ty) = para_list @@ Util.Pmap.to_list exn_cons_map in
+          begin
+            match cons_ty with
+            | TArrow (pty, _) ->
+                let* (nup, nctx) = aux lnamectx pty in
+                return (Constructor (c, nup), nctx)
+            | _ -> failwith "TODO"
+          end
+      | ty ->
+          failwith
+            ("Error generating a nup on type " ^ Types.string_of_typ ty
+           ^ ". Please report") in
+    aux empty_namectx ty
 
   (* namectxO is needed in the following definition to check freshness, while namectxP is needed for checking existence of box names*)
-  let rec infer_type_abstract_val ((_,pnamectx) as namectxP) namectxO ty nup =
+  let rec infer_type_abstract_val ((_, pnamectx) as namectxP) namectxO ty nup =
     match (ty, nup) with
     | (TUnit, Unit) -> Some empty_namectx
     | (TUnit, _) -> None
@@ -144,7 +147,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
         Some (fnamectx, Pnamectx.empty)
     | (TArrow _, _) | (TForall _, _) -> None
     | (TId id, Name (Names.PName pn)) -> begin
-        match Pnamectx.lookup_exn pnamectx pn with (* What about the Not_found exception ?*)
+        match Pnamectx.lookup_exn pnamectx pn with
+        (* What about the Not_found exception ?*)
         | TId id' when id = id' -> Some empty_namectx
         | _ -> None
       end
@@ -166,7 +170,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
         ^ Types.string_of_typ ty ^ " is not yet supported."
 
   let abstracting_value (value : value) ty =
-    let rec aux ((fnamectx,pnamectx) as lnamectx) ienv value ty =
+    let rec aux ((fnamectx, pnamectx) as lnamectx) ienv value ty =
       match (value, ty) with
       | (Fun _, TArrow _)
       | (Fix _, TArrow _)
@@ -177,8 +181,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           let nval = Syntax.force_negative_val value in
           let nty = Types.force_negative_type ty in
           let (fn, fnamectx') = Fnamectx.add_fresh fnamectx nty in
-          let ienv = Util.Pmap.singleton (Names.FName fn, nval) in
-          (Name (Names.FName fn), ienv, (fnamectx',pnamectx))
+          let ienv = Util.Pmap.add (Names.FName fn, nval) ienv in
+          (Name (Names.FName fn), ienv, (fnamectx', pnamectx))
       | (Unit, TUnit) | (Bool _, TBool) | (Int _, TInt) ->
           (value, Util.Pmap.empty, lnamectx)
       | (Pair (value1, value2), TProd (ty1, ty2)) ->
