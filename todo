@@ -10,9 +10,8 @@
 - [x] Remove the Int submodule of the Bipartite.INT_LTS signature
 - [x] Design a specific Typing LTS for POGS
 - [x] Provide an eval function rather than a compute_nf + abstract_nf in Lang.Interactive.LANG signature
-- [ ] Rework type_check_abstract_val in nup.ml
-    - [ ] Take a lnamectx as parameter and check freshness of new names wrt this lnamectx
-    - [ ] handle type name polarities
+- [x] Rework type_check_abstract_val in nup.ml
+    - [x] Take a lnamectx as parameter and check freshness of new names wrt this lnamectx
 - [ ] Add a store typing context for moves
 - [ ] Define a functor from MOVES to POLMOVES
 - [x] Propose a specified signature NAMEDMOVES where move type is defined as name*a_nf

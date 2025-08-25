@@ -11,6 +11,7 @@ module type TYPECTX = sig
   val lookup_exn : t -> name -> typ
   val is_empty : t -> bool
   val is_singleton : t -> name -> typ -> bool
+  val is_last : t -> name -> typ -> t option
   val add : t -> name -> typ -> t
   val to_pmap : t -> (name, typ) Util.Pmap.pmap
   val singleton : typ -> name * t
@@ -74,6 +75,18 @@ module Make_PMAP
   let is_empty = Util.Pmap.is_empty
   let is_singleton name_ctx nn ty = Util.Pmap.is_singleton name_ctx (nn, ty)
 
+  let is_last name_ctx nn ty =
+    let name_ctx_l = Util.Pmap.to_list name_ctx in
+    let rec aux name_ctx_l acc =
+      match name_ctx_l with
+      | [] -> None
+      | [ (nn', ty') ] ->
+          if nn = nn' && ty = ty' then
+            Some (Util.Pmap.list_to_pmap (List.rev acc))
+          else None
+      | hd :: name_ctx_l' -> aux name_ctx_l' (hd :: acc) in
+    aux name_ctx_l []
+
   let singleton ty =
     let nn = Names.fresh_name () in
     (nn, Util.Pmap.singleton (nn, ty))
@@ -115,6 +128,14 @@ struct
 
   let is_singleton nctx nn ty =
     match nctx with [ ty' ] when nn = 0 && ty = ty' -> true | _ -> false
+
+  let is_last name_ctx nn ty =
+    let rec aux name_ctx i acc =
+      match name_ctx with
+      | [] -> None
+      | [ ty' ] -> if nn = i && ty = ty' then Some (List.rev acc) else None
+      | hd :: name_ctx' -> aux name_ctx' (i + 1) (hd :: acc) in
+    aux name_ctx 0 []
 
   (* The add function always add at the end of the list !!!*)
   let add name_ctx _ ty = name_ctx @ [ ty ]
@@ -184,6 +205,20 @@ module AggregateCommon
     match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with
     | (Some nn', None) -> Namectx1.is_singleton namectx1 nn' ty
     | (None, Some nn') -> Namectx2.is_singleton namectx2 nn' ty
+    | _ ->
+        failwith
+          "Error while performing a singleton test on an aggregated context. \
+           Please report."
+
+  let is_last (namectx1, namectx2) nn ty =
+    let open Util.Monad.Option in
+    match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with
+    | (Some nn', None) ->
+        let* namectx1' = Namectx1.is_last namectx1 nn' ty in
+        return (namectx1', namectx2)
+    | (None, Some nn') ->
+        let* namectx2' = Namectx2.is_last namectx2 nn' ty in
+        return (namectx1, namectx2')
     | _ ->
         failwith
           "Error while performing a singleton test on an aggregated context. \
@@ -277,6 +312,16 @@ module AggregateCommonType
     match nn with
     | N1 nn' -> Namectx1.is_singleton namectx1 nn' ty
     | N2 nn' -> Namectx2.is_singleton namectx2 nn' ty
+
+  let is_last (namectx1, namectx2) nn ty =
+    let open Util.Monad.Option in
+    match nn with
+    | N1 nn' ->
+        let* namectx1' = Namectx1.is_last namectx1 nn' ty in
+        return (namectx1', namectx2)
+    | N2 nn' ->
+        let* namectx2' = Namectx2.is_last namectx2 nn' ty in
+        return (namectx1, namectx2')
 
   let add (namectx1, namectx2) nn ty =
     match nn with
@@ -382,6 +427,25 @@ module AggregateDisjoint
     with
     | (Some nn', Some ty', None, None) -> Namectx1.is_singleton namectx1 nn' ty'
     | (None, None, Some nn', Some ty') -> Namectx2.is_singleton namectx2 nn' ty'
+    | _ ->
+        failwith
+          "Error while performing a singleton test on an aggregated context. \
+           Please report."
+
+  let is_last (namectx1, namectx2) nn ty =
+    let open Util.Monad.Option in
+    match
+      ( EmbedNames.extract1 nn,
+        EmbedTypes.extract1 ty,
+        EmbedNames.extract2 nn,
+        EmbedTypes.extract2 ty )
+    with
+    | (Some nn', Some ty', None, None) ->
+        let* namectx1' = Namectx1.is_last namectx1 nn' ty' in
+        return (namectx1', namectx2)
+    | (None, None, Some nn', Some ty') ->
+        let* namectx2' = Namectx2.is_last namectx2 nn' ty' in
+        return (namectx1, namectx2')
     | _ ->
         failwith
           "Error while performing a singleton test on an aggregated context. \

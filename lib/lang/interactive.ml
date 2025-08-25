@@ -85,7 +85,7 @@ module type LANG = sig
   val type_check_a_nf :
     Namectx.t ->
     Namectx.t ->
-    (abstract_normal_form*Namectx.t) ->
+    abstract_normal_form * Namectx.t ->
     Namectx.t option
 
   val concretize_a_nf :
@@ -247,15 +247,13 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
   include OpLang.AVal.BranchMonad
 
   let fill_abstract_val storectx namectxP_pmap nf_skeleton =
-    let gen_val ty = OpLang.AVal.generate_abstract_val storectx namectxP_pmap ty in
+    let gen_val ty =
+      OpLang.AVal.generate_abstract_val storectx namectxP_pmap ty in
     OpLang.Nf.abstract_nf_term_m ~gen_val nf_skeleton
 
   let generate_a_nf storectx namectxP =
     let namectxP_pmap = OpLang.Namectx.to_pmap namectxP in
-    let namectxP_pmap' =
-      Util.Pmap.filter_dom
-        Names.is_callable
-        namectxP_pmap in
+    let namectxP_pmap' = Util.Pmap.filter_dom Names.is_callable namectxP_pmap in
     let namectxP_pmap'' = Util.Pmap.map_im OpLang.negating_type namectxP_pmap' in
     let* _ = return @@ Util.Debug.print_debug @@ "Generating the skeleton " in
     let* skel = OpLang.generate_nf_term namectxP_pmap'' in
@@ -264,16 +262,17 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let* store = Store.generate_store storectx in
     return ((a_nf_term, store), lnamectx, namectxP)
 
-  let type_check_a_nf namectxP namectxO ((nf_term, _),lnamectx) = (* Why do we ignore the store ? *)
+  let type_check_a_nf namectxP namectxO ((nf_term, _), lnamectx) =
+    (* Why do we ignore the store ? *)
     let name_ctx = namectxP in
     let type_check_val aval nty =
       let ty = OpLang.negating_type nty in
-      OpLang.AVal.type_check_abstract_val namectxP namectxO ty (aval,lnamectx) in
+      OpLang.AVal.type_check_abstract_val namectxP namectxO ty (aval, lnamectx)
+    in
     OpLang.type_check_nf_term ~name_ctx ~type_check_val nf_term
 
   (*TODO: Type check the store part and
      check that the disclosure process is respected*)
-
 
   (* Beware that is_equiv_a_nf does not check the equivalence of
      the store part of abstract normal forms.

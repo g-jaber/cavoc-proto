@@ -90,6 +90,9 @@ module Storectx = struct
     | Loc l -> Util.Pmap.is_singleton loc_ctx (l, ty)
     | Cons c -> Util.Pmap.is_singleton cons_ctx (c, ty)
 
+  let is_last ((_loc_ctx, _cons_ctx) : t) (_loc : location) (_ty : typ) =
+    failwith "TODO"
+
   let add ((loc_ctx, cons_ctx) : t) (loc : location) (ty : typ) =
     match loc with
     | Loc l -> (Util.Pmap.add (l, ty) loc_ctx, cons_ctx)

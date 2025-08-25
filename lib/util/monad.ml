@@ -14,7 +14,7 @@ module type RUNNABLE = sig
   val fail : unit -> 'a m
 end
 
-module Option : RUNNABLE = struct
+module Option = struct
   type 'a m = 'a option
 
   let return x = Some x

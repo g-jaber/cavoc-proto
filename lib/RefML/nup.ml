@@ -32,9 +32,6 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
   let labels_of_abstract_val = Syntax.get_labels
   let empty_namectx = (Fnamectx.empty, Pnamectx.empty)
 
-  let concat_namectx (fnamectx1, pnamectx1) (fnamectx2, pnamectx2) =
-    (Fnamectx.concat fnamectx1 fnamectx2, Pnamectx.concat pnamectx1 pnamectx2)
-
   let rec unify_abstract_val nspan nup1 nup2 =
     match (nup1, nup2) with
     | (Unit, Unit) -> Some nspan
@@ -63,8 +60,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
   module BranchMonad = BranchMonad
   open BranchMonad
 
-  let generate_abstract_val ((_, cons_ctx) as storectx)
-      ((_, pnamectxP)) ty =
+  let generate_abstract_val ((_, cons_ctx) as storectx) (_, pnamectxP) ty =
     let rec aux ((fnamectx, pnamectx) as lnamectx) = function
       | TUnit -> return (Unit, empty_namectx)
       | TBool ->
@@ -121,59 +117,54 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     aux empty_namectx ty
 
   (* namectxO is needed in the following definition to check freshness, while namectxP is needed for checking existence of box names*)
-  let type_check_abstract_val (_, pnamectx) _ ty (nup,lnamectx) =
-    let rec aux ty (nup,lnamectx) =
-    match (ty, nup) with
-    | (TUnit, Unit) -> Some empty_namectx
-    | (TUnit, _) -> None
-    | (TBool, Bool _) -> Some empty_namectx
-    | (TBool, _) -> None
-    | (TInt, Int _) -> Some empty_namectx
-    | (TInt, _) -> None
-    | (TProd (ty1, ty2), Pair (nup1, nup2)) -> begin
-        match
-          ( aux ty1 (nup1,lnamectx),
-            aux ty2 (nup2,lnamectx) )
-        with
-        | (None, _) | (_, None) -> None
-        | (Some namectxO1, Some namectxO2) ->
-            (*if Util.Pmap.disjoint namectxO1 namectxO2 then*)
-            Some (concat_namectx namectxO1 namectxO2)
-        (*else None*)
-      end
-    | (TProd _, _) -> None
-    | (TArrow _, Name (Names.FName fn)) | (TForall _, Name (Names.FName fn)) ->
-        let nty = Types.force_negative_type ty in
-        let fnamectx = Fnamectx.add Fnamectx.empty fn nty in
-        Some (fnamectx, Pnamectx.empty)
-    | (TArrow _, _) | (TForall _, _) -> None
-    | (TId id, Name (Names.PName pn)) -> begin
-        match Pnamectx.lookup_exn pnamectx pn with
-        (* What about the Not_found exception ?*)
-        | TId id' when id = id' -> Some empty_namectx
-        | _ -> None
-      end
-    | (TId _, _) -> None
-    | (TName _, Name (Names.PName pn)) ->
-        let nty = Types.force_negative_type ty in
-        let pnamectx = Pnamectx.add Pnamectx.empty pn nty in
-        Some (Fnamectx.empty, pnamectx)
-    (*TODO: Should we check to who belongs the TName ? *)
-    (* | (TExn, Constructor (c, nup')) ->  
+  let type_check_abstract_val (_, pnamectx) _ ty
+      (nup, ((lfnamectx, lpnamectx) as lnamectx)) =
+    let rec aux ty (nup, lnamectx) =
+      let open Util.Monad.Option in
+      match (ty, nup) with
+      | (TUnit, Unit) -> Some lnamectx
+      | (TUnit, _) -> None
+      | (TBool, Bool _) -> Some lnamectx
+      | (TBool, _) -> None
+      | (TInt, Int _) -> Some lnamectx
+      | (TInt, _) -> None
+      | (TProd (ty1, ty2), Pair (nup1, nup2)) -> begin
+          let* lnamectx' = aux ty1 (nup1, lnamectx) in
+          aux ty2 (nup2, lnamectx')
+        end
+      | (TProd _, _) -> None
+      | (TArrow _, Name (Names.FName fn)) | (TForall _, Name (Names.FName fn))
+        ->
+          let nty = Types.force_negative_type ty in
+          let* lfnamectx' = Fnamectx.is_last lfnamectx fn nty in
+          Some (lfnamectx', lpnamectx)
+      | (TArrow _, _) | (TForall _, _) -> None
+      | (TId id, Name (Names.PName pn)) -> begin
+          match Pnamectx.lookup_exn pnamectx pn with
+          (* What about the Not_found exception ?*)
+          | TId id' when id = id' -> Some lnamectx
+          | _ -> None
+        end
+      | (TId _, _) -> None
+      | (TName _, Name (Names.PName pn)) ->
+          let nty = Types.force_negative_type ty in
+          let* lpnamectx' = Pnamectx.is_last lpnamectx pn nty in
+          Some (lfnamectx, lpnamectx')
+      (*TODO: Should we check to who belongs the TName ? *)
+      (* | (TExn, Constructor (c, nup')) ->  
         let (TArrow (param_ty, _)) = Util.Pmap.lookup_exn c (Util.Pmap.concat namectxP namectxO) in 
         type_check_abstract_val namectxP namectxO param_ty nup' *)
-    | (TName _, _) -> None
-    | (TVar _, _) ->
-        failwith @@ "Error: trying to type-check a nup of type "
-        ^ Types.string_of_typ ty ^ ". Please report."
-    | (TUndef, _) | (TRef _, _) | (TSum _, _) | (TExn, _) ->
-        failwith @@ "Error: type-checking a nup of type "
-        ^ Types.string_of_typ ty ^ " is not yet supported."
-    in match aux ty (nup,lnamectx) with
+      | (TName _, _) -> None
+      | (TVar _, _) ->
+          failwith @@ "Error: trying to type-check a nup of type "
+          ^ Types.string_of_typ ty ^ ". Please report."
+      | (TUndef, _) | (TRef _, _) | (TSum _, _) | (TExn, _) ->
+          failwith @@ "Error: type-checking a nup of type "
+          ^ Types.string_of_typ ty ^ " is not yet supported." in
+    match aux ty (nup, lnamectx) with
     | None -> false
     | Some lnamectx when lnamectx = Namectx.empty -> true
     | Some _ -> false
-
 
   let abstracting_value (value : value) ty =
     let rec aux ((fnamectx, pnamectx) as lnamectx) ienv value ty =

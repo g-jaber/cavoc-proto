@@ -107,6 +107,17 @@ struct
       | PropCtx (fnamectx, []) -> OpLang.Namectx.is_singleton fnamectx nn ty
       | _ -> false
 
+    let is_last namectx nn ty =
+      match namectx with
+      | PropCtx (fnamectx, stack_ctx) ->
+          let open Util.Monad.Option in
+          let* fnamectx' = OpLang.Namectx.is_last fnamectx nn ty in
+          return (PropCtx (fnamectx', stack_ctx))
+      | OpCtx (ty', fnamectx) ->
+          let open Util.Monad.Option in
+          let* fnamectx' = OpLang.Namectx.is_last fnamectx nn ty in
+          return (OpCtx (ty', fnamectx'))
+
     let add (namectx : t) nn nty =
       match namectx with
       | OpCtx (ty, fnamectx) -> OpCtx (ty, OpLang.Namectx.add fnamectx nn nty)
