@@ -1,6 +1,7 @@
 module type LTS = sig
   module Moves : Moves.POLMOVES
   module BranchMonad : Util.Monad.BRANCH
+  type namectx
 
   type position [@@deriving to_yojson]
 
@@ -19,7 +20,7 @@ module type LTS = sig
      when there exists a name context Γ for the free names of m such that
       Γₓ ⊢ m ▷ Δ.
      It returns None when m is not well-typed.*)
-  val check_move : position -> Moves.pol_move -> position option
+  val check_move : position -> (Moves.pol_move*namectx) -> position option
 
   (*
   val trigger_move :

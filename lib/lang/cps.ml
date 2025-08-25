@@ -380,14 +380,14 @@ struct
       | AVal aval | APair (aval, _) | APack (_, aval, _) ->
           OpLang.AVal.labels_of_abstract_val aval
 
-    let infer_type_abstract_val namectxP namectxO gty aval =
+    let infer_type_abstract_val namectxP namectxO gty (aval,lnamectx) =
       match (gty, aval) with
       | (GType ty, AVal aval) -> begin
           match
             OpLang.AVal.infer_type_abstract_val
               (extract_name_ctx namectxP)
               (extract_name_ctx namectxO)
-              ty aval
+              ty (aval,extract_name_ctx lnamectx)
           with
           | None -> None
           | Some lnamectx -> Some (embed_name_ctx lnamectx)
@@ -401,7 +401,7 @@ struct
               OpLang.AVal.infer_type_abstract_val
                 (extract_name_ctx namectxP)
                 (extract_name_ctx namectxO)
-                ty aval
+                ty (aval,extract_name_ctx lnamectx)
             with
             | None -> None
             | Some lnamectx ->

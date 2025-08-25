@@ -104,7 +104,7 @@ struct
       | PropCtx (fnamectx, stackctx) ->
           PropCtx (OpLang.Namectx.add fnamectx nn nty, stackctx)
 
-    let to_pmap = failwith "TODO"
+    let to_pmap _ = failwith "TODO"
 
     let singleton _ty =
       failwith "TODO" (* Not clear if it should be an OpCtx or a PropCtx *)
@@ -296,8 +296,7 @@ struct
         let inj_ty ty = ty in
         let open BranchMonad in
         let* (skel, typ) = OpLang.generate_nf_term_ret inj_ty cnamectx_pmap in
-        let* (a_nf_term, lnamectx) =
-          fill_abstract_val storectx fnamectx skel in
+        let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx skel in
         let* store = OpLang.Store.generate_store storectx in
         let namectxP' = Namectx.PropCtx (fnamectx, stackctx') in
         let namectxO = Namectx.OpCtx (Some typ, lnamectx) in
@@ -310,7 +309,8 @@ struct
 
   let[@warning "-8"] type_check_a_nf
       (Namectx.PropCtx (fnamectxP, stack_ctx) as namectxP)
-      (Namectx.OpCtx (None, fnamectxO)) (nf_term, _) =
+      (Namectx.OpCtx (None, fnamectxO))
+      ((nf_term, _), (Namectx.OpCtx (Some ty_out, lnamectx') as lnamectx)) =
     let inj_ty ty = ty in
     let empty_res = (Namectx.empty, namectxP) in
     let get_type_fname fn = OpLang.Namectx.lookup_exn fnamectxP fn in
@@ -318,26 +318,34 @@ struct
       match stack_ctx with
       | [] -> failwith "Empty stack typing context. Please report"
       | (ty_hole, ty_out) :: _ -> (ty_hole, ty_out) in
-    let lift_lnamectx namectxP ty_out = function
-      | None -> None
-      | Some lnamectx -> Some (Namectx.OpCtx (Some ty_out, lnamectx), namectxP)
-    in
     let type_check_call aval nty =
       let (_, ty_arg) = OpLang.get_input_type nty in
-      let ty_out = OpLang.get_output_type nty in
-      let lnamectx =
-        OpLang.AVal.infer_type_abstract_val fnamectxP fnamectxO ty_arg aval
-      in
-      lift_lnamectx namectxP ty_out lnamectx in
-    let type_check_ret aval ty_hole ty_out =
+      let ty_out' = OpLang.get_output_type nty in
+
+      begin
+        if ty_out = ty_out' then
+          match
+            OpLang.AVal.infer_type_abstract_val fnamectxP fnamectxO ty_arg
+              (aval, lnamectx')
+          with
+          | Some _ -> Some (lnamectx, namectxP)
+          | None -> None
+        else None
+      end in
+    let type_check_ret aval ty_hole ty_out' =
       match stack_ctx with
       | [] -> None
-      | _ :: stack_ctx' ->
-          let namectxP' = Namectx.PropCtx (fnamectxP, stack_ctx') in
-          let lnamectx =
-            OpLang.AVal.infer_type_abstract_val fnamectxP fnamectxO ty_hole aval
-          in
-          lift_lnamectx namectxP' ty_out lnamectx in
+      | _ :: stack_ctx' -> begin
+          if ty_out = ty_out' then
+            let namectxP' = Namectx.PropCtx (fnamectxP, stack_ctx') in
+            match
+              OpLang.AVal.infer_type_abstract_val fnamectxP fnamectxO ty_hole
+                (aval, lnamectx')
+            with
+            | Some _ -> Some (lnamectx, namectxP')
+            | None -> None
+          else None
+        end in
     OpLang.type_check_nf_term ~inj_ty ~empty_res ~get_type_fname ~get_type_cname
       ~type_check_call ~type_check_ret nf_term
 

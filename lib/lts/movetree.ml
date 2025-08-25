@@ -132,7 +132,7 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
   let type_check_a_nf :
       Namectx.t ->
       Namectx.t ->
-      abstract_normal_form ->
+      (abstract_normal_form* Namectx.t) ->
       (Namectx.t * Namectx.t) option =
     failwith ""
   (* There's a mismatch with the signature of MoveTree.Move.check_type_move *)

@@ -42,7 +42,7 @@ module type AVAL = sig
      The context Γ_P is used to retrieve the existing polymorphic names, and to check for freshness other names.
      The contexts Γ_O is used to check for freshness of names *)
   val infer_type_abstract_val :
-    name_ctx -> name_ctx -> typ -> abstract_val -> name_ctx option
+    name_ctx -> name_ctx -> typ -> (abstract_val*name_ctx) -> name_ctx option
 
   module BranchMonad : Util.Monad.BRANCH
 

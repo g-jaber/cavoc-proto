@@ -73,16 +73,16 @@ module Make (IntLang : Lang.Interactive.LANG) :
           ( ((Moves.Input, a_nf), lnamectx),
             { status= Passive; storectx; namectxO; namectxP } )
 
-  let check_move pos ((dir, a_nf), _) =
+  let check_move pos ((dir, a_nf), lnamectx) =
     match (dir, pos) with
     | (Moves.Output, { status= Active; storectx; namectxP; namectxO }) -> begin
-        match IntLang.type_check_a_nf namectxO namectxP a_nf with
+        match IntLang.type_check_a_nf namectxO namectxP (a_nf,lnamectx) with
         | Some (namectxP, namectxO) ->
             Some { status= Passive; storectx; namectxP; namectxO }
         | None -> None
       end
     | (Moves.Input, { status= Passive; storectx; namectxP; namectxO }) -> begin
-        match IntLang.type_check_a_nf namectxP namectxO a_nf with
+        match IntLang.type_check_a_nf namectxP namectxO (a_nf,lnamectx) with
         | Some (namectxO, _) ->
             Some { status= Active; storectx; namectxP; namectxO }
         | None -> None

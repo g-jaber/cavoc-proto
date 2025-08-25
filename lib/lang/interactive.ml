@@ -86,7 +86,7 @@ module type LANG = sig
   val type_check_a_nf :
     Namectx.t ->
     Namectx.t ->
-    abstract_normal_form ->
+    (abstract_normal_form*Namectx.t) ->
     (Namectx.t * Namectx.t) option
 
   val concretize_a_nf :
@@ -265,11 +265,11 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let* store = Store.generate_store storectx in
     return ((a_nf_term, store), lnamectx, namectxP)
 
-  let type_check_a_nf namectxP namectxO (nf_term, _) =
+  let type_check_a_nf namectxP namectxO ((nf_term, _),lnamectx) = (* Why do we ignore the store ? *)
     let name_ctx = namectxO in
     let type_check_val aval nty =
       let ty = OpLang.negating_type nty in
-      OpLang.AVal.infer_type_abstract_val namectxP namectxO ty aval in
+      OpLang.AVal.infer_type_abstract_val namectxP namectxO ty (aval,lnamectx) in
     let empty_res = Namectx.empty in
     match
       OpLang.type_check_nf_term ~empty_res ~name_ctx ~type_check_val nf_term

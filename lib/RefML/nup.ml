@@ -121,7 +121,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     aux empty_namectx ty
 
   (* namectxO is needed in the following definition to check freshness, while namectxP is needed for checking existence of box names*)
-  let rec infer_type_abstract_val ((_, pnamectx) as namectxP) namectxO ty nup =
+  let rec infer_type_abstract_val ((_, pnamectx) as namectxP) namectxO ty (nup,lnamectx) =
     match (ty, nup) with
     | (TUnit, Unit) -> Some empty_namectx
     | (TUnit, _) -> None
@@ -131,8 +131,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     | (TInt, _) -> None
     | (TProd (ty1, ty2), Pair (nup1, nup2)) -> begin
         match
-          ( infer_type_abstract_val namectxP namectxO ty1 nup1,
-            infer_type_abstract_val namectxP namectxO ty2 nup2 )
+          ( infer_type_abstract_val namectxP namectxO ty1 (nup1,lnamectx),
+            infer_type_abstract_val namectxP namectxO ty2 (nup2,lnamectx) )
         with
         | (None, _) | (_, None) -> None
         | (Some namectxO1, Some namectxO2) ->
