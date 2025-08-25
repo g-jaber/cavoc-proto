@@ -310,9 +310,9 @@ struct
   let[@warning "-8"] type_check_a_nf
       (Namectx.PropCtx (fnamectxP, stack_ctx) as namectxP)
       (Namectx.OpCtx (None, fnamectxO))
-      ((nf_term, _), (Namectx.OpCtx (Some ty_out, lnamectx') as lnamectx)) =
+      ((nf_term, _), Namectx.OpCtx (Some ty_out, lnamectx')) =
     let inj_ty ty = ty in
-    let empty_res = (Namectx.empty, namectxP) in
+    let empty_res = namectxP in
     let get_type_fname fn = OpLang.Namectx.lookup_exn fnamectxP fn in
     let get_type_cname () =
       match stack_ctx with
@@ -323,27 +323,23 @@ struct
       let ty_out' = OpLang.get_output_type nty in
 
       begin
-        if ty_out = ty_out' then
-          match
-            OpLang.AVal.infer_type_abstract_val fnamectxP fnamectxO ty_arg
-              (aval, lnamectx')
-          with
-          | Some _ -> Some (lnamectx, namectxP)
-          | None -> None
+        if
+          ty_out = ty_out'
+          && OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_arg
+               (aval, lnamectx')
+        then Some namectxP
         else None
       end in
     let type_check_ret aval ty_hole ty_out' =
       match stack_ctx with
       | [] -> None
       | _ :: stack_ctx' -> begin
-          if ty_out = ty_out' then
-            let namectxP' = Namectx.PropCtx (fnamectxP, stack_ctx') in
-            match
-              OpLang.AVal.infer_type_abstract_val fnamectxP fnamectxO ty_hole
-                (aval, lnamectx')
-            with
-            | Some _ -> Some (lnamectx, namectxP')
-            | None -> None
+          let namectxP' = Namectx.PropCtx (fnamectxP, stack_ctx') in
+          if
+            ty_out = ty_out'
+            && OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_hole
+                 (aval, lnamectx')
+          then Some namectxP'
           else None
         end in
     OpLang.type_check_nf_term ~inj_ty ~empty_res ~get_type_fname ~get_type_cname

@@ -121,7 +121,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     aux empty_namectx ty
 
   (* namectxO is needed in the following definition to check freshness, while namectxP is needed for checking existence of box names*)
-  let rec infer_type_abstract_val ((_, pnamectx) as namectxP) namectxO ty (nup,lnamectx) =
+  let type_check_abstract_val (_, pnamectx) _ ty (nup,lnamectx) =
+    let rec aux ty (nup,lnamectx) =
     match (ty, nup) with
     | (TUnit, Unit) -> Some empty_namectx
     | (TUnit, _) -> None
@@ -131,8 +132,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     | (TInt, _) -> None
     | (TProd (ty1, ty2), Pair (nup1, nup2)) -> begin
         match
-          ( infer_type_abstract_val namectxP namectxO ty1 (nup1,lnamectx),
-            infer_type_abstract_val namectxP namectxO ty2 (nup2,lnamectx) )
+          ( aux ty1 (nup1,lnamectx),
+            aux ty2 (nup2,lnamectx) )
         with
         | (None, _) | (_, None) -> None
         | (Some namectxO1, Some namectxO2) ->
@@ -160,7 +161,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     (*TODO: Should we check to who belongs the TName ? *)
     (* | (TExn, Constructor (c, nup')) ->  
         let (TArrow (param_ty, _)) = Util.Pmap.lookup_exn c (Util.Pmap.concat namectxP namectxO) in 
-        infer_type_abstract_val namectxP namectxO param_ty nup' *)
+        type_check_abstract_val namectxP namectxO param_ty nup' *)
     | (TName _, _) -> None
     | (TVar _, _) ->
         failwith @@ "Error: trying to type-check a nup of type "
@@ -168,6 +169,11 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     | (TUndef, _) | (TRef _, _) | (TSum _, _) | (TExn, _) ->
         failwith @@ "Error: type-checking a nup of type "
         ^ Types.string_of_typ ty ^ " is not yet supported."
+    in match aux ty (nup,lnamectx) with
+    | None -> false
+    | Some lnamectx when lnamectx = Namectx.empty -> true
+    | Some _ -> false
+
 
   let abstracting_value (value : value) ty =
     let rec aux ((fnamectx, pnamectx) as lnamectx) ienv value ty =

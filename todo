@@ -10,7 +10,7 @@
 - [x] Remove the Int submodule of the Bipartite.INT_LTS signature
 - [x] Design a specific Typing LTS for POGS
 - [x] Provide an eval function rather than a compute_nf + abstract_nf in Lang.Interactive.LANG signature
-- [ ] Rework infer_type_abstract_val in nup.ml
+- [ ] Rework type_check_abstract_val in nup.ml
     - [ ] Take a lnamectx as parameter and check freshness of new names wrt this lnamectx
     - [ ] handle type name polarities
 - [ ] Add a store typing context for moves
@@ -34,4 +34,4 @@
 - [ ] Switch to a presentation using De Bruijn indices
 - [ ] Remove the need of get_transmitted_names
 - [ ] Remove the need of get_negative_type
-- [ ] Remove the need of infer_type_abstract_val
+- [x] Transform type_check_abstract_val

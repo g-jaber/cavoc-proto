@@ -77,13 +77,15 @@ module Make (IntLang : Lang.Interactive.LANG) :
     match (dir, pos) with
     | (Moves.Output, { status= Active; storectx; namectxP; namectxO }) -> begin
         match IntLang.type_check_a_nf namectxO namectxP (a_nf,lnamectx) with
-        | Some (namectxP, namectxO) ->
+        | Some namectxO ->
+            let namectxP = IntLang.Namectx.concat namectxP lnamectx in
             Some { status= Passive; storectx; namectxP; namectxO }
         | None -> None
       end
     | (Moves.Input, { status= Passive; storectx; namectxP; namectxO }) -> begin
         match IntLang.type_check_a_nf namectxP namectxO (a_nf,lnamectx) with
-        | Some (namectxO, _) ->
+        | Some namectxP ->
+            let namectxO = IntLang.Namectx.concat namectxO lnamectx in
             Some { status= Active; storectx; namectxP; namectxO }
         | None -> None
       end

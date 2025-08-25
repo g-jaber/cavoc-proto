@@ -20,7 +20,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
   let act_position_to_yojson ictx =
     `Assoc
       [
-        ("storectx", (IntLang.Storectx.to_yojson ictx.storectx));
+        ("storectx", IntLang.Storectx.to_yojson ictx.storectx);
         ("namectxO", IntLang.Namectx.to_yojson ictx.namectxO);
       ]
 
@@ -89,14 +89,19 @@ module Make (IntLang : Lang.Interactive.LANG) :
   let check_move pos ((dir, a_nf), lnamectx) =
     match (dir, pos) with
     | (Moves.Output, Active { storectx; namectxO }) -> begin
-        match IntLang.type_check_a_nf IntLang.Namectx.empty namectxO (a_nf,lnamectx) with
-        | Some (namectxP, namectxO) ->
+        match
+          IntLang.type_check_a_nf IntLang.Namectx.empty namectxO (a_nf, lnamectx)
+        with
+        | Some namectxO ->
+            let namectxP = lnamectx in
             Some (Passive { storectx; namectxP; namectxO })
         | None -> None
       end
     | (Moves.Input, Passive { storectx; namectxO; namectxP }) -> begin
-        match IntLang.type_check_a_nf namectxP namectxO (a_nf,lnamectx) with
-        | Some (namectxO, _) -> Some (Active { storectx; namectxO })
+        match IntLang.type_check_a_nf namectxP namectxO (a_nf, lnamectx) with
+        | Some _ ->
+            let namectxO = IntLang.Namectx.concat namectxO lnamectx in
+            Some (Active { storectx; namectxO })
         | None -> None
       end
     | _ -> None

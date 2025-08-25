@@ -277,11 +277,10 @@ module type WITHAVAL_NEG = sig
     ('value * typ, 'ectx, Names.name, Names.name) Nf.nf_term
 
   val type_check_nf_term :
-    empty_res:'res ->
     name_ctx:Namectx.t ->
-    type_check_val:('value -> negative_type -> 'res option) ->
+    type_check_val:('value -> negative_type -> bool) ->
     ('value, 'ectx, Names.name, Names.name) Nf.nf_term ->
-    'res option
+    Namectx.t option
 
   val generate_nf_term :
     (Names.name, typ) Util.Pmap.pmap ->

@@ -87,7 +87,7 @@ module type LANG = sig
     Namectx.t ->
     Namectx.t ->
     (abstract_normal_form*Namectx.t) ->
-    (Namectx.t * Namectx.t) option
+    Namectx.t option
 
   val concretize_a_nf :
     store -> interactive_env -> abstract_normal_form -> opconf * interactive_env
@@ -266,16 +266,11 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     return ((a_nf_term, store), lnamectx, namectxP)
 
   let type_check_a_nf namectxP namectxO ((nf_term, _),lnamectx) = (* Why do we ignore the store ? *)
-    let name_ctx = namectxO in
+    let name_ctx = namectxP in
     let type_check_val aval nty =
       let ty = OpLang.negating_type nty in
-      OpLang.AVal.infer_type_abstract_val namectxP namectxO ty (aval,lnamectx) in
-    let empty_res = Namectx.empty in
-    match
-      OpLang.type_check_nf_term ~empty_res ~name_ctx ~type_check_val nf_term
-    with
-    | None -> None
-    | Some lnamectx -> Some (lnamectx, namectxP)
+      OpLang.AVal.type_check_abstract_val namectxP namectxO ty (aval,lnamectx) in
+    OpLang.type_check_nf_term ~name_ctx ~type_check_val nf_term
 
   (*TODO: Type check the store part and
      check that the disclosure process is respected*)
@@ -285,11 +280,11 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
        let aux nn aval =
          let nty = Util.Pmap.lookup_exn nn namectxO in
          let ty = OpLang.negating_type nty in
-         OpLang.AVal.infer_type_abstract_val namectxP namectxO ty aval in
+         OpLang.AVal.type_check_abstract_val namectxP namectxO ty aval in
        let f_call (fn, aval, ()) = aux fn aval in
        let f_ret (cn, aval) = aux cn aval in
        let f_exn (_, aval) =
-         OpLang.AVal.infer_type_abstract_val namectxP namectxO
+         OpLang.AVal.type_check_abstract_val namectxP namectxO
            OpLang.exception_type aval in
        let f_error _ = Some Util.Pmap.empty in
        match OpLang.Nf.apply_cons ~f_call ~f_ret ~f_exn ~f_error a_nf with

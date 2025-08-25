@@ -219,19 +219,20 @@ struct
 
   let conf_type = GEmpty
 
-  let[@warning "-27"] type_check_nf_term ~empty_res ~name_ctx ~type_check_val nf
+  let[@warning "-27"] type_check_nf_term ~name_ctx ~type_check_val nf
       =
     let inj_ty ty = GType ty in
+    let empty_res = name_ctx in
     let get_type_fname fn = Namectx.lookup_exn name_ctx fn in
     let get_type_cname cn =
       match Namectx.lookup_exn name_ctx cn with
       | INeg ty_hole -> (GType ty_hole, GEmpty)
       | IType ty ->
           failwith "Wrong type for a continuation name. Please report." in
-    let type_check_call value nty = type_check_val value nty in
+    let type_check_call value nty = if type_check_val value nty then Some name_ctx else None in
     let type_check_ret value ty_hole ty_out =
       match (ty_hole, ty_out) with
-      | (GType ty_hole', GEmpty) -> type_check_val value (INeg ty_hole')
+      | (GType ty_hole', GEmpty) -> if type_check_val value (INeg ty_hole') then Some name_ctx else None
       | _ ->
           failwith
             "Error: tring to type an evaluation context with a return type \
@@ -380,34 +381,25 @@ struct
       | AVal aval | APair (aval, _) | APack (_, aval, _) ->
           OpLang.AVal.labels_of_abstract_val aval
 
-    let infer_type_abstract_val namectxP namectxO gty (aval,lnamectx) =
+    let type_check_abstract_val namectxP namectxO gty
+        (aval, (lfnamectx, lcnamectx)) =
       match (gty, aval) with
-      | (GType ty, AVal aval) -> begin
-          match
-            OpLang.AVal.infer_type_abstract_val
+      | (GType ty, AVal aval) when lcnamectx = CNamectx.empty ->
+          OpLang.AVal.type_check_abstract_val
+            (extract_name_ctx namectxP)
+            (extract_name_ctx namectxO)
+            ty (aval, lfnamectx)
+      | (GProd (ty, _tyhole), APair (aval, cn)) ->
+          (* We should check that lcnamectx is equal to (nn,(INeg tyhole)) *)
+          let nn = Names.inj_cont_name cn in
+          if Namectx.mem namectxP nn || Namectx.mem namectxO nn then false
+            (* the name cn has to be fresh for the abstract value to be well-typed *)
+          else
+            OpLang.AVal.type_check_abstract_val
               (extract_name_ctx namectxP)
               (extract_name_ctx namectxO)
-              ty (aval,extract_name_ctx lnamectx)
-          with
-          | None -> None
-          | Some lnamectx -> Some (embed_name_ctx lnamectx)
-        end
-      | (GProd (ty, tyhole), APair (aval, cn)) ->
-          let nn = Names.inj_cont_name cn in
-          if Namectx.mem namectxP nn || Namectx.mem namectxO nn then None
-            (* the name cn has to be fresh for the abstract value to be well-typed *)
-          else begin
-            match
-              OpLang.AVal.infer_type_abstract_val
-                (extract_name_ctx namectxP)
-                (extract_name_ctx namectxO)
-                ty (aval,extract_name_ctx lnamectx)
-            with
-            | None -> None
-            | Some lnamectx ->
-                Some (Namectx.add (embed_name_ctx lnamectx) nn (INeg tyhole))
-          end
-      | _ -> None
+              ty (aval, lfnamectx)
+      | _ -> false
 
     let abstracting_value gval gty =
       match (gval, gty) with

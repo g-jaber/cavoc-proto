@@ -59,15 +59,10 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
     let lookup_exn _ = failwith ""
     let add _ = failwith ""
     let to_pmap _ = failwith ""
-
     let mem () () = true
-
-    let singleton () = ((),())
-
-    let add_fresh () () = ((),())
-
-    let map _ () = () 
-
+    let singleton () = ((), ())
+    let add_fresh () () = ((), ())
+    let map _ () = ()
   end
 
   let infer_type_store : store -> Storectx.t = failwith ""
@@ -132,8 +127,8 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
   let type_check_a_nf :
       Namectx.t ->
       Namectx.t ->
-      (abstract_normal_form* Namectx.t) ->
-      (Namectx.t * Namectx.t) option =
+      abstract_normal_form * Namectx.t ->
+      Namectx.t option =
     failwith ""
   (* There's a mismatch with the signature of MoveTree.Move.check_type_move *)
 
