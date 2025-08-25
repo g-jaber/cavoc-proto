@@ -9,6 +9,8 @@ module type TYPECTX = sig
   val pp : Format.formatter -> t -> unit
   val get_names : t -> name list
   val lookup_exn : t -> name -> typ
+  val is_empty : t -> bool
+  val is_singleton : t -> name -> typ -> bool
   val add : t -> name -> typ -> t
   val to_pmap : t -> (name, typ) Util.Pmap.pmap
   val singleton : typ -> name * t
@@ -69,6 +71,8 @@ module Make_PMAP
   let lookup_exn name_ctx nn = Util.Pmap.lookup_exn nn name_ctx
   let add name_ctx nn ty = Util.Pmap.add (nn, ty) name_ctx
   let to_pmap = Fun.id
+  let is_empty = Util.Pmap.is_empty
+  let is_singleton name_ctx nn ty = Util.Pmap.is_singleton name_ctx (nn, ty)
 
   let singleton ty =
     let nn = Names.fresh_name () in
@@ -107,6 +111,10 @@ struct
   let get_names = List.mapi (fun i _ -> i)
   let to_yojson nctx = `List (List.map Types.to_yojson nctx)
   let lookup_exn = List.nth
+  let is_empty = function [] -> true | _ -> false
+
+  let is_singleton nctx nn ty =
+    match nctx with [ ty' ] when nn = 0 && ty = ty' -> true | _ -> false
 
   (* The add function always add at the end of the list !!!*)
   let add name_ctx _ ty = name_ctx @ [ ty ]
@@ -168,6 +176,18 @@ module AggregateCommon
         failwith
           "Error while performing a lookup on an aggregated context. Please \
            report."
+
+  let is_empty (namectx1, namectx2) =
+    Namectx1.is_empty namectx1 && Namectx2.is_empty namectx2
+
+  let is_singleton (namectx1, namectx2) nn ty =
+    match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with
+    | (Some nn', None) -> Namectx1.is_singleton namectx1 nn' ty
+    | (None, Some nn') -> Namectx2.is_singleton namectx2 nn' ty
+    | _ ->
+        failwith
+          "Error while performing a singleton test on an aggregated context. \
+           Please report."
 
   let add (namectx1, namectx2) nn ty =
     match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with
@@ -249,6 +269,14 @@ module AggregateCommonType
   let lookup_exn (namectx1, namectx2) = function
     | N1 nn -> Namectx1.lookup_exn namectx1 nn
     | N2 nn -> Namectx2.lookup_exn namectx2 nn
+
+  let is_empty (namectx1, namectx2) =
+    Namectx1.is_empty namectx1 && Namectx2.is_empty namectx2
+
+  let is_singleton (namectx1, namectx2) nn ty =
+    match nn with
+    | N1 nn' -> Namectx1.is_singleton namectx1 nn' ty
+    | N2 nn' -> Namectx2.is_singleton namectx2 nn' ty
 
   let add (namectx1, namectx2) nn ty =
     match nn with
@@ -341,6 +369,23 @@ module AggregateDisjoint
         failwith
           "Error while performing a lookup on an aggregated context. Please \
            report."
+
+  let is_empty (namectx1, namectx2) =
+    Namectx1.is_empty namectx1 && Namectx2.is_empty namectx2
+
+  let is_singleton (namectx1, namectx2) nn ty =
+    match
+      ( EmbedNames.extract1 nn,
+        EmbedTypes.extract1 ty,
+        EmbedNames.extract2 nn,
+        EmbedTypes.extract2 ty )
+    with
+    | (Some nn', Some ty', None, None) -> Namectx1.is_singleton namectx1 nn' ty'
+    | (None, None, Some nn', Some ty') -> Namectx2.is_singleton namectx2 nn' ty'
+    | _ ->
+        failwith
+          "Error while performing a singleton test on an aggregated context. \
+           Please report."
 
   let add (namectx1, namectx2) nn ty =
     match
@@ -460,6 +505,17 @@ struct
   let lookup_exn (namectx, cnamectx) = function
     | N2 cn -> Types.embed2 (Namectx2.lookup_exn cnamectx cn)
     | N1 nn -> Types.embed1 (Namectx1.lookup_exn namectx nn)
+
+  let is_empty (namectx1, namectx2) =
+    Namectx1.is_empty namectx1 && Namectx2.is_empty namectx2
+
+  let is_singleton (namectx1, namectx2) nn ty =
+    match (nn, Types.extract1 ty, Types.extract2 ty) with
+    | (N1 nn', Some ty', _) -> Namectx1.is_singleton namectx1 nn' ty'
+    | (N2 nn', None, Some ty') -> Namectx2.is_singleton namectx2 nn' ty'
+    | _ ->
+        failwith
+          "Error testing singleton on aggregated contexts. Please report."
 
   let add (namectx, cnamectx) nn nty =
     match (nn, Types.extract1 nty, Types.extract2 nty) with

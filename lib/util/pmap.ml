@@ -2,6 +2,7 @@ type ('a, 'b) pmap = ('a * 'b) list
 
 let empty = []
 let is_empty = function [] -> true | _ -> false
+let is_singleton pmap (a,b) = match pmap with [(a',b')] when a=a' && b=b' -> true | _ -> false
 let singleton (a, b) = [ (a, b) ]
 let concat p1 p2 = p1 @ p2
 let list_to_pmap l = l

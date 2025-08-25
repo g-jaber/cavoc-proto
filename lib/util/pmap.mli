@@ -2,6 +2,7 @@ type ('a, 'b) pmap
 
 val empty : ('a, 'b) pmap
 val is_empty : ('a, 'b) pmap -> bool
+val is_singleton : ('a, 'b) pmap -> 'a * 'b -> bool
 val singleton : 'a * 'b -> ('a, 'b) pmap
 val concat : ('a, 'b) pmap -> ('a, 'b) pmap -> ('a, 'b) pmap
 val list_to_pmap : ('a * 'b) list -> ('a, 'b) pmap

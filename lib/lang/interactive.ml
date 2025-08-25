@@ -78,10 +78,9 @@ module type LANG = sig
     (abstract_normal_form * Namectx.t * Namectx.t) BranchMonad.m
 
   (* The typing judgment of an abstracted normal form Γ_P;Γ_O ⊢ A ▷ Δ
-     produces the interactive name context (Δ,Γ'_P) of fresh names introduced by A.
-     It returns None when the type checking fails.
-     The context Γ_P is used to retrieve the existing polymorphic names, and to check for freshness of other names.
-     The contexts Γ_O is used to check for freshness of names *)
+      takes as arguments (Γ_P,Γ_O,A,Δ)
+    and produces the interactive name context Γ'_P where the consumed linear resources of Γ_P has been removed.
+     It returns None when the type checking fails. *)
 
   val type_check_a_nf :
     Namectx.t ->
@@ -275,22 +274,6 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
   (*TODO: Type check the store part and
      check that the disclosure process is respected*)
 
-  (*
-     let type_check_a_nf namectxP namectxO (a_nf, _) =
-       let aux nn aval =
-         let nty = Util.Pmap.lookup_exn nn namectxO in
-         let ty = OpLang.negating_type nty in
-         OpLang.AVal.type_check_abstract_val namectxP namectxO ty aval in
-       let f_call (fn, aval, ()) = aux fn aval in
-       let f_ret (cn, aval) = aux cn aval in
-       let f_exn (_, aval) =
-         OpLang.AVal.type_check_abstract_val namectxP namectxO
-           OpLang.exception_type aval in
-       let f_error _ = Some Util.Pmap.empty in
-       match OpLang.Nf.apply_cons ~f_call ~f_ret ~f_exn ~f_error a_nf with
-       | None -> None
-       | Some lnamectx -> Some (lnamectx, namectxP)
-  *)
 
   (* Beware that is_equiv_a_nf does not check the equivalence of
      the store part of abstract normal forms.

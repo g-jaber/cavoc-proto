@@ -82,6 +82,14 @@ module Storectx = struct
     | Loc l -> Util.Pmap.lookup_exn l loc_ctx
     | Cons c -> Util.Pmap.lookup_exn c cons_ctx
 
+  let is_empty ((loc_ctx, cons_ctx) : t) =
+    Util.Pmap.is_empty loc_ctx && Util.Pmap.is_empty cons_ctx
+
+  let is_singleton ((loc_ctx, cons_ctx) : t) (loc : location) (ty : typ) =
+    match loc with
+    | Loc l -> Util.Pmap.is_singleton loc_ctx (l, ty)
+    | Cons c -> Util.Pmap.is_singleton cons_ctx (c, ty)
+
   let add ((loc_ctx, cons_ctx) : t) (loc : location) (ty : typ) =
     match loc with
     | Loc l -> (Util.Pmap.add (l, ty) loc_ctx, cons_ctx)

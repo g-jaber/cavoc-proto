@@ -98,6 +98,15 @@ struct
       | OpCtx (_, fnamectx) | PropCtx (fnamectx, _) ->
           OpLang.Namectx.lookup_exn fnamectx fn
 
+    let is_empty = function
+      | PropCtx (fnamectx, []) -> OpLang.Namectx.is_empty fnamectx
+      | _ -> false
+
+    let is_singleton namectx nn ty =
+      match namectx with
+      | PropCtx (fnamectx, []) -> OpLang.Namectx.is_singleton fnamectx nn ty
+      | _ -> false
+
     let add (namectx : t) nn nty =
       match namectx with
       | OpCtx (ty, fnamectx) -> OpCtx (ty, OpLang.Namectx.add fnamectx nn nty)
