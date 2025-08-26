@@ -6,13 +6,13 @@ type cons_ctx = (Syntax.constructor, Types.typ) Util.Pmap.pmap
 type type_ctx = {
   var_ctx: var_ctx;
   loc_ctx: loc_ctx;
-  name_ctx: Namectx.t;
+  name_ctx: Namectx.Namectx.t;
   cons_ctx: cons_ctx;
   type_env: Types.type_env;
 }
 
 val get_var_ctx : type_ctx -> var_ctx
-val get_name_ctx : type_ctx -> Namectx.t
+val get_name_ctx : type_ctx -> Namectx.Namectx.t
 val get_loc_ctx : type_ctx -> loc_ctx
 val get_type_env : type_ctx -> Types.type_env
 val pp_var_ctx : Format.formatter -> var_ctx -> unit

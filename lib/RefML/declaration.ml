@@ -212,12 +212,12 @@ let get_typed_val_env var_val_env sign_decl_l =
         (* We might have to switch this generalization with the match below*)
         match ty' with
         | Types.TArrow _ | Types.TForall _ ->
-            let (fn, fnamectx') = Fnamectx.add_fresh fnamectx var ty' in
+            let (fn, fnamectx') = Namectx.FNamectx.add_fresh fnamectx var ty' in
             let nval = Syntax.force_negative_val value in
             let ienvf' = Ienv.IEnvF.add_last_check ienvf fn nval in
             partition_env ((ienvf', ienvp), (fnamectx', pnamectx)) tl
         | Types.TId _ | Types.TName _ ->
-            let (pn, pnamectx') = Pnamectx.add_fresh pnamectx var ty' in
+            let (pn, pnamectx') = Namectx.PNamectx.add_fresh pnamectx var ty' in
             let nval = Syntax.force_negative_val value in
             let ienvp' = Ienv.IEnvP.add_last_check ienvp pn nval in
             partition_env ((ienvf, ienvp'), (fnamectx, pnamectx')) tl
@@ -229,4 +229,4 @@ let get_typed_val_env var_val_env sign_decl_l =
             partition_env acc tl
       end in
 
-  partition_env (Ienv.IEnv.empty, Namectx.empty) var_ctx_l
+  partition_env (Ienv.IEnv.empty, Namectx.Namectx.empty) var_ctx_l

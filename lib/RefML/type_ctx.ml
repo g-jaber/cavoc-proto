@@ -33,7 +33,7 @@ let string_of_cons_ctx = Format.asprintf "%a" pp_cons_ctx
 type type_ctx = {
   var_ctx: var_ctx;
   loc_ctx: loc_ctx;
-  name_ctx: Namectx.t;
+  name_ctx: Namectx.Namectx.t;
   cons_ctx: cons_ctx;
   type_env: Types.type_env;
 }
@@ -53,7 +53,7 @@ let apply_type_subst type_ctx tsubst =
   let var_ctx = apply_type_subst_to_ctx tsubst type_ctx.var_ctx in
   let loc_ctx = apply_type_subst_to_ctx tsubst type_ctx.loc_ctx in
   let name_ctx =
-    Namectx.map (fun ty -> Types.apply_type_subst ty tsubst) type_ctx.name_ctx
+    Namectx.Namectx.map (fun ty -> Types.apply_type_subst ty tsubst) type_ctx.name_ctx
   in
   let cons_ctx = apply_type_subst_to_ctx tsubst type_ctx.cons_ctx in
   let type_env = type_ctx.type_env in

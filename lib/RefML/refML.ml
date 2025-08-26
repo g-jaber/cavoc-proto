@@ -6,7 +6,7 @@ module Typed :
   Lang.Language.TYPED
     with type typ = Types.typ
      and type negative_type = Types.negative_type
-     and type Namectx.t = Namectx.t
+     and type Namectx.t = Namectx.Namectx.t
      and module Names = Names = struct
   module Names = Names
 
@@ -23,7 +23,7 @@ module Typed :
   let pp_negative_type = Types.pp_negative_type
   let get_negative_type = Types.get_negative_type
 
-  module Namectx = Namectx
+  module Namectx = Namectx.Namectx
 end
 
 module MakeStore (BranchMonad : Util.Monad.BRANCH) :
@@ -45,7 +45,7 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
      and type negative_type = Types.negative_type
      and type Store.label = Syntax.label
      and type Store.Storectx.t = Store.Storectx.t
-     and type Namectx.t = Namectx.t
+     and type Namectx.t = Namectx.Namectx.t
      and type IEnv.t = Ienv.IEnv.t
      and module Names = Names
      and module Store.BranchMonad = BranchMonad = struct

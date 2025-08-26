@@ -48,13 +48,13 @@ let rec infer_type type_ctx type_subst expr =
             ^ " .")
     end
   | Name n -> begin
-      match Namectx.lookup_exn (Type_ctx.get_name_ctx type_ctx) n with
+      match Namectx.Namectx.lookup_exn (Type_ctx.get_name_ctx type_ctx) n with
       | ty -> (ty, type_subst)
       | exception Not_found ->
           Util.Error.fail_error
             ("Error: the name " ^ Names.string_of_name n
            ^ " is not defined in the environment "
-            ^ Namectx.to_string type_ctx.name_ctx
+            ^ Namectx.Namectx.to_string type_ctx.name_ctx
             ^ " .")
     end
   | Loc l -> begin
