@@ -13,9 +13,7 @@ module type TYPED = sig
   val pp_negative_type : Format.formatter -> negative_type -> unit
 
   module Namectx :
-    Typectx.TYPECTX
-      with type name = Names.name
-       and type typ = negative_type
+    Typectx.TYPECTX with type name = Names.name and type typ = negative_type
 end
 
 module type STORE = sig
@@ -64,13 +62,7 @@ module type COMP = sig
   val string_of_negative_val : negative_val -> string
   val filter_negative_val : value -> negative_val option
 
-  type interactive_env = (Names.name, negative_val) Util.Pmap.pmap
-  [@@deriving to_yojson]
-
-  val empty_ienv : interactive_env
-  val concat_ienv : interactive_env -> interactive_env -> interactive_env
-  val string_of_ienv : interactive_env -> string
-  val pp_ienv : Format.formatter -> interactive_env -> unit
+  module IEnv : Ienv.IENV with type name = Names.name and type value = negative_val
 
   type opconf = term * Store.store
 
@@ -97,7 +89,7 @@ module type COMP = sig
   val get_typed_ienv :
     Lexing.lexbuf ->
     Lexing.lexbuf ->
-    interactive_env * Store.store * Namectx.t * Namectx.t
+    IEnv.t * Store.store * Namectx.t * Namectx.t
 end
 
 module type NF = sig
@@ -194,7 +186,7 @@ module type WITHAVAL_INOUT = sig
   include COMP
   module Nf : NF with module BranchMonad = Store.BranchMonad
 
-  type eval_context
+  type eval_context [@@deriving to_yojson]
   type typevar [@@deriving to_yojson]
   type typename
 
@@ -259,6 +251,7 @@ module type WITHAVAL_INOUT = sig
        and type label = Store.label
        and type store_ctx = Store.Storectx.t
        and type name_ctx = Namectx.t
+       and type interactive_env = IEnv.t
        and module BranchMonad = Store.BranchMonad
 end
 
@@ -308,5 +301,6 @@ module type WITHAVAL_NEG = sig
        and type label = Store.label
        and type store_ctx = Store.Storectx.t
        and type name_ctx = Namectx.t
+       and type interactive_env = IEnv.t
        and module BranchMonad = Store.BranchMonad
 end

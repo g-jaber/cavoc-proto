@@ -11,7 +11,7 @@ module Make
      and type name_ctx = Lang.Namectx.t
      and type opconf = Lang.opconf
      and type store = Lang.store
-     and type interactive_env = Lang.interactive_env = struct
+     and type interactive_env = Lang.IEnv.t = struct
   module OBranchingMonad = TypingLTS.BranchMonad
   module EvalMonad = Lang.EvalMonad
   module Moves = TypingLTS.Moves
@@ -19,19 +19,19 @@ module Make
   type name_ctx = TypingLTS.name_ctx
   type opconf = Lang.opconf
   type store = Lang.store
-  type interactive_env = Lang.interactive_env
+  type interactive_env = Lang.IEnv.t
 
   let get_names = Lang.Namectx.get_names
 
   type active_conf = {
     opconf: Lang.opconf;
-    ienv: Lang.interactive_env;
+    ienv: Lang.IEnv.t;
     pos: TypingLTS.position;
   }
 
   type passive_conf = {
     store: Lang.store;
-    ienv: Lang.interactive_env;
+    ienv: Lang.IEnv.t;
     pos: TypingLTS.position;
   }
 
@@ -39,7 +39,7 @@ module Make
     `Assoc
       [
         ("store", `String (Lang.string_of_store passive_conf.store));
-        ("ienv", Lang.interactive_env_to_yojson passive_conf.ienv);
+        ("ienv", Lang.IEnv.to_yojson passive_conf.ienv);
         ("pos", TypingLTS.position_to_yojson passive_conf.pos);
       ]
 
@@ -47,12 +47,12 @@ module Make
 
   let pp_active_conf fmt act_conf =
     Format.fprintf fmt "@[⟨@[OpConf: %a@] @, @[IEnv:  %a@] @, @[ICtx: %a@]⟩@]"
-      Lang.pp_opconf act_conf.opconf Lang.pp_ienv act_conf.ienv
+      Lang.pp_opconf act_conf.opconf Lang.IEnv.pp act_conf.ienv
       TypingLTS.pp_position act_conf.pos
 
   let pp_passive_conf fmt pas_conf =
     Format.fprintf fmt "@[⟨@[Store: %a@] @, @[IEnv:  %a@] @, @[ICtx: %a@]⟩@]"
-      Lang.pp_store pas_conf.store Lang.pp_ienv pas_conf.ienv
+      Lang.pp_store pas_conf.store Lang.IEnv.pp pas_conf.ienv
       TypingLTS.pp_position pas_conf.pos
 
   let string_of_active_conf = Format.asprintf "%a" pp_active_conf
@@ -68,7 +68,7 @@ module Make
         in
           let move = (TypingLTS.Moves.Output, a_nf) in
           let pos = TypingLTS.trigger_move act_conf.pos (move, lnamectx) in
-          let ienv = Lang.concat_ienv ienv act_conf.ienv in
+          let ienv =Lang.IEnv.concat ienv act_conf.ienv in
           return ((move, lnamectx), { store; ienv; pos })
 
   let o_trans pas_conf (((_, move) as input_move), namectx) =
@@ -91,7 +91,7 @@ module Make
     let pos =
       TypingLTS.init_act_pos Lang.Storectx.empty Lang.Namectx.empty namectxO
     in
-    { opconf; ienv= Lang.empty_ienv; pos }
+    { opconf; ienv= Lang.IEnv.empty; pos }
 
   let init_pconf store ienv namectxP namectxO =
     let store_ctx = Lang.Storectx.empty in

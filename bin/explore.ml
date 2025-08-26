@@ -117,7 +117,7 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG_WITH_INIT) =
         with type opconf = IntLang.opconf
          and type name_ctx = IntLang.Namectx.t
          and type store = IntLang.store
-         and type interactive_env = IntLang.interactive_env) =
+         and type interactive_env = IntLang.IEnv.t) =
     match (!generate_tree, !enable_wb, !enable_visibility) with
     | (true, _, _) -> (module Pogs.Pogslts.Make (IntLang))
     | (false, true, true) ->

@@ -24,9 +24,9 @@ val get_typed_comp_env :
   implem_decl list -> signature_decl list -> comp_env * Namectx.t * Type_ctx.cons_ctx
 
 (* get_typed_val_env  takes a map from variables to values (i.e. evaluated computations) and a signature,
-and return a map from (Proponent) names to values, together with the typing contexts of these Proponent names.
-The Proponent names corresponds to the variables that are declared in the given signature. *)
+and return an interactive env, together with the typing contexts of these Proponent names.
+The Proponent names are taken in correspondance to the variables that are declared in the given signature. *)
 val get_typed_val_env :
   Syntax.val_env ->
   signature_decl list ->
-  (Names.name, Syntax.value) Util.Pmap.pmap * Namectx.t
+  Ienv.IEnv.t * Namectx.t

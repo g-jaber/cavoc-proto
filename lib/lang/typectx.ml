@@ -16,7 +16,9 @@ module type TYPECTX = sig
   val to_pmap : t -> (name, typ) Util.Pmap.pmap
   val singleton : typ -> name * t
   val mem : t -> name -> bool
-  val add_fresh : t -> typ -> name * t
+  val add_fresh : t -> string -> typ -> name * t
+  (* The second argument is used to associate a string to the fresh variable *)
+
   val map : (typ -> typ) -> t -> t
 end
 
@@ -93,8 +95,8 @@ module Make_PMAP
 
   let mem namectx nn = Util.Pmap.mem nn namectx
 
-  let add_fresh name_ctx ty =
-    let nn = Names.fresh_name () in
+  let add_fresh name_ctx str ty =
+    let nn = Names.from_string str in
     (nn, Util.Pmap.add (nn, ty) name_ctx)
 
   let map = Util.Pmap.map_im
@@ -105,9 +107,11 @@ module Make_List (Types : sig
 
   val pp : Format.formatter -> t -> unit
 end) :
-  TYPECTX with type name = int and type typ = Types.t and type t = Types.t list =
-struct
-  type name = int
+  TYPECTX
+    with type name = int * string
+     and type typ = Types.t
+     and type t = Types.t list = struct
+  type name = int * string
   type typ = Types.t
   type t = Types.t list
 
@@ -121,15 +125,15 @@ struct
         Format.pp_print_list ~pp_sep Types.pp fmt name_ctx
 
   let to_string = Format.asprintf "%a" pp
-  let get_names = List.mapi (fun i _ -> i)
+  let get_names = List.mapi (fun i _ -> (i, ""))
   let to_yojson nctx = `List (List.map Types.to_yojson nctx)
-  let lookup_exn = List.nth
+  let lookup_exn nctx (i, _) = List.nth nctx i
   let is_empty = function [] -> true | _ -> false
 
-  let is_singleton nctx nn ty =
+  let is_singleton nctx (nn, _) ty =
     match nctx with [ ty' ] when nn = 0 && ty = ty' -> true | _ -> false
 
-  let is_last name_ctx nn ty =
+  let is_last name_ctx (nn, _) ty =
     let rec aux name_ctx i acc =
       match name_ctx with
       | [] -> None
@@ -141,14 +145,14 @@ struct
   let add name_ctx _ ty = name_ctx @ [ ty ]
 
   let to_pmap name_ctx =
-    Util.Pmap.list_to_pmap @@ List.mapi (fun i ty -> (i, ty)) name_ctx
+    Util.Pmap.list_to_pmap @@ List.mapi (fun i ty -> ((i, ""), ty)) name_ctx
 
-  let singleton ty = (0, [ ty ])
-  let mem namectx nn = nn < List.length namectx
+  let singleton ty = ((0, ""), [ ty ])
+  let mem namectx (nn, _) = nn < List.length namectx
 
-  let add_fresh name_ctx ty =
+  let add_fresh name_ctx str ty =
     let nn = List.length name_ctx in
-    (nn, name_ctx @ [ ty ])
+    ((nn, str), name_ctx @ [ ty ])
 
   let map = List.map
 end
@@ -265,12 +269,12 @@ module AggregateCommon
       let (nn, namectx2) = Namectx2.singleton ty in
       (EmbedNames.embed2 nn, (Namectx1.empty, namectx2))
 
-  let add_fresh (namectx1, namectx2) ty =
+  let add_fresh (namectx1, namectx2) str ty =
     if ClassifyTyp.classify ty then
-      let (nn, namectx) = Namectx1.add_fresh namectx1 ty in
+      let (nn, namectx) = Namectx1.add_fresh namectx1 str ty in
       (EmbedNames.embed1 nn, (namectx, namectx2))
     else
-      let (nn, namectx) = Namectx2.add_fresh namectx2 ty in
+      let (nn, namectx) = Namectx2.add_fresh namectx2 str ty in
       (EmbedNames.embed2 nn, (namectx1, namectx))
 
   let map f (namectx1, namectx2) =
@@ -353,12 +357,12 @@ module AggregateCommonType
       let (nn, namectx2) = Namectx2.singleton ty in
       (N2 nn, (Namectx1.empty, namectx2))
 
-  let add_fresh (namectx1, namectx2) ty =
+  let add_fresh (namectx1, namectx2) str ty =
     if ClassifyTyp.classify ty then
-      let (nn, namectx) = Namectx1.add_fresh namectx1 ty in
+      let (nn, namectx) = Namectx1.add_fresh namectx1 str ty in
       (N1 nn, (namectx, namectx2))
     else
-      let (nn, namectx) = Namectx2.add_fresh namectx2 ty in
+      let (nn, namectx) = Namectx2.add_fresh namectx2 str ty in
       (N2 nn, (namectx1, namectx))
 
   let map f (namectx1, namectx2) =
@@ -448,8 +452,8 @@ module AggregateDisjoint
         return (namectx1, namectx2')
     | _ ->
         failwith
-          "Error while performing a singleton test on an aggregated context. \
-           Please report."
+          "Error while performing a last test on an aggregated context. Please \
+           report."
 
   let add (namectx1, namectx2) nn ty =
     match
@@ -507,13 +511,13 @@ module AggregateDisjoint
         failwith
           "Aggregating two typing contexts with missing types. Please report."
 
-  let add_fresh (namectx1, namectx2) ty =
+  let add_fresh (namectx1, namectx2) str ty =
     match (EmbedTypes.extract1 ty, EmbedTypes.extract2 ty) with
     | (None, Some ty) ->
-        let (nn, namectx2') = Namectx2.add_fresh namectx2 ty in
+        let (nn, namectx2') = Namectx2.add_fresh namectx2 str ty in
         (EmbedNames.embed2 nn, (namectx1, namectx2'))
     | (Some ty, None) ->
-        let (nn, namectx') = Namectx1.add_fresh namectx1 ty in
+        let (nn, namectx') = Namectx1.add_fresh namectx1 str ty in
         (EmbedNames.embed1 nn, (namectx', namectx2))
     | (Some _, Some _) ->
         failwith
@@ -625,13 +629,13 @@ struct
         failwith
           "Aggregating two typing contexts with missing types. Please report."
 
-  let add_fresh (namectx, cnamectx) ty =
+  let add_fresh (namectx, cnamectx) str ty =
     match (Types.extract1 ty, Types.extract2 ty) with
     | (None, Some ty) ->
-        let (cn, cnamectx') = Namectx2.add_fresh cnamectx ty in
+        let (cn, cnamectx') = Namectx2.add_fresh cnamectx str ty in
         (N2 cn, (namectx, cnamectx'))
     | (Some ty, None) ->
-        let (nn, namectx') = Namectx1.add_fresh namectx ty in
+        let (nn, namectx') = Namectx1.add_fresh namectx str ty in
         (N1 nn, (namectx', cnamectx))
     | (Some _, Some _) ->
         failwith

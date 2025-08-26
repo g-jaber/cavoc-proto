@@ -1,5 +1,5 @@
 module type NAMES = sig
-  type name
+  type name [@@deriving to_yojson]
 
   val string_of_name : name -> string
   val pp_name : Format.formatter -> name -> unit
@@ -15,8 +15,7 @@ module type NAMES_GEN = sig
 end
 
 module type MODE = sig
-  val is_callable : bool 
-  val is_cname : bool
+  val is_callable : bool val is_cname : bool
 end
 
 module type PREFIX = sig
@@ -27,8 +26,15 @@ end
 module MakeGen (Mode : MODE) (Prefix : PREFIX) () : NAMES_GEN = struct
   type name = int * string
 
-  let string_of_name (_, s) = s
-  let pp_name fmt (_, s) = Format.fprintf fmt "%s" s
+  let string_of_name (i, s) =
+    if s = "" then Prefix.prefix ^ string_of_int i else s
+
+  let name_to_yojson (_, s) = `String s
+
+  let pp_name fmt (i, s) =
+    if s = "" then Format.fprintf fmt "%s%i" Prefix.prefix i
+    else Format.fprintf fmt "%s" s
+
   let is_callable _ = Mode.is_callable
   let is_cname _ = Mode.is_cname
   let count_name = ref 0

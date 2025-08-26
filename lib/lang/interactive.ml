@@ -17,17 +17,14 @@ module type LANG = sig
 
   val infer_type_store : store -> Storectx.t
 
-  module Namectx : Typectx.TYPECTX with type name = Names.name
 
   (*Interactive name contexts are typing contexts mapping names to interactive types.*)
 
-  (* Interactive environments γ are partial maps from names to interactive values*)
-  type interactive_env [@@deriving to_yojson]
+  module Namectx : Typectx.TYPECTX with type name = Names.name
 
-  val empty_ienv : interactive_env
-  val concat_ienv : interactive_env -> interactive_env -> interactive_env
-  val pp_ienv : Format.formatter -> interactive_env -> unit
-  val string_of_ienv : interactive_env -> string
+  (* Interactive environments γ are partial maps from names to interactive values*)
+  module IEnv : Ienv.IENV with type name = Names.name
+
 
   (* The typed focusing process implemented by abstracting_nf
       decomposes a normal form into:
@@ -41,7 +38,7 @@ module type LANG = sig
 
   val eval :
     opconf * Namectx.t * Storectx.t ->
-    ((abstract_normal_form * Namectx.t * Storectx.t) * interactive_env * store)
+    ((abstract_normal_form * Namectx.t * Storectx.t) * IEnv.t * store)
     EvalMonad.m
 
   (* abstracting_nf nf Γₒ Σ returns a triple (anf,γ,Δ,Σ')
@@ -89,7 +86,7 @@ module type LANG = sig
     Namectx.t option
 
   val concretize_a_nf :
-    store -> interactive_env -> abstract_normal_form -> opconf * interactive_env
+    store -> IEnv.t -> abstract_normal_form -> opconf * IEnv.t
 end
 
 module type LANG_WITH_INIT = sig
@@ -106,7 +103,7 @@ module type LANG_WITH_INIT = sig
   val get_typed_ienv :
     Lexing.lexbuf ->
     Lexing.lexbuf ->
-    interactive_env * store * Namectx.t * Namectx.t
+    IEnv.t * store * Namectx.t * Namectx.t
 end
 
 (* The following functor create a module of type Interactive.LANG_WITH_INIT
@@ -134,16 +131,11 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
   module Namectx = OpLang.Namectx
 
   (* Interactive environments γ are partial maps from names to interactive values*)
-  type interactive_env = OpLang.interactive_env [@@deriving to_yojson]
-
-  let pp_ienv = OpLang.pp_ienv
-  let string_of_ienv = Format.asprintf "%a" pp_ienv
-  let empty_ienv = OpLang.empty_ienv
-  let concat_ienv = OpLang.concat_ienv
+  module IEnv = OpLang.IEnv
 
   let concretize_a_nf store ienv (a_nf_term, store') =
     let f_val = OpLang.AVal.subst_names ienv in
-    let f_fn nn = Util.Pmap.lookup_exn nn ienv in
+    let f_fn nn = IEnv.lookup_exn ienv nn in
     let f_cn = f_fn in
     let f_ectx () = () in
     let nf_term' = OpLang.Nf.map ~f_val ~f_fn ~f_cn ~f_ectx a_nf_term in
@@ -170,25 +162,8 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let f_val (value, nty) =
       let (aval, ienv, lnamectx) = OpLang.AVal.abstracting_value value nty in
       (aval, (ienv, lnamectx)) in
-    let empty_res = (empty_ienv, Namectx.empty) in
+    let empty_res = (IEnv.empty, Namectx.empty) in
     OpLang.Nf.map_val empty_res f_val nf_typed_term
-  (*
-    let f_call (nn, value, ()) = 
-      let ty = Util.Pmap.lookup_exn nn namectxO in
-      let nty = OpLang.negating_type ty in
-      let (aval, ienv, lnamectx) = OpLang.AVal.abstracting_value value nty in
-      ((nn, aval, ()), (ienv, lnamectx)) in
-    let f_ret (nn, value) =
-      let ty = Util.Pmap.lookup_exn nn namectxO in
-      let nty = OpLang.negating_type ty in
-      let (aval, ienv, lnamectx) = OpLang.AVal.abstracting_value value nty in
-      ((nn, aval), (ienv, lnamectx)) in
-    let f_exn (nn, value) =
-      let (aval, ienv, lnamectx) =
-        OpLang.AVal.abstracting_value value OpLang.exception_type in
-      ((nn, aval), (ienv, lnamectx)) in
-    let f_error nn = (nn, (empty_ienv, empty_name_ctx)) in
-    OpLang.Nf.map_cons ~f_call ~f_ret ~f_exn ~f_error nf_term*)
 
   let abstracting_nf (nf_term, store) namectxO storectx_discl =
     let (a_nf_term, (ienv, lnamectx)) = abstracting_nf_term nf_term namectxO in

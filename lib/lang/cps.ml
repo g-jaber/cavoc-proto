@@ -18,9 +18,8 @@ struct
   module CNames : Names.NAMES_GEN = Names.MakeGen (Mode) (Prefix) ()
 
   module Names = struct
-    type name =
-      | N of OpLang.Names.name
-      | CName of CNames.name (*[@@deriving to_yojson]*)
+    type name = N of OpLang.Names.name | CName of CNames.name
+    [@@deriving to_yojson]
 
     let pp_name fmt = function
       | N nn -> OpLang.Names.pp_name fmt nn
@@ -44,6 +43,7 @@ struct
   let string_of_term = Format.asprintf "%a" pp_term
 
   type neval_context = NCtx of (CNames.name * OpLang.eval_context)
+  [@@deriving to_yojson]
 
   let pp_neval_context fmt (NCtx (cn, ectx)) =
     Format.fprintf fmt "[%a]%a" CNames.pp_name cn OpLang.pp_eval_context ectx
@@ -74,6 +74,7 @@ struct
           ectx
 
   let string_of_negative_val = Format.asprintf "%a" pp_negative_val
+  let negative_val_to_yojson nval = `String (string_of_negative_val nval)
 
   let filter_negative_val = function
     | GVal value -> begin
@@ -83,23 +84,35 @@ struct
       end
     | GPairIn _ | GPairOut _ | GPackOut _ -> None
 
-  type interactive_env = (Names.name, negative_val) Util.Pmap.pmap
+  module CIEnv =
+    Ienv.Make_PMAP
+      (CNames)
+      (struct
+        type t = neval_context [@@deriving to_yojson]
 
-  let interactive_env_to_yojson ienv =
-    let to_string (nn, nval) =
-      (Names.string_of_name nn, `String (string_of_negative_val nval)) in
-    `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string ienv)
+        let pp = pp_neval_context
+      end)
 
-  let pp_ienv fmt ienv =
-    let pp_sep fmt () = Format.pp_print_string fmt " ⋅ " in
-    let pp_pair fmt (n, nval) =
-      Format.fprintf fmt "%a ↦ (%a)" Names.pp_name n pp_negative_val nval in
-    let pp_ienv_aux = Util.Pmap.pp_pmap ~pp_sep pp_pair in
-    Format.fprintf fmt "[%a]" pp_ienv_aux ienv
+  module IEnv =
+    Ienv.AggregateDisjoint (OpLang.IEnv) (CIEnv)
+      (struct
+        type t = Names.name
 
-  let string_of_ienv = Format.asprintf "%a" pp_ienv
-  let empty_ienv = Util.Pmap.empty
-  let concat_ienv = Util.Pmap.concat
+        let embed1 nn = Names.N nn
+        let embed2 cn = Names.CName cn
+        let extract1 = function Names.N nn -> Some nn | Names.CName _ -> None
+        let extract2 = function Names.CName cn -> Some cn | Names.N _ -> None
+      end)
+      (struct
+        type t = negative_val [@@deriving to_yojson]
+
+        let embed1 v = IVal v
+        let embed2 v = ICtx v
+        let extract1 = function IVal v -> Some v | ICtx _ -> None
+        let extract2 = function ICtx v -> Some v | IVal _ -> None
+      end)
+
+  let embed_value_env valenv = (valenv, CIEnv.empty)
 
   type typ =
     | GType of OpLang.typ
@@ -109,7 +122,10 @@ struct
   [@@deriving to_yojson]
 
   type negative_type = IType of OpLang.negative_type | INeg of OpLang.typ
-  [@@deriving to_yojson]
+
+  let negative_type_to_yojson = function
+    | IType ntype -> OpLang.negative_type_to_yojson ntype
+    | INeg typ -> `String ("¬" ^ OpLang.string_of_type typ)
 
   let pp_type fmt = function
     | GType typ -> OpLang.pp_type fmt typ
@@ -142,8 +158,8 @@ struct
       (struct
         type t = OpLang.typ
 
-        let to_yojson = OpLang.typ_to_yojson
-        let pp = OpLang.pp_type
+        let to_yojson typ = `String ("¬" ^ OpLang.string_of_type typ)
+        let pp fmt typ = Format.fprintf fmt "¬(%a)" OpLang.pp_type typ
       end)
 
   module Namectx =
@@ -179,14 +195,6 @@ struct
   let normalize_opconf (NTerm (cn, term), store) =
     let* (nf_term, store') = OpLang.normalize_opconf (term, store) in
     return (NTerm (cn, nf_term), store')
-
-  let embed_value_env = Util.Pmap.map (fun (nn, v) -> (Names.N nn, IVal v))
-
-  let extract_ienv =
-    Util.Pmap.filter_map (function
-      | (Names.N n, IVal value) -> Some (n, value)
-      | (Names.CName _, ICtx _) -> None
-      | _ -> failwith "Name of the wrong type. Please report.")
 
   let get_typed_opconf nbprog inBuffer =
     let ((term, store), typ, namectxO) =
@@ -334,6 +342,7 @@ struct
        and type label = Store.label
        and type store_ctx = Store.Storectx.t
        and type name_ctx = Namectx.t
+       and type interactive_env = IEnv.t
        and module BranchMonad = Store.BranchMonad = struct
     type name = Names.name
     type label = OpLang.AVal.label
@@ -345,7 +354,7 @@ struct
 
     (*    type negative_type = OpLang.negative_type*)
     type name_ctx = Namectx.t
-    type interactive_env = (name, negative_val) Util.Pmap.pmap
+    type interactive_env = IEnv.t
 
     type abstract_val =
       | AVal of OpLang.AVal.abstract_val
@@ -405,10 +414,9 @@ struct
           let (aval, val_env, lnamectx) =
             OpLang.AVal.abstracting_value value ty_v in
           let (cn, cnamectx) = CNamectx.singleton ty_c in
-          let ienv = embed_value_env val_env in
-          let ienv' = Util.Pmap.add (Names.inj_cont_name cn, ICtx ectx) ienv in
+          let cienv = CIEnv.add_last_check CIEnv.empty cn ectx in
           let lnamectx' = (lnamectx, cnamectx) in
-          (APair (aval, cn), ienv', lnamectx')
+          (APair (aval, cn), (val_env, cienv), lnamectx')
       | (GVal value, GType ty) ->
           let (aval, val_env, lnamectx) =
             OpLang.AVal.abstracting_value value ty in
@@ -466,15 +474,14 @@ struct
           OpLang.AVal.unify_abstract_val nspan aval1 aval2
       | _ -> None*)
 
-    let subst_names (ienv : interactive_env) aval =
-      let ienv' = extract_ienv ienv in
+    let subst_names ((val_env, _) : interactive_env) aval =
       match aval with
-      | AVal aval -> GVal (OpLang.AVal.subst_names ienv' aval)
+      | AVal aval -> GVal (OpLang.AVal.subst_names val_env aval)
       | APair (aval, cn) ->
-          let value = OpLang.AVal.subst_names ienv' aval in
+          let value = OpLang.AVal.subst_names val_env aval in
           GPairOut (value, cn)
       | APack (tname_l, aval, cn) ->
-          let value = OpLang.AVal.subst_names ienv' aval in
+          let value = OpLang.AVal.subst_names val_env aval in
           GPackOut (tname_l, value, cn)
   end
 end

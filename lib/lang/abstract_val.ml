@@ -13,7 +13,7 @@ module type AVAL = sig
   type name_ctx
   type store_ctx
     (* Interactive environments γ are partial maps from names to interactive values*)
-  type interactive_env = (name, negative_val) Util.Pmap.pmap
+  type interactive_env
   (* *)
 
   (* Abstracted values correspond to the observable part of a value.

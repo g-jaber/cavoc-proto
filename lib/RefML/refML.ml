@@ -46,20 +46,17 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
      and type Store.label = Syntax.label
      and type Store.Storectx.t = Store.Storectx.t
      and type Namectx.t = Namectx.t
+     and type IEnv.t = Ienv.IEnv.t
      and module Names = Names
      and module Store.BranchMonad = BranchMonad = struct
   include Syntax
   include Typed
   module Store = MakeStore (BranchMonad)
 
-  module EvalMonad = struct
-    type 'a m = 'a option
+  module EvalMonad = Util.Monad.Option
 
-    let return x = Some x
-    let ( let* ) a f = match a with None -> None | Some x -> f x
-    let run x = x
-    let fail () = None
-  end
+  module IEnv = Ienv.IEnv
+
 
   type opconf = Interpreter.opconf
 
@@ -97,11 +94,9 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
       let fnamectxO' = Util.Pmap.filter_map_im Types.get_negative_type fnamectxO in (* To be reworked *)
       let (val_assign, heap, cons_ctx') =
         Interpreter.normalize_term_env cons_ctx comp_env in
-      let (val_env, (fnamectxP,pnamectxP)) =
+      let (ienv, namectxP) =
         Declaration.get_typed_val_env val_assign signature_decl_l in
-      let int_env = Util.Pmap.filter_map_im Syntax.filter_negative_val val_env in
-      let fnamectxP' = Util.Pmap.filter_map_im Types.get_negative_type fnamectxP in (* To be reworked *)
-      (int_env, (val_assign, heap, cons_ctx'), (fnamectxP',pnamectxP), (fnamectxO',pnamectxO))
+      (ienv, (val_assign, heap, cons_ctx'), namectxP, (fnamectxO',pnamectxO))
     with
     | Lexer.SyntaxError msg -> failwith ("Lexing Error: " ^ msg)
     | Parser.Error ->
@@ -118,7 +113,7 @@ module WithAVal (BranchMonad : Util.Monad.BRANCH) :
   Lang.Language.WITHAVAL_INOUT = struct
   include MakeComp (BranchMonad)
 
-  type eval_context = Syntax.eval_context
+  type eval_context = Syntax.eval_context  [@@deriving to_yojson]
 
   let pp_eval_context = Syntax.pp_eval_context
   let string_of_eval_context = Syntax.string_of_eval_context
@@ -174,6 +169,7 @@ module WithAVal (BranchMonad : Util.Monad.BRANCH) :
        and type label = Syntax.label
        and type store_ctx = Store.Storectx.t
        and type name_ctx = Namectx.t
+       and type interactive_env = Ienv.IEnv.t
        and module BranchMonad = BranchMonad =
     Nup.Make (BranchMonad)
 end

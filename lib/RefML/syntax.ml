@@ -163,8 +163,8 @@ and pp_handler fmt (Handler (pat, expr)) =
   Format.fprintf fmt "%a -> %a" pp_pattern pat pp_term expr
 
 let string_of_term = Format.asprintf "%a" pp_term
-let pp_value = pp_term
-let string_of_value = string_of_term
+
+let term_to_yojson term = `String (string_of_term term)
 
 (* TODO: We should rather use a Set rather than a list to represent set of names*)
 
@@ -245,7 +245,10 @@ let rec get_new_labels label_l = function
 
 let get_labels = get_new_labels empty_label_set
 
-type value = term
+type value = term [@@deriving to_yojson]
+
+let pp_value = pp_term
+let string_of_value = string_of_term
 
 let rec isval = function
   (*| Var _ -> true*)
@@ -387,7 +390,7 @@ let empty_val_env = Util.Pmap.empty
 
 (* Evaluation Contexts *)
 
-type eval_context = term
+type eval_context = term  [@@deriving to_yojson]
 
 let pp_eval_context = pp_term
 let string_of_eval_context = Format.asprintf "%a" pp_eval_context
@@ -443,7 +446,7 @@ and extract_ctx_un cons_op expr =
 
 let fill_hole ctx expr = subst ctx Hole expr
 
-type negative_val = value
+type negative_val = value [@@deriving to_yojson]
 
 let pp_negative_val = pp_value
 let string_of_negative_val = Format.asprintf "%a" pp_negative_val
@@ -454,25 +457,6 @@ let filter_negative_val = function
 
 let force_negative_val value = value
 let embed_negative_val value = value
-
-type interactive_env = (Names.name, negative_val) Util.Pmap.pmap
-
-let interactive_env_to_yojson ienv =
-  let to_string (nn, nval) =
-    (Names.string_of_name nn, `String (string_of_negative_val nval)) in
-  `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string ienv)
-
-let empty_ienv = Util.Pmap.empty
-let concat_ienv = Util.Pmap.concat
-
-let pp_ienv fmt ienv =
-  let pp_sep fmt () = Format.pp_print_char fmt ',' in
-  let pp_empty fmt () = Format.pp_print_string fmt "⋅" in
-  let pp_pair fmt (n, nval) =
-    Format.fprintf fmt "%a ↦ %a" Names.pp_name n pp_negative_val nval in
-  Util.Pmap.pp_pmap ~pp_sep ~pp_empty pp_pair fmt ienv
-
-let string_of_ienv = Format.asprintf "%a" pp_ienv
 
 open Nf
 

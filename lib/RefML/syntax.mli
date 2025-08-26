@@ -102,12 +102,12 @@ type val_env = (id, value) Util.Pmap.pmap
 val string_of_val_env : val_env -> string
 val empty_val_env : val_env
 
-type eval_context
+type eval_context [@@deriving to_yojson]
 
 val pp_eval_context : Format.formatter -> eval_context -> unit
 val string_of_eval_context : eval_context -> string
 
-type negative_val
+type negative_val [@@deriving to_yojson]
 
 val pp_negative_val : Format.formatter -> negative_val -> unit
 val string_of_negative_val : negative_val -> string
@@ -118,14 +118,6 @@ val get_nf_term : term -> (value, eval_context, Names.name, unit) Nf.nf_term
 
 val refold_nf_term :
   (value, unit, negative_val, eval_context) Nf.nf_term -> term
-
-type interactive_env = (Names.name, negative_val) Util.Pmap.pmap
-[@@deriving to_yojson]
-
-val empty_ienv : interactive_env
-val concat_ienv : interactive_env -> interactive_env -> interactive_env
-val string_of_ienv : interactive_env -> string
-val pp_ienv : Format.formatter -> interactive_env -> unit
 
 (* The following function should be replaced by generate_nup *)
 val generate_ground_value : Types.typ -> value list

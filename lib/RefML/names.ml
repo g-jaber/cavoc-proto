@@ -1,6 +1,5 @@
-(* We consider three kind of names:
+(* We consider two kind of names:
    - Function names
-   - Continuation names
    - Polymorphic names
 *)
 
@@ -22,7 +21,7 @@ module PNames =
     end)
     ()
 
-type name = FName of FNames.name | PName of PNames.name
+type name = FName of FNames.name | PName of PNames.name [@@deriving to_yojson]
 
 let string_of_name = function
   | FName f -> FNames.string_of_name f

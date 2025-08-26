@@ -203,12 +203,30 @@ let get_typed_val_env var_val_env sign_decl_l =
   let (var_ctx_l, _, type_publ_decl_l, _) =
     split_signature_decl_list sign_decl_l in
   let type_env = Util.Pmap.list_to_pmap type_publ_decl_l in
-  let aux (var, ty) =
-    let value = Util.Pmap.lookup_exn var var_val_env in
-    let fn = Names.FNames.from_string var in
-    let ty' = Types.generalize_type @@ Types.apply_type_env ty type_env in
-    ((Names.FName fn, value), (fn, ty')) in
-  let (val_env_l, name_ctx_l) = List.split @@ List.map aux var_ctx_l in
-  let name_ctx = (Util.Pmap.list_to_pmap name_ctx_l, Pnamectx.empty) in
-  let val_env = Util.Pmap.list_to_pmap val_env_l in
-  (val_env, name_ctx)
+  let rec partition_env (((ienvf, ienvp), (fnamectx, pnamectx)) as acc) =
+    function
+    | [] -> acc
+    | (var, ty) :: tl -> begin
+        let value = Util.Pmap.lookup_exn var var_val_env in
+        let ty' = Types.generalize_type @@ Types.apply_type_env ty type_env in
+        (* We might have to switch this generalization with the match below*)
+        match ty' with
+        | Types.TArrow _ | Types.TForall _ ->
+            let (fn, fnamectx') = Fnamectx.add_fresh fnamectx var ty' in
+            let nval = Syntax.force_negative_val value in
+            let ienvf' = Ienv.IEnvF.add_last_check ienvf fn nval in
+            partition_env ((ienvf', ienvp), (fnamectx', pnamectx)) tl
+        | Types.TId _ | Types.TName _ ->
+            let (pn, pnamectx') = Pnamectx.add_fresh pnamectx var ty' in
+            let nval = Syntax.force_negative_val value in
+            let ienvp' = Ienv.IEnvP.add_last_check ienvp pn nval in
+            partition_env ((ienvf, ienvp'), (fnamectx, pnamectx')) tl
+        | _ ->
+            Util.Debug.print_debug
+              ("The identifier " ^ Syntax.string_of_id var
+             ^ " is not included in the environment because it is of \
+                non-negative type " ^ Types.string_of_typ ty');
+            partition_env acc tl
+      end in
+
+  partition_env (Ienv.IEnv.empty, Namectx.empty) var_ctx_l

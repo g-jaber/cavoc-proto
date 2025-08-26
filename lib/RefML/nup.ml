@@ -8,6 +8,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
      and type label = Syntax.label
      and type store_ctx = Store.Storectx.t
      and type name_ctx = Fnamectx.t * Pnamectx.t
+     and type interactive_env = Ienv.IEnv.t
      and module BranchMonad = BranchMonad = struct
   (* Instantiation *)
   type name = Names.name
@@ -23,7 +24,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
   open Syntax
   open Types
 
-  type interactive_env = (name, negative_val) Util.Pmap.pmap
+  type interactive_env = Ienv.IEnv.t
   type abstract_val = Syntax.value
 
   let pp_abstract_val = Syntax.pp_term
@@ -82,7 +83,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     lnup1'@lnup2' *)
       | TArrow _ as ty ->
           let nty = Types.force_negative_type ty in
-          let (fn, fnamectx') = Fnamectx.add_fresh fnamectx nty in
+          let (fn, fnamectx') = Fnamectx.add_fresh fnamectx "" nty in
           return (Name (FName fn), (fnamectx', pnamectx))
       | TId _ as ty ->
           let pnamectxP_pmap = Pnamectx.to_pmap pnamectxP in
@@ -91,7 +92,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           return (Name (PName pn), lnamectx)
       | TName _ as ty ->
           let nty = Types.force_negative_type ty in
-          let (pn, pnamectx') = Pnamectx.add_fresh pnamectx nty in
+          let (pn, pnamectx') = Pnamectx.add_fresh pnamectx "" nty in
           return (Name (PName pn), (fnamectx, pnamectx'))
       | TExn ->
           Util.Debug.print_debug
@@ -163,7 +164,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           ^ Types.string_of_typ ty ^ " is not yet supported." in
     match aux ty (nup, lnamectx) with
     | None -> false
-    | Some lnamectx when lnamectx = Namectx.empty -> true
+    | Some lnamectx when Namectx.is_empty lnamectx -> true
     | Some _ -> false
 
   let abstracting_value (value : value) ty =
@@ -174,34 +175,36 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
       | (Name _, TArrow _)
       | (Fun _, TForall (_, TArrow _))
       | (Fix _, TForall (_, TArrow _))
-      | (Name _, TForall (_, TArrow _)) ->
+      | (Name _, TForall (_, TArrow _)) -> begin
           let nval = Syntax.force_negative_val value in
           let nty = Types.force_negative_type ty in
-          let (fn, fnamectx') = Fnamectx.add_fresh fnamectx nty in
-          let ienv = Util.Pmap.add (Names.FName fn, nval) ienv in
-          (Name (Names.FName fn), ienv, (fnamectx', pnamectx))
+          let (fn, fnamectx') = Fnamectx.add_fresh fnamectx "" nty in
+          let ienv' = Ienv.IEnv.add_last_check ienv (Names.FName fn) nval in
+          (Name (Names.FName fn), ienv', (fnamectx', pnamectx))
+        end
       | (Unit, TUnit) | (Bool _, TBool) | (Int _, TInt) ->
-          (value, Util.Pmap.empty, lnamectx)
+          (value, Ienv.IEnv.empty, lnamectx)
       | (Pair (value1, value2), TProd (ty1, ty2)) ->
           let (nup1, ienv1, lnamectx1) = aux lnamectx ienv value1 ty1 in
           let (nup2, ienv2, lnamectx2) = aux lnamectx1 ienv1 value2 ty2 in
           (Pair (nup1, nup2), ienv2, lnamectx2)
-      | (_, TId _) ->
+      | (_, TId _) -> begin
           let nval = Syntax.force_negative_val value in
           let nty = Types.force_negative_type ty in
-          let (pn, pnamectx') = Pnamectx.add_fresh pnamectx nty in
-          let ienv' = Util.Pmap.add (Names.PName pn, nval) ienv in
+          let (pn, pnamectx') = Pnamectx.add_fresh pnamectx "" nty in
+          let ienv' = Ienv.IEnv.add_last_check ienv (Names.PName pn) nval in
           (Name (Names.PName pn), ienv', (fnamectx, pnamectx'))
-      | (Name _, TName _) -> (value, Util.Pmap.empty, lnamectx)
-      | (Constructor _, TExn) -> (value, Util.Pmap.empty, lnamectx)
+        end
+      | (Name _, TName _) -> (value, Ienv.IEnv.empty, lnamectx)
+      | (Constructor _, TExn) -> (value, Ienv.IEnv.empty, lnamectx)
       | _ ->
           failwith
             ("Error: " ^ string_of_term value ^ " of type " ^ string_of_typ ty
            ^ " cannot be abstracted because it is not a value.") in
-    aux empty_namectx empty_ienv value ty
+    aux empty_namectx Ienv.IEnv.empty value ty
 
   let subst_names ienv nup =
     let aux nup (nn, nval) =
       Syntax.subst nup (Name nn) (embed_negative_val nval) in
-    Util.Pmap.fold aux nup ienv
+    Ienv.IEnv.fold aux nup ienv
 end

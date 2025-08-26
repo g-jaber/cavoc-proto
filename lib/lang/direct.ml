@@ -131,13 +131,13 @@ struct
 
     let mem _ = failwith "TODO"
 
-    let add_fresh (namectx : t) nty =
+    let add_fresh (namectx : t) str nty =
       match namectx with
       | OpCtx (ty, fnamectx) ->
-          let (nn, fnamectx') = OpLang.Namectx.add_fresh fnamectx nty in
+          let (nn, fnamectx') = OpLang.Namectx.add_fresh fnamectx str nty in
           (nn, OpCtx (ty, fnamectx'))
       | PropCtx (fnamectx, stackctx) ->
-          let (nn, fnamectx') = OpLang.Namectx.add_fresh fnamectx nty in
+          let (nn, fnamectx') = OpLang.Namectx.add_fresh fnamectx str nty in
           (nn, PropCtx (fnamectx', stackctx))
 
     let map _ = failwith "TODO"
@@ -145,35 +145,46 @@ struct
 
   (* Interactive environments γ are pairs formed by partial maps from functional names to functional values,
      and a stack of evaluation contexts. *)
-  type interactive_env = OpLang.interactive_env * OpLang.eval_context list
 
-  let interactive_env_to_yojson (ienv, ectx_l) =
-    let ectx_l_yojson =
-      `List
-        (List.map (fun x -> `String (OpLang.string_of_eval_context x)) ectx_l)
-    in
-    `Assoc
-      [
-        ("ienv", OpLang.interactive_env_to_yojson ienv);
-        ("ectx stack", ectx_l_yojson);
-      ]
+  module IEnv = struct
+    type name = OpLang.Names.name
+    type value = OpLang.negative_val
+    type t = OpLang.IEnv.t * OpLang.eval_context list
 
-  let empty_ienv = (OpLang.empty_ienv, [])
+    let to_yojson (ienv, ectx_l) =
+      let ectx_l_yojson =
+        `List
+          (List.map (fun x -> `String (OpLang.string_of_eval_context x)) ectx_l)
+      in
+      `Assoc
+        [ ("ienv", OpLang.IEnv.to_yojson ienv); ("ectx stack", ectx_l_yojson) ]
 
-  let concat_ienv (fnamectx1, cstack1) (fnamectx2, cstack2) =
-    (OpLang.concat_ienv fnamectx1 fnamectx2, cstack1 @ cstack2)
+    let empty = (OpLang.IEnv.empty, [])
 
-  let pp_ctx_stack fmt = function
-    | [] -> Format.pp_print_string fmt "⋅"
-    | ectx_stack ->
-        let pp_sep fmt () = Format.pp_print_char fmt ',' in
-        Format.pp_print_list ~pp_sep OpLang.pp_eval_context fmt ectx_stack
+    let concat (fnamectx1, cstack1) (fnamectx2, cstack2) =
+      (OpLang.IEnv.concat fnamectx1 fnamectx2, cstack1 @ cstack2)
 
-  let pp_ienv fmt (ienv, ectx_stack) =
-    Format.fprintf fmt "@[IEnv: %a@] | @[Stack: %a@]" OpLang.pp_ienv ienv
-      pp_ctx_stack ectx_stack
+    let pp_ctx_stack fmt = function
+      | [] -> Format.pp_print_string fmt "⋅"
+      | ectx_stack ->
+          let pp_sep fmt () = Format.pp_print_char fmt ',' in
+          Format.pp_print_list ~pp_sep OpLang.pp_eval_context fmt ectx_stack
 
-  let string_of_ienv = Format.asprintf "%a" pp_ienv
+    let pp fmt (ienv, ectx_stack) =
+      Format.fprintf fmt "@[IEnv: %a@] | @[Stack: %a@]" OpLang.IEnv.pp ienv
+        pp_ctx_stack ectx_stack
+
+    let to_string = Format.asprintf "%a" pp
+    let lookup_exn (ienv, _) nn = OpLang.IEnv.lookup_exn ienv nn
+    let get_names (ienv, _) = OpLang.IEnv.get_names ienv
+
+    let add_last_check ((fnamectx, ectx_stack) : t) (nn : name) (v : value) =
+      let fnamectx' = OpLang.IEnv.add_last_check fnamectx nn v in
+      (fnamectx', ectx_stack)
+
+    let map f (fnamectx, ectx_stack) = (OpLang.IEnv.map f fnamectx, ectx_stack)
+    let fold f a (fnamectx, _ectx_stack) = OpLang.IEnv.fold f a fnamectx
+  end
 
   let concretize_a_nf store ((fname_env, stack_ctx) as ienv) (a_nf_term, store')
       =
@@ -185,7 +196,7 @@ struct
             "Error: trying to concretize a returning abstract normal form in \
              an empty stack. Please report" in
     let f_val aval = (OpLang.AVal.subst_names fname_env aval, ()) in
-    let f_fn fn = (Util.Pmap.lookup_exn fn fname_env, ()) in
+    let f_fn fn = (OpLang.IEnv.lookup_exn fname_env fn, ()) in
     let f_cn () = get_ectx () in
     let (nf_term, _) = OpLang.Nf.map_val () f_val a_nf_term in
     let (nf_term', _) = OpLang.Nf.map_fn () f_fn nf_term in
@@ -225,7 +236,7 @@ struct
       (aval, (ienv, lnamectx)) in
     let f_ectx (ectx, (ty_hole, ty_out)) =
       ((), ([ ectx ], [ (ty_hole, ty_out) ])) in
-    let empty_res = (OpLang.empty_ienv, OpLang.Namectx.empty) in
+    let empty_res = (OpLang.IEnv.empty, OpLang.Namectx.empty) in
     let (a_nf_term, (ienv, lnamectx)) =
       OpLang.Nf.map_val empty_res f_val nf_typed_term' in
     let (a_nf_term', (stack, stack_ctx)) =

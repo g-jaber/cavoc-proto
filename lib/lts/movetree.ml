@@ -64,7 +64,7 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
     let to_pmap _ = failwith ""
     let mem () () = true
     let singleton () = ((), ())
-    let add_fresh () () = ((), ())
+    let add_fresh () _ () = ((), ())
     let map _ () = ()
   end
 
@@ -77,29 +77,27 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
 
   module Namectx = MoveTree.Moves.Namectx
 
-  type interactive_env =
-    (MoveTree.Moves.name, MoveTree.Moves.name) Util.Pmap.pmap
+  module IEnv =
+    Lang.Ienv.Make_PMAP
+      (MoveTree.Moves.Names)
+      (struct
+        type t = MoveTree.Moves.Names.name [@@deriving to_yojson]
 
-  let interactive_env_to_yojson = failwith ""
-  let empty_ienv : interactive_env = Util.Pmap.empty
+        let pp = MoveTree.Moves.Names.pp_name
+      end)
 
-  let concat_ienv : interactive_env -> interactive_env -> interactive_env =
-    Util.Pmap.concat
-
-  let pp_ienv : Format.formatter -> interactive_env -> unit = failwith ""
-  let string_of_ienv : interactive_env -> string = failwith ""
-
+  
   type abstract_normal_form = MoveTree.Moves.move
 
   let eval ((move, movetree), namectx, storectx) :
       ((abstract_normal_form * Namectx.t * Storectx.t)
-      * interactive_env
+      * IEnv.t
       * store)
       EvalMonad.m =
     match MoveTree.trigger movetree move with
     | None -> EvalMonad.fail ()
     | Some moveOut ->
-        EvalMonad.return ((moveOut, namectx, storectx), empty_ienv, movetree)
+        EvalMonad.return ((moveOut, namectx, storectx), IEnv.empty, movetree)
 
   let get_subject_name : abstract_normal_form -> Names.name option = failwith ""
   let get_support : abstract_normal_form -> Names.name list = failwith ""
