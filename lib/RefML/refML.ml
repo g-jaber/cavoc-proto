@@ -22,7 +22,6 @@ module Typed :
   let negative_type_to_yojson = Types.negative_type_to_yojson
   let string_of_negative_type = Types.string_of_negative_type
   let pp_negative_type = Types.pp_negative_type
-  let get_negative_type = Types.get_negative_type
 
   module Namectx = Namectx.Namectx
   module Renaming = Renaming.Renaming

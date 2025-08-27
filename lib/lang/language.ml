@@ -8,7 +8,6 @@ module type TYPED = sig
 
   type negative_type [@@deriving to_yojson]
 
-  val get_negative_type : typ -> negative_type option
   val string_of_negative_type : negative_type -> string
   val pp_negative_type : Format.formatter -> negative_type -> unit
 

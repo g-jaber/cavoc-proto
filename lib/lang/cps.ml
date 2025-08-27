@@ -130,14 +130,6 @@ struct
 
   let string_of_type = Format.asprintf "%a" pp_type
 
-  let get_negative_type = function
-    | GType typ -> begin
-        match OpLang.get_negative_type typ with
-        | Some ntyp -> Some (embed_oplang_negtype ntyp)
-        | None -> None
-      end
-    | GProd _ | GExists _ | GEmpty -> None
-
   let pp_negative_type fmt = function
     | Either.Left ty -> OpLang.pp_negative_type fmt ty
     | Either.Right ty -> Format.fprintf fmt "¬(%a)" OpLang.pp_type ty

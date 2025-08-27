@@ -32,7 +32,7 @@
 - [x] Make namectx abstract in RefML/nup.ml
 - [x] Switch to a presentation using De Bruijn indices
 - [ ] Remove the need of get_transmitted_names
-- [ ] Remove the need of get_negative_type
+- [x] Remove the need of get_negative_type
 - [x] Transform type_check_abstract_val
 - [x] Make interactive_env type abstract
 - [ ] Cleanup the TYPECTX interface
@@ -40,3 +40,5 @@
   - [ ] Remove mem
 - [ ] Use typed interactive environments
 - [ ] Keep the Opponent and the Proponent names as two distinct namespaces
+- [ ] Handle reaching a failed program via the EvalMonad
+- [ ] Manage to print De Bruijn names in move with offset
