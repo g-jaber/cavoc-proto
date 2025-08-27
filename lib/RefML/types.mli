@@ -44,7 +44,6 @@ val refresh_forall : typ -> typ
 type negative_type = typ [@@deriving to_yojson]
 
 val pp_negative_type : Format.formatter -> negative_type -> unit
-val get_negative_type : typ -> negative_type option
 val force_negative_type : typ -> negative_type
 val string_of_negative_type : negative_type -> string
 val get_input_type : negative_type -> typevar list * typ

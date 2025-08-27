@@ -230,8 +230,6 @@ let string_of_negative_type = string_of_typ
 let pp_negative_type = pp_typ
 let negative_type_to_yojson ty = `String (string_of_negative_type ty)
 
-let get_negative_type ty =
-  match ty with TArrow _ | TForall _ -> Some ty | _ -> None
 
 let force_negative_type ty = ty
 
