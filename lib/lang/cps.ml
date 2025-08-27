@@ -184,6 +184,10 @@ struct
   let extract_name_ctx (namectx, _) = namectx
   let embed_name_ctx namectx = (namectx, CNamectx.empty)
 
+  module Renaming = Renaming.Make (Namectx)
+
+  let rename _ = failwith "TODO"
+
   module Store = OpLang.Store
 
   type opconf = term * Store.store
@@ -343,15 +347,16 @@ struct
        and type store_ctx = Store.Storectx.t
        and type name_ctx = Namectx.t
        and type interactive_env = IEnv.t
+       and type renaming = Renaming.t
        and module BranchMonad = Store.BranchMonad = struct
     type name = Names.name
+    type renaming = Renaming.t
     type label = OpLang.AVal.label
     type value = value_temp
     type negative_val = negative_val_temp
     type typ = typ_temp
     type negative_type = negative_type_temp
     type store_ctx = Store.Storectx.t
-
     (*    type negative_type = OpLang.negative_type*)
     type name_ctx = Namectx.t
     type interactive_env = IEnv.t
@@ -483,5 +488,13 @@ struct
       | APack (tname_l, aval, cn) ->
           let value = OpLang.AVal.subst_names val_env aval in
           GPackOut (tname_l, value, cn)
+
+    let rename (_aval : abstract_val) _renaming = failwith "bli"
+      (*(* Should we also rename the cn ?*)
+      match aval with
+      | AVal aval -> AVal (OpLang.AVal.rename aval renaming)
+      | APair (aval, cn) -> APair (OpLang.AVal.rename aval renaming, cn)
+      | APack (tname_l, aval, cn) ->
+          APack (tname_l, OpLang.AVal.rename aval renaming, cn)*)
   end
 end

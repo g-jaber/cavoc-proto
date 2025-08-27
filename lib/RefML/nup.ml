@@ -1,6 +1,7 @@
 module Make (BranchMonad : Util.Monad.BRANCH) :
   Lang.Abstract_val.AVAL
     with type name = Names.name
+     and type renaming = Renaming.Renaming.t
      and type value = Syntax.value
      and type negative_val = Syntax.negative_val
      and type typ = Types.typ
@@ -12,6 +13,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
      and module BranchMonad = BranchMonad = struct
   (* Instantiation *)
   type name = Names.name
+  type renaming = Renaming.Renaming.t
   type label = Syntax.label
   type value = Syntax.value
   type negative_val = Syntax.negative_val
@@ -32,6 +34,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
   let names_of_abstract_val aval = Syntax.get_names aval
   let labels_of_abstract_val = Syntax.get_labels
   let empty_namectx = (Namectx.FNamectx.empty, Namectx.PNamectx.empty)
+  let rename = Syntax.rename
 
   let rec unify_abstract_val nspan nup1 nup2 =
     match (nup1, nup2) with

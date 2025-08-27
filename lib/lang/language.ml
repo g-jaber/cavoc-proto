@@ -14,6 +14,8 @@ module type TYPED = sig
 
   module Namectx :
     Typectx.TYPECTX with type name = Names.name and type typ = negative_type
+
+  module Renaming : Renaming.RENAMING with type Namectx.t = Namectx.t
 end
 
 module type STORE = sig
@@ -50,6 +52,7 @@ module type COMP = sig
 
   val pp_term : Format.formatter -> term -> unit
   val string_of_term : term -> string
+  val rename : term -> Renaming.t -> term
 
   type value
 
@@ -62,7 +65,8 @@ module type COMP = sig
   val string_of_negative_val : negative_val -> string
   val filter_negative_val : value -> negative_val option
 
-  module IEnv : Ienv.IENV with type name = Names.name and type value = negative_val
+  module IEnv :
+    Ienv.IENV with type name = Names.name and type value = negative_val
 
   type opconf = term * Store.store
 
@@ -252,6 +256,7 @@ module type WITHAVAL_INOUT = sig
        and type store_ctx = Store.Storectx.t
        and type name_ctx = Namectx.t
        and type interactive_env = IEnv.t
+       and type renaming = Renaming.t
        and module BranchMonad = Store.BranchMonad
 end
 
@@ -302,5 +307,6 @@ module type WITHAVAL_NEG = sig
        and type store_ctx = Store.Storectx.t
        and type name_ctx = Namectx.t
        and type interactive_env = IEnv.t
+       and type renaming = Renaming.t
        and module BranchMonad = Store.BranchMonad
 end

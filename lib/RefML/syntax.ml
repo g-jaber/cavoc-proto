@@ -163,7 +163,6 @@ and pp_handler fmt (Handler (pat, expr)) =
   Format.fprintf fmt "%a -> %a" pp_pattern pat pp_term expr
 
 let string_of_term = Format.asprintf "%a" pp_term
-
 let term_to_yojson term = `String (string_of_term term)
 
 (* TODO: We should rather use a Set rather than a list to represent set of names*)
@@ -323,11 +322,39 @@ let rec subst expr value value' =
 
 let subst_var expr id = subst expr (Var id)
 
-let subst_list expr lsubst =
-  List.fold_left
-    (fun expr (var, value) -> subst expr (Var var) value)
-    expr lsubst
-
+let rec rename expr renam =
+  match expr with
+  | Name nn -> Name (Renaming.Renaming.lookup renam nn)
+  | Var _ | Loc _ | Hole | Unit | Int _ | Bool _ | Error -> expr
+  | Constructor (cons, expr') -> Constructor (cons, rename expr' renam)
+  | BinaryOp (op, expr1, expr2) ->
+      BinaryOp (op, rename expr1 renam, rename expr2 renam)
+  | UnaryOp (op, expr) -> UnaryOp (op, rename expr renam)
+  | If (expr1, expr2, expr3) ->
+      If (rename expr1 renam, rename expr2 renam, rename expr3 renam)
+  | Fun ((var', ty), expr') -> Fun ((var', ty), rename expr' renam)
+  | Fix ((idfun, tyf), (var', tyv), expr') ->
+      Fix ((idfun, tyf), (var', tyv), rename expr' renam)
+  | Let (var', expr1, expr2) ->
+      Let (var', rename expr1 renam, rename expr2 renam)
+  | LetPair (var1, var2, expr1, expr2) ->
+      LetPair (var1, var2, rename expr1 renam, rename expr2 renam)
+  | App (expr1, expr2) -> App (rename expr1 renam, rename expr2 renam)
+  | Seq (expr1, expr2) -> Seq (rename expr1 renam, rename expr2 renam)
+  | While (expr1, expr2) -> While (rename expr1 renam, rename expr2 renam)
+  | Pair (expr1, expr2) -> Pair (rename expr1 renam, rename expr2 renam)
+  | Newref (ty, expr') -> Newref (ty, rename expr' renam)
+  | Deref expr' -> Deref (rename expr' renam)
+  | Assign (expr1, expr2) -> Assign (rename expr1 renam, rename expr2 renam)
+  | Assert expr -> Assert (rename expr renam)
+  | Raise expr -> Raise (rename expr renam)
+  | TryWith (expr, handler_l) ->
+      let expr' = rename expr renam in
+      let aux (Handler (pat, expr_pat)) =
+        match pat with
+        | PatCons _ -> Handler (pat, rename expr_pat renam)
+        | PatVar _id -> Handler (pat, rename expr_pat renam) in
+      TryWith (expr', List.map aux handler_l)
 (* Auxiliary functions *)
 
 let implement_arith_op = function
@@ -390,7 +417,7 @@ let empty_val_env = Util.Pmap.empty
 
 (* Evaluation Contexts *)
 
-type eval_context = term  [@@deriving to_yojson]
+type eval_context = term [@@deriving to_yojson]
 
 let pp_eval_context = pp_term
 let string_of_eval_context = Format.asprintf "%a" pp_eval_context

@@ -7,23 +7,25 @@ module Typed :
     with type typ = Types.typ
      and type negative_type = Types.negative_type
      and type Namectx.t = Namectx.Namectx.t
+     and type Renaming.t = Renaming.Renaming.t
      and module Names = Names = struct
   module Names = Names
 
   type typ = Types.typ
-  let typ_to_yojson = Types.typ_to_yojson
 
+  let typ_to_yojson = Types.typ_to_yojson
   let string_of_type = Types.string_of_typ
   let pp_type = Types.pp_typ
 
   type negative_type = Types.negative_type
-  let negative_type_to_yojson = Types.negative_type_to_yojson
 
+  let negative_type_to_yojson = Types.negative_type_to_yojson
   let string_of_negative_type = Types.string_of_negative_type
   let pp_negative_type = Types.pp_negative_type
   let get_negative_type = Types.get_negative_type
 
   module Namectx = Namectx.Namectx
+  module Renaming = Renaming.Renaming
 end
 
 module MakeStore (BranchMonad : Util.Monad.BRANCH) :
@@ -46,17 +48,15 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
      and type Store.label = Syntax.label
      and type Store.Storectx.t = Store.Storectx.t
      and type Namectx.t = Namectx.Namectx.t
+     and type Renaming.t = Renaming.Renaming.t
      and type IEnv.t = Ienv.IEnv.t
      and module Names = Names
      and module Store.BranchMonad = BranchMonad = struct
   include Syntax
   include Typed
   module Store = MakeStore (BranchMonad)
-
   module EvalMonad = Util.Monad.Option
-
   module IEnv = Ienv.IEnv
-
 
   type opconf = Interpreter.opconf
 
@@ -112,7 +112,7 @@ module WithAVal (BranchMonad : Util.Monad.BRANCH) :
   Lang.Language.WITHAVAL_INOUT = struct
   include MakeComp (BranchMonad)
 
-  type eval_context = Syntax.eval_context  [@@deriving to_yojson]
+  type eval_context = Syntax.eval_context [@@deriving to_yojson]
 
   let pp_eval_context = Syntax.pp_eval_context
   let string_of_eval_context = Syntax.string_of_eval_context
@@ -168,6 +168,7 @@ module WithAVal (BranchMonad : Util.Monad.BRANCH) :
        and type label = Syntax.label
        and type store_ctx = Store.Storectx.t
        and type name_ctx = Namectx.t
+       and type renaming = Renaming.t
        and type interactive_env = Ienv.IEnv.t
        and module BranchMonad = BranchMonad =
     Nup.Make (BranchMonad)

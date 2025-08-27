@@ -1,6 +1,7 @@
 module type AVAL = sig
   (*To be instantiated*)
   type name
+  type renaming
   (* labels are elements of domain of stores, 
      like locations or constructors*)
   type label
@@ -35,6 +36,8 @@ module type AVAL = sig
     value -> typ -> abstract_val * interactive_env * name_ctx
 
   val subst_names : interactive_env -> abstract_val -> value
+
+  val rename : abstract_val -> renaming -> abstract_val 
 
   (* The typing judgment of an abstracted value Γ_P;Γ_O ⊢ A : τ ▷ Δ
      produces the interactive name contexts Δ of fresh names introduced by A.

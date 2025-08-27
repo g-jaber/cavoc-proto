@@ -90,7 +90,7 @@ val isval : term -> bool
    value by value' in expr. The second argument value can either be a variable, a Names.name, a location or the Hole.*)
 val subst : term -> value -> value -> term
 val subst_var : term -> id -> value -> term
-val subst_list : term -> (id * value) list -> term
+val rename : term -> Renaming.Renaming.t -> term
 val implement_arith_op : binary_op -> int -> int -> int
 val implement_bin_bool_op : binary_op -> bool -> bool -> bool
 val implement_compar_op : binary_op -> int -> int -> bool
