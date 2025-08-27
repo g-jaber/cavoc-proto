@@ -159,9 +159,13 @@ struct
   let extract_name_ctx (namectx, _) = namectx
   let embed_name_ctx namectx = (namectx, CNamectx.empty)
 
-  module Renaming = Renaming.Make (Namectx)
+  module CRenaming = Renaming.Make (CNamectx)
+  module Renaming = Renaming.Aggregate (OpLang.Renaming) (CRenaming)
 
-  let rename _ = failwith "TODO"
+  let rename (NTerm (cn, term) : term) (renaming, crenaming) =
+    let term' = OpLang.rename term renaming in
+    let cn' = CRenaming.lookup crenaming cn in
+    NTerm (cn', term')
 
   module Store = OpLang.Store
 
@@ -478,12 +482,15 @@ struct
           let value = OpLang.AVal.subst_names val_env aval in
           GPackOut (tname_l, value, cn)
 
-    let rename (aval : abstract_val) _renaming = aval
-    (*(* Should we also rename the cn ?*)
+    let rename (aval : abstract_val) (renaming, crenaming) =
       match aval with
       | AVal aval -> AVal (OpLang.AVal.rename aval renaming)
-      | APair (aval, cn) -> APair (OpLang.AVal.rename aval renaming, cn)
+      | APair (aval, cn) ->
+          APair (OpLang.AVal.rename aval renaming, CRenaming.lookup crenaming cn)
       | APack (tname_l, aval, cn) ->
-          APack (tname_l, OpLang.AVal.rename aval renaming, cn)*)
+          APack
+            ( tname_l,
+              OpLang.AVal.rename aval renaming,
+              CRenaming.lookup crenaming cn )
   end
 end
