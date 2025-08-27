@@ -48,7 +48,7 @@ module Storectx = struct
   let to_string = Format.asprintf "%a" pp
 
   let to_yojson (loc_ctx, cons_ctx) =
-    `Tuple
+    `List
       [
         `Assoc
           (Util.Pmap.to_list

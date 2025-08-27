@@ -79,7 +79,7 @@ end) :
 
   let to_yojson nctx =
     `List
-      (List.mapi (fun i typ -> `Tuple [ `Int i; Values.to_yojson typ ]) nctx)
+      (List.mapi (fun i typ -> `List [ `Int i; Values.to_yojson typ ]) nctx)
 
   let lookup_exn nctx (i, _) = List.nth nctx i
 

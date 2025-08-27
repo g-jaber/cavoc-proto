@@ -132,7 +132,7 @@ end) :
   let get_names = List.mapi (fun i _ -> (i, ""))
 
   let to_yojson nctx =
-    `List (List.mapi (fun i typ -> `Tuple [ `Int i; Types.to_yojson typ ]) nctx)
+    `List (List.mapi (fun i typ -> `List [ `Int i; Types.to_yojson typ ]) nctx)
 
   let lookup_exn nctx (i, _) = List.nth nctx i
   let is_empty = function [] -> true | _ -> false

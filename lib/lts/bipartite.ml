@@ -9,10 +9,9 @@ module type LTS = sig
   val get_names : name_ctx -> Moves.Names.name list
 
   type active_conf
-  type passive_conf
+  type passive_conf [@@deriving to_yojson]
   type conf = Active of active_conf | Passive of passive_conf
 
-  val passive_conf_to_yojson : passive_conf -> Yojson.Safe.t
   val string_of_active_conf : active_conf -> string
   val string_of_passive_conf : passive_conf -> string
   val pp_active_conf : Format.formatter -> active_conf -> unit
