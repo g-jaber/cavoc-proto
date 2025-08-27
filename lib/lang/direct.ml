@@ -186,7 +186,7 @@ struct
     let fold f a (fnamectx, _ectx_stack) = OpLang.IEnv.fold f a fnamectx
   end
 
-  let concretize_a_nf store ((fname_env, stack_ctx) as ienv) (a_nf_term, store')
+  let concretize_a_nf store (((fname_env, stack_ctx) as ienv),(_namectxO)) ((a_nf_term, store'),_lnamectx)
       =
     let get_ectx () =
       match stack_ctx with

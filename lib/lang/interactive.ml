@@ -86,7 +86,7 @@ module type LANG = sig
     Namectx.t option
 
   val concretize_a_nf :
-    store -> IEnv.t -> abstract_normal_form -> opconf * IEnv.t
+    store -> (IEnv.t*Namectx.t) -> (abstract_normal_form*Namectx.t) -> opconf * IEnv.t
 end
 
 module type LANG_WITH_INIT = sig
@@ -133,7 +133,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
   (* Interactive environments γ are partial maps from names to interactive values*)
   module IEnv = OpLang.IEnv
 
-  let concretize_a_nf store ienv (a_nf_term, store') =
+  let concretize_a_nf store (ienv,_namectxO) ((a_nf_term, store'),_lnamectx) =
     let f_val = OpLang.AVal.subst_names ienv in
     let f_fn nn = IEnv.lookup_exn ienv nn in
     let f_cn = f_fn in

@@ -133,5 +133,5 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
     failwith ""
   (* There's a mismatch with the signature of MoveTree.Move.check_type_move *)
 
-  let concretize_a_nf movetree renaming move = ((move, movetree), renaming)
+  let concretize_a_nf movetree (renaming,_namectxO) (move,_lnamectx) = ((move, movetree), renaming)
 end

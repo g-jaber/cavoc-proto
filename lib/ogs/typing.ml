@@ -53,7 +53,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
     | { status= Passive; storectx; namectxP; namectxO } ->
         let* (a_nf, lnamectx, namectxP) =
           IntLang.generate_a_nf storectx namectxP in
-        let namectxO = IntLang.Namectx.concat lnamectx namectxO in
+        let namectxO = IntLang.Namectx.concat namectxO lnamectx in
         Util.Debug.print_debug @@ "New Opponent name context :"
         ^ IntLang.Namectx.to_string lnamectx
         ^ " and "
@@ -64,11 +64,11 @@ module Make (IntLang : Lang.Interactive.LANG) :
     | { status= Active; storectx; namectxP; namectxO } ->
         let* (a_nf, lnamectx, namectxO) =
           IntLang.generate_a_nf storectx namectxO in
-        let namectxO = IntLang.Namectx.concat lnamectx namectxO in
+        let namectxP = IntLang.Namectx.concat namectxP lnamectx in
         Util.Debug.print_debug @@ "New Proponent name context :"
         ^ IntLang.Namectx.to_string lnamectx
         ^ " and "
-        ^ IntLang.Namectx.to_string namectxO;
+        ^ IntLang.Namectx.to_string namectxP;
         return
           ( ((Moves.Input, a_nf), lnamectx),
             { status= Passive; storectx; namectxO; namectxP } )
