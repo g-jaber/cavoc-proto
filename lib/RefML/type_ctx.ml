@@ -59,13 +59,11 @@ let apply_type_subst type_ctx tsubst =
   let type_env = type_ctx.type_env in
   { var_ctx; loc_ctx; name_ctx; cons_ctx; type_env }
 
-let build_type_ctx expr =
-  let name_set = Syntax.get_names expr in
-  let name_ctx = Namectx.build_name_ctx name_set in
+let build_type_ctx _expr =
   {
     var_ctx= empty_var_ctx;
     loc_ctx= empty_loc_ctx;
-    name_ctx;
+    name_ctx = Namectx.Namectx.empty;
     cons_ctx= empty_cons_ctx;
     type_env= Types.empty_type_env;
   }

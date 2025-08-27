@@ -95,13 +95,6 @@ let split_signature_decl_list signature_decl_l =
 
 type comp_env = (Syntax.id * Syntax.term) list
 
-let build_name_ctx comp_env =
-  let name_set =
-    List.fold_left
-      (fun n_set (_, expr) -> Syntax.get_new_names n_set expr)
-      Syntax.empty_name_set comp_env in
-  Namectx.build_name_ctx name_set
-
 let rec type_priv_included implem_type_decls = function
   | [] -> ()
   | tid :: tid_l -> begin
@@ -185,7 +178,7 @@ let get_typed_comp_env implem_decl_l sign_decl_l =
   type_priv_included type_env type_priv_decl_l;
   type_decl_coincide type_env type_publ_decl_l;
   exn_included cons_ctx sign_exn_l;
-  let name_ctxO = build_name_ctx comp_decl_l in
+  let name_ctxO = Namectx.Namectx.empty in
   let var_decls = Util.Pmap.list_to_pmap var_decl_l in
   (* TODO: Should we also put domain of type_env in name_ctx ?*)
   let type_ctx =

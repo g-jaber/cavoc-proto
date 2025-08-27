@@ -14,7 +14,6 @@ let space = [' ' '\t' '\n' '\r']
 let digit = ['0'-'9']
 let alpha = ['a'-'z' 'A'-'Z']
 let ident = ['a'-'z'] (alpha | '_' | '\'' | digit)*
-let name = '_' (alpha | '_' | '\'' | digit)*
 let tvar = '\'' (alpha | '_' | digit)*
 let integer = digit+
 let constructor = ['A'-'Z'] (alpha | '_' | '\'' | digit)*
@@ -91,7 +90,6 @@ rule token = parse
   | integer as n  { INT (int_of_string n) }
   | ident as id  { VAR id }
   | tvar as t  { TVAR t }
-  | name as nn { NAMES nn }
   | constructor as c { CONSTRUCTOR c }
 
   | _  { failwith (Printf.sprintf "Unexpected char at %d" lexbuf.lex_curr_p.pos_cnum) }

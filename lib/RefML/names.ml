@@ -38,4 +38,3 @@ let trim_name_id id =
   if id.[0] = '_' then String.sub id 1 (String.length id - 1)
   else failwith @@ "The id " ^ id ^ "does not start with _. It is not a name."
 
-let from_string id = FName id

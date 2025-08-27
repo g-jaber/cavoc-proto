@@ -68,7 +68,7 @@ module Make
         in
           let move = (TypingLTS.Moves.Output, a_nf) in
           let pos = TypingLTS.trigger_move act_conf.pos (move, lnamectx) in
-          let ienv =Lang.IEnv.concat ienv act_conf.ienv in
+          let ienv =Lang.IEnv.concat ienv act_conf.ienv in (* To be switched *)
           return ((move, lnamectx), { store; ienv; pos })
 
   let o_trans pas_conf (((_, move) as input_move), namectx) =

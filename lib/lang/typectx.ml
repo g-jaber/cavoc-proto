@@ -126,7 +126,10 @@ end) :
 
   let to_string = Format.asprintf "%a" pp
   let get_names = List.mapi (fun i _ -> (i, ""))
-  let to_yojson nctx = `List (List.map Types.to_yojson nctx)
+
+  let to_yojson nctx =
+    `List (List.mapi (fun i typ -> `Tuple [ `Int i; Types.to_yojson typ ]) nctx)
+
   let lookup_exn nctx (i, _) = List.nth nctx i
   let is_empty = function [] -> true | _ -> false
 

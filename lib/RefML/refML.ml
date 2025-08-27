@@ -89,14 +89,13 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
     try
       let implem_decl_l = Parser.prog Lexer.token lexBuffer_implem in
       let signature_decl_l = Parser.signature Lexer.token lexBuffer_signature in
-      let (comp_env, (fnamectxO,pnamectxO), cons_ctx) =
+      let (comp_env, namectxO, cons_ctx) =
         Declaration.get_typed_comp_env implem_decl_l signature_decl_l in
-      let fnamectxO' = Util.Pmap.filter_map_im Types.get_negative_type fnamectxO in (* To be reworked *)
       let (val_assign, heap, cons_ctx') =
         Interpreter.normalize_term_env cons_ctx comp_env in
       let (ienv, namectxP) =
         Declaration.get_typed_val_env val_assign signature_decl_l in
-      (ienv, (val_assign, heap, cons_ctx'), namectxP, (fnamectxO',pnamectxO))
+      (ienv, (val_assign, heap, cons_ctx'), namectxP, namectxO)
     with
     | Lexer.SyntaxError msg -> failwith ("Lexing Error: " ^ msg)
     | Parser.Error ->

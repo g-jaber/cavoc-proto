@@ -49,3 +49,21 @@ module MakeGen (Mode : MODE) (Prefix : PREFIX) () : NAMES_GEN = struct
     count_name := !count_name + 1;
     (nn, str)
 end
+
+(* A generative functor to create a new NAMES_GEN module *)
+module MakeInt (Mode : MODE) (Prefix : PREFIX) () :
+  NAMES with type name = int * string = struct
+  type name = int * string
+
+  let string_of_name (i, s) =
+    if s = "" then Prefix.prefix ^ string_of_int i else s
+
+  let name_to_yojson (_, s) = `String s
+
+  let pp_name fmt (i, s) =
+    if s = "" then Format.fprintf fmt "%s%i" Prefix.prefix i
+    else Format.fprintf fmt "%s" s
+
+  let is_callable _ = Mode.is_callable
+  let is_cname _ = Mode.is_cname
+end
