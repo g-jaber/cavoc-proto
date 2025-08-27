@@ -35,7 +35,7 @@ module type AVAL = sig
   val abstracting_value :
     value -> typ -> abstract_val * interactive_env * name_ctx
 
-  val subst_names : interactive_env -> abstract_val -> value
+  val subst_pnames : interactive_env -> abstract_val -> value
 
   val rename : abstract_val -> renaming -> abstract_val 
 

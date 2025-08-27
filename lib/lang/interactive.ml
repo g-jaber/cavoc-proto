@@ -138,13 +138,21 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
 
   let concretize_a_nf store (ienv, namectxO) ((a_nf_term, store'), lnamectx) =
     (* We first weaken the abstract values in the abstract normal form *)
-    let renaming = OpLang.Renaming.weak_l namectxO lnamectx in
+    let renaming = OpLang.Renaming.weak_r lnamectx namectxO in
+    Util.Debug.print_debug @@ "Renaming of domain : "
+    ^ OpLang.Renaming.Namectx.to_string (OpLang.Renaming.dom renaming)
+    ^ " and image "
+    ^ OpLang.Renaming.Namectx.to_string (OpLang.Renaming.im renaming);
     let a_nf_term' =
       OpLang.Nf.map
         ~f_val:(fun aval -> OpLang.AVal.rename aval renaming)
         ~f_fn:Fun.id ~f_cn:Fun.id ~f_ectx:Fun.id a_nf_term in
+    Util.Debug.print_debug @@ "The weaken abstract normal form term is :"
+    ^ OpLang.Nf.string_of_nf_term "" OpLang.AVal.string_of_abstract_val
+        (fun () -> "")
+        Names.string_of_name Names.string_of_name a_nf_term;
     (* Then we substitute the subject name *)
-    let f_val = OpLang.AVal.subst_names ienv in
+    let f_val = OpLang.AVal.subst_pnames ienv in
     let f_fn nn = IEnv.lookup_exn ienv nn in
     let f_cn = f_fn in
     let f_ectx () = () in

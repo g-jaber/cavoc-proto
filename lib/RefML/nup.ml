@@ -87,16 +87,16 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
       | TArrow _ as ty ->
           let nty = Types.force_negative_type ty in
           let (fn, fnamectx') = Namectx.FNamectx.add_fresh fnamectx "" nty in
-          return (Name (FName fn), (fnamectx', pnamectx))
+          return (Name (Names.embed_fname fn), (fnamectx', pnamectx))
       | TId _ as ty ->
           let pnamectxP_pmap = Namectx.PNamectx.to_pmap pnamectxP in
           let pn_list = Util.Pmap.select_im ty pnamectxP_pmap in
           let* pn = para_list @@ pn_list in
-          return (Name (PName pn), lnamectx)
+          return (Name (Names.embed_pname pn), lnamectx)
       | TName _ as ty ->
           let nty = Types.force_negative_type ty in
           let (pn, pnamectx') = Namectx.PNamectx.add_fresh pnamectx "" nty in
-          return (Name (PName pn), (fnamectx, pnamectx'))
+          return (Name (Names.embed_pname pn), (fnamectx, pnamectx'))
       | TExn ->
           Util.Debug.print_debug
           @@ "Generating exception abstract values in the store context "
@@ -137,20 +137,20 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           aux ty2 (nup2, lnamectx')
         end
       | (TProd _, _) -> None
-      | (TArrow _, Name (Names.FName fn)) | (TForall _, Name (Names.FName fn))
+      | (TArrow _, Name (Either.Left fn)) | (TForall _, Name (Either.Left fn))
         ->
           let nty = Types.force_negative_type ty in
           let* lfnamectx' = Namectx.FNamectx.is_last lfnamectx fn nty in
           Some (lfnamectx', lpnamectx)
       | (TArrow _, _) | (TForall _, _) -> None
-      | (TId id, Name (Names.PName pn)) -> begin
+      | (TId id, Name (Either.Right pn)) -> begin
           match Namectx.PNamectx.lookup_exn pnamectx pn with
           (* What about the Not_found exception ?*)
           | TId id' when id = id' -> Some lnamectx
           | _ -> None
         end
       | (TId _, _) -> None
-      | (TName _, Name (Names.PName pn)) ->
+      | (TName _, Name (Either.Right pn)) ->
           let nty = Types.force_negative_type ty in
           let* lpnamectx' = Namectx.PNamectx.is_last lpnamectx pn nty in
           Some (lfnamectx, lpnamectx')
@@ -182,8 +182,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           let nval = Syntax.force_negative_val value in
           let nty = Types.force_negative_type ty in
           let (fn, fnamectx') = Namectx.FNamectx.add_fresh fnamectx "" nty in
-          let ienv' = Ienv.IEnv.add_last_check ienv (Names.FName fn) nval in
-          (Name (Names.FName fn), ienv', (fnamectx', pnamectx))
+          let ienv' = Ienv.IEnv.add_last_check ienv (Names.embed_fname fn) nval in
+          (Name (Names.embed_fname fn), ienv', (fnamectx', pnamectx))
         end
       | (Unit, TUnit) | (Bool _, TBool) | (Int _, TInt) ->
           (value, Ienv.IEnv.empty, lnamectx)
@@ -195,8 +195,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           let nval = Syntax.force_negative_val value in
           let nty = Types.force_negative_type ty in
           let (pn, pnamectx') = Namectx.PNamectx.add_fresh pnamectx "" nty in
-          let ienv' = Ienv.IEnv.add_last_check ienv (Names.PName pn) nval in
-          (Name (Names.PName pn), ienv', (fnamectx, pnamectx'))
+          let ienv' = Ienv.IEnv.add_last_check ienv (Names.embed_pname pn) nval in
+          (Name (Names.embed_pname pn), ienv', (fnamectx, pnamectx'))
         end
       | (Name _, TName _) -> (value, Ienv.IEnv.empty, lnamectx)
       | (Constructor _, TExn) -> (value, Ienv.IEnv.empty, lnamectx)
@@ -206,8 +206,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
            ^ " cannot be abstracted because it is not a value.") in
     aux empty_namectx Ienv.IEnv.empty value ty
 
-  let subst_names ienv nup =
+  let subst_pnames (_ienvf,ienvp) nup =
     let aux nup (nn, nval) =
-      Syntax.subst nup (Name nn) (embed_negative_val nval) in
-    Ienv.IEnv.fold aux nup ienv
+      Syntax.subst nup (Name (Names.embed_pname nn)) (embed_negative_val nval) in
+    Ienv.IEnvP.fold aux nup ienvp (* TODO : Not efficient at all*)
 end

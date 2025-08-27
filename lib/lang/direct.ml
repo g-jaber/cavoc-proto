@@ -195,7 +195,7 @@ struct
           failwith
             "Error: trying to concretize a returning abstract normal form in \
              an empty stack. Please report" in
-    let f_val aval = (OpLang.AVal.subst_names fname_env aval, ()) in
+    let f_val aval = (OpLang.AVal.subst_pnames fname_env aval, ()) in
     let f_fn fn = (OpLang.IEnv.lookup_exn fname_env fn, ()) in
     let f_cn () = get_ectx () in
     let (nf_term, _) = OpLang.Nf.map_val () f_val a_nf_term in

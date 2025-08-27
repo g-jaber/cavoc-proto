@@ -30,7 +30,7 @@
 - [x] Inline a lnamectx parameter in Direct.generate_abstract_val
 - [x] Use TYPECTX interface in RefML/type_ctx.ml
 - [x] Make namectx abstract in RefML/nup.ml
-- [.] Switch to a presentation using De Bruijn indices
+- [x] Switch to a presentation using De Bruijn indices
 - [ ] Remove the need of get_transmitted_names
 - [ ] Remove the need of get_negative_type
 - [x] Transform type_check_abstract_val
@@ -38,4 +38,5 @@
 - [ ] Cleanup the TYPECTX interface
   - [ ] Remove add
   - [ ] Remove mem
-- [.] Use typed interactive environments
+- [ ] Use typed interactive environments
+- [ ] Keep the Opponent and the Proponent names as two distinct namespaces

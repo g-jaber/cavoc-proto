@@ -1,6 +1,6 @@
 module FNamectx =
-  Lang.Typectx.Make_PMAP
-    (Names.FNames)
+  Lang.Typectx.Make_List
+    (*Names.FNames*)
     (struct
       type t = Types.negative_type
 
@@ -9,8 +9,8 @@ module FNamectx =
     end)
 
 module PNamectx =
-  Lang.Typectx.Make_PMAP
-    (Names.PNames)
+  Lang.Typectx.Make_List
+    (*Names.PNames*)
     (struct
       type t = Types.negative_type
 
@@ -23,16 +23,16 @@ module Namectx =
     (struct
       type t = Names.name
 
-      let embed1 fn = Names.FName fn
-      let embed2 pn = Names.PName pn
+      let embed1 fn = Names.embed_fname fn
+      let embed2 pn = Names.embed_pname pn
 
       let extract1 = function
-        | Names.FName fn -> Some fn
-        | Names.PName _ -> None
+        | Either.Left fn -> Some fn
+        | Either.Right _ -> None
 
       let extract2 = function
-        | Names.FName _ -> None
-        | Names.PName pn -> Some pn
+        | Either.Left _ -> None
+        | Either.Right pn -> Some pn
     end)
     (struct
       let classify = function

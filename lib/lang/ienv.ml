@@ -45,9 +45,58 @@ module Make_PMAP
     `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string ienv)
 
   let lookup_exn ienv nn = Util.Pmap.lookup_exn nn ienv
+
+  (* We do not check that nn is indeed the last name in the next function.*)
   let add_last_check ienv nn value = Util.Pmap.add (nn, value) ienv
   let map = Util.Pmap.map_im
   let fold = Util.Pmap.fold
+end
+
+module Make_List (Values : sig
+  type t [@@deriving to_yojson]
+
+  val pp : Format.formatter -> t -> unit
+end) :
+  IENV
+    with type name = int * string
+     and type value = Values.t
+     and type t = Values.t list = struct
+  type name = int * string
+  type value = Values.t
+  type t = Values.t list
+
+  let empty = []
+  let concat = List.append
+
+  let pp fmt = function
+    | [] -> Format.fprintf fmt "⋅"
+    | name_ctx ->
+        let pp_sep fmt () = Format.fprintf fmt ", " in
+        Format.pp_print_list ~pp_sep Values.pp fmt name_ctx
+
+  let to_string = Format.asprintf "%a" pp
+  let get_names = List.mapi (fun i _ -> (i, ""))
+
+  let to_yojson nctx =
+    `List
+      (List.mapi (fun i typ -> `Tuple [ `Int i; Values.to_yojson typ ]) nctx)
+
+  let lookup_exn nctx (i, _) = List.nth nctx i
+
+  let add_last_check ienv (i, str) value =
+    let rec aux j = function
+      | [] when i = j -> [ value ]
+      | [] ->
+          failwith
+            ("The name " ^ str ^ string_of_int i
+           ^ "is not at the end. Please report")
+      | hd :: tl -> hd :: aux (j + 1) tl in
+    aux 0 ienv
+
+  let map = List.map
+
+  let fold (f : 'a -> name * value -> 'a) (v : 'a) (ienv : t) =
+    List.fold_left f v (List.mapi (fun i ty -> ((i, ""), ty)) ienv)
 end
 
 module Aggregate (IEnv1 : IENV) (IEnv2 : IENV) :
@@ -114,7 +163,6 @@ module Aggregate (IEnv1 : IENV) (IEnv2 : IENV) :
     let a' = IEnv1.fold f_lift1 a ienv1 in
     IEnv2.fold f_lift2 a' ienv2
 end
-
 
 module AggregateCommon
     (IEnv1 : IENV)

@@ -50,7 +50,7 @@ module MakeGen (Mode : MODE) (Prefix : PREFIX) () : NAMES_GEN = struct
     (nn, str)
 end
 
-(* A generative functor to create a new NAMES_GEN module *)
+(* A generative functor to create a new NAMES module based on de Bruijn indices *)
 module MakeInt (Mode : MODE) (Prefix : PREFIX) () :
   NAMES with type name = int * string = struct
   type name = int * string

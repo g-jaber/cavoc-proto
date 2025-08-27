@@ -15,7 +15,7 @@ struct
   end
 
   module Prefix : Names.PREFIX = struct let prefix = "c" end
-  module CNames : Names.NAMES_GEN = Names.MakeGen (Mode) (Prefix) ()
+  module CNames = Names.MakeInt (Mode) (Prefix) ()
 
   module Names = struct
     type name = (OpLang.Names.name, CNames.name) Either.t
@@ -91,8 +91,8 @@ struct
     | GPairIn _ | GPairOut _ | GPackOut _ -> None
 
   module CIEnv =
-    Ienv.Make_PMAP
-      (CNames)
+    Ienv.Make_List
+      (*CNames*)
       (struct
         type t = neval_context [@@deriving to_yojson]
 
@@ -145,8 +145,8 @@ struct
   let string_of_negative_type = Format.asprintf "%a" pp_negative_type
 
   module CNamectx =
-    Typectx.Make_PMAP
-      (CNames)
+    Typectx.Make_List
+      (*CNames*)
       (struct
         type t = OpLang.typ
 
@@ -472,14 +472,14 @@ struct
           OpLang.AVal.unify_abstract_val nspan aval1 aval2
       | _ -> None*)
 
-    let subst_names ((val_env, _) : interactive_env) aval =
+    let subst_pnames ((val_env, _) : interactive_env) aval =
       match aval with
-      | AVal aval -> GVal (OpLang.AVal.subst_names val_env aval)
+      | AVal aval -> GVal (OpLang.AVal.subst_pnames val_env aval)
       | APair (aval, cn) ->
-          let value = OpLang.AVal.subst_names val_env aval in
+          let value = OpLang.AVal.subst_pnames val_env aval in
           GPairOut (value, cn)
       | APack (tname_l, aval, cn) ->
-          let value = OpLang.AVal.subst_names val_env aval in
+          let value = OpLang.AVal.subst_pnames val_env aval in
           GPackOut (tname_l, value, cn)
 
     let rename (aval : abstract_val) (renaming, crenaming) =

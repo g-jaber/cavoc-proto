@@ -18,7 +18,7 @@ module type RENAMING = sig
   val lookup : t -> Namectx.name -> Namectx.name
 end
 
-module Make (Namectx : Typectx.TYPECTX) :
+module Make (Namectx : Typectx.TYPECTX with type name = int * string) :
   RENAMING with module Namectx = Namectx = struct
   module Namectx = Namectx
 
@@ -41,11 +41,24 @@ module Make (Namectx : Typectx.TYPECTX) :
     { renam with im= Namectx.concat namectx_l namectx_r }
 
   let weak_r namectx_l namectx_r =
-    let renam = id namectx_r in
-    { renam with im= Namectx.concat namectx_l namectx_r }
+    let names_l = Namectx.get_names namectx_r in
+    let length = List.length @@ Util.Pmap.to_list @@ Namectx.to_pmap namectx_r in
+    Util.Debug.print_debug @@ "Calling weak_r with an offset of "
+    ^ string_of_int length;
+    let map =
+      Util.Pmap.list_to_pmap
+      @@ List.map (fun ((i, str) as nn) -> (nn, (i + length, str))) names_l
+    in
+    { map; dom= namectx_l; im= Namectx.concat namectx_r namectx_l }
 
   let sym _namectx_l _namectx_r = failwith "TODO"
-  let lookup renam nn = Util.Pmap.lookup_exn nn renam.map
+
+  let lookup renam ((i, str) as nn) =
+    try Util.Pmap.lookup_exn nn renam.map
+    with Not_found ->
+      Util.Debug.print_debug @@ "The name " ^ string_of_int i ^ str
+      ^ " was not found";
+      nn
 end
 
 module MakeAggregate (Namectx1 : Typectx.TYPECTX) (Namectx2 : Typectx.TYPECTX) :
@@ -84,9 +97,11 @@ module MakeAggregate (Namectx1 : Typectx.TYPECTX) (Namectx2 : Typectx.TYPECTX) :
   let sym _namectx_l _namectx_r = failwith "TODO"
 
   let lookup renam nn =
-    match nn with
-    | Either.Left nn' -> Either.Left (Util.Pmap.lookup_exn nn' renam.map_l)
-    | Either.Right nn' -> Either.Right (Util.Pmap.lookup_exn nn' renam.map_r)
+    try
+      match nn with
+      | Either.Left nn' -> Either.Left (Util.Pmap.lookup_exn nn' renam.map_l)
+      | Either.Right nn' -> Either.Right (Util.Pmap.lookup_exn nn' renam.map_r)
+    with Not_found -> nn
 end
 
 module Aggregate (Renam1 : RENAMING) (Renam2 : RENAMING) :
@@ -119,7 +134,9 @@ module Aggregate (Renam1 : RENAMING) (Renam2 : RENAMING) :
   let sym _namectx_l _namectx_r = failwith "TODO"
 
   let lookup (renam1, renam2) nn =
-    match nn with
-    | Either.Left nn' -> Either.Left (Renam1.lookup renam1 nn')
-    | Either.Right nn' -> Either.Right (Renam2.lookup renam2 nn')
+    try
+      match nn with
+      | Either.Left nn' -> Either.Left (Renam1.lookup renam1 nn')
+      | Either.Right nn' -> Either.Right (Renam2.lookup renam2 nn')
+    with Not_found -> nn
 end

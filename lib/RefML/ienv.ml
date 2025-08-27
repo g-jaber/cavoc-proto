@@ -1,6 +1,6 @@
 module IEnvF =
-  Lang.Ienv.Make_PMAP
-    (Names.FNames)
+  Lang.Ienv.Make_List
+    (*Names.FNames*)
     (struct
       type t = Syntax.negative_val [@@deriving to_yojson]
 
@@ -8,8 +8,8 @@ module IEnvF =
     end)
 
 module IEnvP =
-  Lang.Ienv.Make_PMAP
-    (Names.PNames)
+  Lang.Ienv.Make_List
+    (*Names.PNames*)
     (struct
       type t = Syntax.negative_val [@@deriving to_yojson]
 
@@ -21,14 +21,14 @@ module IEnv =
     (struct
       type t = Names.name
 
-      let embed1 fn = Names.FName fn
-      let embed2 pn = Names.PName pn
+      let embed1 fn = Names.embed_fname fn
+      let embed2 pn = Names.embed_pname pn
 
       let extract1 = function
-        | Names.FName fn -> Some fn
-        | Names.PName _ -> None
+        | Either.Left fn -> Some fn
+        | Either.Right _ -> None
 
       let extract2 = function
-        | Names.FName _ -> None
-        | Names.PName pn -> Some pn
+        | Either.Left _ -> None
+        | Either.Right pn -> Some pn
     end)
