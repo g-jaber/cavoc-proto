@@ -235,11 +235,8 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     OpLang.Nf.abstract_nf_term_m ~gen_val nf_skeleton
 
   let generate_a_nf storectx namectxP =
-    let namectxP_pmap = OpLang.Namectx.to_pmap namectxP in
-    let namectxP_pmap' = Util.Pmap.filter_dom Names.is_callable namectxP_pmap in
-    let namectxP_pmap'' = Util.Pmap.map_im OpLang.negating_type namectxP_pmap' in
     let* _ = return @@ Util.Debug.print_debug @@ "Generating the skeleton " in
-    let* skel = OpLang.generate_nf_term namectxP_pmap'' in
+    let* skel = OpLang.generate_nf_term namectxP in
     let* _ = return @@ Util.Debug.print_debug @@ "Filling the skeleton " in
     let* (a_nf_term, lnamectx) = fill_abstract_val storectx namectxP skel in
     let* store = Store.generate_store storectx in

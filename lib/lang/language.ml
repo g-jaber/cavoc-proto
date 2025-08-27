@@ -281,7 +281,7 @@ module type WITHAVAL_NEG = sig
     Namectx.t option
 
   val generate_nf_term :
-    (Names.name, typ) Util.Pmap.pmap ->
+    Namectx.t ->
     (typ, unit, Names.name, Names.name) Nf.nf_term Nf.BranchMonad.m
 
   val negating_type : negative_type -> typ

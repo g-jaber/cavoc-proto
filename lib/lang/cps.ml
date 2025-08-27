@@ -18,21 +18,26 @@ struct
   module CNames : Names.NAMES_GEN = Names.MakeGen (Mode) (Prefix) ()
 
   module Names = struct
-    type name = N of OpLang.Names.name | CName of CNames.name
+    type name = (OpLang.Names.name, CNames.name) Either.t
+
+    let name_to_yojson = function
+      | Either.Left nn -> OpLang.Names.name_to_yojson nn
+      | Either.Right cn -> CNames.name_to_yojson cn
     [@@deriving to_yojson]
 
     let pp_name fmt = function
-      | N nn -> OpLang.Names.pp_name fmt nn
-      | CName cn -> CNames.pp_name fmt cn
+      | Either.Left nn -> OpLang.Names.pp_name fmt nn
+      | Either.Right cn -> CNames.pp_name fmt cn
 
-    let inj_cont_name cn = CName cn
+    let inj_cname cn = Either.Right cn
+    let inj_name nn = Either.Left nn
     let string_of_name = Format.asprintf "%a" pp_name
 
     let is_callable = function
-      | N nn -> OpLang.Names.is_callable nn
-      | CName _ -> true
+      | Either.Left nn -> OpLang.Names.is_callable nn
+      | Either.Right _ -> true
 
-    let is_cname = function N _ -> false | CName _ -> true
+    let is_cname = function Either.Left _ -> false | Either.Right _ -> true
   end
 
   type term = NTerm of (CNames.name * OpLang.term)
@@ -98,10 +103,16 @@ struct
       (struct
         type t = Names.name
 
-        let embed1 nn = Names.N nn
-        let embed2 cn = Names.CName cn
-        let extract1 = function Names.N nn -> Some nn | Names.CName _ -> None
-        let extract2 = function Names.CName cn -> Some cn | Names.N _ -> None
+        let embed1 nn = Names.inj_name nn
+        let embed2 cn = Names.inj_cname cn
+
+        let extract1 = function
+          | Either.Left nn -> Some nn
+          | Either.Right _ -> None
+
+        let extract2 = function
+          | Either.Right cn -> Some cn
+          | Either.Left _ -> None
       end)
       (struct
         type t = negative_val [@@deriving to_yojson]
@@ -167,10 +178,16 @@ struct
       (struct
         type t = Names.name
 
-        let embed1 nn = Names.N nn
-        let embed2 cn = Names.CName cn
-        let extract1 = function Names.N nn -> Some nn | Names.CName _ -> None
-        let extract2 = function Names.CName cn -> Some cn | Names.N _ -> None
+        let embed1 nn = Either.Left nn
+        let embed2 cn = Names.inj_cname cn
+
+        let extract1 = function
+          | Either.Left nn -> Some nn
+          | Either.Right _ -> None
+
+        let extract2 = function
+          | Either.Right cn -> Some cn
+          | Either.Left _ -> None
       end)
       (struct
         type t = negative_type [@@deriving to_yojson]
@@ -253,30 +270,6 @@ struct
     OpLang.type_check_nf_term ~inj_ty ~empty_res ~get_type_fname ~get_type_cname
       ~type_check_call ~type_check_ret nf
 
-  let generate_nf_term namectx_pmap =
-    let inj_ty ty = GType ty in
-    let fname_ctx =
-      Util.Pmap.filter_map
-        (fun (nn, ty) ->
-          match nn with
-          | Names.N nn ->
-              if OpLang.Names.is_callable nn then Some (Names.N nn, (ty, GEmpty))
-              else None
-          | _ -> None)
-        namectx_pmap in
-    let cname_ctx =
-      Util.Pmap.filter_map
-        (fun (cn, ty) ->
-          if Names.is_cname cn then Some (cn, (ty, GEmpty)) else None)
-        namectx_pmap in
-    (* For both, the type provided must be ⊥, but we do not check it.*)
-    let open OpLang.AVal.BranchMonad in
-    let* (a, _) =
-      para_pair
-        (OpLang.generate_nf_term_call fname_ctx)
-        (OpLang.generate_nf_term_ret inj_ty cname_ctx) in
-    return a
-
   (* The function negating_type extract from an interactive type the type of the input arguments
      expected to interact over this type. *)
   let negating_type = function
@@ -292,11 +285,34 @@ struct
         end
     | INeg ty -> GType ty
 
+  let generate_nf_term ((namectx, cnamectx) : Namectx.t) =
+    let inj_ty ty = GType ty in
+    let namectx_pmap = OpLang.Namectx.to_pmap namectx in
+    let fnamectx_pmap =
+      Util.Pmap.filter_map
+        (fun (nn, ty) ->
+          if OpLang.Names.is_callable nn then
+            Some (Names.inj_name nn, (negating_type (IType ty), GEmpty))
+          else None)
+        namectx_pmap in
+    let cnamectx_pmap =
+      Util.Pmap.map
+        (fun (cn, ty) ->
+          (Names.inj_cname cn, (GType ty, GEmpty)))
+        (CNamectx.to_pmap cnamectx) in
+    (* For both, the type provided must be ⊥, but we do not check it.*)
+    let open OpLang.AVal.BranchMonad in
+    let* (a, _) =
+      para_pair
+        (OpLang.generate_nf_term_call fnamectx_pmap)
+        (OpLang.generate_nf_term_ret inj_ty cnamectx_pmap) in
+    return a
+
   type normal_form_term = (value, unit, Names.name, Names.name) Nf.nf_term
 
   let insert_cn cn nf_term =
-    let f_cn () = Names.inj_cont_name cn in
-    let f_fn fn = Names.N fn in
+    let f_cn () = Names.inj_cname cn in
+    let f_fn fn = Names.inj_name fn in
     let f_val value = value in
     let f_ectx ectx = NCtx (cn, ectx) in
     OpLang.Nf.map ~f_cn ~f_fn ~f_val ~f_ectx nf_term
@@ -357,6 +373,7 @@ struct
     type typ = typ_temp
     type negative_type = negative_type_temp
     type store_ctx = Store.Storectx.t
+
     (*    type negative_type = OpLang.negative_type*)
     type name_ctx = Namectx.t
     type interactive_env = IEnv.t
@@ -383,14 +400,14 @@ struct
     let names_of_abstract_val = function
       | AVal aval ->
           List.map
-            (fun nn -> Names.N nn)
+            (fun nn -> Names.inj_name nn)
             (OpLang.AVal.names_of_abstract_val aval)
       | APair (aval, cn) | APack (_, aval, cn) ->
           let names_l =
             List.map
-              (fun nn -> Names.N nn)
+              (fun nn -> Names.inj_name nn)
               (OpLang.AVal.names_of_abstract_val aval) in
-          Names.inj_cont_name cn :: names_l
+          Names.inj_cname cn :: names_l
 
     let labels_of_abstract_val = function
       | AVal aval | APair (aval, _) | APack (_, aval, _) ->
@@ -472,7 +489,7 @@ struct
             | None -> None
             | Some nspan1 ->
                 Util.Namespan.add_nspan
-                  (Names.inj_cont_name cn1, Names.inj_cont_name cn2)
+                  (Names.inj_cname cn1, Names.inj_cname cn2)
                   nspan1
           end
       | (AVal aval1, AVal aval2) ->
@@ -489,8 +506,8 @@ struct
           let value = OpLang.AVal.subst_names val_env aval in
           GPackOut (tname_l, value, cn)
 
-    let rename (_aval : abstract_val) _renaming = failwith "bli"
-      (*(* Should we also rename the cn ?*)
+    let rename (aval : abstract_val) _renaming = aval
+    (*(* Should we also rename the cn ?*)
       match aval with
       | AVal aval -> AVal (OpLang.AVal.rename aval renaming)
       | APair (aval, cn) -> APair (OpLang.AVal.rename aval renaming, cn)
