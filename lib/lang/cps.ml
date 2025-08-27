@@ -132,11 +132,14 @@ struct
     | GEmpty
   [@@deriving to_yojson]
 
-  type negative_type = IType of OpLang.negative_type | INeg of OpLang.typ
+  type negative_type = (OpLang.negative_type,OpLang.typ) Either.t
+
+  let embed_oplang_negtype nty = Either.Left nty
+  let type_nctx ty = Either.Right ty 
 
   let negative_type_to_yojson = function
-    | IType ntype -> OpLang.negative_type_to_yojson ntype
-    | INeg typ -> `String ("¬" ^ OpLang.string_of_type typ)
+    | Either.Left ntype -> OpLang.negative_type_to_yojson ntype
+    | Either.Right typ -> `String ("¬" ^ OpLang.string_of_type typ)
 
   let pp_type fmt = function
     | GType typ -> OpLang.pp_type fmt typ
@@ -152,14 +155,14 @@ struct
   let get_negative_type = function
     | GType typ -> begin
         match OpLang.get_negative_type typ with
-        | Some ntyp -> Some (IType ntyp)
+        | Some ntyp -> Some (embed_oplang_negtype ntyp)
         | None -> None
       end
     | GProd _ | GExists _ | GEmpty -> None
 
   let pp_negative_type fmt = function
-    | IType ty -> OpLang.pp_negative_type fmt ty
-    | INeg ty -> Format.fprintf fmt "¬(%a)" OpLang.pp_type ty
+    | Either.Left ty -> OpLang.pp_negative_type fmt ty
+    | Either.Right ty -> Format.fprintf fmt "¬(%a)" OpLang.pp_type ty
 
   let string_of_negative_type = Format.asprintf "%a" pp_negative_type
 
@@ -178,8 +181,8 @@ struct
       (struct
         type t = Names.name
 
-        let embed1 nn = Either.Left nn
-        let embed2 cn = Names.inj_cname cn
+        let embed1 = Names.inj_name
+        let embed2 = Names.inj_cname
 
         let extract1 = function
           | Either.Left nn -> Some nn
@@ -192,10 +195,10 @@ struct
       (struct
         type t = negative_type [@@deriving to_yojson]
 
-        let embed1 ty = IType ty
-        let embed2 ty = INeg ty
-        let extract1 = function IType ty -> Some ty | INeg _ -> None
-        let extract2 = function INeg ty -> Some ty | IType _ -> None
+        let embed1 = embed_oplang_negtype
+        let embed2 = type_nctx
+        let extract1 = function Either.Left ty -> Some ty | Either.Right _ -> None
+        let extract2 = function Either.Right ty -> Some ty | Either.Left _ -> None
       end)
 
   let extract_name_ctx (namectx, _) = namectx
@@ -248,21 +251,32 @@ struct
 
   let conf_type = GEmpty
 
-  let[@warning "-27"] type_check_nf_term ~name_ctx ~type_check_val nf =
+  let type_check_nf_term ~name_ctx ~type_check_val nf =
+    let (fnamectx, cnamectx) = name_ctx in
     let inj_ty ty = GType ty in
     let empty_res = name_ctx in
-    let get_type_fname fn = Namectx.lookup_exn name_ctx fn in
+    let get_type_fname fn =
+      match fn with
+      | Either.Left fn' -> embed_oplang_negtype (OpLang.Namectx.lookup_exn fnamectx fn')
+      | Either.Right _ ->
+          failwith
+            "A continuation name is present where we expect a function name. \
+             Please report." in
     let get_type_cname cn =
-      match Namectx.lookup_exn name_ctx cn with
-      | INeg ty_hole -> (GType ty_hole, GEmpty)
-      | IType ty ->
-          failwith "Wrong type for a continuation name. Please report." in
+      match cn with
+      | Either.Right cn' ->
+          let ty_hole = CNamectx.lookup_exn cnamectx cn' in
+          (GType ty_hole, GEmpty)
+      | Either.Left _ ->
+          failwith
+            "A function name is present where we expect a continuation name. \
+             Please report." in
     let type_check_call value nty =
       if type_check_val value nty then Some name_ctx else None in
     let type_check_ret value ty_hole ty_out =
       match (ty_hole, ty_out) with
       | (GType ty_hole', GEmpty) ->
-          if type_check_val value (INeg ty_hole') then Some name_ctx else None
+          if type_check_val value (type_nctx ty_hole') then Some name_ctx else None
       | _ ->
           failwith
             "Error: tring to type an evaluation context with a return type \
@@ -273,7 +287,7 @@ struct
   (* The function negating_type extract from an interactive type the type of the input arguments
      expected to interact over this type. *)
   let negating_type = function
-    | IType ty ->
+    | Either.Left ty ->
         Util.Debug.print_debug
           ("Negating the type " ^ OpLang.string_of_negative_type ty);
         let (tvar_l, inp_ty) = OpLang.get_input_type ty in
@@ -283,7 +297,7 @@ struct
           | [] -> GProd (inp_ty, out_ty)
           | _ -> GExists (tvar_l, inp_ty, out_ty)
         end
-    | INeg ty -> GType ty
+    | Either.Right ty -> GType ty
 
   let generate_nf_term ((namectx, cnamectx) : Namectx.t) =
     let inj_ty ty = GType ty in
@@ -292,13 +306,12 @@ struct
       Util.Pmap.filter_map
         (fun (nn, ty) ->
           if OpLang.Names.is_callable nn then
-            Some (Names.inj_name nn, (negating_type (IType ty), GEmpty))
+            Some (Names.inj_name nn, (negating_type (embed_oplang_negtype ty), GEmpty))
           else None)
         namectx_pmap in
     let cnamectx_pmap =
       Util.Pmap.map
-        (fun (cn, ty) ->
-          (Names.inj_cname cn, (GType ty, GEmpty)))
+        (fun (cn, ty) -> (Names.inj_cname cn, (GType ty, GEmpty)))
         (CNamectx.to_pmap cnamectx) in
     (* For both, the type provided must be ⊥, but we do not check it.*)
     let open OpLang.AVal.BranchMonad in
