@@ -70,21 +70,22 @@ struct
 
   let string_of_value = Format.asprintf "%a" pp_value
 
-  type negative_val = IVal of OpLang.negative_val | ICtx of neval_context
+  type negative_val = (OpLang.negative_val, neval_context) Either.t
+
+  let embed_oplang_negval nval = Either.Left nval
 
   let pp_negative_val fmt = function
-    | IVal value -> OpLang.pp_negative_val fmt value
-    | ICtx (NCtx (cn, ectx)) ->
+    | Either.Left value -> OpLang.pp_negative_val fmt value
+    | Either.Right (NCtx (cn, ectx)) ->
         Format.fprintf fmt "[%a]%a" CNames.pp_name cn OpLang.pp_eval_context
           ectx
 
   let string_of_negative_val = Format.asprintf "%a" pp_negative_val
-  let negative_val_to_yojson nval = `String (string_of_negative_val nval)
 
   let filter_negative_val = function
     | GVal value -> begin
         match OpLang.filter_negative_val value with
-        | Some nval -> Some (IVal nval)
+        | Some nval -> Some (embed_oplang_negval nval)
         | None -> None
       end
     | GPairIn _ | GPairOut _ | GPackOut _ -> None
@@ -98,30 +99,7 @@ struct
         let pp = pp_neval_context
       end)
 
-  module IEnv =
-    Ienv.AggregateDisjoint (OpLang.IEnv) (CIEnv)
-      (struct
-        type t = Names.name
-
-        let embed1 nn = Names.inj_name nn
-        let embed2 cn = Names.inj_cname cn
-
-        let extract1 = function
-          | Either.Left nn -> Some nn
-          | Either.Right _ -> None
-
-        let extract2 = function
-          | Either.Right cn -> Some cn
-          | Either.Left _ -> None
-      end)
-      (struct
-        type t = negative_val [@@deriving to_yojson]
-
-        let embed1 v = IVal v
-        let embed2 v = ICtx v
-        let extract1 = function IVal v -> Some v | ICtx _ -> None
-        let extract2 = function ICtx v -> Some v | IVal _ -> None
-      end)
+  module IEnv = Ienv.Aggregate (OpLang.IEnv) (CIEnv)
 
   let embed_value_env valenv = (valenv, CIEnv.empty)
 
@@ -132,10 +110,10 @@ struct
     | GEmpty
   [@@deriving to_yojson]
 
-  type negative_type = (OpLang.negative_type,OpLang.typ) Either.t
+  type negative_type = (OpLang.negative_type, OpLang.typ) Either.t
 
   let embed_oplang_negtype nty = Either.Left nty
-  let type_nctx ty = Either.Right ty 
+  let type_nctx ty = Either.Right ty
 
   let negative_type_to_yojson = function
     | Either.Left ntype -> OpLang.negative_type_to_yojson ntype
@@ -176,30 +154,7 @@ struct
         let pp fmt typ = Format.fprintf fmt "¬(%a)" OpLang.pp_type typ
       end)
 
-  module Namectx =
-    Typectx.AggregateDisjoint (OpLang.Namectx) (CNamectx)
-      (struct
-        type t = Names.name
-
-        let embed1 = Names.inj_name
-        let embed2 = Names.inj_cname
-
-        let extract1 = function
-          | Either.Left nn -> Some nn
-          | Either.Right _ -> None
-
-        let extract2 = function
-          | Either.Right cn -> Some cn
-          | Either.Left _ -> None
-      end)
-      (struct
-        type t = negative_type [@@deriving to_yojson]
-
-        let embed1 = embed_oplang_negtype
-        let embed2 = type_nctx
-        let extract1 = function Either.Left ty -> Some ty | Either.Right _ -> None
-        let extract2 = function Either.Right ty -> Some ty | Either.Left _ -> None
-      end)
+  module Namectx = Typectx.Aggregate (OpLang.Namectx) (CNamectx)
 
   let extract_name_ctx (namectx, _) = namectx
   let embed_name_ctx namectx = (namectx, CNamectx.empty)
@@ -257,7 +212,8 @@ struct
     let empty_res = name_ctx in
     let get_type_fname fn =
       match fn with
-      | Either.Left fn' -> embed_oplang_negtype (OpLang.Namectx.lookup_exn fnamectx fn')
+      | Either.Left fn' ->
+          embed_oplang_negtype (OpLang.Namectx.lookup_exn fnamectx fn')
       | Either.Right _ ->
           failwith
             "A continuation name is present where we expect a function name. \
@@ -276,7 +232,8 @@ struct
     let type_check_ret value ty_hole ty_out =
       match (ty_hole, ty_out) with
       | (GType ty_hole', GEmpty) ->
-          if type_check_val value (type_nctx ty_hole') then Some name_ctx else None
+          if type_check_val value (type_nctx ty_hole') then Some name_ctx
+          else None
       | _ ->
           failwith
             "Error: tring to type an evaluation context with a return type \
@@ -306,7 +263,9 @@ struct
       Util.Pmap.filter_map
         (fun (nn, ty) ->
           if OpLang.Names.is_callable nn then
-            Some (Names.inj_name nn, (negating_type (embed_oplang_negtype ty), GEmpty))
+            Some
+              ( Names.inj_name nn,
+                (negating_type (embed_oplang_negtype ty), GEmpty) )
           else None)
         namectx_pmap in
     let cnamectx_pmap =
@@ -344,9 +303,9 @@ struct
       | GVal value -> (value, None) in
     let (nf_term', cn_opt) = Nf.map_val empty_res f_val nf_term in
     let[@warning "-8"] f_cn = function
-      | ICtx (NCtx (cn, ectx)) -> (ectx, Some cn) in
+      | Either.Right (NCtx (cn, ectx)) -> (ectx, Some cn) in
     let (nf_term'', cn_opt') = Nf.map_cn empty_res f_cn nf_term' in
-    let[@warning "-8"] f_fn = function IVal nval -> (nval, None) in
+    let[@warning "-8"] f_fn = function Either.Left nval -> (nval, None) in
     let (nf_term''', _) = Nf.map_fn empty_res f_fn nf_term'' in
     let term = OpLang.refold_nf_term nf_term''' in
     match (cn_opt, cn_opt') with

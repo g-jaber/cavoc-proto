@@ -160,6 +160,129 @@ end) :
   let map = List.map
 end
 
+module Aggregate (Namectx1 : TYPECTX) (Namectx2 : TYPECTX) :
+  TYPECTX
+    with type name = (Namectx1.name, Namectx2.name) Either.t
+     and type typ = (Namectx1.typ, Namectx2.typ) Either.t
+     and type t = Namectx1.t * Namectx2.t = struct
+  type t = Namectx1.t * Namectx2.t [@@deriving to_yojson]
+  type name = (Namectx1.name, Namectx2.name) Either.t
+  type typ = (Namectx1.typ, Namectx2.typ) Either.t
+
+  let empty = (Namectx1.empty, Namectx2.empty)
+
+  let concat (namectx11, namectx12) (namectx21, namectx22) =
+    (Namectx1.concat namectx11 namectx21, Namectx2.concat namectx12 namectx22)
+
+  let pp fmt (namectx1, namectx2) =
+    Format.fprintf fmt "(%a,%a)" Namectx1.pp namectx1 Namectx2.pp namectx2
+
+  let to_string = Format.asprintf "%a" pp
+
+  let get_names (namectx1, namectx2) =
+    List.map (fun nn -> Either.Left nn) (Namectx1.get_names namectx1)
+    @ List.map (fun nn -> Either.Right nn) (Namectx2.get_names namectx2)
+
+  let lookup_exn (namectx1, namectx2) nn =
+    match nn with
+    | Either.Left nn' -> Either.Left (Namectx1.lookup_exn namectx1 nn')
+    | Either.Right nn' -> Either.Right (Namectx2.lookup_exn namectx2 nn')
+
+  let is_empty (namectx1, namectx2) =
+    Namectx1.is_empty namectx1 && Namectx2.is_empty namectx2
+
+  let is_singleton (namectx1, namectx2) nn ty =
+    match (nn, ty) with
+    | (Either.Left nn', Either.Left ty') ->
+        Namectx1.is_singleton namectx1 nn' ty'
+    | (Either.Right nn', Either.Right ty') ->
+        Namectx2.is_singleton namectx2 nn' ty'
+    | _ ->
+        failwith
+          "Error while performing a singleton test on an aggregated context. \
+           Please report."
+
+  let is_last (namectx1, namectx2) nn ty =
+    let open Util.Monad.Option in
+    match (nn, ty) with
+    | (Either.Left nn', Either.Left ty') ->
+        let* namectx1' = Namectx1.is_last namectx1 nn' ty' in
+        return (namectx1', namectx2)
+    | (Either.Right nn', Either.Right ty') ->
+        let* namectx2' = Namectx2.is_last namectx2 nn' ty' in
+        return (namectx1, namectx2')
+    | _ ->
+        failwith
+          "Error while performing a last test on an aggregated context. Please \
+           report."
+
+  let add (namectx1, namectx2) nn ty =
+    match (nn, ty) with
+    | (Either.Left nn', Either.Left ty') ->
+        let namectx1' = Namectx1.add namectx1 nn' ty' in
+        (namectx1', namectx2)
+    | (Either.Right nn', Either.Right ty') ->
+        let namectx2' = Namectx2.add namectx2 nn' ty' in
+        (namectx1, namectx2')
+    | _ ->
+        failwith
+          "Aggregating two typing contexts with non-disjoint set of names. \
+           Please report."
+
+  let mem (namectx1, namectx2) nn =
+    match nn with
+    | Either.Left nn' -> Namectx1.mem namectx1 nn'
+    | Either.Right nn' -> Namectx2.mem namectx2 nn'
+
+  let to_pmap (namectx1, namectx2) =
+    let namectx1_pmap = Namectx1.to_pmap namectx1 in
+    let namectx1_pmap' =
+      Util.Pmap.map
+        (fun (nn, ty) -> (Either.Left nn, Either.Left ty))
+        namectx1_pmap in
+    let namectx2_pmap = Namectx2.to_pmap namectx2 in
+    let namectx2_pmap' =
+      Util.Pmap.map
+        (fun (nn, ty) -> (Either.Right nn, Either.Right ty))
+        namectx2_pmap in
+    Util.Pmap.concat namectx1_pmap' namectx2_pmap'
+
+  let singleton ty =
+    match ty with
+    | Either.Left ty' ->
+        let (nn, namectx) = Namectx1.singleton ty' in
+        (Either.Left nn, (namectx, Namectx2.empty))
+    | Either.Right ty' ->
+        let (nn, namectx2) = Namectx2.singleton ty' in
+        (Either.Right nn, (Namectx1.empty, namectx2))
+
+  let add_fresh (namectx1, namectx2) str ty =
+    match ty with
+    | Either.Left ty' ->
+        let (nn, namectx) = Namectx1.add_fresh namectx1 str ty' in
+        (Either.Left nn, (namectx, namectx2))
+    | Either.Right ty' ->
+        let (nn, namectx) = Namectx2.add_fresh namectx2 str ty' in
+        (Either.Right nn, (namectx1, namectx))
+
+  let map f (namectx1, namectx2) =
+    let f1 ty =
+      match f (Either.Left ty) with
+      | Either.Left ty' -> ty'
+      | Either.Right _ty' ->
+          failwith
+            "Using a map with a function that does not preserve components. \
+             Please report." in
+    let f2 ty =
+      match f (Either.Right ty) with
+      | Either.Right ty' -> ty'
+      | Either.Left _ty' ->
+          failwith
+            "Using a map with a function that does not preserve components. \
+             Please report." in
+    (Namectx1.map f1 namectx1, Namectx2.map f2 namectx2)
+end
+
 module AggregateCommon
     (Namectx1 : TYPECTX)
     (Namectx2 : TYPECTX with type typ = Namectx1.typ)
@@ -284,7 +407,7 @@ module AggregateCommon
     (Namectx1.map f namectx1, Namectx2.map f namectx2)
 end
 
-module AggregateCommonType
+module AggregateCommonType (* Not Used *)
     (Namectx1 : TYPECTX)
     (Namectx2 : TYPECTX with type typ = Namectx1.typ)
     (ClassifyTyp : sig
@@ -372,7 +495,7 @@ module AggregateCommonType
     (Namectx1.map f namectx1, Namectx2.map f namectx2)
 end
 
-module AggregateDisjoint
+module AggregateDisjoint (* Not used *)
     (Namectx1 : TYPECTX)
     (Namectx2 : TYPECTX)
     (EmbedNames : sig
@@ -544,7 +667,7 @@ module AggregateDisjoint
     (Namectx1.map f_lift1 namectx1, Namectx2.map f_lift2 namectx2)
 end
 
-module AggregateDisjointTypes
+module AggregateDisjointTypes (* Not used *)
     (Namectx1 : TYPECTX)
     (Namectx2 : TYPECTX)
     (Types : sig

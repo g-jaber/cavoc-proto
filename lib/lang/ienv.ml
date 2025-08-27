@@ -20,10 +20,7 @@ module Make_PMAP
       type t [@@deriving to_yojson]
 
       val pp : Format.formatter -> t -> unit
-    end) :
-  IENV
-    with type name = Names.name
-     and type value = Value.t
+    end) : IENV with type name = Names.name and type value = Value.t
 (*     and type t = (Names.name, Value.t) Util.Pmap.pmap *) = struct
   type name = Names.name
   type value = Value.t
@@ -51,6 +48,71 @@ module Make_PMAP
   let add_last_check ienv nn value = Util.Pmap.add (nn, value) ienv
   let map = Util.Pmap.map_im
   let fold = Util.Pmap.fold
+end
+
+module Aggregate (IEnv1 : IENV) (IEnv2 : IENV) :
+  IENV
+    with type name = (IEnv1.name, IEnv2.name) Either.t
+     and type value = (IEnv1.value, IEnv2.value) Either.t
+     and type t = IEnv1.t * IEnv2.t = struct
+  type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
+  type name = (IEnv1.name, IEnv2.name) Either.t
+  type value = (IEnv1.value, IEnv2.value) Either.t
+
+  let empty = (IEnv1.empty, IEnv2.empty)
+
+  let concat (ienv11, ienv12) (ienv21, ienv22) =
+    (IEnv1.concat ienv11 ienv21, IEnv2.concat ienv12 ienv22)
+
+  let pp fmt (ienv1, ienv2) =
+    Format.fprintf fmt "(%a,%a)" IEnv1.pp ienv1 IEnv2.pp ienv2
+
+  let to_string = Format.asprintf "%a" pp
+
+  let get_names (ienv1, ienv2) =
+    List.map (fun nn -> Either.Left nn) (IEnv1.get_names ienv1)
+    @ List.map (fun nn -> Either.Right nn) (IEnv2.get_names ienv2)
+
+  let lookup_exn (ienv1, ienv2) nn =
+    match nn with
+    | Either.Left nn' -> Either.Left (IEnv1.lookup_exn ienv1 nn')
+    | Either.Right nn' -> Either.Right (IEnv2.lookup_exn ienv2 nn')
+
+  let add_last_check (ienv1, ienv2) nn value =
+    match (nn, value) with
+    | (Either.Left nn', Either.Left val') ->
+        let ienv1' = IEnv1.add_last_check ienv1 nn' val' in
+        (ienv1', ienv2)
+    | (Either.Right nn', Either.Right val') ->
+        let ienv2' = IEnv2.add_last_check ienv2 nn' val' in
+        (ienv1, ienv2')
+    | _ ->
+        failwith
+          "Error while performing a last test on an aggregated context. Please \
+           report."
+
+  let map f (ienv1, ienv2) =
+    let f1 ty =
+      match f (Either.Left ty) with
+      | Either.Left ty' -> ty'
+      | Either.Right _ty' ->
+          failwith
+            "Using a map with a function that does not preserve components. \
+             Please report." in
+    let f2 ty =
+      match f (Either.Right ty) with
+      | Either.Right ty' -> ty'
+      | Either.Left _ty' ->
+          failwith
+            "Using a map with a function that does not preserve components. \
+             Please report." in
+    (IEnv1.map f1 ienv1, IEnv2.map f2 ienv2)
+
+  let fold f a (ienv1, ienv2) =
+    let f_lift1 a (nn, value) = f a (Either.Left nn, Either.Left value) in
+    let f_lift2 a (nn, value) = f a (Either.Right nn, Either.Right value) in
+    let a' = IEnv1.fold f_lift1 a ienv1 in
+    IEnv2.fold f_lift2 a' ienv2
 end
 
 module AggregateDisjoint
