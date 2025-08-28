@@ -1,5 +1,6 @@
 module type IENV = sig
   type name
+  type typ
   type namectx
   type value
   type t [@@deriving to_yojson]
@@ -11,7 +12,7 @@ module type IENV = sig
   val to_string : t -> string
   val pp : Format.formatter -> t -> unit
   val lookup_exn : t -> name -> value
-  val add_last_check : t -> name -> value -> t
+  val add_fresh : t -> string -> typ -> value -> name * t
   val map : (value -> value) -> t -> t
   val fold : ('a -> name * value -> 'a) -> 'a -> t -> 'a
 end
@@ -26,9 +27,11 @@ module Make_PMAP
     end) :
   IENV
     with type name = Namectx.name
+     and type typ = Namectx.typ
      and type value = Value.t
      and type namectx = Namectx.t = struct
   type name = Namectx.name
+  type typ = Namectx.typ
   type value = Value.t
   type namectx = Namectx.t
   type t = { map: (name, Value.t) Util.Pmap.pmap; dom: namectx; im: namectx }
@@ -61,9 +64,10 @@ module Make_PMAP
   let lookup_exn ienv nn = Util.Pmap.lookup_exn nn ienv.map
 
   (* We do not check that nn is indeed the last name in the next function.*)
-  let add_last_check ienv nn value =
+  let add_fresh ienv str ty value =
+    let (nn, dom) = Namectx.add_fresh ienv.dom str ty in
     let map = Util.Pmap.add (nn, value) ienv.map in
-    { ienv with map }
+    (nn, { ienv with dom; map })
 
   let map f ienv =
     let map = Util.Pmap.map_im f ienv.map in
@@ -73,13 +77,19 @@ module Make_PMAP
 end
 
 module Make_List
-    (Namectx : Typectx.TYPECTX)
+    (Namectx : Typectx.TYPECTX with type name = int * string)
     (Values : sig
       type t [@@deriving to_yojson]
 
       val pp : Format.formatter -> t -> unit
-    end) : IENV with type name = int * string and type value = Values.t = struct
+    end) :
+  IENV
+    with type name = int * string
+     and type typ = Namectx.typ
+     and type value = Values.t
+     and type namectx = Namectx.t = struct
   type name = int * string
+  type typ = Namectx.typ
   type value = Values.t
   type namectx = Namectx.t
   type t = { map: Values.t list; dom: namectx; im: namectx }
@@ -110,16 +120,10 @@ module Make_List
 
   let lookup_exn ienv (i, _) = List.nth ienv.map i
 
-  let add_last_check ienv (i, str) value =
-    let rec aux j = function
-      | [] when i = j -> [ value ]
-      | [] ->
-          failwith
-            ("The name " ^ str ^ string_of_int i
-           ^ "is not at the end. Please report")
-      | hd :: tl -> hd :: aux (j + 1) tl in
-    let map = aux 0 ienv.map in
-    { ienv with map }
+  let add_fresh ienv str ty value =
+    let (nn, dom) = Namectx.add_fresh ienv.dom str ty in
+    let map = ienv.map @ [ value ] in
+    (nn, { ienv with map; dom })
 
   let map f ienv =
     let map = List.map f ienv.map in
@@ -135,10 +139,11 @@ module Aggregate (IEnv1 : IENV) (IEnv2 : IENV) :
      and type value = (IEnv1.value, IEnv2.value) Either.t
      and type namectx = IEnv1.namectx * IEnv2.namectx
      and type t = IEnv1.t * IEnv2.t = struct
-  type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
   type name = (IEnv1.name, IEnv2.name) Either.t
+  type typ = (IEnv1.typ, IEnv2.typ) Either.t
   type value = (IEnv1.value, IEnv2.value) Either.t
   type namectx = IEnv1.namectx * IEnv2.namectx
+  type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
 
   let empty = (IEnv1.empty, IEnv2.empty)
   let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
@@ -157,14 +162,14 @@ module Aggregate (IEnv1 : IENV) (IEnv2 : IENV) :
     | Either.Left nn' -> Either.Left (IEnv1.lookup_exn ienv1 nn')
     | Either.Right nn' -> Either.Right (IEnv2.lookup_exn ienv2 nn')
 
-  let add_last_check (ienv1, ienv2) nn value =
-    match (nn, value) with
-    | (Either.Left nn', Either.Left val') ->
-        let ienv1' = IEnv1.add_last_check ienv1 nn' val' in
-        (ienv1', ienv2)
-    | (Either.Right nn', Either.Right val') ->
-        let ienv2' = IEnv2.add_last_check ienv2 nn' val' in
-        (ienv1, ienv2')
+  let add_fresh (ienv1, ienv2) str ty value =
+    match (ty, value) with
+    | (Either.Left ty', Either.Left val') ->
+        let (nn, ienv1') = IEnv1.add_fresh ienv1 str ty' val' in
+        (Either.left nn, (ienv1', ienv2))
+    | (Either.Right ty', Either.Right val') ->
+        let (nn, ienv2') = IEnv2.add_fresh ienv2 str ty' val' in
+        (Either.Right nn, (ienv1, ienv2'))
     | _ ->
         failwith
           "Error while performing a last test on an aggregated context. Please \
@@ -196,7 +201,7 @@ end
 
 module AggregateCommon
     (IEnv1 : IENV)
-    (IEnv2 : IENV with type value = IEnv1.value)
+    (IEnv2 : IENV with type typ = IEnv1.typ and type value = IEnv1.value)
     (EmbedNames : sig
       type t
 
@@ -204,16 +209,21 @@ module AggregateCommon
       val embed2 : IEnv2.name -> t
       val extract1 : t -> IEnv1.name option
       val extract2 : t -> IEnv2.name option
+    end)
+    (ClassifyTyp : sig
+      val classify : IEnv1.typ -> bool
     end) :
   IENV
     with type name = EmbedNames.t
+     and type typ = IEnv1.typ
      and type value = IEnv1.value
      and type namectx = IEnv1.namectx * IEnv2.namectx
      and type t = IEnv1.t * IEnv2.t = struct
-  type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
   type name = EmbedNames.t
+  type typ = IEnv1.typ
   type value = IEnv1.value
   type namectx = IEnv1.namectx * IEnv2.namectx
+  type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
 
   let empty = (IEnv1.empty, IEnv2.empty)
   let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
@@ -236,18 +246,14 @@ module AggregateCommon
           "Error while performing a lookup on an aggregated context. Please \
            report."
 
-  let add_last_check (ienv1, ienv2) nn value =
-    match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with
-    | (None, Some nn') ->
-        let ienv2' = IEnv2.add_last_check ienv2 nn' value in
-        (ienv1, ienv2')
-    | (Some nn', None) ->
-        let ienv1' = IEnv1.add_last_check ienv1 nn' value in
-        (ienv1', ienv2)
-    | _ ->
-        failwith
-          "Error while performing a last test on an aggregated context. Please \
-           report."
+  let add_fresh (ienv1, ienv2) str ty value =
+    match ClassifyTyp.classify ty with
+    | true ->
+        let (nn, ienv1') = IEnv1.add_fresh ienv1 str ty value in
+        (EmbedNames.embed1 nn, (ienv1', ienv2))
+    | false ->
+        let (nn, ienv2') = IEnv2.add_fresh ienv2 str ty value in
+        (EmbedNames.embed2 nn, (ienv1, ienv2'))
 
   let map f (ienv1, ienv2) = (IEnv1.map f ienv1, IEnv2.map f ienv2)
 

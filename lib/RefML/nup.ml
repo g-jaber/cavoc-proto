@@ -171,7 +171,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     | Some _ -> false
 
   let abstracting_value (value : value) ty =
-    let rec aux ((fnamectx, pnamectx) as lnamectx) ienv value ty =
+    let rec aux ((fnamectx, pnamectx) as lnamectx) ((ienvf,ienvp) as ienv) value ty =
       match (value, ty) with
       | (Fun _, TArrow _)
       | (Fix _, TArrow _)
@@ -181,9 +181,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
       | (Name _, TForall (_, TArrow _)) -> begin
           let nval = Syntax.force_negative_val value in
           let nty = Types.force_negative_type ty in
-          let (fn, fnamectx') = Namectx.FNamectx.add_fresh fnamectx "" nty in
-          let ienv' = Ienv.IEnv.add_last_check ienv (Names.embed_fname fn) nval in
-          (Name (Names.embed_fname fn), ienv', (fnamectx', pnamectx))
+          let (fn, ienvf') = Ienv.IEnvF.add_fresh ienvf "" nty  nval in
+          (Name (Names.embed_fname fn), (ienvf',ienvp), (Ienv.IEnvF.dom ienvf', pnamectx))
         end
       | (Unit, TUnit) | (Bool _, TBool) | (Int _, TInt) ->
           (value, Ienv.IEnv.empty, lnamectx)
@@ -194,9 +193,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
       | (_, TId _) -> begin
           let nval = Syntax.force_negative_val value in
           let nty = Types.force_negative_type ty in
-          let (pn, pnamectx') = Namectx.PNamectx.add_fresh pnamectx "" nty in
-          let ienv' = Ienv.IEnv.add_last_check ienv (Names.embed_pname pn) nval in
-          (Name (Names.embed_pname pn), ienv', (fnamectx, pnamectx'))
+          let (pn,ienvp') = Ienv.IEnvP.add_fresh ienvp "" nty nval in
+          (Name (Names.embed_pname pn), (ienvf,ienvp'), (fnamectx, Ienv.IEnvP.dom ienvp'))
         end
       | (Name _, TName _) -> (value, Ienv.IEnv.empty, lnamectx)
       | (Constructor _, TExn) -> (value, Ienv.IEnv.empty, lnamectx)

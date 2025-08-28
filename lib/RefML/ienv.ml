@@ -34,3 +34,9 @@ module IEnv =
         | Either.Left _ -> None
         | Either.Right pn -> Some pn
     end)
+    (struct
+      let classify = function
+        | Types.TArrow _ | Types.TForall _ -> true
+        | Types.TId _ | Types.TName _ -> false
+        | _ -> failwith "Trying to add a name of the wrong type. Please report"
+    end)

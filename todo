@@ -38,7 +38,7 @@
 - [ ] Cleanup the TYPECTX interface
   - [ ] Remove add
   - [ ] Remove mem
-- [ ] Use typed interactive environments
+- [x] Use typed interactive environments
 - [ ] Keep the Opponent and the Proponent names as two distinct namespaces
 - [ ] Handle reaching a failed program via the EvalMonad
 - [ ] Manage to print De Bruijn names in move with offset

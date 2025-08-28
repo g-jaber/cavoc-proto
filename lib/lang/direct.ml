@@ -148,6 +148,7 @@ struct
 
   module IEnv = struct
     type name = OpLang.Names.name
+    type typ = OpLang.IEnv.typ
     type value = OpLang.negative_val
     type t = OpLang.IEnv.t * OpLang.eval_context list
     type namectx = OpLang.IEnv.namectx
@@ -180,9 +181,10 @@ struct
     let to_string = Format.asprintf "%a" pp
     let lookup_exn (ienv, _) nn = OpLang.IEnv.lookup_exn ienv nn
 
-    let add_last_check ((fnamectx, ectx_stack) : t) (nn : name) (v : value) =
-      let fnamectx' = OpLang.IEnv.add_last_check fnamectx nn v in
-      (fnamectx', ectx_stack)
+    let add_fresh ((fnamectx, ectx_stack) : t) (str : string) (ty : typ)
+        (v : value) =
+      let (nn, fnamectx') = OpLang.IEnv.add_fresh fnamectx str ty v in
+      (nn, (fnamectx', ectx_stack))
 
     let map f (fnamectx, ectx_stack) = (OpLang.IEnv.map f fnamectx, ectx_stack)
     let fold f a (fnamectx, _ectx_stack) = OpLang.IEnv.fold f a fnamectx

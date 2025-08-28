@@ -401,9 +401,8 @@ struct
       | (GPairIn (value, ectx), GProd (ty_v, ty_c)) ->
           let (aval, val_env, lnamectx) =
             OpLang.AVal.abstracting_value value ty_v in
-          let (cn, cnamectx) = CNamectx.singleton ty_c in
-          let cienv = CIEnv.add_last_check CIEnv.empty cn ectx in
-          let lnamectx' = (lnamectx, cnamectx) in
+          let (cn,cienv) = CIEnv.add_fresh CIEnv.empty "" ty_c ectx in
+          let lnamectx' = (lnamectx, CIEnv.dom cienv) in
           (APair (aval, cn), (val_env, cienv), lnamectx')
       | (GVal value, GType ty) ->
           let (aval, val_env, lnamectx) =
