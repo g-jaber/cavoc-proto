@@ -235,17 +235,14 @@ struct
       OpLang.get_output_type nty in
     let nf_typed_term' =
       OpLang.type_annotating_ectx ~get_type_fname ty_out nf_typed_term in
-    let f_val (value, nty) =
-      let (aval, ienv) = OpLang.AVal.abstracting_value value nty in
-      (aval, (ienv, OpLang.IEnv.dom ienv)) in
+    let f_val (value, nty) = OpLang.AVal.abstracting_value value nty in
     let f_ectx (ectx, (ty_hole, ty_out)) =
       ((), ([ ectx ], [ (ty_hole, ty_out) ])) in
-    let empty_res = (OpLang.IEnv.empty, OpLang.Namectx.empty) in
-    let (a_nf_term, (ienv, lnamectx)) =
-      OpLang.Nf.map_val empty_res f_val nf_typed_term' in
+    let (a_nf_term, ienv) =
+      OpLang.Nf.map_val OpLang.IEnv.empty f_val nf_typed_term' in
     let (a_nf_term', (stack, stack_ctx)) =
       OpLang.Nf.map_ectx ([], []) f_ectx a_nf_term in
-    (a_nf_term', ((ienv, stack), Namectx.PropCtx (lnamectx, stack_ctx)))
+    (a_nf_term', ((ienv, stack), Namectx.PropCtx (OpLang.IEnv.dom ienv, stack_ctx)))
 
   let abstracting_nf (nf_term, store) namectxO storectx_discl =
     let (a_nf_term, (ienv, lnamectx)) = abstracting_nf_term nf_term namectxO in
