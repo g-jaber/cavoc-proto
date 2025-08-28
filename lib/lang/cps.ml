@@ -139,8 +139,7 @@ struct
     | GPairIn _ | GPairOut _ | GPackOut _ -> None
 
   module CIEnv =
-    Ienv.Make_List
-      (*CNames*)
+    Ienv.Make_List (*CNames*)
       (CNamectx)
       (struct
         type t = neval_context [@@deriving to_yojson]
@@ -399,17 +398,13 @@ struct
     let abstracting_value gval gty =
       match (gval, gty) with
       | (GPairIn (value, ectx), GProd (ty_v, ty_c)) ->
-          let (aval, val_env, lnamectx) =
-            OpLang.AVal.abstracting_value value ty_v in
-          let (cn,cienv) = CIEnv.add_fresh CIEnv.empty "" ty_c ectx in
-          let lnamectx' = (lnamectx, CIEnv.dom cienv) in
-          (APair (aval, cn), (val_env, cienv), lnamectx')
+          let (aval, val_env) = OpLang.AVal.abstracting_value value ty_v in
+          let (cn, cienv) = CIEnv.add_fresh CIEnv.empty "" ty_c ectx in
+          (APair (aval, cn), (val_env, cienv))
       | (GVal value, GType ty) ->
-          let (aval, val_env, lnamectx) =
-            OpLang.AVal.abstracting_value value ty in
+          let (aval, val_env) = OpLang.AVal.abstracting_value value ty in
           let ienv = embed_value_env val_env in
-          let lnamectx = embed_name_ctx lnamectx in
-          (AVal aval, ienv, lnamectx)
+          (AVal aval, ienv)
       | (_, _) -> failwith "Ill-typed interactive value. Please report."
 
     module BranchMonad = OpLang.AVal.BranchMonad

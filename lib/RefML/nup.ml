@@ -171,7 +171,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     | Some _ -> false
 
   let abstracting_value (value : value) ty =
-    let rec aux ((fnamectx, pnamectx) as lnamectx) ((ienvf,ienvp) as ienv) value ty =
+    let rec aux ((ienvf,ienvp) as ienv) value ty =
       match (value, ty) with
       | (Fun _, TArrow _)
       | (Fix _, TArrow _)
@@ -182,27 +182,27 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           let nval = Syntax.force_negative_val value in
           let nty = Types.force_negative_type ty in
           let (fn, ienvf') = Ienv.IEnvF.add_fresh ienvf "" nty  nval in
-          (Name (Names.embed_fname fn), (ienvf',ienvp), (Ienv.IEnvF.dom ienvf', pnamectx))
+          (Name (Names.embed_fname fn), (ienvf',ienvp))
         end
       | (Unit, TUnit) | (Bool _, TBool) | (Int _, TInt) ->
-          (value, Ienv.IEnv.empty, lnamectx)
+          (value, ienv)
       | (Pair (value1, value2), TProd (ty1, ty2)) ->
-          let (nup1, ienv1, lnamectx1) = aux lnamectx ienv value1 ty1 in
-          let (nup2, ienv2, lnamectx2) = aux lnamectx1 ienv1 value2 ty2 in
-          (Pair (nup1, nup2), ienv2, lnamectx2)
+          let (nup1, ienv1) = aux ienv value1 ty1 in
+          let (nup2, ienv2) = aux ienv1 value2 ty2 in
+          (Pair (nup1, nup2), ienv2)
       | (_, TId _) -> begin
           let nval = Syntax.force_negative_val value in
           let nty = Types.force_negative_type ty in
           let (pn,ienvp') = Ienv.IEnvP.add_fresh ienvp "" nty nval in
-          (Name (Names.embed_pname pn), (ienvf,ienvp'), (fnamectx, Ienv.IEnvP.dom ienvp'))
+          (Name (Names.embed_pname pn), (ienvf,ienvp'))
         end
-      | (Name _, TName _) -> (value, Ienv.IEnv.empty, lnamectx)
-      | (Constructor _, TExn) -> (value, Ienv.IEnv.empty, lnamectx)
+      | (Name _, TName _) -> (value, ienv)
+      | (Constructor _, TExn) -> (value, ienv)
       | _ ->
           failwith
             ("Error: " ^ string_of_term value ^ " of type " ^ string_of_typ ty
            ^ " cannot be abstracted because it is not a value.") in
-    aux empty_namectx Ienv.IEnv.empty value ty
+    aux Ienv.IEnv.empty value ty
 
   let subst_pnames (_ienvf,ienvp) nup =
     let aux nup (nn, nval) =

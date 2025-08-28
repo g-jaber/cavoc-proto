@@ -30,10 +30,10 @@ module type AVAL = sig
   (* The typed focusing process implemented by abstracting_value
      decomposes typed values (V,τ) into:
       - an abstract value A for the observable part,
-      - a typed interactive environment (γ,Γ) for the negative part.
+      - a typed interactive environment γ for the negative part.
     The type τ is needed to guide this abstracting process for polymorphic languages. *)
   val abstracting_value :
-    value -> typ -> abstract_val * interactive_env * name_ctx
+    value -> typ -> abstract_val * interactive_env
 
   val subst_pnames : interactive_env -> abstract_val -> value
 

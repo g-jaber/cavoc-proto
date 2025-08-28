@@ -65,7 +65,10 @@ module type COMP = sig
   val filter_negative_val : value -> negative_val option
 
   module IEnv :
-    Ienv.IENV with type name = Names.name and type value = negative_val
+    Ienv.IENV
+      with type name = Names.name
+       and type value = negative_val
+       and type namectx = Namectx.t
 
   type opconf = term * Store.store
 
@@ -280,8 +283,7 @@ module type WITHAVAL_NEG = sig
     Namectx.t option
 
   val generate_nf_term :
-    Namectx.t ->
-    (typ, unit, Names.name, Names.name) Nf.nf_term Nf.BranchMonad.m
+    Namectx.t -> (typ, unit, Names.name, Names.name) Nf.nf_term Nf.BranchMonad.m
 
   val negating_type : negative_type -> typ
 
