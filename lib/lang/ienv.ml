@@ -1,13 +1,15 @@
 module type IENV = sig
   type name
+  type namectx
   type value
   type t [@@deriving to_yojson]
 
   val empty : t
+  val dom : t -> namectx
+  val im : t -> namectx
   val concat : t -> t -> t
   val to_string : t -> string
   val pp : Format.formatter -> t -> unit
-  val get_names : t -> name list
   val lookup_exn : t -> name -> value
   val add_last_check : t -> name -> value -> t
   val map : (value -> value) -> t -> t
@@ -16,72 +18,97 @@ end
 
 module Make_PMAP
     (Names : Names.NAMES)
+    (Namectx : Typectx.TYPECTX with type name = Names.name)
     (Value : sig
       type t [@@deriving to_yojson]
 
       val pp : Format.formatter -> t -> unit
-    end) : IENV with type name = Names.name and type value = Value.t
-(*     and type t = (Names.name, Value.t) Util.Pmap.pmap *) = struct
-  type name = Names.name
+    end) :
+  IENV
+    with type name = Namectx.name
+     and type value = Value.t
+     and type namectx = Namectx.t = struct
+  type name = Namectx.name
   type value = Value.t
-  type t = (name, Value.t) Util.Pmap.pmap
+  type namectx = Namectx.t
+  type t = { map: (name, Value.t) Util.Pmap.pmap; dom: namectx; im: namectx }
 
-  let empty = Util.Pmap.empty
-  let concat = Util.Pmap.concat
+  let empty = { map= Util.Pmap.empty; dom= Namectx.empty; im= Namectx.empty }
+  let dom ienv = ienv.dom
+  let im ienv = ienv.im
+
+  let concat ienv1 ienv2 =
+    {
+      map= Util.Pmap.concat ienv1.map ienv2.map;
+      dom= Namectx.concat ienv1.dom ienv2.dom;
+      im= Namectx.concat ienv1.im ienv2.im;
+    }
 
   let pp fmt ienv =
     let pp_sep fmt () = Format.fprintf fmt ", " in
     let pp_empty fmt () = Format.fprintf fmt "⋅" in
     let pp_pair fmt (n, value) =
       Format.fprintf fmt "%a : %a" Names.pp_name n Value.pp value in
-    Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt ienv
+    Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt ienv.map
 
   let to_string = Format.asprintf "%a" pp
-  let get_names = Util.Pmap.dom
 
   let to_yojson ienv =
     let to_string (nn, value) =
       (Names.string_of_name nn, Value.to_yojson value) in
-    `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string ienv)
+    `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string ienv.map)
 
-  let lookup_exn ienv nn = Util.Pmap.lookup_exn nn ienv
+  let lookup_exn ienv nn = Util.Pmap.lookup_exn nn ienv.map
 
   (* We do not check that nn is indeed the last name in the next function.*)
-  let add_last_check ienv nn value = Util.Pmap.add (nn, value) ienv
-  let map = Util.Pmap.map_im
-  let fold = Util.Pmap.fold
+  let add_last_check ienv nn value =
+    let map = Util.Pmap.add (nn, value) ienv.map in
+    { ienv with map }
+
+  let map f ienv =
+    let map = Util.Pmap.map_im f ienv.map in
+    { ienv with map }
+
+  let fold f value ienv = Util.Pmap.fold f value ienv.map
 end
 
-module Make_List (Values : sig
-  type t [@@deriving to_yojson]
+module Make_List
+    (Namectx : Typectx.TYPECTX)
+    (Values : sig
+      type t [@@deriving to_yojson]
 
-  val pp : Format.formatter -> t -> unit
-end) :
-  IENV
-    with type name = int * string
-     and type value = Values.t
-     and type t = Values.t list = struct
+      val pp : Format.formatter -> t -> unit
+    end) : IENV with type name = int * string and type value = Values.t = struct
   type name = int * string
   type value = Values.t
-  type t = Values.t list
+  type namectx = Namectx.t
+  type t = { map: Values.t list; dom: namectx; im: namectx }
 
-  let empty = []
-  let concat = List.append
+  let empty = { map= []; dom= Namectx.empty; im= Namectx.empty }
+  let dom ienv = ienv.dom
+  let im ienv = ienv.im
 
-  let pp fmt = function
+  let concat ienv1 ienv2 =
+    {
+      map= List.append ienv1.map ienv2.map;
+      dom= Namectx.concat ienv1.dom ienv2.dom;
+      im= Namectx.concat ienv1.im ienv2.im;
+    }
+
+  let pp fmt ienv =
+    match ienv.map with
     | [] -> Format.fprintf fmt "⋅"
-    | name_ctx ->
+    | map' ->
         let pp_sep fmt () = Format.fprintf fmt ", " in
-        Format.pp_print_list ~pp_sep Values.pp fmt name_ctx
+        Format.pp_print_list ~pp_sep Values.pp fmt map'
 
   let to_string = Format.asprintf "%a" pp
-  let get_names = List.mapi (fun i _ -> (i, ""))
 
-  let to_yojson nctx =
+  let to_yojson ienv =
     `List
-      (List.mapi (fun i typ -> `List [ `Int i; Values.to_yojson typ ]) nctx)
+      (List.mapi (fun i typ -> `List [ `Int i; Values.to_yojson typ ]) ienv.map)
 
-  let lookup_exn nctx (i, _) = List.nth nctx i
+  let lookup_exn ienv (i, _) = List.nth ienv.map i
 
   let add_last_check ienv (i, str) value =
     let rec aux j = function
@@ -91,24 +118,31 @@ end) :
             ("The name " ^ str ^ string_of_int i
            ^ "is not at the end. Please report")
       | hd :: tl -> hd :: aux (j + 1) tl in
-    aux 0 ienv
+    let map = aux 0 ienv.map in
+    { ienv with map }
 
-  let map = List.map
+  let map f ienv =
+    let map = List.map f ienv.map in
+    { ienv with map }
 
   let fold (f : 'a -> name * value -> 'a) (v : 'a) (ienv : t) =
-    List.fold_left f v (List.mapi (fun i ty -> ((i, ""), ty)) ienv)
+    List.fold_left f v (List.mapi (fun i ty -> ((i, ""), ty)) ienv.map)
 end
 
 module Aggregate (IEnv1 : IENV) (IEnv2 : IENV) :
   IENV
     with type name = (IEnv1.name, IEnv2.name) Either.t
      and type value = (IEnv1.value, IEnv2.value) Either.t
+     and type namectx = IEnv1.namectx * IEnv2.namectx
      and type t = IEnv1.t * IEnv2.t = struct
   type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
   type name = (IEnv1.name, IEnv2.name) Either.t
   type value = (IEnv1.value, IEnv2.value) Either.t
+  type namectx = IEnv1.namectx * IEnv2.namectx
 
   let empty = (IEnv1.empty, IEnv2.empty)
+  let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
+  let im (ienv1, ienv2) = (IEnv1.im ienv1, IEnv2.im ienv2)
 
   let concat (ienv11, ienv12) (ienv21, ienv22) =
     (IEnv1.concat ienv11 ienv21, IEnv2.concat ienv12 ienv22)
@@ -117,10 +151,6 @@ module Aggregate (IEnv1 : IENV) (IEnv2 : IENV) :
     Format.fprintf fmt "(%a,%a)" IEnv1.pp ienv1 IEnv2.pp ienv2
 
   let to_string = Format.asprintf "%a" pp
-
-  let get_names (ienv1, ienv2) =
-    List.map (fun nn -> Either.Left nn) (IEnv1.get_names ienv1)
-    @ List.map (fun nn -> Either.Right nn) (IEnv2.get_names ienv2)
 
   let lookup_exn (ienv1, ienv2) nn =
     match nn with
@@ -178,12 +208,16 @@ module AggregateCommon
   IENV
     with type name = EmbedNames.t
      and type value = IEnv1.value
+     and type namectx = IEnv1.namectx * IEnv2.namectx
      and type t = IEnv1.t * IEnv2.t = struct
   type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
   type name = EmbedNames.t
   type value = IEnv1.value
+  type namectx = IEnv1.namectx * IEnv2.namectx
 
   let empty = (IEnv1.empty, IEnv2.empty)
+  let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
+  let im (ienv1, ienv2) = (IEnv1.im ienv1, IEnv2.im ienv2)
 
   let concat (ienv11, ienv12) (ienv21, ienv22) =
     (IEnv1.concat ienv11 ienv21, IEnv2.concat ienv12 ienv22)
@@ -192,10 +226,6 @@ module AggregateCommon
     Format.fprintf fmt "(%a,%a)" IEnv1.pp ienv1 IEnv2.pp ienv2
 
   let to_string = Format.asprintf "%a" pp
-
-  let get_names (ienv1, ienv2) =
-    List.map (fun nn -> EmbedNames.embed1 nn) (IEnv1.get_names ienv1)
-    @ List.map (fun nn -> EmbedNames.embed2 nn) (IEnv2.get_names ienv2)
 
   let lookup_exn (ienv1, ienv2) nn =
     match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with

@@ -80,6 +80,7 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
   module IEnv =
     Lang.Ienv.Make_PMAP
       (MoveTree.Moves.Names)
+      (Namectx)
       (struct
         type t = MoveTree.Moves.Names.name [@@deriving to_yojson]
 

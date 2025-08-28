@@ -1,5 +1,6 @@
 module IEnvF =
   Lang.Ienv.Make_List
+    (Namectx.FNamectx)
     (*Names.FNames*)
     (struct
       type t = Syntax.negative_val [@@deriving to_yojson]
@@ -9,6 +10,7 @@ module IEnvF =
 
 module IEnvP =
   Lang.Ienv.Make_List
+    (Namectx.PNamectx)
     (*Names.PNames*)
     (struct
       type t = Syntax.negative_val [@@deriving to_yojson]

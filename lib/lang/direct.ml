@@ -150,6 +150,7 @@ struct
     type name = OpLang.Names.name
     type value = OpLang.negative_val
     type t = OpLang.IEnv.t * OpLang.eval_context list
+    type namectx = OpLang.IEnv.namectx
 
     let to_yojson (ienv, ectx_l) =
       let ectx_l_yojson =
@@ -160,6 +161,8 @@ struct
         [ ("ienv", OpLang.IEnv.to_yojson ienv); ("ectx stack", ectx_l_yojson) ]
 
     let empty = (OpLang.IEnv.empty, [])
+    let dom (ienv, _) = OpLang.IEnv.dom ienv
+    let im (ienv, _) = OpLang.IEnv.im ienv
 
     let concat (fnamectx1, cstack1) (fnamectx2, cstack2) =
       (OpLang.IEnv.concat fnamectx1 fnamectx2, cstack1 @ cstack2)
@@ -176,7 +179,6 @@ struct
 
     let to_string = Format.asprintf "%a" pp
     let lookup_exn (ienv, _) nn = OpLang.IEnv.lookup_exn ienv nn
-    let get_names (ienv, _) = OpLang.IEnv.get_names ienv
 
     let add_last_check ((fnamectx, ectx_stack) : t) (nn : name) (v : value) =
       let fnamectx' = OpLang.IEnv.add_last_check fnamectx nn v in
@@ -186,8 +188,8 @@ struct
     let fold f a (fnamectx, _ectx_stack) = OpLang.IEnv.fold f a fnamectx
   end
 
-  let concretize_a_nf store (((fname_env, stack_ctx) as ienv),(_namectxO)) ((a_nf_term, store'),_lnamectx)
-      =
+  let concretize_a_nf store (((fname_env, stack_ctx) as ienv), _namectxO)
+      ((a_nf_term, store'), _lnamectx) =
     let get_ectx () =
       match stack_ctx with
       | ectx :: stack_ctx' -> (ectx, (fname_env, stack_ctx'))

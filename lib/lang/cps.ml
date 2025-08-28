@@ -40,6 +40,54 @@ struct
     let is_cname = function Either.Left _ -> false | Either.Right _ -> true
   end
 
+  type typ =
+    | GType of OpLang.typ
+    | GProd of OpLang.typ * OpLang.typ
+    | GExists of OpLang.typevar list * OpLang.typ * OpLang.typ
+    | GEmpty
+  [@@deriving to_yojson]
+
+  type negative_type = (OpLang.negative_type, OpLang.typ) Either.t
+
+  let embed_oplang_negtype nty = Either.Left nty
+  let type_nctx ty = Either.Right ty
+
+  let negative_type_to_yojson = function
+    | Either.Left ntype -> OpLang.negative_type_to_yojson ntype
+    | Either.Right typ -> `String ("¬" ^ OpLang.string_of_type typ)
+
+  let pp_type fmt = function
+    | GType typ -> OpLang.pp_type fmt typ
+    | GExists (tvar_l, typ1, typ2) ->
+        Format.fprintf fmt "%a. %a × ¬%a" OpLang.pp_tvar_l tvar_l OpLang.pp_type
+          typ1 OpLang.pp_type typ2
+    | GProd (typ1, typ2) ->
+        Format.fprintf fmt "%a × ¬%a" OpLang.pp_type typ1 OpLang.pp_type typ2
+    | GEmpty -> Format.fprintf fmt "⊥"
+
+  let string_of_type = Format.asprintf "%a" pp_type
+
+  let pp_negative_type fmt = function
+    | Either.Left ty -> OpLang.pp_negative_type fmt ty
+    | Either.Right ty -> Format.fprintf fmt "¬(%a)" OpLang.pp_type ty
+
+  let string_of_negative_type = Format.asprintf "%a" pp_negative_type
+
+  module CNamectx = Typectx.Make_List (*CNames*) (struct
+    type t = OpLang.typ
+
+    let to_yojson typ = `String ("¬" ^ OpLang.string_of_type typ)
+    let pp fmt typ = Format.fprintf fmt "¬(%a)" OpLang.pp_type typ
+  end)
+
+  module Namectx = Typectx.Aggregate (OpLang.Namectx) (CNamectx)
+
+  let extract_name_ctx (namectx, _) = namectx
+  let embed_name_ctx namectx = (namectx, CNamectx.empty)
+
+  module CRenaming = Renaming.Make (CNamectx)
+  module Renaming = Renaming.Aggregate (OpLang.Renaming) (CRenaming)
+
   type term = NTerm of (CNames.name * OpLang.term)
 
   let pp_term fmt (NTerm (cn, term)) =
@@ -93,6 +141,7 @@ struct
   module CIEnv =
     Ienv.Make_List
       (*CNames*)
+      (CNamectx)
       (struct
         type t = neval_context [@@deriving to_yojson]
 
@@ -102,57 +151,6 @@ struct
   module IEnv = Ienv.Aggregate (OpLang.IEnv) (CIEnv)
 
   let embed_value_env valenv = (valenv, CIEnv.empty)
-
-  type typ =
-    | GType of OpLang.typ
-    | GProd of OpLang.typ * OpLang.typ
-    | GExists of OpLang.typevar list * OpLang.typ * OpLang.typ
-    | GEmpty
-  [@@deriving to_yojson]
-
-  type negative_type = (OpLang.negative_type, OpLang.typ) Either.t
-
-  let embed_oplang_negtype nty = Either.Left nty
-  let type_nctx ty = Either.Right ty
-
-  let negative_type_to_yojson = function
-    | Either.Left ntype -> OpLang.negative_type_to_yojson ntype
-    | Either.Right typ -> `String ("¬" ^ OpLang.string_of_type typ)
-
-  let pp_type fmt = function
-    | GType typ -> OpLang.pp_type fmt typ
-    | GExists (tvar_l, typ1, typ2) ->
-        Format.fprintf fmt "%a. %a × ¬%a" OpLang.pp_tvar_l tvar_l OpLang.pp_type
-          typ1 OpLang.pp_type typ2
-    | GProd (typ1, typ2) ->
-        Format.fprintf fmt "%a × ¬%a" OpLang.pp_type typ1 OpLang.pp_type typ2
-    | GEmpty -> Format.fprintf fmt "⊥"
-
-  let string_of_type = Format.asprintf "%a" pp_type
-
-  let pp_negative_type fmt = function
-    | Either.Left ty -> OpLang.pp_negative_type fmt ty
-    | Either.Right ty -> Format.fprintf fmt "¬(%a)" OpLang.pp_type ty
-
-  let string_of_negative_type = Format.asprintf "%a" pp_negative_type
-
-  module CNamectx =
-    Typectx.Make_List
-      (*CNames*)
-      (struct
-        type t = OpLang.typ
-
-        let to_yojson typ = `String ("¬" ^ OpLang.string_of_type typ)
-        let pp fmt typ = Format.fprintf fmt "¬(%a)" OpLang.pp_type typ
-      end)
-
-  module Namectx = Typectx.Aggregate (OpLang.Namectx) (CNamectx)
-
-  let extract_name_ctx (namectx, _) = namectx
-  let embed_name_ctx namectx = (namectx, CNamectx.empty)
-
-  module CRenaming = Renaming.Make (CNamectx)
-  module Renaming = Renaming.Aggregate (OpLang.Renaming) (CRenaming)
 
   let rename (NTerm (cn, term) : term) (renaming, crenaming) =
     let term' = OpLang.rename term renaming in

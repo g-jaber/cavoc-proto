@@ -52,8 +52,7 @@ module Make_PMAP
     end) :
   TYPECTX
     with type name = Names.name
-     and type typ = Types.t
-     and type t = (Names.name, Types.t) Util.Pmap.pmap = struct
+     and type typ = Types.t = struct
   type name = Names.name
   type typ = Types.t
   type t = (name, Types.t) Util.Pmap.pmap
