@@ -139,10 +139,8 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     (* We first weaken the abstract values in the abstract normal form *)
     let namectxO = IEnv.im ienv in
     let renaming = OpLang.Renaming.weak_r lnamectx namectxO in
-    Util.Debug.print_debug @@ "Renaming of domain : "
-    ^ OpLang.Renaming.Namectx.to_string (OpLang.Renaming.dom renaming)
-    ^ " and image "
-    ^ OpLang.Renaming.Namectx.to_string (OpLang.Renaming.im renaming);
+    Util.Debug.print_debug @@ "Renaming  : "
+    ^ OpLang.Renaming.to_string renaming;
     let a_nf_term' =
       OpLang.Nf.map
         ~f_val:(fun aval -> OpLang.AVal.rename aval renaming)

@@ -3,6 +3,8 @@ module type RENAMING = sig
 
   type t
 
+  val pp : Format.formatter -> t -> unit
+  val to_string : t -> string
   val id : Namectx.t -> t
   val dom : t -> Namectx.t
   val im : t -> Namectx.t
@@ -27,6 +29,20 @@ module Make (Namectx : Typectx.TYPECTX_LIST) :
     dom: Namectx.t;
     im: Namectx.t;
   }
+
+  let pp_map fmt map =
+    let pp_sep fmt () = Format.fprintf fmt ", " in
+    let pp_empty fmt () = Format.fprintf fmt "⋅" in
+    let pp_pair fmt (n, value) =
+      Format.fprintf fmt "%a ↦ %a" Namectx.Names.pp_name n Namectx.Names.pp_name
+        value in
+    Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt map
+
+  let pp fmt renam =
+    Format.fprintf fmt "%a : %a ⇒ %a" pp_map renam.map Namectx.pp renam.dom
+      Namectx.pp renam.im
+
+  let to_string = Format.asprintf "%a" pp
 
   let id namectx =
     let names_l = Namectx.get_names namectx in
@@ -61,7 +77,7 @@ module Make (Namectx : Typectx.TYPECTX_LIST) :
       nn
 end
 
-module MakeAggregate
+module MakeAggregate (* Not used so far *)
     (Namectx1 : Typectx.TYPECTX)
     (Namectx2 : Typectx.TYPECTX)
     (Names :
@@ -78,6 +94,22 @@ module MakeAggregate
     dom: Namectx.t;
     im: Namectx.t;
   }
+
+  let pp_map pp_name fmt map =
+    let pp_sep fmt () = Format.fprintf fmt ", " in
+    let pp_empty fmt () = Format.fprintf fmt "⋅" in
+    let pp_pair fmt (n, value) =
+      Format.fprintf fmt "%a ↦ %a" pp_name n pp_name value in
+    Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt map
+
+  let pp fmt renam =
+    Format.fprintf fmt "[%a | %a] : %a ⇒ %a"
+      (pp_map Namectx1.Names.pp_name)
+      renam.map_l
+      (pp_map Namectx2.Names.pp_name)
+      renam.map_r Namectx.pp renam.dom Namectx.pp renam.im
+
+  let to_string = Format.asprintf "%a" pp
 
   let id ((namectx1, namectx2) as namectx) =
     let names1_list = Namectx1.get_names namectx1 in
@@ -122,6 +154,11 @@ struct
   module Namectx = Namectx
 
   type t = Renam1.t * Renam2.t
+
+    let pp fmt (renam1, renam2) =
+    Format.fprintf fmt "[%a | %a]" Renam1.pp renam1 Renam2.pp renam2
+
+      let to_string = Format.asprintf "%a" pp
 
   let id (namectx1, namectx2) =
     let id1 = Renam1.id namectx1 in

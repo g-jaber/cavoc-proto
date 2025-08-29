@@ -4,12 +4,17 @@ module type IENV = sig
   type value
   type t [@@deriving to_yojson]
 
+  val to_string : t -> string
+  val pp : Format.formatter -> t -> unit
   val empty : t
   val dom : t -> Namectx.t
   val im : t -> Namectx.t
-  val copairing : t -> t -> t (* Taking γ₁ : Γ₁ → Δ and γ₂ : Γ₂ → Δ, pairing γ₁ γ₂ : (Γ₁ + Γ₂) → Δ  *)
-  val to_string : t -> string
-  val pp : Format.formatter -> t -> unit
+
+  (* Taking γ₁ : Γ₁ → Δ and γ₂ : Γ₂ → Δ, pairing γ₁ γ₂ : (Γ₁ + Γ₂) → Δ  *)
+  val copairing : t -> t -> t
+
+  (* Taking γ : Γ → Δ and Θ, then weaken γ Θ : Γ → Δ + Θ *)
+  (*val weaken : t -> Namectx.t -> t*)
   val lookup_exn : t -> Namectx.Names.name -> value
   val add_fresh : t -> string -> Namectx.typ -> value -> Namectx.Names.name * t
   val map : (value -> value) -> t -> t
@@ -49,7 +54,7 @@ module Make_PMAP
     let pp_sep fmt () = Format.fprintf fmt ", " in
     let pp_empty fmt () = Format.fprintf fmt "⋅" in
     let pp_pair fmt (n, value) =
-      Format.fprintf fmt "%a : %a" Namectx.Names.pp_name n Value.pp value in
+      Format.fprintf fmt "%a ↦ %a" Namectx.Names.pp_name n Value.pp value in
     Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt ienv.map
 
   let to_string = Format.asprintf "%a" pp
@@ -91,7 +96,7 @@ module Make_List
   let im ienv = ienv.im
 
   let copairing ienv1 ienv2 =
-        assert (ienv1.im = ienv2.im);
+    assert (ienv1.im = ienv2.im);
     {
       map= List.append ienv1.map ienv2.map;
       dom= Namectx.concat ienv1.dom ienv2.dom;
