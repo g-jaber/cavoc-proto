@@ -8,7 +8,7 @@ module type MOVES = sig
   val pp_move : Format.formatter -> move -> unit
   val string_of_move : move -> string
   val get_subject_name : move -> Namectx.Names.name list
-  val get_transmitted_names : move -> Namectx.Names.name list
+  val get_namectx : move -> Namectx.t
 
   val unify_move :
     Namectx.Names.name Util.Namespan.namespan ->
@@ -57,7 +57,9 @@ module type NAMED_GEN_MOVES = sig
   type name
 
   include
-    GEN_MOVES with type move = name * copattern and type Namectx.Names.name = name
+    GEN_MOVES
+      with type move = name * copattern
+       and type Namectx.Names.name = name
 end
 
 (* module POLARIZE (Moves : MOVES) : POLMOVES = struct
@@ -98,10 +100,10 @@ end
 module Make (A_nf : A_NF) :
   POLMOVES
     with module Namectx = A_nf.Namectx
-     and type move = A_nf.abstract_normal_form = struct
+     and type move = A_nf.abstract_normal_form * A_nf.Namectx.t = struct
   module Namectx = A_nf.Namectx
 
-  type move = A_nf.abstract_normal_form
+  type move = A_nf.abstract_normal_form * Namectx.t
   type direction = Input | Output
 
   let string_of_direction = function Input -> "?" | Output -> "!"
@@ -109,26 +111,28 @@ module Make (A_nf : A_NF) :
 
   type pol_move = direction * move
 
-  let pp_move fmt =
+  let pp_move fmt (move, _) =
     let pp_dir fmt = Format.pp_print_string fmt "" in
-    A_nf.pp_a_nf ~pp_dir fmt
+    A_nf.pp_a_nf ~pp_dir fmt move
 
-  let pp_pol_move fmt (dir, move) =
+  let pp_pol_move fmt (dir, (move, _)) =
     let pp_dir fmt = Format.pp_print_string fmt (string_of_direction dir) in
     A_nf.pp_a_nf ~pp_dir fmt move
 
-  let string_of_move = A_nf.string_of_a_nf ""
+  let string_of_move (move, _) = A_nf.string_of_a_nf "" move
 
-  let string_of_pol_move (dir, move) =
+  let string_of_pol_move (dir, (move, _)) =
     A_nf.string_of_a_nf (string_of_direction dir) move
 
   let switch_direction (p, d) = (switch p, d)
-  let get_transmitted_names = A_nf.get_support
 
-  let get_subject_name move =
+  let get_subject_name (move, _) =
     match A_nf.get_subject_name move with Some n -> [ n ] | None -> []
 
-  let unify_move = A_nf.is_equiv_a_nf
+  let get_namectx (_, lnamectx) = lnamectx
+
+  let unify_move span (a_nf1, _) (a_nf2, _) =
+    A_nf.is_equiv_a_nf span a_nf1 a_nf2
 
   let unify_pol_move span (dir1, move1) (dir2, move2) =
     if dir1 = dir2 then unify_move span move1 move2 else None

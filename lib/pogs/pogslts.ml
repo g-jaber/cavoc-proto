@@ -12,8 +12,6 @@ module Make (Lang : Lang.Interactive.LANG) :
   type opconf = Lang.opconf
   type store = Lang.store
   type interactive_env = Lang.IEnv.t
-
-
   type active_conf = { opconf: Lang.opconf; pos: TypingLTS.position }
 
   type passive_conf = {
@@ -50,31 +48,31 @@ module Make (Lang : Lang.Interactive.LANG) :
         ( act_conf.opconf,
           TypingLTS.get_namectxO act_conf.pos,
           TypingLTS.get_storectx act_conf.pos ) in
-    let move = (TypingLTS.Moves.Output, a_nf) in
-    let pos = TypingLTS.trigger_move act_conf.pos (move, lnamectx) in
-    return ((move, lnamectx), { store; ienv; pos })
+    let move = (TypingLTS.Moves.Output, (a_nf, lnamectx)) in
+    let pos = TypingLTS.trigger_move act_conf.pos move in
+    return (move, { store; ienv; pos })
 
-  let o_trans pas_conf (((_, move) as input_move), lnamectx) =
-    match TypingLTS.check_move pas_conf.pos (input_move, lnamectx) with
+  let o_trans pas_conf ((_, move) as input_move) =
+    match TypingLTS.check_move pas_conf.pos input_move with
     | None -> None
     | Some pos ->
         let (opconf, _) =
           Lang.concretize_a_nf pas_conf.store
             (pas_conf.ienv, TypingLTS.get_namectxO pos)
-            (move, lnamectx) in
+            move in
         Some { opconf; pos }
 
   let o_trans_gen pas_conf =
     let open OBranchingMonad in
-    let* ((((_, move) as input_move), lnamectx), pos) =
+    let* (((_, move) as input_move), pos) =
       TypingLTS.generate_moves pas_conf.pos in
     let (opconf, _) =
       Lang.concretize_a_nf pas_conf.store
         (pas_conf.ienv, TypingLTS.get_namectxO pos)
-        (move, lnamectx) in
+        move in
     (*we throw away the interactive environment γ from trigger_computation, since we
       do not have interactive environment in active configurations of POGS. *)
-    return ((input_move, lnamectx), { opconf; pos })
+    return (input_move, { opconf; pos })
 
   let init_aconf opconf namectxO =
     let pos =

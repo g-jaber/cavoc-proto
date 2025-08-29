@@ -2,12 +2,12 @@ module Make (IntLang : Lang.Interactive.LANG) :
   Lts.Typing.LTS
     with module Moves.Namectx = IntLang.Namectx
      and type store_ctx = IntLang.Storectx.t
-     and type Moves.move = IntLang.abstract_normal_form = struct
-  module Moves = Lts.Moves.Make (IntLang:Lts.Moves.A_NF)
+     and type Moves.move = IntLang.abstract_normal_form * IntLang.Namectx.t =
+struct
+  module Moves = Lts.Moves.Make ((IntLang : Lts.Moves.A_NF))
   module BranchMonad = IntLang.BranchMonad
 
   type store_ctx = IntLang.Storectx.t
-
   type status = Active | Passive
 
   type position = {
@@ -30,8 +30,8 @@ module Make (IntLang : Lang.Interactive.LANG) :
 
   let pp_position fmt pos =
     Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a |@, ΔP: %a⟩@]" IntLang.Storectx.pp
-      pos.storectx IntLang.Namectx.pp pos.namectxO
-      IntLang.Namectx.pp pos.namectxP
+      pos.storectx IntLang.Namectx.pp pos.namectxO IntLang.Namectx.pp
+      pos.namectxP
 
   let string_of_position = Format.asprintf "%a" pp_position
 
@@ -54,7 +54,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
         ^ " and "
         ^ IntLang.Namectx.to_string namectxO;
         return
-          ( ((Moves.Input, a_nf), lnamectx),
+          ( (Moves.Input, (a_nf, lnamectx)),
             { status= Active; storectx; namectxO; namectxP } )
     | { status= Active; storectx; namectxP; namectxO } ->
         let* (a_nf, lnamectx, namectxO) =
@@ -65,20 +65,20 @@ module Make (IntLang : Lang.Interactive.LANG) :
         ^ " and "
         ^ IntLang.Namectx.to_string namectxP;
         return
-          ( ((Moves.Input, a_nf), lnamectx),
+          ( (Moves.Input, (a_nf, lnamectx)),
             { status= Passive; storectx; namectxO; namectxP } )
 
-  let check_move pos ((dir, a_nf), lnamectx) =
+  let check_move pos (dir, (a_nf, lnamectx)) =
     match (dir, pos) with
     | (Moves.Output, { status= Active; storectx; namectxP; namectxO }) -> begin
-        match IntLang.type_check_a_nf namectxO namectxP (a_nf,lnamectx) with
+        match IntLang.type_check_a_nf namectxO namectxP (a_nf, lnamectx) with
         | Some namectxO ->
             let namectxP = IntLang.Namectx.concat namectxP lnamectx in
             Some { status= Passive; storectx; namectxP; namectxO }
         | None -> None
       end
     | (Moves.Input, { status= Passive; storectx; namectxP; namectxO }) -> begin
-        match IntLang.type_check_a_nf namectxP namectxO (a_nf,lnamectx) with
+        match IntLang.type_check_a_nf namectxP namectxO (a_nf, lnamectx) with
         | Some namectxP ->
             let namectxO = IntLang.Namectx.concat namectxO lnamectx in
             Some { status= Active; storectx; namectxP; namectxO }
@@ -86,7 +86,8 @@ module Make (IntLang : Lang.Interactive.LANG) :
       end
     | _ -> None
 
-  let trigger_move pos ((dir, _), lnamectx) =
+  let trigger_move pos (dir, move) =
+    let lnamectx = Moves.get_namectx move in
     match (dir, pos) with
     | (Moves.Output, { status= Active; storectx; namectxP; namectxO }) ->
         let namectxP = IntLang.Namectx.concat lnamectx namectxP in

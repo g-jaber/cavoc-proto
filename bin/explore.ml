@@ -124,8 +124,7 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG_WITH_INIT) =
         let module TypingLTS = Ogs.Typing.Make (IntLang) in
         let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
-        let module VisLTS = Ogs.Vis_lts.Make (TypingLTS.Moves)
-        in
+        let module VisLTS = Ogs.Vis_lts.Make (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (ProdLTS) (VisLTS) in
         (module Ogs.Ogslts.Make (IntLang) (ProdLTS))
     | (false, true, false) ->
@@ -135,8 +134,7 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG_WITH_INIT) =
         (module Ogs.Ogslts.Make (IntLang) (ProdLTS))
     | (false, false, true) ->
         let module TypingLTS = Ogs.Typing.Make (IntLang) in
-        let module VisLTS = Ogs.Vis_lts.Make (TypingLTS.Moves)
-        in
+        let module VisLTS = Ogs.Vis_lts.Make (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (VisLTS) in
         (module Ogs.Ogslts.Make (IntLang) (ProdLTS))
     | (false, false, false) ->
@@ -160,8 +158,8 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG_WITH_INIT) =
       (* TODO: We should check that they are equal*)
       let module Synch_LTS = Lts.Synch_lts.Make (OGS_LTS) in
       let init_conf =
-        Synch_LTS.Active
-          (Synch_LTS.init_aconf (opconf1, opconf2) namectxO1) in
+        Synch_LTS.Active (Synch_LTS.init_aconf (opconf1, opconf2) namectxO1)
+      in
       if !print_dot then
         let module Graph = Lts.Graph.Make (Synch_LTS) in
         build_graph (module Graph) init_conf

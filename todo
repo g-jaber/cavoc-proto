@@ -31,7 +31,7 @@
 - [x] Use TYPECTX interface in RefML/type_ctx.ml
 - [x] Make namectx abstract in RefML/nup.ml
 - [x] Switch to a presentation using De Bruijn indices
-- [ ] Remove the need of get_transmitted_names
+- [x] Remove the need of get_transmitted_names
 - [x] Remove the need of get_negative_type
 - [ ] Remove the need of is_callable
 - [x] Transform type_check_abstract_val
@@ -45,6 +45,8 @@
 - [ ] Manage to print De Bruijn names in move with offset
 - [x] Embed a Name module inside Namectx
 - [x] Embed a Namectx module inside Moves
+- [x] Embed a Namectx module inside IEnv
 - [ ] Embed a Renaming module inside IEnv
 - [ ] Define a monoid action for substitution
 - [ ] Remove concat map in IEnv and introduce copairing
+- [ ] Switch to a presentation with typed moves

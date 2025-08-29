@@ -26,24 +26,22 @@ module Make
 
   let generate_moves (pos, hconf) =
     let open BranchMonad in
-    let* ((move, lnamectx), pos') = TypingLTS.generate_moves pos in
+    let* (move, pos') = TypingLTS.generate_moves pos in
     match HistLts.trans_check hconf move with
     | None -> fail ()
-    | Some hconf' -> return ((move, lnamectx), (pos', hconf'))
+    | Some hconf' -> return (move, (pos', hconf'))
 
   (* check_move Γₓ m return Some Δ
      when there exists a name context Γ for the free names of m such that
       Γₓ ⊢ m ▷ Δ.
      It returns None when m is not well-typed.*)
-  let check_move (pos, hconf) (move, lnamectx) =
-    match
-      (TypingLTS.check_move pos (move, lnamectx), HistLts.trans_check hconf move)
-    with
+  let check_move (pos, hconf) move =
+    match (TypingLTS.check_move pos move, HistLts.trans_check hconf move) with
     | (None, _) | (_, None) -> None
     | (Some pos', Some hconf') -> Some (pos', hconf')
 
-  let trigger_move (pos, hconf) (move, namectx) =
-    let pos' = TypingLTS.trigger_move pos (move, namectx) in
+  let trigger_move (pos, hconf) move =
+    let pos' = TypingLTS.trigger_move pos move in
     match HistLts.trans_check hconf move with
     | None -> failwith "TODO"
     | Some hconf' -> (pos', hconf')

@@ -1,5 +1,4 @@
-module Make
-    (Moves : Lts.Moves.POLMOVES) :
+module Make (Moves : Lts.Moves.POLMOVES) :
   Lts.Hislts.HISLTS_INIT
     with type move = Moves.pol_move
      and type name = Moves.Namectx.Names.name = struct
@@ -7,7 +6,8 @@ module Make
   type view = Moves.Namectx.Names.name list
 
   let view_to_yojson nn_l =
-    `List (List.map (fun x -> `String (Moves.Namectx.Names.string_of_name x)) nn_l)
+    `List
+      (List.map (fun x -> `String (Moves.Namectx.Names.string_of_name x)) nn_l)
 
   (* the view map associate to each Opponent name the set of Proponent names
      available when it was introduced. *)
@@ -39,11 +39,12 @@ module Make
     Format.fprintf fmt "@[⟨View: %a |@, View map: %a⟩@]" pp_view v pp_view_map
       vm
 
-  type conf = Active of active_conf | Passive of passive_conf [@@deriving to_yojson]
+  type conf = Active of active_conf | Passive of passive_conf
+  [@@deriving to_yojson]
 
   let pp_conf fmt = function
-  | Active aconf -> pp_active_conf fmt aconf
-  | Passive pconf -> pp_passive_conf fmt pconf
+    | Active aconf -> pp_active_conf fmt aconf
+    | Passive pconf -> pp_passive_conf fmt pconf
 
   let string_of_conf = Format.asprintf "%a" pp_conf
 
@@ -61,30 +62,30 @@ module Make
            visibility on it."
           Moves.pp_move move
 
-
-  let trans_check conf (dir,move) = match (conf,dir) with
-  | (Active vm,Moves.Output) -> 
-    let nn = get_subject_name move in
-    let view =
-      match Util.Pmap.lookup nn vm with
-      | Some view -> Moves.get_transmitted_names move @ view
-      | None ->
-          Util.Error.failwithf
-            "Error: the name %a is not in the view map %a. Please report."
-            Moves.Namectx.Names.pp_name nn pp_view_map vm in
-    Some (Passive (view, vm))
-  | (Passive (view, vm),Moves.Input) ->
-    let nn = get_subject_name move in
-    if List.mem nn view then
-      let freshn_l = Moves.get_transmitted_names move in
-      let vm_l = List.map (fun nn -> (nn, view)) freshn_l in
-      let vm' = Util.Pmap.list_to_pmap vm_l in
-      Some (Active (Util.Pmap.concat vm vm'))
-    else None
+  let trans_check conf (dir, move) =
+    match (conf, dir) with
+    | (Active vm, Moves.Output) ->
+        let nn = get_subject_name move in
+        let view =
+          match Util.Pmap.lookup nn vm with
+          | Some view -> Moves.Namectx.get_names (Moves.get_namectx move) @ view
+          | None ->
+              Util.Error.failwithf
+                "Error: the name %a is not in the view map %a. Please report."
+                Moves.Namectx.Names.pp_name nn pp_view_map vm in
+        Some (Passive (view, vm))
+    | (Passive (view, vm), Moves.Input) ->
+        let nn = get_subject_name move in
+        if List.mem nn view then
+          let freshn_l = Moves.Namectx.get_names (Moves.get_namectx move) in
+          let vm_l = List.map (fun nn -> (nn, view)) freshn_l in
+          let vm' = Util.Pmap.list_to_pmap vm_l in
+          Some (Active (Util.Pmap.concat vm vm'))
+        else None
     | _ -> None
 
   type name = Moves.Namectx.Names.name
 
-  let init_act_conf _ _ = Active (Util.Pmap.empty)
+  let init_act_conf _ _ = Active Util.Pmap.empty
   let init_pas_conf nameP _ = Passive (nameP, Util.Pmap.empty)
 end

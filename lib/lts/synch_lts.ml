@@ -38,9 +38,7 @@ struct
 
     let switch_direction (p, d) = (switch p, d)
     let get_subject_name (move, _) = IntLts.Moves.get_subject_name move
-
-    let get_transmitted_names (move, _) =
-      IntLts.Moves.get_transmitted_names move
+    let get_namectx (move, _) = IntLts.Moves.get_namectx move
 
     let unify_move span (move1, _) (move2, _) =
       IntLts.Moves.unify_move span move1 move2
@@ -48,7 +46,6 @@ struct
     let unify_pol_move span (dir1, move1) (dir2, move2) =
       if dir1 = dir2 then unify_move span move1 move2 else None
   end
-
 
   type active_conf =
     IntLts.active_conf
@@ -98,9 +95,8 @@ struct
 
   let p_trans (act_conf1, act_conf2, span) =
     let open EvalMonad in
-    let* ((move1, namectx1), pas_conf1) = IntLts.p_trans act_conf1 in
-    let* ((move2, _namectx2), pas_conf2) = IntLts.p_trans act_conf2 in
-    (*we should check that namecxt1 and namectx2 are equal *)
+    let* (move1, pas_conf1) = IntLts.p_trans act_conf1 in
+    let* (move2, pas_conf2) = IntLts.p_trans act_conf2 in
     match IntLts.Moves.unify_pol_move span move1 move2 with
     | None ->
         Util.Debug.print_debug @@ "Cannot synchronize output moves "
@@ -110,35 +106,35 @@ struct
         EvalMonad.fail ()
     | Some span' ->
         let move = fold_moves move1 move2 in
-        return ((move, namectx1), (pas_conf1, pas_conf2, span'))
+        return (move, (pas_conf1, pas_conf2, span'))
 
-  let o_trans (pas_conf1, pas_conf2, span) (in_move, namectx) =
+  let o_trans (pas_conf1, pas_conf2, span) in_move =
     let (in_move1, in_move2) = unfold_move in_move in
-    let pas_conf_opt1 = IntLts.o_trans pas_conf1 (in_move1, namectx) in
-    let pas_conf_opt2 = IntLts.o_trans pas_conf2 (in_move2, namectx) in
+    let pas_conf_opt1 = IntLts.o_trans pas_conf1 in_move1 in
+    let pas_conf_opt2 = IntLts.o_trans pas_conf2 in_move2 in
     match (pas_conf_opt1, pas_conf_opt2) with
     | (None, _) | (_, None) -> None
     | (Some act_conf1, Some act_conf2) -> Some (act_conf1, act_conf2, span)
 
   let o_trans_gen (pas_conf1, pas_conf2, span) =
     let open OBranchingMonad in
-    let* ((move1, namectx1), act_conf1) = IntLts.o_trans_gen pas_conf1 in
-    let* ((move2, _namectx2), act_conf2) = IntLts.o_trans_gen pas_conf2 in
+    let* (move1, act_conf1) = IntLts.o_trans_gen pas_conf1 in
+    let* (move2, act_conf2) = IntLts.o_trans_gen pas_conf2 in
     match IntLts.Moves.unify_pol_move span move1 move2 with
     | None -> fail ()
     | Some span' ->
         let move = fold_moves move1 move2 in
-        return ((move, namectx1), (act_conf1, act_conf2, span'))
+        return (move, (act_conf1, act_conf2, span'))
 
   let init_aconf (opconf1, opconf2) namectxP =
     let init_aconf1 = IntLts.init_aconf opconf1 namectxP in
     let init_aconf2 = IntLts.init_aconf opconf2 namectxP in
     let name_l = IntLts.Moves.Namectx.get_names namectxP in
-    let span = Util.Namespan.combine (name_l, name_l) in (* Not needed*)
+    let span = Util.Namespan.combine (name_l, name_l) in
+    (* Not needed*)
     (init_aconf1, init_aconf2, span)
 
-  let init_pconf (store1, store2) (ienv1, ienv2) namectxP
-      namectxO =
+  let init_pconf (store1, store2) (ienv1, ienv2) namectxP namectxO =
     let init_pconf1 = IntLts.init_pconf store1 ienv1 namectxP namectxO in
     let init_pconf2 = IntLts.init_pconf store2 ienv2 namectxP namectxO in
     let name_l = IntLts.Moves.Namectx.get_names namectxP in

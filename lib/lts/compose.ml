@@ -37,10 +37,10 @@ functor
       | None ->
           Util.Debug.print_debug "Stopping composition";
           return ()
-      | Some ((output_move,namectx), pas_conf') ->
+      | Some (output_move, pas_conf') ->
           let input_move = IntLTS.Moves.switch_direction output_move in
           begin
-            match IntLTS.o_trans pas_conf (input_move,namectx) with
+            match IntLTS.o_trans pas_conf input_move with
             | None ->
                 Util.Debug.print_debug
                   ("Input move forbidden: "
@@ -90,9 +90,10 @@ functor
       | None ->
           Util.Debug.print_debug "Stopping composition";
           return ()
-      | Some ((output_move,_), pas_conf') ->
-          let* ((input_move,_), act_conf') =
-            para_list (IntLTS.OBranchingMonad.run (IntLTS.o_trans_gen pas_conf)) in
+      | Some (output_move, pas_conf') ->
+          let* (input_move, act_conf') =
+            para_list (IntLTS.OBranchingMonad.run (IntLTS.o_trans_gen pas_conf))
+          in
           let (moveP, moveO, confP', confO') =
             begin
               match act_player with
@@ -113,14 +114,13 @@ functor
             ^ " and "
             ^ IntLTS.Moves.string_of_pol_move moveO);
           let moveO' = IntLTS.Moves.switch_direction moveO in
-          let nspan_option =
-            IntLTS.Moves.unify_pol_move nspan moveP moveO' in
+          let nspan_option = IntLTS.Moves.unify_pol_move nspan moveP moveO' in
           begin
             match nspan_option with
             | None ->
                 let span_string =
-                  Util.Namespan.string_of_span IntLTS.Moves.Namectx.Names.string_of_name
-                    nspan in
+                  Util.Namespan.string_of_span
+                    IntLTS.Moves.Namectx.Names.string_of_name nspan in
                 Util.Debug.print_debug
                   ("Composing failed in namespan " ^ span_string);
                 return ()

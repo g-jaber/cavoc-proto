@@ -1,5 +1,4 @@
-module Make
-    (Moves : Lts.Moves.POLMOVES) :
+module Make (Moves : Lts.Moves.POLMOVES) :
   Lts.Hislts.HISLTS_INIT
     with type move = Moves.pol_move
      and type name = Moves.Namectx.Names.name = struct
@@ -10,14 +9,18 @@ module Make
   type conf = status * Moves.Namectx.Names.name list
 
   let conf_to_yojson (_, cstack) =
-    `List (List.map (fun x -> `String (Moves.Namectx.Names.string_of_name x)) cstack)
+    `List
+      (List.map
+         (fun x -> `String (Moves.Namectx.Names.string_of_name x))
+         cstack)
 
   let pp_conf fmt (_, stack) =
     match stack with
     | [] -> Format.fprintf fmt "Stack: ⋅"
     | cstack ->
         let pp_sep fmt () = Format.fprintf fmt "::" in
-        let pp_stack = Format.pp_print_list ~pp_sep Moves.Namectx.Names.pp_name in
+        let pp_stack =
+          Format.pp_print_list ~pp_sep Moves.Namectx.Names.pp_name in
         Format.fprintf fmt "Stack: %a" pp_stack cstack
 
   let string_of_conf = Format.asprintf "%a" pp_conf
@@ -25,12 +28,13 @@ module Make
   let trans_check (status, cstack) (dir, move) =
     match (status, dir) with
     | (Active, Moves.Output) ->
-        let support = Moves.get_transmitted_names move in
+        let support = Moves.Namectx.get_names (Moves.get_namectx move) in
         let cstack' = List.filter Moves.Namectx.Names.is_cname support in
         Some (Passive, cstack' @ cstack)
     | (Passive, Moves.Input) ->
         let subject_names = Moves.get_subject_name move in
-        let subject_cnames = List.filter Moves.Namectx.Names.is_cname subject_names in
+        let subject_cnames =
+          List.filter Moves.Namectx.Names.is_cname subject_names in
         begin
           match (subject_cnames, cstack) with
           | ([ cn ], cn' :: cstack') when cn = cn' ->

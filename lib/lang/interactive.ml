@@ -128,7 +128,11 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
   let infer_type_store = OpLang.Store.infer_type_store
 
   type abstract_normal_form =
-    (OpLang.AVal.abstract_val, unit, Namectx.Names.name, Namectx.Names.name) OpLang.Nf.nf_term
+    ( OpLang.AVal.abstract_val,
+      unit,
+      Namectx.Names.name,
+      Namectx.Names.name )
+    OpLang.Nf.nf_term
     * Store.store
 
   let concretize_a_nf store (ienv, namectxO) ((a_nf_term, store'), lnamectx) =

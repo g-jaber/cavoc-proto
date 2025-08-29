@@ -20,13 +20,12 @@ module type LTS = sig
       there exists a name context Δ for the free names of m such that
       Γₓ ⊢ m ▷ Δ  and Γₓ' = Γₓ + Δ.
      It uses the branching monad from BranchMonad to do so. *)
-  val generate_moves :
-    position -> ((Moves.pol_move * Moves.Namectx.t) * position) BranchMonad.m
+  val generate_moves : position -> (Moves.pol_move * position) BranchMonad.m
 
   (* check_move Γₓ m return Some Δ
      when there exists a name context Γ for the free names of m such that
       Γₓ ⊢ m ▷ Δ.
      It returns None when m is not well-typed.*)
-  val check_move : position -> Moves.pol_move * Moves.Namectx.t -> position option
-  val trigger_move : position -> Moves.pol_move * Moves.Namectx.t -> position
+  val check_move : position -> Moves.pol_move -> position option
+  val trigger_move : position -> Moves.pol_move -> position
 end

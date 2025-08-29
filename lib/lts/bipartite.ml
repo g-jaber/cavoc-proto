@@ -15,10 +15,11 @@ module type LTS = sig
   val pp_active_conf : Format.formatter -> active_conf -> unit
   val pp_passive_conf : Format.formatter -> passive_conf -> unit
   val equiv_act_conf : active_conf -> active_conf -> bool
+  val p_trans : active_conf -> (Moves.pol_move * passive_conf) EvalMonad.m
+  val o_trans : passive_conf -> Moves.pol_move -> active_conf option
 
-  val p_trans : active_conf -> ((Moves.pol_move*Moves.Namectx.t) * passive_conf) EvalMonad.m
-  val o_trans : passive_conf -> (Moves.pol_move*Moves.Namectx.t) -> active_conf option
-  val o_trans_gen : passive_conf -> ((Moves.pol_move*Moves.Namectx.t) * active_conf) OBranchingMonad.m
+  val o_trans_gen :
+    passive_conf -> (Moves.pol_move * active_conf) OBranchingMonad.m
 end
 
 module type INT_LTS = sig
@@ -26,13 +27,13 @@ module type INT_LTS = sig
   type opconf
   type store
   type interactive_env
+
   (* *)
   include LTS
 
   (* init_aconf creates an configuration from an operational configuration and a name context for Opponent. 
      Its interactive env, and name context for Proponent are all set to empty*)
-  val init_aconf :
-    opconf -> Moves.Namectx.t -> active_conf
+  val init_aconf : opconf -> Moves.Namectx.t -> active_conf
 
   (* init_pconf creates a passive configuration from a store, an interactive env, 
      a name context for Proponent and a name context for Opponent. *)

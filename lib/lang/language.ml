@@ -65,9 +65,7 @@ module type COMP = sig
   val filter_negative_val : value -> negative_val option
 
   module IEnv :
-    Ienv.IENV
-      with module Namectx = Namectx
-       and type value = negative_val
+    Ienv.IENV with module Namectx = Namectx and type value = negative_val
 
   type opconf = term * Store.store
 

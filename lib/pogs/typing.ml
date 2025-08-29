@@ -2,12 +2,12 @@ module Make (IntLang : Lang.Interactive.LANG) :
   Lts.Typing.LTS
     with module Moves.Namectx = IntLang.Namectx
      and type store_ctx = IntLang.Storectx.t
-     and type Moves.move = IntLang.abstract_normal_form = struct
+     and type Moves.move = IntLang.abstract_normal_form * IntLang.Namectx.t =
+struct
   module Moves = Lts.Moves.Make (IntLang)
   module BranchMonad = IntLang.BranchMonad
 
   type store_ctx = IntLang.Storectx.t
-
 
   type act_position = {
     storectx: IntLang.Storectx.t;
@@ -75,15 +75,15 @@ module Make (IntLang : Lang.Interactive.LANG) :
     | Passive { storectx; namectxP; namectxO } ->
         let* (a_nf, lnamectx, _) = IntLang.generate_a_nf storectx namectxP in
         let namectxO = IntLang.Namectx.concat lnamectx namectxO in
-        return (((Moves.Input, a_nf), lnamectx), Active { storectx; namectxO })
+        return ((Moves.Input, (a_nf, lnamectx)), Active { storectx; namectxO })
     | Active { storectx; namectxO } ->
         let* (a_nf, namectxP, namectxO) =
           IntLang.generate_a_nf storectx namectxO in
         return
-          ( ((Moves.Output, a_nf), namectxP),
+          ( (Moves.Output, (a_nf, namectxP)),
             Passive { storectx; namectxP; namectxO } )
 
-  let check_move pos ((dir, a_nf), lnamectx) =
+  let check_move pos (dir, (a_nf, lnamectx)) =
     match (dir, pos) with
     | (Moves.Output, Active { storectx; namectxO }) -> begin
         match
@@ -103,7 +103,8 @@ module Make (IntLang : Lang.Interactive.LANG) :
       end
     | _ -> None
 
-  let trigger_move pos ((dir, _), lnamectx) =
+  let trigger_move pos (dir, move) =
+    let lnamectx = Moves.get_namectx move in
     match (dir, pos) with
     | (Moves.Output, Active { storectx; namectxO }) ->
         Passive { namectxP= lnamectx; storectx; namectxO }

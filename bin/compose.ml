@@ -54,12 +54,11 @@ let () =
   let init_aconf =
     OGS_LTS.Active
       (* The following concatenation should be reworked *)
-      (OGS_LTS.init_aconf opconf
-         (IntLang.Namectx.concat namectxO namectxO')) in
+      (OGS_LTS.init_aconf opconf (IntLang.Namectx.concat namectxO namectxO'))
+  in
   let init_pconf =
     OGS_LTS.Passive
-      (OGS_LTS.init_pconf store ienv namectxO' IntLang.Namectx.empty)
-  in
+      (OGS_LTS.init_pconf store ienv namectxO' IntLang.Namectx.empty) in
   let module Composed_LTS = Lts.Compose.Make (OGS_LTS) in
   let traces = Composed_LTS.get_traces_check init_aconf init_pconf in
   Util.Debug.print_debug "Getting the trace";
