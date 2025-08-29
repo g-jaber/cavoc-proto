@@ -34,14 +34,17 @@ module type TYPECTX_PMAP = sig
        and type t = (n, typ) Util.Pmap.pmap
 end
 
-module type TYPECTX_LIST = sig
+module type TYPECTX_LIST = sig   include
+    TYPECTX
+      with type Names.name = int * string
+      (*
   type typ
 
   include
     TYPECTX
       with type Names.name = int * string
        and type typ := typ
-       and type t = typ list
+       and type t = typ list*)
 end
 
 module Make_PMAP

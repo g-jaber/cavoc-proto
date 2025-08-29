@@ -1,27 +1,30 @@
 module IEnvF =
   Lang.Ienv.Make_List
-    (Namectx.FNamectx)
-    (*Names.FNames*)
+    (Renaming.FRenaming)
     (struct
       type t = Syntax.negative_val [@@deriving to_yojson]
+
+      let embed_name nn =
+        Syntax.force_negative_val (Syntax.Name (Names.embed_fname nn))
 
       let pp = Syntax.pp_negative_val
     end)
 
 module IEnvP =
   Lang.Ienv.Make_List
-    (Namectx.PNamectx)
-    (*Names.PNames*)
+    (Renaming.PRenaming)
     (struct
       type t = Syntax.negative_val [@@deriving to_yojson]
+
+      let embed_name nn =
+        Syntax.force_negative_val (Syntax.Name (Names.embed_pname nn))
 
       let pp = Syntax.pp_negative_val
     end)
 
 module IEnv =
-  Lang.Ienv.AggregateCommon (IEnvF) (IEnvP) (Namectx.Namectx)
+  Lang.Ienv.AggregateCommon (IEnvF) (IEnvP) (Renaming.Renaming)
     (struct
-
       let embed1 fn = Names.embed_fname fn
       let embed2 pn = Names.embed_pname pn
 

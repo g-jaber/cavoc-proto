@@ -148,9 +148,13 @@ struct
      and a stack of evaluation contexts. *)
 
   module IEnv = struct
-    module Namectx = OpLang.Namectx
+    module Renaming = OpLang.Renaming
 
+    
     type value = OpLang.negative_val
+
+    let embed_name = OpLang.IEnv.embed_name
+
     type t = OpLang.IEnv.t * OpLang.eval_context list
 
     let to_yojson (ienv, ectx_l) =

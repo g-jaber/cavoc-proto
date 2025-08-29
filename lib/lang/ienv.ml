@@ -1,44 +1,64 @@
 module type IENV = sig
-  module Namectx : Typectx.TYPECTX
+  module Renaming : Renaming.RENAMING
 
   type value
+
+  val embed_name : Renaming.Namectx.Names.name -> value
+
   type t [@@deriving to_yojson]
 
   val to_string : t -> string
   val pp : Format.formatter -> t -> unit
   val empty : t
-  val dom : t -> Namectx.t
-  val im : t -> Namectx.t
+  val dom : t -> Renaming.Namectx.t
+  val im : t -> Renaming.Namectx.t
 
   (* Taking γ₁ : Γ₁ → Δ and γ₂ : Γ₂ → Δ, pairing γ₁ γ₂ : (Γ₁ + Γ₂) → Δ  *)
   val copairing : t -> t -> t
 
   (* Taking γ : Γ → Δ and Θ, then weaken γ Θ : Γ → Δ + Θ *)
   (*val weaken : t -> Namectx.t -> t*)
-  val lookup_exn : t -> Namectx.Names.name -> value
-  val add_fresh : t -> string -> Namectx.typ -> value -> Namectx.Names.name * t
+  val lookup_exn : t -> Renaming.Namectx.Names.name -> value
+
+  val add_fresh :
+    t ->
+    string ->
+    Renaming.Namectx.typ ->
+    value ->
+    Renaming.Namectx.Names.name * t
+
   val map : (value -> value) -> t -> t
-  val fold : ('a -> Namectx.Names.name * value -> 'a) -> 'a -> t -> 'a
+  val fold : ('a -> Renaming.Namectx.Names.name * value -> 'a) -> 'a -> t -> 'a
 end
 
 module Make_PMAP
-    (Namectx : Typectx.TYPECTX)
+    (Renaming : Renaming.RENAMING)
     (Value : sig
       type t [@@deriving to_yojson]
 
+      val embed_name : Renaming.Namectx.Names.name -> t
       val pp : Format.formatter -> t -> unit
-    end) : IENV with module Namectx = Namectx and type value = Value.t = struct
-  module Namectx = Namectx
+    end) : IENV with module Renaming = Renaming and type value = Value.t =
+struct
+  module Renaming = Renaming
 
   type value = Value.t
 
+  let embed_name = Value.embed_name
+
   type t = {
-    map: (Namectx.Names.name, Value.t) Util.Pmap.pmap;
-    dom: Namectx.t;
-    im: Namectx.t;
+    map: (Renaming.Namectx.Names.name, Value.t) Util.Pmap.pmap;
+    dom: Renaming.Namectx.t;
+    im: Renaming.Namectx.t;
   }
 
-  let empty = { map= Util.Pmap.empty; dom= Namectx.empty; im= Namectx.empty }
+  let empty =
+    {
+      map= Util.Pmap.empty;
+      dom= Renaming.Namectx.empty;
+      im= Renaming.Namectx.empty;
+    }
+
   let dom ienv = ienv.dom
   let im ienv = ienv.im
 
@@ -46,7 +66,7 @@ module Make_PMAP
     assert (ienv1.im = ienv2.im);
     {
       map= Util.Pmap.concat ienv1.map ienv2.map;
-      dom= Namectx.concat ienv1.dom ienv2.dom;
+      dom= Renaming.Namectx.concat ienv1.dom ienv2.dom;
       im= ienv1.im;
     }
 
@@ -54,21 +74,22 @@ module Make_PMAP
     let pp_sep fmt () = Format.fprintf fmt ", " in
     let pp_empty fmt () = Format.fprintf fmt "⋅" in
     let pp_pair fmt (n, value) =
-      Format.fprintf fmt "%a ↦ %a" Namectx.Names.pp_name n Value.pp value in
+      Format.fprintf fmt "%a ↦ %a" Renaming.Namectx.Names.pp_name n Value.pp
+        value in
     Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt ienv.map
 
   let to_string = Format.asprintf "%a" pp
 
   let to_yojson ienv =
     let to_string (nn, value) =
-      (Namectx.Names.string_of_name nn, Value.to_yojson value) in
+      (Renaming.Namectx.Names.string_of_name nn, Value.to_yojson value) in
     `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string ienv.map)
 
   let lookup_exn ienv nn = Util.Pmap.lookup_exn nn ienv.map
 
   (* We do not check that nn is indeed the last name in the next function.*)
   let add_fresh ienv str ty value =
-    let (nn, dom) = Namectx.add_fresh ienv.dom str ty in
+    let (nn, dom) = Renaming.Namectx.add_fresh ienv.dom str ty in
     let map = Util.Pmap.add (nn, value) ienv.map in
     (nn, { ienv with dom; map })
 
@@ -80,18 +101,29 @@ module Make_PMAP
 end
 
 module Make_List
-    (Namectx : Typectx.TYPECTX_LIST)
+    (Renaming : Renaming.RENAMING_LIST)
     (Values : sig
       type t [@@deriving to_yojson]
 
+      val embed_name : Renaming.Namectx.Names.name -> t
       val pp : Format.formatter -> t -> unit
-    end) : IENV with module Namectx = Namectx and type value = Values.t = struct
-  module Namectx = Namectx
+    end) : IENV with module Renaming = Renaming and type value = Values.t =
+struct
+  module Renaming = Renaming
 
   type value = Values.t
-  type t = { map: Values.t list; dom: Namectx.t; im: Namectx.t }
 
-  let empty = { map= []; dom= Namectx.empty; im= Namectx.empty }
+  let embed_name = Values.embed_name
+
+  type t = {
+    map: Values.t list;
+    dom: Renaming.Namectx.t;
+    im: Renaming.Namectx.t;
+  }
+
+  let empty =
+    { map= []; dom= Renaming.Namectx.empty; im= Renaming.Namectx.empty }
+
   let dom ienv = ienv.dom
   let im ienv = ienv.im
 
@@ -99,7 +131,7 @@ module Make_List
     assert (ienv1.im = ienv2.im);
     {
       map= List.append ienv1.map ienv2.map;
-      dom= Namectx.concat ienv1.dom ienv2.dom;
+      dom= Renaming.Namectx.concat ienv1.dom ienv2.dom;
       im= ienv1.im;
     }
 
@@ -119,7 +151,7 @@ module Make_List
   let lookup_exn ienv (i, _) = List.nth ienv.map i
 
   let add_fresh ienv str ty value =
-    let (nn, dom) = Namectx.add_fresh ienv.dom str ty in
+    let (nn, dom) = Renaming.Namectx.add_fresh ienv.dom str ty in
     let map = ienv.map @ [ value ] in
     (nn, { ienv with map; dom })
 
@@ -127,26 +159,36 @@ module Make_List
     let map = List.map f ienv.map in
     { ienv with map }
 
-  let fold (f : 'a -> Namectx.Names.name * value -> 'a) (v : 'a) (ienv : t) =
+  let fold (f : 'a -> Renaming.Namectx.Names.name * value -> 'a) (v : 'a)
+      (ienv : t) =
     List.fold_left f v (List.mapi (fun i ty -> ((i, ""), ty)) ienv.map)
 end
 
 module Aggregate
     (IEnv1 : IENV)
     (IEnv2 : IENV)
-    (Namectx :
-      Typectx.TYPECTX
-        with type Names.name =
-          (IEnv1.Namectx.Names.name, IEnv2.Namectx.Names.name) Either.t
-         and type typ = (IEnv1.Namectx.typ, IEnv2.Namectx.typ) Either.t
-         and type t = IEnv1.Namectx.t * IEnv2.Namectx.t) :
+    (Renaming :
+      Renaming.RENAMING
+        with type Namectx.Names.name =
+          ( IEnv1.Renaming.Namectx.Names.name,
+            IEnv2.Renaming.Namectx.Names.name )
+          Either.t
+         and type Namectx.typ =
+          (IEnv1.Renaming.Namectx.typ, IEnv2.Renaming.Namectx.typ) Either.t
+         and type Namectx.t =
+          IEnv1.Renaming.Namectx.t * IEnv2.Renaming.Namectx.t) :
   IENV
-    with module Namectx = Namectx
+    with module Renaming = Renaming
      and type value = (IEnv1.value, IEnv2.value) Either.t
      and type t = IEnv1.t * IEnv2.t = struct
-  module Namectx = Namectx
+  module Renaming = Renaming
 
   type value = (IEnv1.value, IEnv2.value) Either.t
+
+  let embed_name = function
+    | Either.Left nn -> Either.Left (IEnv1.embed_name nn)
+    | Either.Right nn -> Either.Right (IEnv2.embed_name nn)
+
   type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
 
   let empty = (IEnv1.empty, IEnv2.empty)
@@ -207,30 +249,50 @@ module AggregateCommon
     (IEnv1 : IENV)
     (IEnv2 :
       IENV
-        with type Namectx.typ = IEnv1.Namectx.typ
+        with type Renaming.Namectx.typ = IEnv1.Renaming.Namectx.typ
          and type value = IEnv1.value)
-    (Namectx :
-      Typectx.TYPECTX
-        with type Names.name =
-          (IEnv1.Namectx.Names.name, IEnv2.Namectx.Names.name) Either.t
-         and type typ = IEnv1.Namectx.typ
-         and type t = IEnv1.Namectx.t * IEnv2.Namectx.t)
+    (Renaming :
+      Renaming.RENAMING
+        with type Namectx.Names.name =
+          ( IEnv1.Renaming.Namectx.Names.name,
+            IEnv2.Renaming.Namectx.Names.name )
+          Either.t
+         and type Namectx.typ = IEnv1.Renaming.Namectx.typ
+         and type Namectx.t =
+          IEnv1.Renaming.Namectx.t * IEnv2.Renaming.Namectx.t)
     (EmbedNames : sig
-      val embed1 : IEnv1.Namectx.Names.name -> Namectx.Names.name
-      val embed2 : IEnv2.Namectx.Names.name -> Namectx.Names.name
-      val extract1 : Namectx.Names.name -> IEnv1.Namectx.Names.name option
-      val extract2 : Namectx.Names.name -> IEnv2.Namectx.Names.name option
+      val embed1 :
+        IEnv1.Renaming.Namectx.Names.name -> Renaming.Namectx.Names.name
+
+      val embed2 :
+        IEnv2.Renaming.Namectx.Names.name -> Renaming.Namectx.Names.name
+
+      val extract1 :
+        Renaming.Namectx.Names.name -> IEnv1.Renaming.Namectx.Names.name option
+
+      val extract2 :
+        Renaming.Namectx.Names.name -> IEnv2.Renaming.Namectx.Names.name option
     end)
     (ClassifyTyp : sig
-      val classify : IEnv1.Namectx.typ -> bool
+      val classify : IEnv1.Renaming.Namectx.typ -> bool
     end) :
   IENV
-    with module Namectx = Namectx
+    with module Renaming = Renaming
      and type value = IEnv1.value
      and type t = IEnv1.t * IEnv2.t = struct
-  module Namectx = Namectx
+  module Renaming = Renaming
 
   type value = IEnv1.value
+
+  let embed_name nn =
+    match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with
+    | (Some nn', None) -> IEnv1.embed_name nn'
+    | (None, Some nn') -> IEnv2.embed_name nn'
+    | _ ->
+        failwith
+          "Error while performing a lookup on an aggregated context. Please \
+           report."
+
   type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
 
   let empty = (IEnv1.empty, IEnv2.empty)

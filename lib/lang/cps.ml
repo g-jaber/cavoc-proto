@@ -123,15 +123,16 @@ struct
     | GPairIn _ | GPairOut _ | GPackOut _ -> None
 
   module CIEnv =
-    Ienv.Make_List (*CNames*)
-      (CNamectx)
+    Ienv.Make_List
+      (CRenaming)
       (struct
         type t = neval_context [@@deriving to_yojson]
 
+        let embed_name cn = NCtx (cn, OpLang.empty_eval_context)
         let pp = pp_neval_context
       end)
 
-  module IEnv = Ienv.Aggregate (OpLang.IEnv) (CIEnv) (Namectx)
+  module IEnv = Ienv.Aggregate (OpLang.IEnv) (CIEnv) (Renaming)
 
   let embed_value_env valenv = (valenv, CIEnv.empty)
 

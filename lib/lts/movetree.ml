@@ -35,7 +35,7 @@ module Make (Moves : Moves.NAMED_GEN_MOVES) : MOVETREE = struct
         | Some _ -> Some movetree)
 end
 
-module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
+module MakeLang (MoveTree : MOVETREE with type Moves.name = int*string) : Lang.Interactive.LANG = struct
   module Namectx = MoveTree.Moves.Namectx
   module Names = Namectx.Names
   module EvalMonad = Util.Monad.Option
@@ -84,12 +84,14 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
   let string_of_opconf : opconf -> string = failwith ""
   let pp_opconf : Format.formatter -> opconf -> unit = failwith ""
 
+  module Renaming = Lang.Renaming.Make (Namectx)
 
   module IEnv = (* We could use explicitely a renaming here *)
-    Lang.Ienv.Make_PMAP
-      (Namectx)
+    Lang.Ienv.Make_List
+      (Renaming)
       (struct
         type t = Names.name [@@deriving to_yojson]
+        let embed_name = Fun.id
 
         let pp = Names.pp_name
       end)

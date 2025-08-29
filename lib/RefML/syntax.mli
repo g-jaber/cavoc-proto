@@ -1,6 +1,6 @@
 type id = string
-type constructor = string  [@@ deriving to_yojson]
-type loc  [@@ deriving to_yojson]
+type constructor = string [@@deriving to_yojson]
+type loc [@@deriving to_yojson]
 
 val pp_id : Format.formatter -> id -> unit
 val pp_constructor : Format.formatter -> constructor -> unit
@@ -68,11 +68,11 @@ val string_of_term : term -> string
 type name_set = Names.name list
 
 val empty_name_set : name_set
+
 (* get_new_name s t collects all the names appearing in the term t, and add them to s.
 It guarantee that each new name is added only once in s, unless it was already in s in which case it is not added.*)
 val get_new_names : name_set -> term -> name_set
 val get_names : term -> name_set
-
 
 type label_set = label list
 
@@ -106,6 +106,7 @@ type eval_context [@@deriving to_yojson]
 
 val pp_eval_context : Format.formatter -> eval_context -> unit
 val string_of_eval_context : eval_context -> string
+val empty_eval_context : eval_context
 
 type negative_val [@@deriving to_yojson]
 

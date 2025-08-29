@@ -20,6 +20,10 @@ module type RENAMING = sig
   val lookup : t -> Namectx.Names.name -> Namectx.Names.name
 end
 
+module type RENAMING_LIST = sig
+  include RENAMING with type Namectx.Names.name = int * string
+end
+
 module Make (Namectx : Typectx.TYPECTX_LIST) :
   RENAMING with module Namectx = Namectx = struct
   module Namectx = Namectx
@@ -155,10 +159,10 @@ struct
 
   type t = Renam1.t * Renam2.t
 
-    let pp fmt (renam1, renam2) =
+  let pp fmt (renam1, renam2) =
     Format.fprintf fmt "[%a | %a]" Renam1.pp renam1 Renam2.pp renam2
 
-      let to_string = Format.asprintf "%a" pp
+  let to_string = Format.asprintf "%a" pp
 
   let id (namectx1, namectx2) =
     let id1 = Renam1.id namectx1 in

@@ -422,6 +422,8 @@ type eval_context = term [@@deriving to_yojson]
 let pp_eval_context = pp_term
 let string_of_eval_context = Format.asprintf "%a" pp_eval_context
 
+let empty_eval_context = Hole
+
 (* extract_ctx decomposes an expression into its redex and the surrounding evaluation context*)
 let rec extract_ctx expr =
   match expr with

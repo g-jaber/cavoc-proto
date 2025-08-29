@@ -109,7 +109,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
   module EvalMonad = OpLang.EvalMonad
   module BranchMonad = OpLang.AVal.BranchMonad
   module IEnv = OpLang.IEnv
-  module Namectx = IEnv.Namectx
+  module Namectx = IEnv.Renaming.Namectx
   module Names = Namectx.Names
   module Store = OpLang.Store
 
