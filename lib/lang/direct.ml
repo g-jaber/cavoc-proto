@@ -165,8 +165,8 @@ struct
     let dom (ienv, _) = OpLang.IEnv.dom ienv
     let im (ienv, _) = OpLang.IEnv.im ienv
 
-    let concat (fnamectx1, cstack1) (fnamectx2, cstack2) =
-      (OpLang.IEnv.concat fnamectx1 fnamectx2, cstack1 @ cstack2)
+    let copairing (fnamectx1, cstack1) (fnamectx2, cstack2) =
+      (OpLang.IEnv.copairing fnamectx1 fnamectx2, cstack1 @ cstack2)
 
     let pp_ctx_stack fmt = function
       | [] -> Format.pp_print_string fmt "⋅"

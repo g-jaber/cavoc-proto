@@ -7,7 +7,7 @@ module type IENV = sig
   val empty : t
   val dom : t -> Namectx.t
   val im : t -> Namectx.t
-  val concat : t -> t -> t
+  val copairing : t -> t -> t (* Taking γ₁ : Γ₁ → Δ and γ₂ : Γ₂ → Δ, pairing γ₁ γ₂ : (Γ₁ + Γ₂) → Δ  *)
   val to_string : t -> string
   val pp : Format.formatter -> t -> unit
   val lookup_exn : t -> Namectx.Names.name -> value
@@ -37,11 +37,12 @@ module Make_PMAP
   let dom ienv = ienv.dom
   let im ienv = ienv.im
 
-  let concat ienv1 ienv2 =
+  let copairing ienv1 ienv2 =
+    assert (ienv1.im = ienv2.im);
     {
       map= Util.Pmap.concat ienv1.map ienv2.map;
       dom= Namectx.concat ienv1.dom ienv2.dom;
-      im= Namectx.concat ienv1.im ienv2.im;
+      im= ienv1.im;
     }
 
   let pp fmt ienv =
@@ -89,11 +90,12 @@ module Make_List
   let dom ienv = ienv.dom
   let im ienv = ienv.im
 
-  let concat ienv1 ienv2 =
+  let copairing ienv1 ienv2 =
+        assert (ienv1.im = ienv2.im);
     {
       map= List.append ienv1.map ienv2.map;
       dom= Namectx.concat ienv1.dom ienv2.dom;
-      im= Namectx.concat ienv1.im ienv2.im;
+      im= ienv1.im;
     }
 
   let pp fmt ienv =
@@ -146,8 +148,8 @@ module Aggregate
   let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
   let im (ienv1, ienv2) = (IEnv1.im ienv1, IEnv2.im ienv2)
 
-  let concat (ienv11, ienv12) (ienv21, ienv22) =
-    (IEnv1.concat ienv11 ienv21, IEnv2.concat ienv12 ienv22)
+  let copairing (ienv11, ienv12) (ienv21, ienv22) =
+    (IEnv1.copairing ienv11 ienv21, IEnv2.copairing ienv12 ienv22)
 
   let pp fmt (ienv1, ienv2) =
     Format.fprintf fmt "(%a,%a)" IEnv1.pp ienv1 IEnv2.pp ienv2
@@ -230,8 +232,8 @@ module AggregateCommon
   let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
   let im (ienv1, ienv2) = (IEnv1.im ienv1, IEnv2.im ienv2)
 
-  let concat (ienv11, ienv12) (ienv21, ienv22) =
-    (IEnv1.concat ienv11 ienv21, IEnv2.concat ienv12 ienv22)
+  let copairing (ienv11, ienv12) (ienv21, ienv22) =
+    (IEnv1.copairing ienv11 ienv21, IEnv2.copairing ienv12 ienv22)
 
   let pp fmt (ienv1, ienv2) =
     Format.fprintf fmt "(%a,%a)" IEnv1.pp ienv1 IEnv2.pp ienv2

@@ -49,4 +49,4 @@
 - [ ] Embed a Renaming module inside IEnv
 - [ ] Define a monoid action for substitution
 - [ ] Remove concat map in IEnv and introduce copairing
-- [ ] Switch to a presentation with typed moves
+- [x] Switch to a presentation with typed moves
