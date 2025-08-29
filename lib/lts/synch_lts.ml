@@ -1,17 +1,3 @@
-module type INT_LTS = sig
-  (* To be instantiated *)
-  type opconf
-  type store
-  type interactive_env
-
-  (* *)
-  include Bipartite.LTS
-
-  (* init_aconf creates an configuration from two computations and a two name context for Opponent.
-     Its store, interactive env, and name context for Proponent are all set to empty*)
-  val init_aconf : opconf -> Moves.Namectx.t -> active_conf
-end
-
 module Make (IntLts : Bipartite.INT_LTS) :
   Bipartite.INT_LTS
     with type Moves.Namectx.t = IntLts.Moves.Namectx.t
