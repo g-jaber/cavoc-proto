@@ -57,19 +57,14 @@ module Make (Lang : Lang.Interactive.LANG) :
     | None -> None
     | Some pos ->
         let (opconf, _) =
-          Lang.concretize_a_nf pas_conf.store
-            (pas_conf.ienv, TypingLTS.get_namectxO pos)
-            move in
+          Lang.concretize_a_nf pas_conf.store pas_conf.ienv move in
         Some { opconf; pos }
 
   let o_trans_gen pas_conf =
     let open OBranchingMonad in
     let* (((_, move) as input_move), pos) =
       TypingLTS.generate_moves pas_conf.pos in
-    let (opconf, _) =
-      Lang.concretize_a_nf pas_conf.store
-        (pas_conf.ienv, TypingLTS.get_namectxO pos)
-        move in
+    let (opconf, _) = Lang.concretize_a_nf pas_conf.store pas_conf.ienv move in
     (*we throw away the interactive environment γ from trigger_computation, since we
       do not have interactive environment in active configurations of POGS. *)
     return (input_move, { opconf; pos })

@@ -48,5 +48,5 @@
 - [x] Embed a Namectx module inside IEnv
 - [ ] Embed a Renaming module inside IEnv
 - [ ] Define a monoid action for substitution
-- [ ] Remove concat map in IEnv and introduce copairing
+- [x] Remove concat map in IEnv and introduce copairing
 - [x] Switch to a presentation with typed moves

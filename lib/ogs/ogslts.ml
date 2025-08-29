@@ -67,22 +67,20 @@ module Make
     return (move, { store; ienv; pos })
 
   let o_trans pas_conf ((_, move) as input_move) =
-    let namectxO = TypingLTS.get_namectxO pas_conf.pos in
     match TypingLTS.check_move pas_conf.pos input_move with
     | None -> None
     | Some pos ->
         let (opconf, ienv) =
-          Lang.concretize_a_nf pas_conf.store (pas_conf.ienv, namectxO) move
+          Lang.concretize_a_nf pas_conf.store pas_conf.ienv move
         in
         Some { opconf; ienv; pos }
 
   let o_trans_gen pas_conf =
-    let namectxO = TypingLTS.get_namectxO pas_conf.pos in
     let open OBranchingMonad in
     let* (((_, move) as input_move), pos) =
       TypingLTS.generate_moves pas_conf.pos in
     let (opconf, ienv) =
-      Lang.concretize_a_nf pas_conf.store (pas_conf.ienv, namectxO) move in
+      Lang.concretize_a_nf pas_conf.store pas_conf.ienv move in
     return (input_move, { opconf; ienv; pos })
 
   let init_aconf opconf namectxO =

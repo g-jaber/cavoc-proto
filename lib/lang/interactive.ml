@@ -83,7 +83,7 @@ module type LANG = sig
 
   val concretize_a_nf :
     store ->
-    IEnv.t * Namectx.t ->
+    IEnv.t ->
     abstract_normal_form * Namectx.t ->
     opconf * IEnv.t
 end
@@ -135,8 +135,9 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     OpLang.Nf.nf_term
     * Store.store
 
-  let concretize_a_nf store (ienv, namectxO) ((a_nf_term, store'), lnamectx) =
+  let concretize_a_nf store ienv ((a_nf_term, store'), lnamectx) =
     (* We first weaken the abstract values in the abstract normal form *)
+    let namectxO = IEnv.im ienv in
     let renaming = OpLang.Renaming.weak_r lnamectx namectxO in
     Util.Debug.print_debug @@ "Renaming of domain : "
     ^ OpLang.Renaming.Namectx.to_string (OpLang.Renaming.dom renaming)
