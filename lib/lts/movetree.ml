@@ -1,5 +1,5 @@
 module type MOVETREE = sig
-  module Moves : Moves.NAMED_TYPED_MOVES
+  module Moves : Moves.NAMED_GEN_MOVES
 
   type movetree = {
     root: Moves.name;
@@ -12,7 +12,7 @@ module type MOVETREE = sig
   val update : movetree -> Moves.move * Moves.move -> movetree option
 end
 
-module Make (Moves : Moves.NAMED_TYPED_MOVES) : MOVETREE = struct
+module Make (Moves : Moves.NAMED_GEN_MOVES) : MOVETREE = struct
   module Moves = Moves
 
   type movetree = {
@@ -36,7 +36,8 @@ module Make (Moves : Moves.NAMED_TYPED_MOVES) : MOVETREE = struct
 end
 
 module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
-  module Names = MoveTree.Moves.Names
+  module Namectx = MoveTree.Moves.Namectx
+  module Names = Namectx.Names
   module EvalMonad = Util.Monad.Option
   module BranchMonad = MoveTree.Moves.BranchMonad
 
@@ -46,7 +47,15 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
   let pp_store : Format.formatter -> store -> unit = failwith ""
 
   module Storectx = struct
-    type name = unit
+    module Names = struct
+      type name = unit [@@deriving to_yojson]
+
+      let string_of_name () = ""
+      let pp_name fmt () = Format.fprintf fmt ""
+      let is_callable () = false
+      let is_cname () = false
+    end
+
     type t = unit
     type typ = unit
 
@@ -75,25 +84,20 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
   let string_of_opconf : opconf -> string = failwith ""
   let pp_opconf : Format.formatter -> opconf -> unit = failwith ""
 
-  module Namectx = MoveTree.Moves.Namectx
 
-  module IEnv =
+  module IEnv = (* We could use explicitely a renaming here *)
     Lang.Ienv.Make_PMAP
-      (MoveTree.Moves.Names)
       (Namectx)
       (struct
-        type t = MoveTree.Moves.Names.name [@@deriving to_yojson]
+        type t = Names.name [@@deriving to_yojson]
 
-        let pp = MoveTree.Moves.Names.pp_name
+        let pp = Names.pp_name
       end)
 
-  
   type abstract_normal_form = MoveTree.Moves.move
 
   let eval ((move, movetree), namectx, storectx) :
-      ((abstract_normal_form * Namectx.t * Storectx.t)
-      * IEnv.t
-      * store)
+      ((abstract_normal_form * Namectx.t * Storectx.t) * IEnv.t * store)
       EvalMonad.m =
     match MoveTree.trigger movetree move with
     | None -> EvalMonad.fail ()
@@ -134,5 +138,6 @@ module MakeLang (MoveTree : MOVETREE) : Lang.Interactive.LANG = struct
     failwith ""
   (* There's a mismatch with the signature of MoveTree.Move.check_type_move *)
 
-  let concretize_a_nf movetree (renaming,_namectxO) (move,_lnamectx) = ((move, movetree), renaming)
+  let concretize_a_nf movetree (renaming, _namectxO) (move, _lnamectx) =
+    ((move, movetree), renaming)
 end

@@ -19,9 +19,8 @@ module IEnvP =
     end)
 
 module IEnv =
-  Lang.Ienv.AggregateCommon (IEnvF) (IEnvP)
+  Lang.Ienv.AggregateCommon (IEnvF) (IEnvP) (Namectx.Namectx)
     (struct
-      type t = Names.name
 
       let embed1 fn = Names.embed_fname fn
       let embed2 pn = Names.embed_pname pn

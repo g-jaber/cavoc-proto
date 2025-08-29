@@ -1,7 +1,12 @@
 module type LANG = sig
-  module Names : Names.NAMES
   module EvalMonad : Util.Monad.RUNNABLE
   module BranchMonad : Util.Monad.BRANCH
+
+  (* Interactive environments γ are partial maps from names to interactive values*)
+  module IEnv : Ienv.IENV
+  (*Interactive name contexts are typing contexts mapping names to interactive types.*)
+
+  module Namectx : Typectx.TYPECTX (* = IEnv.Namectx *)
 
   type opconf
 
@@ -16,13 +21,6 @@ module type LANG = sig
   module Storectx : Typectx.TYPECTX
 
   val infer_type_store : store -> Storectx.t
-
-  (*Interactive name contexts are typing contexts mapping names to interactive types.*)
-
-  module Namectx : Typectx.TYPECTX with type name = Names.name
-
-  (* Interactive environments γ are partial maps from names to interactive values*)
-  module IEnv : Ienv.IENV with type name = Names.name
 
   (* The typed focusing process implemented by abstracting_nf
       decomposes a normal form into:
@@ -43,8 +41,8 @@ module type LANG = sig
       where anf{γ} = nf and Σ;Γₒ ⊢ anf ▷ Δ,Σ' and Σ;Γₒ ⊢ γ:Δ.
       We should check whether we take into account disclosure of locations currently.*)
 
-  val get_subject_name : abstract_normal_form -> Names.name option
-  val get_support : abstract_normal_form -> Names.name list
+  val get_subject_name : abstract_normal_form -> Namectx.Names.name option
+  val get_support : abstract_normal_form -> Namectx.Names.name list
 
   (* The first argument is a string inserted between
      the negative part of the normal form
@@ -58,10 +56,10 @@ module type LANG = sig
   val string_of_a_nf : string -> abstract_normal_form -> string
 
   val is_equiv_a_nf :
-    Names.name Util.Namespan.namespan ->
+    Namectx.Names.name Util.Namespan.namespan ->
     abstract_normal_form ->
     abstract_normal_form ->
-    Names.name Util.Namespan.namespan option
+    Namectx.Names.name Util.Namespan.namespan option
 
   (* From the interactive name context Γ_P,
      we generate all the possible pairs (A,Δ,Γ'_P) formed by an abstracted normal form A such that
@@ -109,8 +107,10 @@ end
    from a module OpLang of type Language.WITHAVAL_NEG *)
 module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
   module EvalMonad = OpLang.EvalMonad
-  module Names = OpLang.Names
   module BranchMonad = OpLang.AVal.BranchMonad
+  module IEnv = OpLang.IEnv
+  module Namectx = IEnv.Namectx
+  module Names = Namectx.Names
   module Store = OpLang.Store
 
   type opconf = OpLang.opconf
@@ -127,13 +127,8 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
 
   let infer_type_store = OpLang.Store.infer_type_store
 
-  module Namectx = OpLang.Namectx
-
-  (* Interactive environments γ are partial maps from names to interactive values*)
-  module IEnv = OpLang.IEnv
-
   type abstract_normal_form =
-    (OpLang.AVal.abstract_val, unit, Names.name, Names.name) OpLang.Nf.nf_term
+    (OpLang.AVal.abstract_val, unit, Namectx.Names.name, Namectx.Names.name) OpLang.Nf.nf_term
     * Store.store
 
   let concretize_a_nf store (ienv, namectxO) ((a_nf_term, store'), lnamectx) =
@@ -150,7 +145,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     Util.Debug.print_debug @@ "The weaken abstract normal form term is :"
     ^ OpLang.Nf.string_of_nf_term "" OpLang.AVal.string_of_abstract_val
         (fun () -> "")
-        Names.string_of_name Names.string_of_name a_nf_term;
+        Namectx.Names.string_of_name Namectx.Names.string_of_name a_nf_term;
     (* Then we substitute the subject name *)
     let f_val = OpLang.AVal.subst_pnames ienv in
     let f_fn nn = IEnv.lookup_exn ienv nn in
@@ -217,7 +212,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let pp_ectx fmt () = Format.pp_print_string fmt "" in
     let pp_a_nf_term =
       OpLang.Nf.pp_nf_term ~pp_dir OpLang.AVal.pp_abstract_val pp_ectx
-        OpLang.Names.pp_name OpLang.Names.pp_name in
+        OpLang.Namectx.Names.pp_name OpLang.Namectx.Names.pp_name in
     if store = Store.empty_store then pp_a_nf_term fmt a_nf_term
     else Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term Store.pp_store store
 

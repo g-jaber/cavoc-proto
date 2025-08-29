@@ -3,20 +3,16 @@ module Make
     (HistLts :
       Hislts.HISLTS_INIT
         with type move = TypingLTS.Moves.pol_move
-         and type name = TypingLTS.Moves.Names.name) :
+         and type name = TypingLTS.Moves.Namectx.Names.name) :
   Typing.LTS
     with module Moves = TypingLTS.Moves
-     and type name_ctx = TypingLTS.name_ctx
      and type store_ctx = TypingLTS.store_ctx = struct
   module Moves = TypingLTS.Moves
   module BranchMonad = TypingLTS.BranchMonad
 
-  type name_ctx = TypingLTS.name_ctx
   type store_ctx = TypingLTS.store_ctx
 
   (* *)
-
-  let domain_of_name_ctx = TypingLTS.domain_of_name_ctx
 
   type position = TypingLTS.position * HistLts.conf [@@deriving to_yojson]
 
@@ -54,15 +50,15 @@ module Make
 
   let init_act_pos storectx namectxP namectxO =
     let pos = TypingLTS.init_act_pos storectx namectxP namectxO in
-    let namesP = TypingLTS.domain_of_name_ctx namectxP in
-    let namesO = TypingLTS.domain_of_name_ctx namectxO in
+    let namesP = TypingLTS.Moves.Namectx.get_names namectxP in
+    let namesO = TypingLTS.Moves.Namectx.get_names namectxO in
     let hconf = HistLts.init_act_conf namesP namesO in
     (pos, hconf)
 
   let init_pas_pos storectx namectxP namectxO =
     let pos = TypingLTS.init_pas_pos storectx namectxP namectxO in
-    let namesP = TypingLTS.domain_of_name_ctx namectxP in
-    let namesO = TypingLTS.domain_of_name_ctx namectxO in
+    let namesP = TypingLTS.Moves.Namectx.get_names namectxP in
+    let namesO = TypingLTS.Moves.Namectx.get_names namectxO in
     let hconf = HistLts.init_pas_conf namesP namesO in
     (pos, hconf)
 end

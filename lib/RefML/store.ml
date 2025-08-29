@@ -1,5 +1,5 @@
 type store = Syntax.val_env * Heap.heap * Type_ctx.cons_ctx
-type location = Loc of Syntax.loc | Cons of Syntax.constructor
+type location = Loc of Syntax.loc | Cons of Syntax.constructor [@@deriving to_yojson]
 
 (*TODO: We should also print the other components *)
 let pp_store fmt (_, heap, _) = Heap.pp_heap fmt heap
@@ -35,7 +35,22 @@ let embed_cons_ctx cons_ctx = (Util.Pmap.empty, Util.Pmap.empty, cons_ctx)
 
 module Storectx = struct
   type t = Type_ctx.loc_ctx * Type_ctx.cons_ctx
-  type name = location
+
+  module Names = struct
+    type name = location [@@deriving to_yojson]
+
+    let pp_name fmt = function
+      | Loc l -> Syntax.pp_loc fmt l
+      | Cons c -> Syntax.pp_constructor fmt c
+
+    let string_of_name = function
+      | Loc l -> Syntax.string_of_loc l
+      | Cons c -> Syntax.string_of_constructor c
+
+    let is_callable _ = false
+    let is_cname _ = false
+  end
+
   type typ = Types.typ
 
   let pp fmt (loc_ctx, cons_ctx) =

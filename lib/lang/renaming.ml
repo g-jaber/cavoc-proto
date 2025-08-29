@@ -15,15 +15,15 @@ module type RENAMING = sig
 
   (* sym Δ Γ : Δ + Γ → Γ + Δ*)
   val sym : Namectx.t -> Namectx.t -> t
-  val lookup : t -> Namectx.name -> Namectx.name
+  val lookup : t -> Namectx.Names.name -> Namectx.Names.name
 end
 
-module Make (Namectx : Typectx.TYPECTX with type name = int * string) :
+module Make (Namectx : Typectx.TYPECTX_LIST) :
   RENAMING with module Namectx = Namectx = struct
   module Namectx = Namectx
 
   type t = {
-    map: (Namectx.name, Namectx.name) Util.Pmap.pmap;
+    map: (Namectx.Names.name, Namectx.Names.name) Util.Pmap.pmap;
     dom: Namectx.t;
     im: Namectx.t;
   }
@@ -61,15 +61,20 @@ module Make (Namectx : Typectx.TYPECTX with type name = int * string) :
       nn
 end
 
-module MakeAggregate (Namectx1 : Typectx.TYPECTX) (Namectx2 : Typectx.TYPECTX) :
+module MakeAggregate
+    (Namectx1 : Typectx.TYPECTX)
+    (Namectx2 : Typectx.TYPECTX)
+    (Names :
+      Names.NAMES
+        with type name = (Namectx1.Names.name, Namectx2.Names.name) Either.t) :
   RENAMING
-    with type Namectx.name = (Namectx1.name, Namectx2.name) Either.t
+    with module Namectx.Names = Names
      and type Namectx.t = Namectx1.t * Namectx2.t = struct
-  module Namectx = Typectx.Aggregate (Namectx1) (Namectx2)
+  module Namectx = Typectx.Aggregate (Namectx1) (Namectx2) (Names)
 
   type t = {
-    map_l: (Namectx1.name, Namectx1.name) Util.Pmap.pmap;
-    map_r: (Namectx2.name, Namectx2.name) Util.Pmap.pmap;
+    map_l: (Namectx1.Names.name, Namectx1.Names.name) Util.Pmap.pmap;
+    map_r: (Namectx2.Names.name, Namectx2.Names.name) Util.Pmap.pmap;
     dom: Namectx.t;
     im: Namectx.t;
   }
@@ -104,12 +109,17 @@ module MakeAggregate (Namectx1 : Typectx.TYPECTX) (Namectx2 : Typectx.TYPECTX) :
     with Not_found -> nn
 end
 
-module Aggregate (Renam1 : RENAMING) (Renam2 : RENAMING) :
-  RENAMING
-    with type Namectx.name = (Renam1.Namectx.name, Renam2.Namectx.name) Either.t
-     and type Namectx.t = Renam1.Namectx.t * Renam2.Namectx.t
-     and type t = Renam1.t * Renam2.t = struct
-  module Namectx = Typectx.Aggregate (Renam1.Namectx) (Renam2.Namectx)
+module Aggregate
+    (Renam1 : RENAMING)
+    (Renam2 : RENAMING)
+    (Namectx :
+      Typectx.TYPECTX
+        with type Names.name =
+          (Renam1.Namectx.Names.name, Renam2.Namectx.Names.name) Either.t
+         and type t = Renam1.Namectx.t * Renam2.Namectx.t) :
+  RENAMING with module Namectx = Namectx and type t = Renam1.t * Renam2.t =
+struct
+  module Namectx = Namectx
 
   type t = Renam1.t * Renam2.t
 

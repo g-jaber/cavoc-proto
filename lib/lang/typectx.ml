@@ -1,5 +1,6 @@
 module type TYPECTX = sig
-  type name
+  module Names : Names.NAMES
+
   type typ
   type t [@@deriving to_yojson]
 
@@ -7,16 +8,16 @@ module type TYPECTX = sig
   val concat : t -> t -> t
   val to_string : t -> string
   val pp : Format.formatter -> t -> unit
-  val get_names : t -> name list
-  val lookup_exn : t -> name -> typ
+  val get_names : t -> Names.name list
+  val lookup_exn : t -> Names.name -> typ
   val is_empty : t -> bool
-  val is_singleton : t -> name -> typ -> bool
-  val is_last : t -> name -> typ -> t option
-  val add : t -> name -> typ -> t
-  val to_pmap : t -> (name, typ) Util.Pmap.pmap
-  val singleton : typ -> name * t
-  val mem : t -> name -> bool
-  val add_fresh : t -> string -> typ -> name * t
+  val is_singleton : t -> Names.name -> typ -> bool
+  val is_last : t -> Names.name -> typ -> t option
+  val add : t -> Names.name -> typ -> t
+  val to_pmap : t -> (Names.name, typ) Util.Pmap.pmap
+  val singleton : typ -> Names.name * t
+  val mem : t -> Names.name -> bool
+  val add_fresh : t -> string -> typ -> Names.name * t
   (* The second argument is used to associate a string to the fresh variable *)
 
   val map : (typ -> typ) -> t -> t
@@ -28,7 +29,7 @@ module type TYPECTX_PMAP = sig
 
   include
     TYPECTX
-      with type name = n
+      with type Names.name = n
        and type typ := typ
        and type t = (n, typ) Util.Pmap.pmap
 end
@@ -38,7 +39,7 @@ module type TYPECTX_LIST = sig
 
   include
     TYPECTX
-      with type name = int * string
+      with type Names.name = int * string
        and type typ := typ
        and type t = typ list
 end
@@ -49,13 +50,11 @@ module Make_PMAP
       type t [@@deriving to_yojson]
 
       val pp : Format.formatter -> t -> unit
-    end) :
-  TYPECTX
-    with type name = Names.name
-     and type typ = Types.t = struct
-  type name = Names.name
+    end) : TYPECTX with module Names = Names and type typ = Types.t = struct
+  module Names = Names
+
   type typ = Types.t
-  type t = (name, Types.t) Util.Pmap.pmap
+  type t = (Names.name, Types.t) Util.Pmap.pmap
 
   let empty = Util.Pmap.empty
   let concat = Util.Pmap.concat
@@ -105,16 +104,19 @@ module Make_PMAP
   let map = Util.Pmap.map_im
 end
 
-module Make_List (Types : sig
-  type t [@@deriving to_yojson]
+module Make_List
+    (Names : Names.NAMES_INT)
+    (Types : sig
+      type t [@@deriving to_yojson]
 
-  val pp : Format.formatter -> t -> unit
-end) :
+      val pp : Format.formatter -> t -> unit
+    end) :
   TYPECTX
-    with type name = int * string
+    with module Names = Names
      and type typ = Types.t
      and type t = Types.t list = struct
-  type name = int * string
+  module Names = Names
+
   type typ = Types.t
   type t = Types.t list
 
@@ -163,14 +165,20 @@ end) :
   let map = List.map
 end
 
-module Aggregate (Namectx1 : TYPECTX) (Namectx2 : TYPECTX) :
+module Aggregate
+    (Namectx1 : TYPECTX)
+    (Namectx2 : TYPECTX)
+    (Names :
+      Names.NAMES
+        with type name = (Namectx1.Names.name, Namectx2.Names.name) Either.t) :
   TYPECTX
-    with type name = (Namectx1.name, Namectx2.name) Either.t
+    with module Names = Names
      and type typ = (Namectx1.typ, Namectx2.typ) Either.t
      and type t = Namectx1.t * Namectx2.t = struct
-  type t = Namectx1.t * Namectx2.t [@@deriving to_yojson]
-  type name = (Namectx1.name, Namectx2.name) Either.t
+  module Names = Names
+
   type typ = (Namectx1.typ, Namectx2.typ) Either.t
+  type t = Namectx1.t * Namectx2.t [@@deriving to_yojson]
 
   let empty = (Namectx1.empty, Namectx2.empty)
 
@@ -289,24 +297,24 @@ end
 module AggregateCommon
     (Namectx1 : TYPECTX)
     (Namectx2 : TYPECTX with type typ = Namectx1.typ)
+    (Names : Names.NAMES)
     (EmbedNames : sig
-      type t
-
-      val embed1 : Namectx1.name -> t
-      val embed2 : Namectx2.name -> t
-      val extract1 : t -> Namectx1.name option
-      val extract2 : t -> Namectx2.name option
+      val embed1 : Namectx1.Names.name -> Names.name
+      val embed2 : Namectx2.Names.name -> Names.name
+      val extract1 : Names.name -> Namectx1.Names.name option
+      val extract2 : Names.name -> Namectx2.Names.name option
     end)
     (ClassifyTyp : sig
       val classify : Namectx1.typ -> bool
     end) :
   TYPECTX
-    with type name = EmbedNames.t
+    with module Names = Names
      and type typ = Namectx1.typ
      and type t = Namectx1.t * Namectx2.t = struct
-  type t = Namectx1.t * Namectx2.t [@@deriving to_yojson]
-  type name = EmbedNames.t
+  module Names = Names
+
   type typ = Namectx1.typ
+  type t = Namectx1.t * Namectx2.t [@@deriving to_yojson]
 
   let empty = (Namectx1.empty, Namectx2.empty)
 

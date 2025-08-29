@@ -115,27 +115,27 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
 let build_ogs_lts (module IntLang : Lang.Interactive.LANG_WITH_INIT) =
   let (module OGS_LTS : Lts.Bipartite.INT_LTS
         with type opconf = IntLang.opconf
-         and type name_ctx = IntLang.Namectx.t
+         and type Moves.Namectx.t = IntLang.Namectx.t
          and type store = IntLang.store
          and type interactive_env = IntLang.IEnv.t) =
     match (!generate_tree, !enable_wb, !enable_visibility) with
     | (true, _, _) -> (module Pogs.Pogslts.Make (IntLang))
     | (false, true, true) ->
         let module TypingLTS = Ogs.Typing.Make (IntLang) in
-        let module WBLTS = Ogs.Wblts.Make (IntLang.Names) (TypingLTS.Moves) in
+        let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
-        let module VisLTS = Ogs.Vis_lts.Make (IntLang.Names) (TypingLTS.Moves)
+        let module VisLTS = Ogs.Vis_lts.Make (TypingLTS.Moves)
         in
         let module ProdLTS = Lts.Product_lts.Make (ProdLTS) (VisLTS) in
         (module Ogs.Ogslts.Make (IntLang) (ProdLTS))
     | (false, true, false) ->
         let module TypingLTS = Ogs.Typing.Make (IntLang) in
-        let module WBLTS = Ogs.Wblts.Make (IntLang.Names) (TypingLTS.Moves) in
+        let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
         (module Ogs.Ogslts.Make (IntLang) (ProdLTS))
     | (false, false, true) ->
         let module TypingLTS = Ogs.Typing.Make (IntLang) in
-        let module VisLTS = Ogs.Vis_lts.Make (IntLang.Names) (TypingLTS.Moves)
+        let module VisLTS = Ogs.Vis_lts.Make (TypingLTS.Moves)
         in
         let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (VisLTS) in
         (module Ogs.Ogslts.Make (IntLang) (ProdLTS))
@@ -157,10 +157,11 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG_WITH_INIT) =
         ^ IntLang.Namectx.to_string namectxO1
         ^ " and "
         ^ IntLang.Namectx.to_string namectxO2);
+      (* TODO: We should check that they are equal*)
       let module Synch_LTS = Lts.Synch_lts.Make (OGS_LTS) in
       let init_conf =
         Synch_LTS.Active
-          (Synch_LTS.init_aconf (opconf1, opconf2) (namectxO1, namectxO2)) in
+          (Synch_LTS.init_aconf (opconf1, opconf2) namectxO1) in
       if !print_dot then
         let module Graph = Lts.Graph.Make (Synch_LTS) in
         build_graph (module Graph) init_conf

@@ -119,7 +119,7 @@ functor
             match nspan_option with
             | None ->
                 let span_string =
-                  Util.Namespan.string_of_span IntLTS.Moves.Names.string_of_name
+                  Util.Namespan.string_of_span IntLTS.Moves.Namectx.Names.string_of_name
                     nspan in
                 Util.Debug.print_debug
                   ("Composing failed in namespan " ^ span_string);

@@ -1,40 +1,37 @@
 module type IENV = sig
-  type name
-  type typ
-  type namectx
+  module Namectx : Typectx.TYPECTX
+
   type value
   type t [@@deriving to_yojson]
 
   val empty : t
-  val dom : t -> namectx
-  val im : t -> namectx
+  val dom : t -> Namectx.t
+  val im : t -> Namectx.t
   val concat : t -> t -> t
   val to_string : t -> string
   val pp : Format.formatter -> t -> unit
-  val lookup_exn : t -> name -> value
-  val add_fresh : t -> string -> typ -> value -> name * t
+  val lookup_exn : t -> Namectx.Names.name -> value
+  val add_fresh : t -> string -> Namectx.typ -> value -> Namectx.Names.name * t
   val map : (value -> value) -> t -> t
-  val fold : ('a -> name * value -> 'a) -> 'a -> t -> 'a
+  val fold : ('a -> Namectx.Names.name * value -> 'a) -> 'a -> t -> 'a
 end
 
 module Make_PMAP
-    (Names : Names.NAMES)
-    (Namectx : Typectx.TYPECTX with type name = Names.name)
+    (Namectx : Typectx.TYPECTX)
     (Value : sig
       type t [@@deriving to_yojson]
 
       val pp : Format.formatter -> t -> unit
-    end) :
-  IENV
-    with type name = Namectx.name
-     and type typ = Namectx.typ
-     and type value = Value.t
-     and type namectx = Namectx.t = struct
-  type name = Namectx.name
-  type typ = Namectx.typ
+    end) : IENV with module Namectx = Namectx and type value = Value.t = struct
+  module Namectx = Namectx
+
   type value = Value.t
-  type namectx = Namectx.t
-  type t = { map: (name, Value.t) Util.Pmap.pmap; dom: namectx; im: namectx }
+
+  type t = {
+    map: (Namectx.Names.name, Value.t) Util.Pmap.pmap;
+    dom: Namectx.t;
+    im: Namectx.t;
+  }
 
   let empty = { map= Util.Pmap.empty; dom= Namectx.empty; im= Namectx.empty }
   let dom ienv = ienv.dom
@@ -51,14 +48,14 @@ module Make_PMAP
     let pp_sep fmt () = Format.fprintf fmt ", " in
     let pp_empty fmt () = Format.fprintf fmt "⋅" in
     let pp_pair fmt (n, value) =
-      Format.fprintf fmt "%a : %a" Names.pp_name n Value.pp value in
+      Format.fprintf fmt "%a : %a" Namectx.Names.pp_name n Value.pp value in
     Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt ienv.map
 
   let to_string = Format.asprintf "%a" pp
 
   let to_yojson ienv =
     let to_string (nn, value) =
-      (Names.string_of_name nn, Value.to_yojson value) in
+      (Namectx.Names.string_of_name nn, Value.to_yojson value) in
     `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string ienv.map)
 
   let lookup_exn ienv nn = Util.Pmap.lookup_exn nn ienv.map
@@ -77,22 +74,16 @@ module Make_PMAP
 end
 
 module Make_List
-    (Namectx : Typectx.TYPECTX with type name = int * string)
+    (Namectx : Typectx.TYPECTX_LIST)
     (Values : sig
       type t [@@deriving to_yojson]
 
       val pp : Format.formatter -> t -> unit
-    end) :
-  IENV
-    with type name = int * string
-     and type typ = Namectx.typ
-     and type value = Values.t
-     and type namectx = Namectx.t = struct
-  type name = int * string
-  type typ = Namectx.typ
+    end) : IENV with module Namectx = Namectx and type value = Values.t = struct
+  module Namectx = Namectx
+
   type value = Values.t
-  type namectx = Namectx.t
-  type t = { map: Values.t list; dom: namectx; im: namectx }
+  type t = { map: Values.t list; dom: Namectx.t; im: Namectx.t }
 
   let empty = { map= []; dom= Namectx.empty; im= Namectx.empty }
   let dom ienv = ienv.dom
@@ -129,20 +120,26 @@ module Make_List
     let map = List.map f ienv.map in
     { ienv with map }
 
-  let fold (f : 'a -> name * value -> 'a) (v : 'a) (ienv : t) =
+  let fold (f : 'a -> Namectx.Names.name * value -> 'a) (v : 'a) (ienv : t) =
     List.fold_left f v (List.mapi (fun i ty -> ((i, ""), ty)) ienv.map)
 end
 
-module Aggregate (IEnv1 : IENV) (IEnv2 : IENV) :
+module Aggregate
+    (IEnv1 : IENV)
+    (IEnv2 : IENV)
+    (Namectx :
+      Typectx.TYPECTX
+        with type Names.name =
+          (IEnv1.Namectx.Names.name, IEnv2.Namectx.Names.name) Either.t
+         and type typ = (IEnv1.Namectx.typ, IEnv2.Namectx.typ) Either.t
+         and type t = IEnv1.Namectx.t * IEnv2.Namectx.t) :
   IENV
-    with type name = (IEnv1.name, IEnv2.name) Either.t
+    with module Namectx = Namectx
      and type value = (IEnv1.value, IEnv2.value) Either.t
-     and type namectx = IEnv1.namectx * IEnv2.namectx
      and type t = IEnv1.t * IEnv2.t = struct
-  type name = (IEnv1.name, IEnv2.name) Either.t
-  type typ = (IEnv1.typ, IEnv2.typ) Either.t
+  module Namectx = Namectx
+
   type value = (IEnv1.value, IEnv2.value) Either.t
-  type namectx = IEnv1.namectx * IEnv2.namectx
   type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
 
   let empty = (IEnv1.empty, IEnv2.empty)
@@ -201,28 +198,32 @@ end
 
 module AggregateCommon
     (IEnv1 : IENV)
-    (IEnv2 : IENV with type typ = IEnv1.typ and type value = IEnv1.value)
+    (IEnv2 :
+      IENV
+        with type Namectx.typ = IEnv1.Namectx.typ
+         and type value = IEnv1.value)
+    (Namectx :
+      Typectx.TYPECTX
+        with type Names.name =
+          (IEnv1.Namectx.Names.name, IEnv2.Namectx.Names.name) Either.t
+         and type typ = IEnv1.Namectx.typ
+         and type t = IEnv1.Namectx.t * IEnv2.Namectx.t)
     (EmbedNames : sig
-      type t
-
-      val embed1 : IEnv1.name -> t
-      val embed2 : IEnv2.name -> t
-      val extract1 : t -> IEnv1.name option
-      val extract2 : t -> IEnv2.name option
+      val embed1 : IEnv1.Namectx.Names.name -> Namectx.Names.name
+      val embed2 : IEnv2.Namectx.Names.name -> Namectx.Names.name
+      val extract1 : Namectx.Names.name -> IEnv1.Namectx.Names.name option
+      val extract2 : Namectx.Names.name -> IEnv2.Namectx.Names.name option
     end)
     (ClassifyTyp : sig
-      val classify : IEnv1.typ -> bool
+      val classify : IEnv1.Namectx.typ -> bool
     end) :
   IENV
-    with type name = EmbedNames.t
-     and type typ = IEnv1.typ
+    with module Namectx = Namectx
      and type value = IEnv1.value
-     and type namectx = IEnv1.namectx * IEnv2.namectx
      and type t = IEnv1.t * IEnv2.t = struct
-  type name = EmbedNames.t
-  type typ = IEnv1.typ
+  module Namectx = Namectx
+
   type value = IEnv1.value
-  type namectx = IEnv1.namectx * IEnv2.namectx
   type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
 
   let empty = (IEnv1.empty, IEnv2.empty)

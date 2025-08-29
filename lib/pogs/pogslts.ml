@@ -1,6 +1,6 @@
 module Make (Lang : Lang.Interactive.LANG) :
   Lts.Bipartite.INT_LTS
-    with type name_ctx = Lang.Namectx.t
+    with module Moves.Namectx = Lang.Namectx
      and type opconf = Lang.opconf
      and type store = Lang.store
      and type interactive_env = Lang.IEnv.t = struct
@@ -9,12 +9,10 @@ module Make (Lang : Lang.Interactive.LANG) :
   module EvalMonad = Lang.EvalMonad
   module Moves = TypingLTS.Moves
 
-  type name_ctx = TypingLTS.name_ctx
   type opconf = Lang.opconf
   type store = Lang.store
   type interactive_env = Lang.IEnv.t
 
-  let get_names = Lang.Namectx.get_names
 
   type active_conf = { opconf: Lang.opconf; pos: TypingLTS.position }
 

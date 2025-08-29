@@ -20,7 +20,9 @@ struct
 
   let infer_type_store = OpLang.Store.infer_type_store
 
-  module Namectx = struct
+  module Namectx (*: Typectx.TYPECTX with type typ = OpLang.negative_type *)= struct
+    module Names = OpLang.Names
+
     (* A stack context (σ1,τ1)::(σ2,τ2)::...::(σn,τn)
      is the typing context for the stack of evaluation contexts,
      with σi the type of the hole and τi the return type )*)
@@ -32,7 +34,6 @@ struct
       in
       `List (List.map to_string stack)
 
-    type name = OpLang.Names.name
     type typ = OpLang.negative_type
 
     (* The active context PropCtx have a type for the toplevel term*)
@@ -147,11 +148,10 @@ struct
      and a stack of evaluation contexts. *)
 
   module IEnv = struct
-    type name = OpLang.Names.name
-    type typ = OpLang.IEnv.typ
+    module Namectx = OpLang.Namectx
+
     type value = OpLang.negative_val
     type t = OpLang.IEnv.t * OpLang.eval_context list
-    type namectx = OpLang.IEnv.namectx
 
     let to_yojson (ienv, ectx_l) =
       let ectx_l_yojson =
@@ -181,7 +181,7 @@ struct
     let to_string = Format.asprintf "%a" pp
     let lookup_exn (ienv, _) nn = OpLang.IEnv.lookup_exn ienv nn
 
-    let add_fresh ((fnamectx, ectx_stack) : t) (str : string) (ty : typ)
+    let add_fresh ((fnamectx, ectx_stack) : t) (str : string) (ty : Namectx.typ)
         (v : value) =
       let (nn, fnamectx') = OpLang.IEnv.add_fresh fnamectx str ty v in
       (nn, (fnamectx', ectx_stack))
@@ -242,7 +242,8 @@ struct
       OpLang.Nf.map_val OpLang.IEnv.empty f_val nf_typed_term' in
     let (a_nf_term', (stack, stack_ctx)) =
       OpLang.Nf.map_ectx ([], []) f_ectx a_nf_term in
-    (a_nf_term', ((ienv, stack), Namectx.PropCtx (OpLang.IEnv.dom ienv, stack_ctx)))
+    ( a_nf_term',
+      ((ienv, stack), Namectx.PropCtx (OpLang.IEnv.dom ienv, stack_ctx)) )
 
   let abstracting_nf (nf_term, store) namectxO storectx_discl =
     let (a_nf_term, (ienv, lnamectx)) = abstracting_nf_term nf_term namectxO in

@@ -2,7 +2,7 @@ open Util.Pmap
 
 (* id are used for both variables and names*)
 type id = string
-type constructor = string
+type constructor = string [@@ deriving to_yojson]
 
 let pp_id = Format.pp_print_string
 let pp_constructor = Format.pp_print_string
@@ -10,7 +10,7 @@ let string_of_id x = x
 let string_of_constructor cons = cons
 
 (* loc is used for locations *)
-type loc = int
+type loc = int [@@ deriving to_yojson]
 
 let pp_loc fmt = Format.fprintf fmt "ℓ%d"
 let string_of_loc l = "l" ^ string_of_int l

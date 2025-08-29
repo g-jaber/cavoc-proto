@@ -7,6 +7,10 @@ module type NAMES = sig
   val is_cname : name -> bool
 end
 
+module type NAMES_INT = sig
+  include NAMES with type name = int * string
+end
+
 module type NAMES_GEN = sig
   include NAMES
 
@@ -51,8 +55,7 @@ module MakeGen (Mode : MODE) (Prefix : PREFIX) () : NAMES_GEN = struct
 end
 
 (* A generative functor to create a new NAMES module based on de Bruijn indices *)
-module MakeInt (Mode : MODE) (Prefix : PREFIX) () :
-  NAMES with type name = int * string = struct
+module MakeInt (Mode : MODE) (Prefix : PREFIX) () : NAMES_INT = struct
   type name = int * string
 
   let string_of_name (i, s) =
@@ -66,4 +69,29 @@ module MakeInt (Mode : MODE) (Prefix : PREFIX) () :
 
   let is_callable _ = Mode.is_callable
   let is_cname _ = Mode.is_cname
+end
+
+module MakeAggregate (Names1 : NAMES) (Names2 : NAMES) :
+  NAMES with type name = (Names1.name, Names2.name) Either.t = struct
+  type name = (Names1.name, Names2.name) Either.t
+
+  let name_to_yojson = function
+    | Either.Left fn -> Names1.name_to_yojson fn
+    | Either.Right pn -> Names2.name_to_yojson pn
+
+  let string_of_name = function
+    | Either.Left f -> Names1.string_of_name f
+    | Either.Right p -> Names2.string_of_name p
+
+  let pp_name fmt = function
+    | Either.Left fn -> Names1.pp_name fmt fn
+    | Either.Right pn -> Names2.pp_name fmt pn
+
+  let is_callable = function
+    | Either.Left nn1 -> Names1.is_callable nn1
+    | Either.Right nn2 -> Names2.is_callable nn2
+
+  let is_cname = function
+    | Either.Left nn1 -> Names1.is_cname nn1
+    | Either.Right nn2 -> Names2.is_cname nn2
 end

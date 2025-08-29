@@ -32,7 +32,7 @@ let () =
   let module CpsLang = Lang.Cps.MakeComp (OpLang) () in
   let module IntLang = Lang.Interactive.Make (CpsLang) in
   let module TypingLTS = Ogs.Typing.Make (IntLang) in
-  let module WBLTS = Ogs.Wblts.Make (IntLang.Names) (TypingLTS.Moves) in
+  let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
   let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
   let module OGS_LTS = Ogs.Ogslts.Make (IntLang) (ProdLTS) in
   Util.Debug.print_debug "Getting the program";

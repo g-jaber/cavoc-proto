@@ -12,9 +12,9 @@ module type TYPED = sig
   val pp_negative_type : Format.formatter -> negative_type -> unit
 
   module Namectx :
-    Typectx.TYPECTX with type name = Names.name and type typ = negative_type
+    Typectx.TYPECTX with module Names = Names and type typ = negative_type
 
-  module Renaming : Renaming.RENAMING with type Namectx.t = Namectx.t
+  module Renaming : Renaming.RENAMING with module Namectx = Namectx
 end
 
 module type STORE = sig
@@ -25,7 +25,7 @@ module type STORE = sig
   val pp_store : Format.formatter -> store -> unit
   val empty_store : store
 
-  module Storectx : Typectx.TYPECTX with type name = location
+  module Storectx : Typectx.TYPECTX with type Names.name = location
 
   val infer_type_store : store -> Storectx.t
 
@@ -66,9 +66,8 @@ module type COMP = sig
 
   module IEnv :
     Ienv.IENV
-      with type name = Names.name
+      with module Namectx = Namectx
        and type value = negative_val
-       and type namectx = Namectx.t
 
   type opconf = term * Store.store
 

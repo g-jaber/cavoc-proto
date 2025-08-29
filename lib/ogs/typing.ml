@@ -1,17 +1,12 @@
 module Make (IntLang : Lang.Interactive.LANG) :
   Lts.Typing.LTS
-    with type Moves.Names.name = IntLang.Names.name
-     and type name_ctx = IntLang.Namectx.t
+    with module Moves.Namectx = IntLang.Namectx
      and type store_ctx = IntLang.Storectx.t
      and type Moves.move = IntLang.abstract_normal_form = struct
-  module Moves = Lts.Moves.Make (IntLang)
+  module Moves = Lts.Moves.Make (IntLang:Lts.Moves.A_NF)
   module BranchMonad = IntLang.BranchMonad
 
-  type name_ctx = IntLang.Namectx.t
   type store_ctx = IntLang.Storectx.t
-
-  let domain_of_name_ctx namectx =
-    IntLang.Namectx.get_names namectx
 
   type status = Active | Passive
 

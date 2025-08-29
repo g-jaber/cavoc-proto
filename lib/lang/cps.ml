@@ -8,38 +8,6 @@ struct
   open EvalMonad
   (* *)
 
-  (* We consider continuation names, also called covariables in the λμ-calculus *)
-
-  module Mode : Names.MODE = struct
-    let is_callable = true let is_cname = true
-  end
-
-  module Prefix : Names.PREFIX = struct let prefix = "c" end
-  module CNames = Names.MakeInt (Mode) (Prefix) ()
-
-  module Names = struct
-    type name = (OpLang.Names.name, CNames.name) Either.t
-
-    let name_to_yojson = function
-      | Either.Left nn -> OpLang.Names.name_to_yojson nn
-      | Either.Right cn -> CNames.name_to_yojson cn
-    [@@deriving to_yojson]
-
-    let pp_name fmt = function
-      | Either.Left nn -> OpLang.Names.pp_name fmt nn
-      | Either.Right cn -> CNames.pp_name fmt cn
-
-    let inj_cname cn = Either.Right cn
-    let inj_name nn = Either.Left nn
-    let string_of_name = Format.asprintf "%a" pp_name
-
-    let is_callable = function
-      | Either.Left nn -> OpLang.Names.is_callable nn
-      | Either.Right _ -> true
-
-    let is_cname = function Either.Left _ -> false | Either.Right _ -> true
-  end
-
   type typ =
     | GType of OpLang.typ
     | GProd of OpLang.typ * OpLang.typ
@@ -73,20 +41,36 @@ struct
 
   let string_of_negative_type = Format.asprintf "%a" pp_negative_type
 
-  module CNamectx = Typectx.Make_List (*CNames*) (struct
-    type t = OpLang.typ
+  (* We consider continuation names, also called covariables in the λμ-calculus *)
 
-    let to_yojson typ = `String ("¬" ^ OpLang.string_of_type typ)
-    let pp fmt typ = Format.fprintf fmt "¬(%a)" OpLang.pp_type typ
-  end)
+  module Mode : Names.MODE = struct
+    let is_callable = true let is_cname = true
+  end
 
-  module Namectx = Typectx.Aggregate (OpLang.Namectx) (CNamectx)
+  module Prefix : Names.PREFIX = struct let prefix = "c" end
+  module CNames = Names.MakeInt (Mode) (Prefix) ()
+  module Names = Names.MakeAggregate (OpLang.Names) (CNames)
+
+  let inj_name nn = Either.Left nn
+  let inj_cname cn = Either.Right cn
+
+  module CNamectx =
+    Typectx.Make_List
+      (CNames)
+      (struct
+        type t = OpLang.typ
+
+        let to_yojson typ = `String ("¬" ^ OpLang.string_of_type typ)
+        let pp fmt typ = Format.fprintf fmt "¬(%a)" OpLang.pp_type typ
+      end)
+
+  module Namectx = Typectx.Aggregate (OpLang.Namectx) (CNamectx) (Names)
 
   let extract_name_ctx (namectx, _) = namectx
   let embed_name_ctx namectx = (namectx, CNamectx.empty)
 
   module CRenaming = Renaming.Make (CNamectx)
-  module Renaming = Renaming.Aggregate (OpLang.Renaming) (CRenaming)
+  module Renaming = Renaming.Aggregate (OpLang.Renaming) (CRenaming) (Namectx)
 
   type term = NTerm of (CNames.name * OpLang.term)
 
@@ -147,7 +131,7 @@ struct
         let pp = pp_neval_context
       end)
 
-  module IEnv = Ienv.Aggregate (OpLang.IEnv) (CIEnv)
+  module IEnv = Ienv.Aggregate (OpLang.IEnv) (CIEnv) (Namectx)
 
   let embed_value_env valenv = (valenv, CIEnv.empty)
 
@@ -256,14 +240,12 @@ struct
       Util.Pmap.filter_map
         (fun (nn, ty) ->
           if OpLang.Names.is_callable nn then
-            Some
-              ( Names.inj_name nn,
-                (negating_type (embed_oplang_negtype ty), GEmpty) )
+            Some (inj_name nn, (negating_type (embed_oplang_negtype ty), GEmpty))
           else None)
         namectx_pmap in
     let cnamectx_pmap =
       Util.Pmap.map
-        (fun (cn, ty) -> (Names.inj_cname cn, (GType ty, GEmpty)))
+        (fun (cn, ty) -> (inj_cname cn, (GType ty, GEmpty)))
         (CNamectx.to_pmap cnamectx) in
     (* For both, the type provided must be ⊥, but we do not check it.*)
     let open OpLang.AVal.BranchMonad in
@@ -276,8 +258,8 @@ struct
   type normal_form_term = (value, unit, Names.name, Names.name) Nf.nf_term
 
   let insert_cn cn nf_term =
-    let f_cn () = Names.inj_cname cn in
-    let f_fn fn = Names.inj_name fn in
+    let f_cn () = inj_cname cn in
+    let f_fn fn = inj_name fn in
     let f_val value = value in
     let f_ectx ectx = NCtx (cn, ectx) in
     OpLang.Nf.map ~f_cn ~f_fn ~f_val ~f_ectx nf_term
@@ -365,14 +347,14 @@ struct
     let names_of_abstract_val = function
       | AVal aval ->
           List.map
-            (fun nn -> Names.inj_name nn)
+            (fun nn -> inj_name nn)
             (OpLang.AVal.names_of_abstract_val aval)
       | APair (aval, cn) | APack (_, aval, cn) ->
           let names_l =
             List.map
-              (fun nn -> Names.inj_name nn)
+              (fun nn -> inj_name nn)
               (OpLang.AVal.names_of_abstract_val aval) in
-          Names.inj_cname cn :: names_l
+          inj_cname cn :: names_l
 
     let labels_of_abstract_val = function
       | AVal aval | APair (aval, _) | APack (_, aval, _) ->
@@ -449,7 +431,7 @@ struct
             | None -> None
             | Some nspan1 ->
                 Util.Namespan.add_nspan
-                  (Names.inj_cname cn1, Names.inj_cname cn2)
+                  (inj_cname cn1, inj_cname cn2)
                   nspan1
           end
       | (AVal aval1, AVal aval2) ->

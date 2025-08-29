@@ -9,12 +9,12 @@ module type INT_LTS = sig
 
   (* init_aconf creates an configuration from two computations and a two name context for Opponent.
      Its store, interactive env, and name context for Proponent are all set to empty*)
-  val init_aconf : opconf -> name_ctx -> active_conf
+  val init_aconf : opconf -> Moves.Namectx.t -> active_conf
 end
 
 module Make (IntLts : Bipartite.INT_LTS) :
   Bipartite.INT_LTS
-    with type name_ctx = IntLts.name_ctx * IntLts.name_ctx
+    with type Moves.Namectx.t = IntLts.Moves.Namectx.t
      and type opconf = IntLts.opconf * IntLts.opconf
      and type store = IntLts.store * IntLts.store
      and type interactive_env = IntLts.interactive_env * IntLts.interactive_env =
@@ -27,7 +27,7 @@ struct
   type interactive_env = IntLts.interactive_env * IntLts.interactive_env
 
   module Moves = struct
-    module Names = IntLts.Moves.Names
+    module Namectx = IntLts.Moves.Namectx
 
     type move = IntLts.Moves.move * IntLts.Moves.move
     type direction = Input | Output
@@ -63,23 +63,16 @@ struct
       if dir1 = dir2 then unify_move span move1 move2 else None
   end
 
-  (* *)
-  type name_ctx = IntLts.name_ctx * IntLts.name_ctx
-
-  let get_names (namectx1, namectx2) =
-    IntLts.get_names namectx1
-    @ IntLts.get_names namectx2
-  (* Dubious *)
 
   type active_conf =
     IntLts.active_conf
     * IntLts.active_conf
-    * Moves.Names.name Util.Namespan.namespan
+    * Moves.Namectx.Names.name Util.Namespan.namespan
 
   type passive_conf =
     IntLts.passive_conf
     * IntLts.passive_conf
-    * Moves.Names.name Util.Namespan.namespan
+    * Moves.Namectx.Names.name Util.Namespan.namespan
 
   let passive_conf_to_yojson _ = failwith "Not implemented"
 
@@ -88,13 +81,13 @@ struct
   let pp_active_conf fmt (act_conf1, act_conf2, namespan) =
     Format.fprintf fmt "@[⟨%a |@, %a |@, %a⟩]" IntLts.pp_active_conf act_conf1
       IntLts.pp_active_conf act_conf2
-      (Util.Namespan.pp_namespan Moves.Names.pp_name)
+      (Util.Namespan.pp_namespan Moves.Namectx.Names.pp_name)
       namespan
 
   let pp_passive_conf fmt (pas_conf1, pas_conf2, namespan) =
     Format.fprintf fmt "@[⟨%a |@, %a |@, %a⟩]" IntLts.pp_passive_conf pas_conf1
       IntLts.pp_passive_conf pas_conf2
-      (Util.Namespan.pp_namespan Moves.Names.pp_name)
+      (Util.Namespan.pp_namespan Moves.Namectx.Names.pp_name)
       namespan
 
   let string_of_active_conf = Format.asprintf "%a" pp_active_conf
@@ -120,7 +113,8 @@ struct
   let p_trans (act_conf1, act_conf2, span) =
     let open EvalMonad in
     let* ((move1, namectx1), pas_conf1) = IntLts.p_trans act_conf1 in
-    let* ((move2, namectx2), pas_conf2) = IntLts.p_trans act_conf2 in
+    let* ((move2, _namectx2), pas_conf2) = IntLts.p_trans act_conf2 in
+    (*we should check that namecxt1 and namectx2 are equal *)
     match IntLts.Moves.unify_pol_move span move1 move2 with
     | None ->
         Util.Debug.print_debug @@ "Cannot synchronize output moves "
@@ -130,12 +124,12 @@ struct
         EvalMonad.fail ()
     | Some span' ->
         let move = fold_moves move1 move2 in
-        return ((move, (namectx1, namectx2)), (pas_conf1, pas_conf2, span'))
+        return ((move, namectx1), (pas_conf1, pas_conf2, span'))
 
-  let o_trans (pas_conf1, pas_conf2, span) (in_move, (namectx1, namectx2)) =
+  let o_trans (pas_conf1, pas_conf2, span) (in_move, namectx) =
     let (in_move1, in_move2) = unfold_move in_move in
-    let pas_conf_opt1 = IntLts.o_trans pas_conf1 (in_move1, namectx1) in
-    let pas_conf_opt2 = IntLts.o_trans pas_conf2 (in_move2, namectx2) in
+    let pas_conf_opt1 = IntLts.o_trans pas_conf1 (in_move1, namectx) in
+    let pas_conf_opt2 = IntLts.o_trans pas_conf2 (in_move2, namectx) in
     match (pas_conf_opt1, pas_conf_opt2) with
     | (None, _) | (_, None) -> None
     | (Some act_conf1, Some act_conf2) -> Some (act_conf1, act_conf2, span)
@@ -143,28 +137,26 @@ struct
   let o_trans_gen (pas_conf1, pas_conf2, span) =
     let open OBranchingMonad in
     let* ((move1, namectx1), act_conf1) = IntLts.o_trans_gen pas_conf1 in
-    let* ((move2, namectx2), act_conf2) = IntLts.o_trans_gen pas_conf2 in
+    let* ((move2, _namectx2), act_conf2) = IntLts.o_trans_gen pas_conf2 in
     match IntLts.Moves.unify_pol_move span move1 move2 with
     | None -> fail ()
     | Some span' ->
         let move = fold_moves move1 move2 in
-        return ((move, (namectx1, namectx2)), (act_conf1, act_conf2, span'))
+        return ((move, namectx1), (act_conf1, act_conf2, span'))
 
-  let init_aconf (opconf1, opconf2) (namectxP1, namectxP2) =
-    let init_aconf1 = IntLts.init_aconf opconf1 namectxP1 in
-    let init_aconf2 = IntLts.init_aconf opconf2 namectxP2 in
-    let name_l1 = IntLts.get_names namectxP1 in
-    let name_l2 = IntLts.get_names namectxP2 in
-    let span = Util.Namespan.combine (name_l1, name_l2) in
+  let init_aconf (opconf1, opconf2) namectxP =
+    let init_aconf1 = IntLts.init_aconf opconf1 namectxP in
+    let init_aconf2 = IntLts.init_aconf opconf2 namectxP in
+    let name_l = IntLts.Moves.Namectx.get_names namectxP in
+    let span = Util.Namespan.combine (name_l, name_l) in (* Not needed*)
     (init_aconf1, init_aconf2, span)
 
-  let init_pconf (store1, store2) (ienv1, ienv2) (namectxP1, namectxP2)
-      (namectxO1, namectxO2) =
-    let init_pconf1 = IntLts.init_pconf store1 ienv1 namectxP1 namectxO1 in
-    let init_pconf2 = IntLts.init_pconf store2 ienv2 namectxP2 namectxO2 in
-    let name_l1 = IntLts.get_names namectxP1 in
-    let name_l2 = IntLts.get_names namectxP2 in
-    let span = Util.Namespan.combine (name_l1, name_l2) in
+  let init_pconf (store1, store2) (ienv1, ienv2) namectxP
+      namectxO =
+    let init_pconf1 = IntLts.init_pconf store1 ienv1 namectxP namectxO in
+    let init_pconf2 = IntLts.init_pconf store2 ienv2 namectxP namectxO in
+    let name_l = IntLts.Moves.Namectx.get_names namectxP in
+    let span = Util.Namespan.combine (name_l, name_l) in
     (* Should we also use namectxO1 and namectxO2 to build a span ? Or should they be checked to be equal ?*)
     (init_pconf1, init_pconf2, span)
 end

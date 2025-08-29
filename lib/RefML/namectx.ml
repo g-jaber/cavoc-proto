@@ -1,6 +1,6 @@
 module FNamectx =
   Lang.Typectx.Make_List
-    (*Names.FNames*)
+    (Names.FNames)
     (struct
       type t = Types.negative_type
 
@@ -10,7 +10,7 @@ module FNamectx =
 
 module PNamectx =
   Lang.Typectx.Make_List
-    (*Names.PNames*)
+    (Names.PNames)
     (struct
       type t = Types.negative_type
 
@@ -19,10 +19,8 @@ module PNamectx =
     end)
 
 module Namectx =
-  Lang.Typectx.AggregateCommon (FNamectx) (PNamectx)
+  Lang.Typectx.AggregateCommon (FNamectx) (PNamectx) (Names)
     (struct
-      type t = Names.name
-
       let embed1 fn = Names.embed_fname fn
       let embed2 pn = Names.embed_pname pn
 

@@ -2,13 +2,12 @@ module Make
     (Lang : Lang.Interactive.LANG)
     (TypingLTS :
       Lts.Typing.LTS
-        with type Moves.Names.name = Lang.Names.name
-         and type name_ctx = Lang.Namectx.t
+        with module Moves.Namectx = Lang.Namectx
          and type store_ctx = Lang.Storectx.t
          and type Moves.move = Lang.abstract_normal_form) :
   Lts.Bipartite.INT_LTS
     with module OBranchingMonad = TypingLTS.BranchMonad
-     and type name_ctx = Lang.Namectx.t
+     and module Moves.Namectx = Lang.Namectx
      and type opconf = Lang.opconf
      and type store = Lang.store
      and type interactive_env = Lang.IEnv.t = struct
@@ -16,12 +15,10 @@ module Make
   module EvalMonad = Lang.EvalMonad
   module Moves = TypingLTS.Moves
 
-  type name_ctx = TypingLTS.name_ctx
   type opconf = Lang.opconf
   type store = Lang.store
   type interactive_env = Lang.IEnv.t
 
-  let get_names = Lang.Namectx.get_names
 
   type active_conf = {
     opconf: Lang.opconf;

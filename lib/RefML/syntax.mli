@@ -1,6 +1,6 @@
 type id = string
-type constructor = string
-type loc
+type constructor = string  [@@ deriving to_yojson]
+type loc  [@@ deriving to_yojson]
 
 val pp_id : Format.formatter -> id -> unit
 val pp_constructor : Format.formatter -> constructor -> unit

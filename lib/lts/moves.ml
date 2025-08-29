@@ -1,20 +1,20 @@
 module type MOVES = sig
   (* to be instantiated *)
-  module Names : Lang.Names.NAMES
+  module Namectx : Lang.Typectx.TYPECTX
   (* *)
 
   type move
 
   val pp_move : Format.formatter -> move -> unit
   val string_of_move : move -> string
-  val get_subject_name : move -> Names.name list
-  val get_transmitted_names : move -> Names.name list
+  val get_subject_name : move -> Namectx.Names.name list
+  val get_transmitted_names : move -> Namectx.Names.name list
 
   val unify_move :
-    Names.name Util.Namespan.namespan ->
+    Namectx.Names.name Util.Namespan.namespan ->
     move ->
     move ->
-    Names.name Util.Namespan.namespan option
+    Namectx.Names.name Util.Namespan.namespan option
 end
 
 module type POLMOVES = sig
@@ -28,17 +28,14 @@ module type POLMOVES = sig
   val switch_direction : pol_move -> pol_move
 
   val unify_pol_move :
-    Names.name Util.Namespan.namespan ->
+    Namectx.Names.name Util.Namespan.namespan ->
     pol_move ->
     pol_move ->
-    Names.name Util.Namespan.namespan option
+    Namectx.Names.name Util.Namespan.namespan option
 end
 
-module type TYPED_MOVES = sig
-  include MOVES
-
-  module Namectx : Lang.Typectx.TYPECTX with type name = Names.name
-
+module type GEN_POLMOVES = sig
+  include POLMOVES
   module BranchMonad : Util.Monad.BRANCH
 
   val generate_moves : Namectx.t -> (move * Namectx.t) BranchMonad.m
@@ -46,11 +43,21 @@ module type TYPED_MOVES = sig
   val check_type_move : Namectx.t -> move * Namectx.t -> bool
 end
 
-module type NAMED_TYPED_MOVES = sig
+module type GEN_MOVES = sig
+  include MOVES
+  module BranchMonad : Util.Monad.BRANCH
+
+  val generate_moves : Namectx.t -> (move * Namectx.t) BranchMonad.m
+  val infer_type_move : Namectx.t -> move -> Namectx.t option
+  val check_type_move : Namectx.t -> move * Namectx.t -> bool
+end
+
+module type NAMED_GEN_MOVES = sig
   type copattern
   type name
 
-  include TYPED_MOVES with type move = name * copattern and type Names.name = name
+  include
+    GEN_MOVES with type move = name * copattern and type Namectx.Names.name = name
 end
 
 (* module POLARIZE (Moves : MOVES) : POLMOVES = struct
@@ -67,7 +74,7 @@ include Moves
 end *)
 
 module type A_NF = sig
-  module Names : Lang.Names.NAMES
+  module Namectx : Lang.Typectx.TYPECTX
 
   type abstract_normal_form
 
@@ -78,21 +85,21 @@ module type A_NF = sig
     unit
 
   val string_of_a_nf : string -> abstract_normal_form -> string
-  val get_subject_name : abstract_normal_form -> Names.name option
-  val get_support : abstract_normal_form -> Names.name list
+  val get_subject_name : abstract_normal_form -> Namectx.Names.name option
+  val get_support : abstract_normal_form -> Namectx.Names.name list
 
   val is_equiv_a_nf :
-    Names.name Util.Namespan.namespan ->
+    Namectx.Names.name Util.Namespan.namespan ->
     abstract_normal_form ->
     abstract_normal_form ->
-    Names.name Util.Namespan.namespan option
+    Namectx.Names.name Util.Namespan.namespan option
 end
 
 module Make (A_nf : A_NF) :
   POLMOVES
-    with module Names = A_nf.Names
+    with module Namectx = A_nf.Namectx
      and type move = A_nf.abstract_normal_form = struct
-  module Names = A_nf.Names
+  module Namectx = A_nf.Namectx
 
   type move = A_nf.abstract_normal_form
   type direction = Input | Output

@@ -33,6 +33,7 @@
 - [x] Switch to a presentation using De Bruijn indices
 - [ ] Remove the need of get_transmitted_names
 - [x] Remove the need of get_negative_type
+- [ ] Remove the need of is_callable
 - [x] Transform type_check_abstract_val
 - [x] Make interactive_env type abstract
 - [ ] Cleanup the TYPECTX interface
@@ -42,3 +43,8 @@
 - [ ] Keep the Opponent and the Proponent names as two distinct namespaces
 - [ ] Handle reaching a failed program via the EvalMonad
 - [ ] Manage to print De Bruijn names in move with offset
+- [x] Embed a Name module inside Namectx
+- [x] Embed a Namectx module inside Moves
+- [ ] Embed a Renaming module inside IEnv
+- [ ] Define a monoid action for substitution
+- [ ] Remove concat map in IEnv and introduce copairing
