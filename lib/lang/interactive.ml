@@ -37,7 +37,7 @@ module type LANG = sig
     ((abstract_normal_form * Namectx.t * Storectx.t) * IEnv.t * store)
     EvalMonad.m
 
-  (* abstracting_nf nf Γₒ Σ returns a triple (anf,γ,Δ,Σ')
+  (* abstracting_nf nf Γₒ Σ returns a triple (anf,γ,Σ')
       where anf{γ} = nf and Σ;Γₒ ⊢ anf ▷ Δ,Σ' and Σ;Γₒ ⊢ γ:Δ.
       We should check whether we take into account disclosure of locations currently.*)
 
@@ -82,10 +82,7 @@ module type LANG = sig
     Namectx.t option
 
   val concretize_a_nf :
-    store ->
-    IEnv.t ->
-    abstract_normal_form * Namectx.t ->
-    opconf * IEnv.t
+    store -> IEnv.t -> abstract_normal_form * Namectx.t -> opconf * IEnv.t
 end
 
 module type LANG_WITH_INIT = sig
@@ -175,12 +172,12 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let nf_typed_term = OpLang.type_annotating_val get_ty nf_term in
     let f_val (value, nty) =
       let (aval, ienv) = OpLang.AVal.abstracting_value value nty in
-      (aval, (ienv, OpLang.IEnv.dom ienv)) in
-    let empty_res = (IEnv.empty, Namectx.empty) in
+      (aval, ienv) in
+    let empty_res = IEnv.empty in
     OpLang.Nf.map_val empty_res f_val nf_typed_term
 
   let abstracting_nf (nf_term, store) namectxO storectx_discl =
-    let (a_nf_term, (ienv, lnamectx)) = abstracting_nf_term nf_term namectxO in
+    let (a_nf_term, ienv) = abstracting_nf_term nf_term namectxO in
     if OpLang.Nf.is_error a_nf_term then None
     else
       let label_l = labels_of_a_nf_term a_nf_term in
@@ -193,7 +190,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
       Util.Debug.print_debug @@ "The new diclosed store context is "
       ^ OpLang.Store.Storectx.to_string storectx_discl'';
       let store_discl = abstracting_store storectx_discl' store in
-      Some ((a_nf_term, store_discl), ienv, lnamectx, storectx_discl'')
+      Some ((a_nf_term, store_discl), ienv, storectx_discl'')
 
   (* Notice that the disclosure process is in fact more complex
      since the image of  store_discl might itself has
@@ -228,7 +225,8 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let* (term', store') = OpLang.normalize_opconf opconf in
     let nf_term = OpLang.get_nf_term term' in
     match abstracting_nf (nf_term, store') namectxO storectx_discl with
-    | Some ((a_nf_term, discl_store), ienv, lnamectx, storectx_discl) ->
+    | Some ((a_nf_term, discl_store), ienv, storectx_discl) ->
+        let lnamectx = IEnv.dom ienv in
         return
           (((a_nf_term, discl_store), lnamectx, storectx_discl), ienv, store')
     | None -> fail ()
