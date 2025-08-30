@@ -115,8 +115,8 @@ module WithAVal (BranchMonad : Util.Monad.BRANCH) :
 
   let pp_eval_context = Syntax.pp_eval_context
   let string_of_eval_context = Syntax.string_of_eval_context
-
   let empty_eval_context = Syntax.empty_eval_context
+  let rename_eval_context = Syntax.rename_eval_context
 
   type typevar = Types.typevar [@@deriving to_yojson]
   type typename = Types.id

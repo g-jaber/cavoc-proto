@@ -8,6 +8,7 @@ module type RENAMING = sig
   val id : Namectx.t -> t
   val dom : t -> Namectx.t
   val im : t -> Namectx.t
+  val compose : t -> t -> t
 
   (* weak_l Δ Γ : Δ → Δ + Γ*)
   val weak_l : Namectx.t -> Namectx.t -> t
@@ -55,6 +56,15 @@ module Make (Namectx : Typectx.TYPECTX_LIST) :
 
   let dom renam = renam.dom
   let im renam = renam.im
+
+  let compose renam1 renam2 =
+    assert (renam1.dom = renam2.im);
+    let dom = renam2.dom in
+    let im = renam1.im in
+    let map =
+      Util.Pmap.map_im (fun nn -> Util.Pmap.lookup_exn nn renam1.map) renam2.map
+    in
+    { map; dom; im }
 
   let weak_l namectx_l namectx_r =
     let renam = id namectx_l in
@@ -127,6 +137,20 @@ module MakeAggregate (* Not used so far *)
   let dom renam = renam.dom
   let im renam = renam.im
 
+  let compose renam1 renam2 =
+    assert (renam1.dom = renam2.im);
+    let dom = renam2.dom in
+    let im = renam1.im in
+    let map_l =
+      Util.Pmap.map_im
+        (fun nn -> Util.Pmap.lookup_exn nn renam1.map_l)
+        renam2.map_l in
+    let map_r =
+      Util.Pmap.map_im
+        (fun nn -> Util.Pmap.lookup_exn nn renam1.map_r)
+        renam2.map_r in
+    { map_l; map_r; dom; im }
+
   let weak_l namectx_l namectx_r =
     let renam = id namectx_l in
     { renam with im= Namectx.concat namectx_l namectx_r }
@@ -171,6 +195,12 @@ struct
 
   let dom (renam1, renam2) = (Renam1.dom renam1, Renam2.dom renam2)
   let im (renam1, renam2) = (Renam1.im renam1, Renam2.im renam2)
+
+    let compose (renam11,renam12) (renam21,renam22) =
+    assert ((Renam1.dom renam11 = Renam1.im renam21) && (Renam2.dom renam12 = Renam2.im renam22));
+    let renam1 = Renam1.compose renam11 renam21 in
+    let renam2 = Renam2.compose renam12 renam22
+    in (renam1,renam2)
 
   let weak_l (namectx1_l, namectx2_l) (namectx1_r, namectx2_r) =
     let map1 = Renam1.weak_l namectx1_l namectx1_r in

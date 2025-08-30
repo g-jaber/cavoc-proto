@@ -16,8 +16,14 @@ module type IENV = sig
   (* Taking γ₁ : Γ₁ → Δ and γ₂ : Γ₂ → Δ, pairing γ₁ γ₂ : (Γ₁ + Γ₂) → Δ  *)
   val copairing : t -> t -> t
 
-  (* Taking γ : Γ → Δ and Θ, then weaken γ Θ : Γ → Δ + Θ *)
-  (*val weaken : t -> Namectx.t -> t*)
+  (* Taking γ : Γ → Δ and Θ, then weaken_l γ Θ : Γ → Δ + Θ *)
+  val weaken_l : t -> Renaming.Namectx.t -> t
+  (* Taking γ : Γ → Δ and Θ, then weaken_l γ Θ : Γ → Θ + Δ *)
+
+  val weaken_r : t -> Renaming.Namectx.t -> t
+
+  (* Taking γ₁ : Γ₁ → Δ₁ and γ₂ : Γ₂ → Δ₂, pairing γ₁ γ₂ : (Γ₁ + Γ₂) → (Δ₁ + Δ₂)  *)
+  val tensor : t -> t -> t
   val lookup_exn : t -> Renaming.Namectx.Names.name -> value
 
   val add_fresh :
@@ -37,6 +43,7 @@ module Make_PMAP
       type t [@@deriving to_yojson]
 
       val embed_name : Renaming.Namectx.Names.name -> t
+      val renam_act : Renaming.t -> t -> t
       val pp : Format.formatter -> t -> unit
     end) : IENV with module Renaming = Renaming and type value = Value.t =
 struct
@@ -70,6 +77,21 @@ struct
       im= ienv1.im;
     }
 
+  let weaken_l ienv namectx =
+    let renam = Renaming.weak_l ienv.im namectx in
+    let map = Util.Pmap.map_im (Value.renam_act renam) ienv.map in
+    { map; dom= ienv.dom; im= Renaming.im renam }
+
+  let weaken_r ienv namectx =
+    let renam = Renaming.weak_r ienv.im namectx in
+    let map = Util.Pmap.map_im (Value.renam_act renam) ienv.map in
+    { map; dom= ienv.dom; im= Renaming.im renam }
+
+  let tensor ienv1 ienv2 =
+    let ienv1' = weaken_l ienv1 (im ienv2) in
+    let ienv2' = weaken_r ienv2 (im ienv1) in
+    copairing ienv1' ienv2'
+
   let pp fmt ienv =
     let pp_sep fmt () = Format.fprintf fmt ", " in
     let pp_empty fmt () = Format.fprintf fmt "⋅" in
@@ -102,21 +124,22 @@ end
 
 module Make_List
     (Renaming : Renaming.RENAMING_LIST)
-    (Values : sig
+    (Value : sig
       type t [@@deriving to_yojson]
 
+      val renam_act : Renaming.t -> t -> t
       val embed_name : Renaming.Namectx.Names.name -> t
       val pp : Format.formatter -> t -> unit
-    end) : IENV with module Renaming = Renaming and type value = Values.t =
+    end) : IENV with module Renaming = Renaming and type value = Value.t =
 struct
   module Renaming = Renaming
 
-  type value = Values.t
+  type value = Value.t
 
-  let embed_name = Values.embed_name
+  let embed_name = Value.embed_name
 
   type t = {
-    map: Values.t list;
+    map: Value.t list;
     dom: Renaming.Namectx.t;
     im: Renaming.Namectx.t;
   }
@@ -135,18 +158,33 @@ struct
       im= ienv1.im;
     }
 
+  let weaken_l ienv namectx =
+    let renam = Renaming.weak_l ienv.im namectx in
+    let map = List.map (Value.renam_act renam) ienv.map in
+    { map; dom= ienv.dom; im= Renaming.im renam }
+
+  let weaken_r ienv namectx =
+    let renam = Renaming.weak_r ienv.im namectx in
+    let map = List.map (Value.renam_act renam) ienv.map in
+    { map; dom= ienv.dom; im= Renaming.im renam }
+
+  let tensor ienv1 ienv2 =
+    let ienv1' = weaken_l ienv1 (im ienv2) in
+    let ienv2' = weaken_r ienv2 (im ienv1) in
+    copairing ienv1' ienv2'
+
   let pp fmt ienv =
     match ienv.map with
     | [] -> Format.fprintf fmt "⋅"
     | map' ->
         let pp_sep fmt () = Format.fprintf fmt ", " in
-        Format.pp_print_list ~pp_sep Values.pp fmt map'
+        Format.pp_print_list ~pp_sep Value.pp fmt map'
 
   let to_string = Format.asprintf "%a" pp
 
   let to_yojson ienv =
     `List
-      (List.mapi (fun i typ -> `List [ `Int i; Values.to_yojson typ ]) ienv.map)
+      (List.mapi (fun i typ -> `List [ `Int i; Value.to_yojson typ ]) ienv.map)
 
   let lookup_exn ienv (i, _) = List.nth ienv.map i
 
@@ -197,6 +235,21 @@ module Aggregate
 
   let copairing (ienv11, ienv12) (ienv21, ienv22) =
     (IEnv1.copairing ienv11 ienv21, IEnv2.copairing ienv12 ienv22)
+
+  let weaken_l (ienv1, ienv2) (namectx1, namectx2) =
+    let ienv1' = IEnv1.weaken_l ienv1 namectx1 in
+    let ienv2' = IEnv2.weaken_l ienv2 namectx2 in
+    (ienv1', ienv2')
+
+  let weaken_r (ienv1, ienv2) (namectx1, namectx2) =
+    let ienv1' = IEnv1.weaken_r ienv1 namectx1 in
+    let ienv2' = IEnv2.weaken_r ienv2 namectx2 in
+    (ienv1', ienv2')
+
+  let tensor ienv1 ienv2 =
+    let ienv1' = weaken_l ienv1 (im ienv2) in
+    let ienv2' = weaken_r ienv2 (im ienv1) in
+    copairing ienv1' ienv2'
 
   let pp fmt (ienv1, ienv2) =
     Format.fprintf fmt "(%a,%a)" IEnv1.pp ienv1 IEnv2.pp ienv2
@@ -301,6 +354,21 @@ module AggregateCommon
 
   let copairing (ienv11, ienv12) (ienv21, ienv22) =
     (IEnv1.copairing ienv11 ienv21, IEnv2.copairing ienv12 ienv22)
+
+  let weaken_l (ienv1, ienv2) (namectx1, namectx2) =
+    let ienv1' = IEnv1.weaken_l ienv1 namectx1 in
+    let ienv2' = IEnv2.weaken_l ienv2 namectx2 in
+    (ienv1', ienv2')
+
+  let weaken_r (ienv1, ienv2) (namectx1, namectx2) =
+    let ienv1' = IEnv1.weaken_r ienv1 namectx1 in
+    let ienv2' = IEnv2.weaken_r ienv2 namectx2 in
+    (ienv1', ienv2')
+
+  let tensor ienv1 ienv2 =
+    let ienv1' = weaken_l ienv1 (im ienv2) in
+    let ienv2' = weaken_r ienv2 (im ienv1) in
+    copairing ienv1' ienv2'
 
   let pp fmt (ienv1, ienv2) =
     Format.fprintf fmt "(%a,%a)" IEnv1.pp ienv1 IEnv2.pp ienv2

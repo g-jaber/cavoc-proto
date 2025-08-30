@@ -20,7 +20,8 @@ struct
 
   let infer_type_store = OpLang.Store.infer_type_store
 
-  module Namectx (*: Typectx.TYPECTX with type typ = OpLang.negative_type *)= struct
+  module Namectx (*: Typectx.TYPECTX with type typ = OpLang.negative_type *) =
+  struct
     module Names = OpLang.Names
 
     (* A stack context (σ1,τ1)::(σ2,τ2)::...::(σn,τn)
@@ -150,7 +151,6 @@ struct
   module IEnv = struct
     module Renaming = OpLang.Renaming
 
-    
     type value = OpLang.negative_val
 
     let embed_name = OpLang.IEnv.embed_name
@@ -169,8 +169,25 @@ struct
     let dom (ienv, _) = OpLang.IEnv.dom ienv
     let im (ienv, _) = OpLang.IEnv.im ienv
 
-    let copairing (fnamectx1, cstack1) (fnamectx2, cstack2) =
-      (OpLang.IEnv.copairing fnamectx1 fnamectx2, cstack1 @ cstack2)
+    let copairing (ienv1, cstack1) (ienv2, cstack2) =
+      (OpLang.IEnv.copairing ienv1 ienv2, cstack1 @ cstack2)
+
+    let weaken_l (ienv, cstack) fnamectx =
+      let ienv' = OpLang.IEnv.weaken_l ienv fnamectx in
+      let renam = OpLang.Renaming.weak_l (OpLang.IEnv.dom ienv) fnamectx in
+      let cstack' = List.map (OpLang.rename_eval_context renam) cstack in
+      (ienv', cstack')
+
+    let weaken_r (ienv, cstack) fnamectx =
+      let ienv' = OpLang.IEnv.weaken_r ienv fnamectx in
+      let renam = OpLang.Renaming.weak_r (OpLang.IEnv.dom ienv) fnamectx in
+      let cstack' = List.map (OpLang.rename_eval_context renam) cstack in
+      (ienv', cstack')
+
+    let tensor ienv1 ienv2 =
+      let ienv1' = weaken_l ienv1 (im ienv2) in
+      let ienv2' = weaken_r ienv2 (im ienv1) in
+      copairing ienv1' ienv2'
 
     let pp_ctx_stack fmt = function
       | [] -> Format.pp_print_string fmt "⋅"

@@ -107,6 +107,7 @@ type eval_context [@@deriving to_yojson]
 val pp_eval_context : Format.formatter -> eval_context -> unit
 val string_of_eval_context : eval_context -> string
 val empty_eval_context : eval_context
+val rename_eval_context : Renaming.Renaming.t -> eval_context -> eval_context
 
 type negative_val [@@deriving to_yojson]
 
@@ -115,6 +116,9 @@ val string_of_negative_val : negative_val -> string
 val filter_negative_val : value -> negative_val option
 val force_negative_val : value -> negative_val
 val embed_negative_val : negative_val -> value
+val rename_negative_val : Renaming.Renaming.t -> negative_val -> negative_val
+
+
 val get_nf_term : term -> (value, eval_context, Names.name, unit) Nf.nf_term
 
 val refold_nf_term :

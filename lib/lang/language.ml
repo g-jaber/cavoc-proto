@@ -192,6 +192,7 @@ module type WITHAVAL_INOUT = sig
   type eval_context [@@deriving to_yojson]
 
   val empty_eval_context : eval_context
+  val rename_eval_context : Renaming.t -> eval_context -> eval_context
 
   type typevar [@@deriving to_yojson]
   type typename

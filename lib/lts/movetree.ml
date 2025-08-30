@@ -35,7 +35,8 @@ module Make (Moves : Moves.NAMED_GEN_MOVES) : MOVETREE = struct
         | Some _ -> Some movetree)
 end
 
-module MakeLang (MoveTree : MOVETREE with type Moves.name = int*string) : Lang.Interactive.LANG = struct
+module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
+  Lang.Interactive.LANG = struct
   module Namectx = MoveTree.Moves.Namectx
   module Names = Namectx.Names
   module EvalMonad = Util.Monad.Option
@@ -86,15 +87,17 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int*string) : Lang.I
 
   module Renaming = Lang.Renaming.Make (Namectx)
 
-  module IEnv = (* We could use explicitely a renaming here *)
-    Lang.Ienv.Make_List
-      (Renaming)
-      (struct
-        type t = Names.name [@@deriving to_yojson]
-        let embed_name = Fun.id
+  module IEnv =
+    (* We could use explicitely a renaming here *)
+      Lang.Ienv.Make_List
+        (Renaming)
+        (struct
+          type t = Names.name [@@deriving to_yojson]
 
-        let pp = Names.pp_name
-      end)
+          let embed_name = Fun.id
+          let renam_act renam1 nn = Renaming.lookup renam1 nn
+          let pp = Names.pp_name
+        end)
 
   type abstract_normal_form = MoveTree.Moves.move
 
@@ -140,6 +143,7 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int*string) : Lang.I
     failwith ""
   (* There's a mismatch with the signature of MoveTree.Move.check_type_move *)
 
-  let concretize_a_nf (movetree:store) (renaming:IEnv.t) (a_nf,_lnamectx:abstract_normal_form*Namectx.t) =
+  let concretize_a_nf (movetree : store) (renaming : IEnv.t)
+      ((a_nf, _lnamectx) : abstract_normal_form * Namectx.t) =
     ((a_nf, movetree), renaming)
 end

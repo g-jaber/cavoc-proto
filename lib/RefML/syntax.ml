@@ -2,7 +2,7 @@ open Util.Pmap
 
 (* id are used for both variables and names*)
 type id = string
-type constructor = string [@@ deriving to_yojson]
+type constructor = string [@@deriving to_yojson]
 
 let pp_id = Format.pp_print_string
 let pp_constructor = Format.pp_print_string
@@ -10,7 +10,7 @@ let string_of_id x = x
 let string_of_constructor cons = cons
 
 (* loc is used for locations *)
-type loc = int [@@ deriving to_yojson]
+type loc = int [@@deriving to_yojson]
 
 let pp_loc fmt = Format.fprintf fmt "ℓ%d"
 let string_of_loc l = "l" ^ string_of_int l
@@ -421,8 +421,8 @@ type eval_context = term [@@deriving to_yojson]
 
 let pp_eval_context = pp_term
 let string_of_eval_context = Format.asprintf "%a" pp_eval_context
-
 let empty_eval_context = Hole
+let rename_eval_context renaming ectx = rename ectx renaming
 
 (* extract_ctx decomposes an expression into its redex and the surrounding evaluation context*)
 let rec extract_ctx expr =
@@ -486,6 +486,7 @@ let filter_negative_val = function
 
 let force_negative_val value = value
 let embed_negative_val value = value
+let rename_negative_val renaming nval = rename nval renaming
 
 open Nf
 

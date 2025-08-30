@@ -129,6 +129,10 @@ struct
         type t = neval_context [@@deriving to_yojson]
 
         let embed_name cn = NCtx (cn, OpLang.empty_eval_context)
+
+        let renam_act renam (NCtx (cn, ectx)) =
+          NCtx (CRenaming.lookup renam cn, ectx)
+
         let pp = pp_neval_context
       end)
 

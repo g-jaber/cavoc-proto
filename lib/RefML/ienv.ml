@@ -7,6 +7,10 @@ module IEnvF =
       let embed_name nn =
         Syntax.force_negative_val (Syntax.Name (Names.embed_fname nn))
 
+      let renam_act frenaming =
+        Syntax.rename_negative_val
+          (frenaming, Renaming.PRenaming.id Renaming.PRenaming.Namectx.empty)
+
       let pp = Syntax.pp_negative_val
     end)
 
@@ -18,6 +22,10 @@ module IEnvP =
 
       let embed_name nn =
         Syntax.force_negative_val (Syntax.Name (Names.embed_pname nn))
+
+      let renam_act prenaming =
+        Syntax.rename_negative_val
+          (Renaming.FRenaming.id Renaming.FRenaming.Namectx.empty, prenaming)
 
       let pp = Syntax.pp_negative_val
     end)
