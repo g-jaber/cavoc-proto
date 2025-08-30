@@ -9,9 +9,12 @@ module type IENV = sig
 
   val to_string : t -> string
   val pp : Format.formatter -> t -> unit
-  val empty : t
+
+  (* empty Δ : ⋅ → Δ *)
+  val empty : Renaming.Namectx.t -> t
   val dom : t -> Renaming.Namectx.t
   val im : t -> Renaming.Namectx.t
+  val embed_renaming : Renaming.t -> t
 
   (* Taking γ₁ : Γ₁ → Δ and γ₂ : Γ₂ → Δ, pairing γ₁ γ₂ : (Γ₁ + Γ₂) → Δ  *)
   val copairing : t -> t -> t
@@ -59,15 +62,27 @@ struct
     im: Renaming.Namectx.t;
   }
 
-  let empty =
+  let empty im =
     {
       map= Util.Pmap.empty;
       dom= Renaming.Namectx.empty;
-      im= Renaming.Namectx.empty;
+      im
     }
 
   let dom ienv = ienv.dom
   let im ienv = ienv.im
+
+  let embed_renaming renam =
+    let dom = Renaming.dom renam in
+    let im = Renaming.im renam in
+    let names_l = Renaming.Namectx.get_names dom in
+    let map =
+      Util.Pmap.list_to_pmap
+      @@ List.map
+           (fun nn -> (nn, embed_name @@ Renaming.lookup renam nn))
+           names_l in
+    (* This is highly ineficient*)
+    { map; dom; im }
 
   let copairing ienv1 ienv2 =
     assert (ienv1.im = ienv2.im);
@@ -144,13 +159,37 @@ struct
     im: Renaming.Namectx.t;
   }
 
-  let empty =
-    { map= []; dom= Renaming.Namectx.empty; im= Renaming.Namectx.empty }
+    let pp fmt ienv =
+    match ienv.map with
+    | [] -> Format.fprintf fmt "⋅"
+    | map' ->
+        let pp_sep fmt () = Format.fprintf fmt ", " in
+        Format.pp_print_list ~pp_sep Value.pp fmt map'
+
+  let to_string = Format.asprintf "%a" pp
+
+  let to_yojson ienv =
+    `List
+      (List.mapi (fun i typ -> `List [ `Int i; Value.to_yojson typ ]) ienv.map)
+
+  let empty im =
+    { map= []; dom= Renaming.Namectx.empty; im }
 
   let dom ienv = ienv.dom
   let im ienv = ienv.im
 
+  let embed_renaming renam =
+    let dom = Renaming.dom renam in
+    let im = Renaming.im renam in
+    let names_l = Renaming.Namectx.get_names dom in
+    let map =
+      List.map (fun nn -> embed_name @@ Renaming.lookup renam nn) names_l in
+    (* This rely on the fact that names_l is in the right order *)
+    { map; dom; im }
+
   let copairing ienv1 ienv2 =
+    Util.Debug.print_debug @@ "Copairing " ^ (to_string ienv1) ^ " and " ^ (to_string ienv2)
+    ^ " of image " ^ (Renaming.Namectx.to_string ienv1.im) ^ " and " ^ (Renaming.Namectx.to_string ienv2.im);
     assert (ienv1.im = ienv2.im);
     {
       map= List.append ienv1.map ienv2.map;
@@ -169,22 +208,10 @@ struct
     { map; dom= ienv.dom; im= Renaming.im renam }
 
   let tensor ienv1 ienv2 =
+    Util.Debug.print_debug "Tensoring";
     let ienv1' = weaken_l ienv1 (im ienv2) in
     let ienv2' = weaken_r ienv2 (im ienv1) in
     copairing ienv1' ienv2'
-
-  let pp fmt ienv =
-    match ienv.map with
-    | [] -> Format.fprintf fmt "⋅"
-    | map' ->
-        let pp_sep fmt () = Format.fprintf fmt ", " in
-        Format.pp_print_list ~pp_sep Value.pp fmt map'
-
-  let to_string = Format.asprintf "%a" pp
-
-  let to_yojson ienv =
-    `List
-      (List.mapi (fun i typ -> `List [ `Int i; Value.to_yojson typ ]) ienv.map)
 
   let lookup_exn ienv (i, _) = List.nth ienv.map i
 
@@ -214,7 +241,8 @@ module Aggregate
          and type Namectx.typ =
           (IEnv1.Renaming.Namectx.typ, IEnv2.Renaming.Namectx.typ) Either.t
          and type Namectx.t =
-          IEnv1.Renaming.Namectx.t * IEnv2.Renaming.Namectx.t) :
+          IEnv1.Renaming.Namectx.t * IEnv2.Renaming.Namectx.t
+         and type t = IEnv1.Renaming.t * IEnv2.Renaming.t) :
   IENV
     with module Renaming = Renaming
      and type value = (IEnv1.value, IEnv2.value) Either.t
@@ -229,9 +257,12 @@ module Aggregate
 
   type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
 
-  let empty = (IEnv1.empty, IEnv2.empty)
+  let empty (im1,im2) = (IEnv1.empty im1, IEnv2.empty im2)
   let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
   let im (ienv1, ienv2) = (IEnv1.im ienv1, IEnv2.im ienv2)
+
+  let embed_renaming (renam1, renam2) =
+    (IEnv1.embed_renaming renam1, IEnv2.embed_renaming renam2)
 
   let copairing (ienv11, ienv12) (ienv21, ienv22) =
     (IEnv1.copairing ienv11 ienv21, IEnv2.copairing ienv12 ienv22)
@@ -312,7 +343,8 @@ module AggregateCommon
           Either.t
          and type Namectx.typ = IEnv1.Renaming.Namectx.typ
          and type Namectx.t =
-          IEnv1.Renaming.Namectx.t * IEnv2.Renaming.Namectx.t)
+          IEnv1.Renaming.Namectx.t * IEnv2.Renaming.Namectx.t
+         and type t = IEnv1.Renaming.t * IEnv2.Renaming.t)
     (EmbedNames : sig
       val embed1 :
         IEnv1.Renaming.Namectx.Names.name -> Renaming.Namectx.Names.name
@@ -348,9 +380,12 @@ module AggregateCommon
 
   type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
 
-  let empty = (IEnv1.empty, IEnv2.empty)
+  let empty (im1,im2) = (IEnv1.empty im1, IEnv2.empty im2)
   let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
   let im (ienv1, ienv2) = (IEnv1.im ienv1, IEnv2.im ienv2)
+
+  let embed_renaming (renam1, renam2) =
+    (IEnv1.embed_renaming renam1, IEnv2.embed_renaming renam2)
 
   let copairing (ienv11, ienv12) (ienv21, ienv22) =
     (IEnv1.copairing ienv11 ienv21, IEnv2.copairing ienv12 ienv22)

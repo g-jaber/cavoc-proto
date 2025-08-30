@@ -138,7 +138,7 @@ struct
 
   module IEnv = Ienv.Aggregate (OpLang.IEnv) (CIEnv) (Renaming)
 
-  let embed_value_env valenv = (valenv, CIEnv.empty)
+  let embed_value_env valenv = (valenv, CIEnv.empty CIEnv.Renaming.Namectx.empty) (* To be corrected *)
 
   let rename (NTerm (cn, term) : term) (renaming, crenaming) =
     let term' = OpLang.rename term renaming in
@@ -386,7 +386,8 @@ struct
       match (gval, gty) with
       | (GPairIn (value, ectx), GProd (ty_v, ty_c)) ->
           let (aval, val_env) = OpLang.AVal.abstracting_value value ty_v in
-          let (cn, cienv) = CIEnv.add_fresh CIEnv.empty "" ty_c ectx in
+          let empty_ienv = CIEnv.empty CIEnv.Renaming.Namectx.empty in (*TODO: TO be corrected !*)
+          let (cn, cienv) = CIEnv.add_fresh empty_ienv "" ty_c ectx in
           (APair (aval, cn), (val_env, cienv))
       | (GVal value, GType ty) ->
           let (aval, val_env) = OpLang.AVal.abstracting_value value ty in

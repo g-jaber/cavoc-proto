@@ -20,14 +20,21 @@ struct
 
   let infer_type_store = OpLang.Store.infer_type_store
 
-  module Namectx (*: Typectx.TYPECTX with type typ = OpLang.negative_type *) =
-  struct
-    module Names = OpLang.Names
-
-    (* A stack context (σ1,τ1)::(σ2,τ2)::...::(σn,τn)
+  (* A stack context (σ1,τ1)::(σ2,τ2)::...::(σn,τn)
      is the typing context for the stack of evaluation contexts,
      with σi the type of the hole and τi the return type )*)
-    type stack_ctx = (OpLang.typ * OpLang.typ) list
+  type stack_ctx = (OpLang.typ * OpLang.typ) list
+
+  type namectx =
+    | OpCtx of OpLang.typ option * OpLang.Namectx.t
+    | PropCtx of OpLang.Namectx.t * stack_ctx
+
+  module Namectx :
+    Typectx.TYPECTX
+      with type Names.name = Names.name
+       and type typ = OpLang.negative_type
+       and type t = namectx = struct
+    module Names = OpLang.Names
 
     let stack_ctx_to_yojson stack =
       let to_string (ty1, ty2) =
@@ -38,9 +45,7 @@ struct
     type typ = OpLang.negative_type
 
     (* The active context PropCtx have a type for the toplevel term*)
-    type t =
-      | OpCtx of OpLang.typ option * OpLang.Namectx.t
-      | PropCtx of OpLang.Namectx.t * stack_ctx
+    type t = namectx
 
     let to_yojson = function
       | OpCtx (None, name_ctx) -> OpLang.Namectx.to_yojson name_ctx
@@ -145,11 +150,13 @@ struct
     let map _ = failwith "TODO"
   end
 
+  module Renaming = Renaming.MakePmap (Namectx)
+
   (* Interactive environments γ are pairs formed by partial maps from functional names to functional values,
      and a stack of evaluation contexts. *)
 
   module IEnv = struct
-    module Renaming = OpLang.Renaming
+    module Renaming = Renaming
 
     type value = OpLang.negative_val
 
@@ -165,20 +172,26 @@ struct
       `Assoc
         [ ("ienv", OpLang.IEnv.to_yojson ienv); ("ectx stack", ectx_l_yojson) ]
 
-    let empty = (OpLang.IEnv.empty, [])
-    let dom (ienv, _) = OpLang.IEnv.dom ienv
-    let im (ienv, _) = OpLang.IEnv.im ienv
+    let empty = function
+      | PropCtx (fnamectx, _) -> (OpLang.IEnv.empty fnamectx, [])
+      | OpCtx (_, fnamectx) -> (OpLang.IEnv.empty fnamectx, [])
+
+    let dom (ienv, _) = PropCtx (OpLang.IEnv.dom ienv, [])
+    let im (ienv, _) = PropCtx (OpLang.IEnv.im ienv, [])
+
+    let embed_renaming _renam =
+      failwith "TODO" (*(OpLang.IEnv.embed_renaming renam, [])*)
 
     let copairing (ienv1, cstack1) (ienv2, cstack2) =
       (OpLang.IEnv.copairing ienv1 ienv2, cstack1 @ cstack2)
 
-    let weaken_l (ienv, cstack) fnamectx =
+    let[@warning "-8"] weaken_l (ienv, cstack) (PropCtx (fnamectx, [])) =
       let ienv' = OpLang.IEnv.weaken_l ienv fnamectx in
       let renam = OpLang.Renaming.weak_l (OpLang.IEnv.dom ienv) fnamectx in
       let cstack' = List.map (OpLang.rename_eval_context renam) cstack in
       (ienv', cstack')
 
-    let weaken_r (ienv, cstack) fnamectx =
+    let[@warning "-8"] weaken_r (ienv, cstack) (PropCtx (fnamectx, [])) =
       let ienv' = OpLang.IEnv.weaken_r ienv fnamectx in
       let renam = OpLang.Renaming.weak_r (OpLang.IEnv.dom ienv) fnamectx in
       let cstack' = List.map (OpLang.rename_eval_context renam) cstack in
@@ -241,7 +254,7 @@ struct
   (* TODO: Deal with the abstraction process of the heap properly *)
 
   let[@warning "-8"] abstracting_nf_term nf_term
-      (Namectx.OpCtx (Some ty_out, fnamectxO)) =
+      (OpCtx (Some ty_out, fnamectxO)) =
     let inj_ty ty = ty in
     let get_type_fname fn =
       let nty = OpLang.Namectx.lookup_exn fnamectxO fn in
@@ -259,12 +272,11 @@ struct
     let f_val (value, nty) = OpLang.AVal.abstracting_value value nty in
     let f_ectx (ectx, (ty_hole, ty_out)) =
       ((), ([ ectx ], [ (ty_hole, ty_out) ])) in
-    let (a_nf_term, ienv) =
-      OpLang.Nf.map_val OpLang.IEnv.empty f_val nf_typed_term' in
+    let empty_ienv = OpLang.IEnv.empty fnamectxO in
+    let (a_nf_term, ienv) = OpLang.Nf.map_val empty_ienv f_val nf_typed_term' in
     let (a_nf_term', (stack, stack_ctx)) =
       OpLang.Nf.map_ectx ([], []) f_ectx a_nf_term in
-    ( a_nf_term',
-      ((ienv, stack), Namectx.PropCtx (OpLang.IEnv.dom ienv, stack_ctx)) )
+    (a_nf_term', ((ienv, stack), PropCtx (OpLang.IEnv.dom ienv, stack_ctx)))
 
   let abstracting_nf (nf_term, store) namectxO storectx_discl =
     let (a_nf_term, (ienv, lnamectx)) = abstracting_nf_term nf_term namectxO in
@@ -326,7 +338,7 @@ struct
     OpLang.Nf.abstract_nf_term_m ~gen_val nf_skeleton
 
   let[@warning "-8"] generate_a_nf_call storectx
-      (Namectx.PropCtx (fnamectx, _) as namectxP) =
+      (PropCtx (fnamectx, _) as namectxP) =
     let fnamectx_pmap = OpLang.Namectx.to_pmap fnamectx in
     let fnamectx_split =
       Util.Pmap.filter_map
@@ -340,20 +352,20 @@ struct
     let* (skel, typ) = OpLang.generate_nf_term_call fnamectx_split in
     let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx skel in
     let* store = OpLang.Store.generate_store storectx in
-    let namectxO = Namectx.OpCtx (Some typ, lnamectx) in
+    let namectxO = OpCtx (Some typ, lnamectx) in
     return ((a_nf_term, store), namectxO, namectxP)
 
   let[@warning "-8"] generate_a_nf_ret storectx = function
-    | Namectx.PropCtx (_, []) -> BranchMonad.fail ()
-    | Namectx.PropCtx (fnamectx, (ty_hole, ty_out) :: stackctx') ->
+    | PropCtx (_, []) -> BranchMonad.fail ()
+    | PropCtx (fnamectx, (ty_hole, ty_out) :: stackctx') ->
         let cnamectx_pmap = Util.Pmap.singleton ((), (ty_hole, ty_out)) in
         let inj_ty ty = ty in
         let open BranchMonad in
         let* (skel, typ) = OpLang.generate_nf_term_ret inj_ty cnamectx_pmap in
         let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx skel in
         let* store = OpLang.Store.generate_store storectx in
-        let namectxP' = Namectx.PropCtx (fnamectx, stackctx') in
-        let namectxO = Namectx.OpCtx (Some typ, lnamectx) in
+        let namectxP' = PropCtx (fnamectx, stackctx') in
+        let namectxO = OpCtx (Some typ, lnamectx) in
         return ((a_nf_term, store), namectxO, namectxP')
 
   let generate_a_nf storectx namectxP =
@@ -362,9 +374,8 @@ struct
       (generate_a_nf_ret storectx namectxP)
 
   let[@warning "-8"] type_check_a_nf
-      (Namectx.PropCtx (fnamectxP, stack_ctx) as namectxP)
-      (Namectx.OpCtx (None, fnamectxO))
-      ((nf_term, _), Namectx.OpCtx (Some ty_out, lnamectx')) =
+      (PropCtx (fnamectxP, stack_ctx) as namectxP) (OpCtx (None, fnamectxO))
+      ((nf_term, _), OpCtx (Some ty_out, lnamectx')) =
     let inj_ty ty = ty in
     let empty_res = namectxP in
     let get_type_fname fn = OpLang.Namectx.lookup_exn fnamectxP fn in
@@ -388,7 +399,7 @@ struct
       match stack_ctx with
       | [] -> None
       | _ :: stack_ctx' -> begin
-          let namectxP' = Namectx.PropCtx (fnamectxP, stack_ctx') in
+          let namectxP' = PropCtx (fnamectxP, stack_ctx') in
           if
             ty_out = ty_out'
             && OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_hole
@@ -407,12 +418,9 @@ struct
   let get_typed_ienv lexBuffer_implem lexBuffer_signature =
     let (ienv, store, namectxP, namectxO) =
       OpLang.get_typed_ienv lexBuffer_implem lexBuffer_signature in
-    ( (ienv, []),
-      store,
-      Namectx.PropCtx (namectxP, []),
-      Namectx.OpCtx (None, namectxO) )
+    ((ienv, []), store, PropCtx (namectxP, []), OpCtx (None, namectxO))
 
   let get_typed_opconf nbprog inBuffer =
     let (opconf, ty, namectxO) = OpLang.get_typed_opconf nbprog inBuffer in
-    (opconf, Namectx.OpCtx (Some ty, namectxO))
+    (opconf, OpCtx (Some ty, namectxO))
 end

@@ -25,6 +25,59 @@ module type RENAMING_LIST = sig
   include RENAMING with type Namectx.Names.name = int * string
 end
 
+module MakePmap (Namectx : Typectx.TYPECTX) :
+  RENAMING with module Namectx = Namectx = struct
+  module Namectx = Namectx
+
+  type t = {
+    map: (Namectx.Names.name, Namectx.Names.name) Util.Pmap.pmap;
+    dom: Namectx.t;
+    im: Namectx.t;
+  }
+
+  let pp_map fmt map =
+    let pp_sep fmt () = Format.fprintf fmt ", " in
+    let pp_empty fmt () = Format.fprintf fmt "⋅" in
+    let pp_pair fmt (n, value) =
+      Format.fprintf fmt "%a ↦ %a" Namectx.Names.pp_name n Namectx.Names.pp_name
+        value in
+    Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt map
+
+  let pp fmt renam =
+    Format.fprintf fmt "%a : %a ⇒ %a" pp_map renam.map Namectx.pp renam.dom
+      Namectx.pp renam.im
+
+  let to_string = Format.asprintf "%a" pp
+
+  let id namectx =
+    let names_l = Namectx.get_names namectx in
+    let map = Util.Pmap.list_to_pmap @@ List.map (fun nn -> (nn, nn)) names_l in
+    { map; dom= namectx; im= namectx }
+
+  let dom renam = renam.dom
+  let im renam = renam.im
+
+  let compose renam1 renam2 =
+    assert (renam1.dom = renam2.im);
+    let dom = renam2.dom in
+    let im = renam1.im in
+    let map =
+      Util.Pmap.map_im (fun nn -> Util.Pmap.lookup_exn nn renam1.map) renam2.map
+    in
+    { map; dom; im }
+
+  let weak_l namectx_l namectx_r =
+    let renam = id namectx_l in
+    { renam with im= Namectx.concat namectx_l namectx_r }
+
+  let weak_r namectx_l namectx_r =
+    let renam = id namectx_r in
+    { renam with im= Namectx.concat namectx_l namectx_r }
+
+  let sym _namectx_l _namectx_r = failwith "TODO"
+  let lookup renam nn = Util.Pmap.lookup_exn nn renam.map
+end
+
 module Make (Namectx : Typectx.TYPECTX_LIST) :
   RENAMING with module Namectx = Namectx = struct
   module Namectx = Namectx
@@ -196,11 +249,13 @@ struct
   let dom (renam1, renam2) = (Renam1.dom renam1, Renam2.dom renam2)
   let im (renam1, renam2) = (Renam1.im renam1, Renam2.im renam2)
 
-    let compose (renam11,renam12) (renam21,renam22) =
-    assert ((Renam1.dom renam11 = Renam1.im renam21) && (Renam2.dom renam12 = Renam2.im renam22));
+  let compose (renam11, renam12) (renam21, renam22) =
+    assert (
+      Renam1.dom renam11 = Renam1.im renam21
+      && Renam2.dom renam12 = Renam2.im renam22);
     let renam1 = Renam1.compose renam11 renam21 in
-    let renam2 = Renam2.compose renam12 renam22
-    in (renam1,renam2)
+    let renam2 = Renam2.compose renam12 renam22 in
+    (renam1, renam2)
 
   let weak_l (namectx1_l, namectx2_l) (namectx1_r, namectx2_r) =
     let map1 = Renam1.weak_l namectx1_l namectx1_r in

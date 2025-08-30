@@ -107,7 +107,7 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
     match MoveTree.trigger movetree move with
     | None -> EvalMonad.fail ()
     | Some moveOut ->
-        EvalMonad.return ((moveOut, namectx, storectx), IEnv.empty, movetree)
+        EvalMonad.return ((moveOut, namectx, storectx), IEnv.empty namectx, movetree)
 
   let get_subject_name : abstract_normal_form -> Names.name option = failwith ""
   let get_support : abstract_normal_form -> Names.name list = failwith ""

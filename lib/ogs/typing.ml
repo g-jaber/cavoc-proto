@@ -1,8 +1,8 @@
 module Make (IntLang : Lang.Interactive.LANG) :
   Lts.Typing.LTS
-    with module Moves.Namectx = IntLang.Namectx
+    with module Moves.Namectx = IntLang.IEnv.Renaming.Namectx
      and type store_ctx = IntLang.Storectx.t
-     and type Moves.move = IntLang.abstract_normal_form * IntLang.Namectx.t =
+     and type Moves.move = IntLang.abstract_normal_form * IntLang.IEnv.Renaming.Namectx.t =
 struct
   module Moves = Lts.Moves.Make ((IntLang : Lts.Moves.A_NF))
   module BranchMonad = IntLang.BranchMonad
@@ -13,8 +13,8 @@ struct
   type position = {
     status: status;
     storectx: IntLang.Storectx.t;
-    namectxP: IntLang.Namectx.t;
-    namectxO: IntLang.Namectx.t;
+    namectxP: IntLang.IEnv.Renaming.Namectx.t;
+    namectxO: IntLang.IEnv.Renaming.Namectx.t;
   }
 
   let get_namectxO pos = pos.namectxO
@@ -24,13 +24,13 @@ struct
     `Assoc
       [
         ("storectx", IntLang.Storectx.to_yojson pos.storectx);
-        ("namectxP", IntLang.Namectx.to_yojson pos.namectxP);
-        ("namectxO", IntLang.Namectx.to_yojson pos.namectxO);
+        ("namectxP", IntLang.IEnv.Renaming.Namectx.to_yojson pos.namectxP);
+        ("namectxO", IntLang.IEnv.Renaming.Namectx.to_yojson pos.namectxO);
       ]
 
   let pp_position fmt pos =
     Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a |@, ΔP: %a⟩@]" IntLang.Storectx.pp
-      pos.storectx IntLang.Namectx.pp pos.namectxO IntLang.Namectx.pp
+      pos.storectx IntLang.IEnv.Renaming.Namectx.pp pos.namectxO IntLang.IEnv.Renaming.Namectx.pp
       pos.namectxP
 
   let string_of_position = Format.asprintf "%a" pp_position
@@ -48,22 +48,22 @@ struct
     | { status= Passive; storectx; namectxP; namectxO } ->
         let* (a_nf, lnamectx, namectxP) =
           IntLang.generate_a_nf storectx namectxP in
-        let namectxO = IntLang.Namectx.concat namectxO lnamectx in
+        let namectxO = IntLang.IEnv.Renaming.Namectx.concat namectxO lnamectx in
         Util.Debug.print_debug @@ "New Opponent name context :"
-        ^ IntLang.Namectx.to_string lnamectx
+        ^ IntLang.IEnv.Renaming.Namectx.to_string lnamectx
         ^ " and "
-        ^ IntLang.Namectx.to_string namectxO;
+        ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO;
         return
           ( (Moves.Input, (a_nf, lnamectx)),
             { status= Active; storectx; namectxO; namectxP } )
     | { status= Active; storectx; namectxP; namectxO } ->
         let* (a_nf, lnamectx, namectxO) =
           IntLang.generate_a_nf storectx namectxO in
-        let namectxP = IntLang.Namectx.concat namectxP lnamectx in
+        let namectxP = IntLang.IEnv.Renaming.Namectx.concat namectxP lnamectx in
         Util.Debug.print_debug @@ "New Proponent name context :"
-        ^ IntLang.Namectx.to_string lnamectx
+        ^ IntLang.IEnv.Renaming.Namectx.to_string lnamectx
         ^ " and "
-        ^ IntLang.Namectx.to_string namectxP;
+        ^ IntLang.IEnv.Renaming.Namectx.to_string namectxP;
         return
           ( (Moves.Input, (a_nf, lnamectx)),
             { status= Passive; storectx; namectxO; namectxP } )
@@ -73,14 +73,14 @@ struct
     | (Moves.Output, { status= Active; storectx; namectxP; namectxO }) -> begin
         match IntLang.type_check_a_nf namectxO namectxP (a_nf, lnamectx) with
         | Some namectxO ->
-            let namectxP = IntLang.Namectx.concat namectxP lnamectx in
+            let namectxP = IntLang.IEnv.Renaming.Namectx.concat namectxP lnamectx in
             Some { status= Passive; storectx; namectxP; namectxO }
         | None -> None
       end
     | (Moves.Input, { status= Passive; storectx; namectxP; namectxO }) -> begin
         match IntLang.type_check_a_nf namectxP namectxO (a_nf, lnamectx) with
         | Some namectxP ->
-            let namectxO = IntLang.Namectx.concat namectxO lnamectx in
+            let namectxO = IntLang.IEnv.Renaming.Namectx.concat namectxO lnamectx in
             Some { status= Active; storectx; namectxP; namectxO }
         | None -> None
       end
@@ -90,10 +90,10 @@ struct
     let lnamectx = Moves.get_namectx move in
     match (dir, pos) with
     | (Moves.Output, { status= Active; storectx; namectxP; namectxO }) ->
-        let namectxP = IntLang.Namectx.concat lnamectx namectxP in
+        let namectxP = IntLang.IEnv.Renaming.Namectx.concat lnamectx namectxP in
         { status= Passive; storectx; namectxP; namectxO }
     | (Moves.Input, { status= Passive; storectx; namectxP; namectxO }) ->
-        let namectxO = IntLang.Namectx.concat lnamectx namectxO in
+        let namectxO = IntLang.IEnv.Renaming.Namectx.concat lnamectx namectxO in
         { status= Active; storectx; namectxP; namectxO }
     | _ ->
         failwith

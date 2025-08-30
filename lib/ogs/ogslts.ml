@@ -2,12 +2,12 @@ module Make
     (Lang : Lang.Interactive.LANG)
     (TypingLTS :
       Lts.Typing.LTS
-        with module Moves.Namectx = Lang.Namectx
+        with module Moves.Namectx = Lang.IEnv.Renaming.Namectx
          and type store_ctx = Lang.Storectx.t
-         and type Moves.move = Lang.abstract_normal_form * Lang.Namectx.t) :
+         and type Moves.move = Lang.abstract_normal_form * Lang.IEnv.Renaming.Namectx.t) :
   Lts.Bipartite.INT_LTS
     with module OBranchingMonad = TypingLTS.BranchMonad
-     and module Moves.Namectx = Lang.Namectx
+     and module Moves.Namectx = Lang.IEnv.Renaming.Namectx
      and type opconf = Lang.opconf
      and type store = Lang.store
      and type interactive_env = Lang.IEnv.t = struct
@@ -63,6 +63,7 @@ module Make
           TypingLTS.get_storectx act_conf.pos ) in
     let move = (TypingLTS.Moves.Output, (a_nf, lnamectx)) in
     let pos = TypingLTS.trigger_move act_conf.pos move in
+    Util.Debug.print_debug "Before copairing";
     let ienv = Lang.IEnv.copairing act_conf.ienv ienv in
     return (move, { store; ienv; pos })
 
@@ -85,9 +86,9 @@ module Make
 
   let init_aconf opconf namectxO =
     let pos =
-      TypingLTS.init_act_pos Lang.Storectx.empty Lang.Namectx.empty namectxO
+      TypingLTS.init_act_pos Lang.Storectx.empty Lang.IEnv.Renaming.Namectx.empty namectxO
     in
-    { opconf; ienv= Lang.IEnv.empty; pos }
+    { opconf; ienv= Lang.IEnv.empty namectxO; pos }
 
   let init_pconf store ienv namectxP namectxO =
     let store_ctx = Lang.Storectx.empty in

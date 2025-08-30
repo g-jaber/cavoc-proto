@@ -224,5 +224,4 @@ let get_typed_val_env var_val_env sign_decl_l =
                 non-negative type " ^ Types.string_of_typ ty');
             partition_env acc tl
       end in
-
-  partition_env (Ienv.IEnv.empty, Namectx.Namectx.empty) var_ctx_l
+  partition_env (Ienv.IEnv.empty Namectx.Namectx.empty, Namectx.Namectx.empty) var_ctx_l

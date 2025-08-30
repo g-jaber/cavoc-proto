@@ -202,7 +202,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           failwith
             ("Error: " ^ string_of_term value ^ " of type " ^ string_of_typ ty
            ^ " cannot be abstracted because it is not a value.") in
-    aux Ienv.IEnv.empty value ty
+    aux (Ienv.IEnv.empty Ienv.IEnv.Renaming.Namectx.empty) value ty (* To be corrected *)
 
   let subst_pnames (_ienvf,ienvp) nup =
     let aux nup (nn, nval) =

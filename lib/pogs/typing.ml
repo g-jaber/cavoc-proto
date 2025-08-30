@@ -1,8 +1,8 @@
 module Make (IntLang : Lang.Interactive.LANG) :
   Lts.Typing.LTS
-    with module Moves.Namectx = IntLang.Namectx
+    with module Moves.Namectx = IntLang.IEnv.Renaming.Namectx
      and type store_ctx = IntLang.Storectx.t
-     and type Moves.move = IntLang.abstract_normal_form * IntLang.Namectx.t =
+     and type Moves.move = IntLang.abstract_normal_form * IntLang.IEnv.Renaming.Namectx.t =
 struct
   module Moves = Lts.Moves.Make (IntLang)
   module BranchMonad = IntLang.BranchMonad
@@ -11,37 +11,37 @@ struct
 
   type act_position = {
     storectx: IntLang.Storectx.t;
-    namectxO: IntLang.Namectx.t;
+    namectxO: IntLang.IEnv.Renaming.Namectx.t;
   }
 
   let act_position_to_yojson ictx =
     `Assoc
       [
         ("storectx", IntLang.Storectx.to_yojson ictx.storectx);
-        ("namectxO", IntLang.Namectx.to_yojson ictx.namectxO);
+        ("namectxO", IntLang.IEnv.Renaming.Namectx.to_yojson ictx.namectxO);
       ]
 
   let pp_act_position fmt ictx =
     Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a⟩@]" IntLang.Storectx.pp
-      ictx.storectx IntLang.Namectx.pp ictx.namectxO
+      ictx.storectx IntLang.IEnv.Renaming.Namectx.pp ictx.namectxO
 
   type pas_position = {
     storectx: IntLang.Storectx.t;
-    namectxP: IntLang.Namectx.t;
-    namectxO: IntLang.Namectx.t;
+    namectxP: IntLang.IEnv.Renaming.Namectx.t;
+    namectxO: IntLang.IEnv.Renaming.Namectx.t;
   }
 
   let pas_position_to_yojson ictx =
     `Assoc
       [
         ("storectx", IntLang.Storectx.to_yojson ictx.storectx);
-        ("namectxP", IntLang.Namectx.to_yojson ictx.namectxP);
-        ("namectxO", IntLang.Namectx.to_yojson ictx.namectxO);
+        ("namectxP", IntLang.IEnv.Renaming.Namectx.to_yojson ictx.namectxP);
+        ("namectxO", IntLang.IEnv.Renaming.Namectx.to_yojson ictx.namectxO);
       ]
 
   let pp_pas_position fmt ictx =
     Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a |@, ΔP: %a⟩@]" IntLang.Storectx.pp
-      ictx.storectx IntLang.Namectx.pp ictx.namectxO IntLang.Namectx.pp
+      ictx.storectx IntLang.IEnv.Renaming.Namectx.pp ictx.namectxO IntLang.IEnv.Renaming.Namectx.pp
       ictx.namectxP
 
   type position = Active of act_position | Passive of pas_position
@@ -74,7 +74,7 @@ struct
     match pos with
     | Passive { storectx; namectxP; namectxO } ->
         let* (a_nf, lnamectx, _) = IntLang.generate_a_nf storectx namectxP in
-        let namectxO = IntLang.Namectx.concat lnamectx namectxO in
+        let namectxO = IntLang.IEnv.Renaming.Namectx.concat lnamectx namectxO in
         return ((Moves.Input, (a_nf, lnamectx)), Active { storectx; namectxO })
     | Active { storectx; namectxO } ->
         let* (a_nf, namectxP, namectxO) =
@@ -87,7 +87,7 @@ struct
     match (dir, pos) with
     | (Moves.Output, Active { storectx; namectxO }) -> begin
         match
-          IntLang.type_check_a_nf IntLang.Namectx.empty namectxO (a_nf, lnamectx)
+          IntLang.type_check_a_nf IntLang.IEnv.Renaming.Namectx.empty namectxO (a_nf, lnamectx)
         with
         | Some namectxO ->
             let namectxP = lnamectx in
@@ -97,7 +97,7 @@ struct
     | (Moves.Input, Passive { storectx; namectxO; namectxP }) -> begin
         match IntLang.type_check_a_nf namectxP namectxO (a_nf, lnamectx) with
         | Some _ ->
-            let namectxO = IntLang.Namectx.concat namectxO lnamectx in
+            let namectxO = IntLang.IEnv.Renaming.Namectx.concat namectxO lnamectx in
             Some (Active { storectx; namectxO })
         | None -> None
       end
@@ -109,7 +109,7 @@ struct
     | (Moves.Output, Active { storectx; namectxO }) ->
         Passive { namectxP= lnamectx; storectx; namectxO }
     | (Moves.Input, Passive { storectx; namectxO; _ }) ->
-        let namectxO = IntLang.Namectx.concat lnamectx namectxO in
+        let namectxO = IntLang.IEnv.Renaming.Namectx.concat lnamectx namectxO in
         Active { storectx; namectxO }
     | _ ->
         failwith

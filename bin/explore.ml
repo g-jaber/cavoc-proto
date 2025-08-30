@@ -115,7 +115,7 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
 let build_ogs_lts (module IntLang : Lang.Interactive.LANG_WITH_INIT) =
   let (module OGS_LTS : Lts.Bipartite.INT_LTS
         with type opconf = IntLang.opconf
-         and type Moves.Namectx.t = IntLang.Namectx.t
+         and type Moves.Namectx.t = IntLang.IEnv.Renaming.Namectx.t
          and type store = IntLang.store
          and type interactive_env = IntLang.IEnv.t) =
     match (!generate_tree, !enable_wb, !enable_visibility) with
@@ -152,9 +152,9 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG_WITH_INIT) =
       let (opconf2, namectxO2) = IntLang.get_typed_opconf "second" lexBuffer2 in
       Util.Debug.print_debug
         ("Name contexts for Opponent: "
-        ^ IntLang.Namectx.to_string namectxO1
+        ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO1
         ^ " and "
-        ^ IntLang.Namectx.to_string namectxO2);
+        ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO2);
       (* TODO: We should check that they are equal*)
       let module Synch_LTS = Lts.Synch_lts.Make (OGS_LTS) in
       let init_conf =

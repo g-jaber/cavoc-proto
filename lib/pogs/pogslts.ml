@@ -1,6 +1,6 @@
 module Make (Lang : Lang.Interactive.LANG) :
   Lts.Bipartite.INT_LTS
-    with module Moves.Namectx = Lang.Namectx
+    with module Moves.Namectx = Lang.IEnv.Renaming.Namectx
      and type opconf = Lang.opconf
      and type store = Lang.store
      and type interactive_env = Lang.IEnv.t = struct
@@ -71,7 +71,7 @@ module Make (Lang : Lang.Interactive.LANG) :
 
   let init_aconf opconf namectxO =
     let pos =
-      TypingLTS.init_act_pos Lang.Storectx.empty Lang.Namectx.empty namectxO
+      TypingLTS.init_act_pos Lang.Storectx.empty Lang.IEnv.Renaming.Namectx.empty namectxO
     in
     { opconf; pos }
 

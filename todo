@@ -47,8 +47,11 @@
 - [x] Embed a Namectx module inside Moves
 - [x] Embed a Namectx module inside IEnv
 - [x] Embed a Renaming module inside IEnv
+- [ ] Embed a Renaming module inside Moves
 - [x] Define the weakening over ienv
 - [x] Define the tensor of ienv
 - [ ] Define an interface for the monoid action for substitution
 - [x] Remove concat map in IEnv and introduce copairing
 - [x] Switch to a presentation with typed moves
+- [ ] Implement a notion of Stackctx and of Stackenv for direct.ml
+- [ ] Pass a namectx argument to abstract_val to handle correctly the empty ienv

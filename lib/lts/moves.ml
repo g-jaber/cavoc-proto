@@ -76,7 +76,7 @@ include Moves
 end *)
 
 module type A_NF = sig
-  module Namectx : Lang.Typectx.TYPECTX
+  module IEnv : Lang.Ienv.IENV
 
   type abstract_normal_form
 
@@ -87,21 +87,21 @@ module type A_NF = sig
     unit
 
   val string_of_a_nf : string -> abstract_normal_form -> string
-  val get_subject_name : abstract_normal_form -> Namectx.Names.name option
-  val get_support : abstract_normal_form -> Namectx.Names.name list
+  val get_subject_name : abstract_normal_form -> IEnv.Renaming.Namectx.Names.name option
+  val get_support : abstract_normal_form -> IEnv.Renaming.Namectx.Names.name list
 
   val is_equiv_a_nf :
-    Namectx.Names.name Util.Namespan.namespan ->
+    IEnv.Renaming.Namectx.Names.name Util.Namespan.namespan ->
     abstract_normal_form ->
     abstract_normal_form ->
-    Namectx.Names.name Util.Namespan.namespan option
+    IEnv.Renaming.Namectx.Names.name Util.Namespan.namespan option
 end
 
 module Make (A_nf : A_NF) :
   POLMOVES
-    with module Namectx = A_nf.Namectx
-     and type move = A_nf.abstract_normal_form * A_nf.Namectx.t = struct
-  module Namectx = A_nf.Namectx
+    with module Namectx = A_nf.IEnv.Renaming.Namectx
+     and type move = A_nf.abstract_normal_form * A_nf.IEnv.Renaming.Namectx.t = struct
+  module Namectx = A_nf.IEnv.Renaming.Namectx
 
   type move = A_nf.abstract_normal_form * Namectx.t
   type direction = Input | Output
