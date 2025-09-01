@@ -194,6 +194,7 @@ struct
       im= ienv1.im;
     }
 
+  (* Taking γ : Γ → Δ and Θ, then weaken_r γ Θ : Γ → Δ + Θ *)
   let weaken_r ienv namectx =
     let renam = Renaming.weak_l ienv.im namectx in
     let map = List.map (Value.renam_act renam) ienv.map in

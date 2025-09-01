@@ -93,10 +93,10 @@ let map_cn empty_res f_cn = function
       (NFRaise (cn', value), res)
 
 let type_annotating_val ~inj_ty ~get_type_fname ~get_type_cname = function
-  | NFCallback (fn, value, ectx) ->
+  | NFCallback (fn, value, ectx) -> Util.Debug.print_debug "type annotating val callback";
       let ty_arg = get_type_fname fn in
       NFCallback (fn, (value, ty_arg), ectx)
-  | NFValue (cn, value) ->
+  | NFValue (cn, value) -> Util.Debug.print_debug "type annotating val return";
       let ty = get_type_cname cn in
       NFValue (cn, (value, ty))
   | NFError _ as res -> res

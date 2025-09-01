@@ -98,8 +98,11 @@ module Make (Namectx : Typectx.TYPECTX_LIST) :
     Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt map
 
   let pp fmt renam =
-    Format.fprintf fmt "%a : %a ⇒ %a" pp_map renam.map Namectx.pp renam.dom
-      Namectx.pp renam.im
+    if Namectx.is_empty renam.dom && Namectx.is_empty renam.im then
+      Format.fprintf fmt ""
+    else
+      Format.fprintf fmt "%a : [%a] ⇒ [%a]" pp_map renam.map Namectx.pp
+        renam.dom Namectx.pp renam.im
 
   let to_string = Format.asprintf "%a" pp
 
@@ -135,15 +138,17 @@ module Make (Namectx : Typectx.TYPECTX_LIST) :
       Util.Pmap.list_to_pmap
       @@ List.map (fun ((i, str) as nn) -> (nn, (i + offset, str))) names_l
     in
-    { map; dom= namectx_r; im= Namectx.concat namectx_r namectx_l }
+    { map; dom= namectx_l; im= Namectx.concat namectx_r namectx_l }
 
   let sym _namectx_l _namectx_r = failwith "TODO"
-  let lookup renam ((_i, _str) as nn) = Util.Pmap.lookup_exn nn renam.map
-  (*try Util.Pmap.lookup_exn nn renam.map
+
+  let lookup renam nn =
+    try Util.Pmap.lookup_exn nn renam.map
     with Not_found ->
-      Util.Debug.print_debug @@ "The name " ^ string_of_int i ^ str
+      Util.Debug.print_debug @@ "The name "
+      ^ Namectx.Names.string_of_name nn
       ^ " was not found in the renaming " ^ to_string renam;
-      nn*)
+      raise Not_found
 end
 
 module MakeAggregate (* Not used so far *)
@@ -217,9 +222,15 @@ module MakeAggregate (* Not used so far *)
   let sym _namectx_l _namectx_r = failwith "TODO"
 
   let lookup renam nn =
-    match nn with
-    | Either.Left nn' -> Either.Left (Util.Pmap.lookup_exn nn' renam.map_l)
-    | Either.Right nn' -> Either.Right (Util.Pmap.lookup_exn nn' renam.map_r)
+    try
+      match nn with
+      | Either.Left nn' -> Either.Left (Util.Pmap.lookup_exn nn' renam.map_l)
+      | Either.Right nn' -> Either.Right (Util.Pmap.lookup_exn nn' renam.map_r)
+    with Not_found ->
+      Util.Debug.print_debug @@ "The name "
+      ^ Namectx.Names.string_of_name nn
+      ^ " was not found in the renaming " ^ to_string renam;
+      raise Not_found
 end
 
 module Aggregate
