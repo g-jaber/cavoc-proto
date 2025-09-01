@@ -168,7 +168,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
       OpLang.negating_type nty in
     let nf_typed_term = OpLang.type_annotating_val get_ty nf_term in
     let f_val (value, nty) =
-      let (aval, ienv) = OpLang.AVal.abstracting_value value nty in
+      let (aval, ienv) = OpLang.AVal.abstracting_value value namectxO nty in
       (aval, ienv) in
     let empty_res = IEnv.empty namectxO in
     OpLang.Nf.map_val empty_res f_val nf_typed_term

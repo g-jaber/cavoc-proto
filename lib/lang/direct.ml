@@ -269,7 +269,7 @@ struct
       OpLang.get_output_type nty in
     let nf_typed_term' =
       OpLang.type_annotating_ectx ~get_type_fname ty_out nf_typed_term in
-    let f_val (value, nty) = OpLang.AVal.abstracting_value value nty in
+    let f_val (value, nty) = OpLang.AVal.abstracting_value value fnamectxO nty in
     let f_ectx (ectx, (ty_hole, ty_out)) =
       ((), ([ ectx ], [ (ty_hole, ty_out) ])) in
     let empty_ienv = OpLang.IEnv.empty fnamectxO in

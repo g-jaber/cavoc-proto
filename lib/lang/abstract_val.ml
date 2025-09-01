@@ -33,7 +33,7 @@ module type AVAL = sig
       - a typed interactive environment γ for the negative part.
     The type τ is needed to guide this abstracting process for polymorphic languages. *)
   val abstracting_value :
-    value -> typ -> abstract_val * interactive_env
+    value -> name_ctx -> typ -> abstract_val * interactive_env
 
   val subst_pnames : interactive_env -> abstract_val -> value
 

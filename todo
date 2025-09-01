@@ -54,4 +54,5 @@
 - [x] Remove concat map in IEnv and introduce copairing
 - [x] Switch to a presentation with typed moves
 - [ ] Implement a notion of Stackctx and of Stackenv for direct.ml
-- [ ] Pass a namectx argument to abstract_val to handle correctly the empty ienv
+- [x] Pass a namectx argument to abstracting_value to handle correctly the empty ienv
+- [ ] Allow namectx in image of IEnv to be different (and larger) to the one in domain

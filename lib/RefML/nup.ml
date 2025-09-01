@@ -170,7 +170,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     | Some lnamectx when Namectx.Namectx.is_empty lnamectx -> true
     | Some _ -> false
 
-  let abstracting_value (value : value) ty =
+  let abstracting_value (value : value) namectxO ty =
     let rec aux ((ienvf,ienvp) as ienv) value ty =
       match (value, ty) with
       | (Fun _, TArrow _)
@@ -202,8 +202,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           failwith
             ("Error: " ^ string_of_term value ^ " of type " ^ string_of_typ ty
            ^ " cannot be abstracted because it is not a value.") in
-    aux (Ienv.IEnv.empty Ienv.IEnv.Renaming.Namectx.empty) value ty (* To be corrected *)
-
+    aux (Ienv.IEnv.empty namectxO) value ty 
   let subst_pnames (_ienvf,ienvp) nup =
     let aux nup (nn, nval) =
       Syntax.subst nup (Name (Names.embed_pname nn)) (embed_negative_val nval) in

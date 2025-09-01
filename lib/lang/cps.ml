@@ -382,15 +382,15 @@ struct
                ty (aval, lfnamectx)
       | _ -> false
 
-    let abstracting_value gval gty =
+    let abstracting_value gval (namectxO,cnamectxO) gty =
       match (gval, gty) with
       | (GPairIn (value, ectx), GProd (ty_v, ty_c)) ->
-          let (aval, val_env) = OpLang.AVal.abstracting_value value ty_v in
-          let empty_ienv = CIEnv.empty CIEnv.Renaming.Namectx.empty in (*TODO: TO be corrected !*)
+          let (aval, val_env) = OpLang.AVal.abstracting_value value namectxO ty_v in
+          let empty_ienv = CIEnv.empty cnamectxO in (* TODO *)
           let (cn, cienv) = CIEnv.add_fresh empty_ienv "" ty_c ectx in
           (APair (aval, cn), (val_env, cienv))
       | (GVal value, GType ty) ->
-          let (aval, val_env) = OpLang.AVal.abstracting_value value ty in
+          let (aval, val_env) = OpLang.AVal.abstracting_value value namectxO ty in
           let ienv = embed_value_env val_env in
           (AVal aval, ienv)
       | (_, _) -> failwith "Ill-typed interactive value. Please report."
