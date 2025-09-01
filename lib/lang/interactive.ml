@@ -128,7 +128,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     * Store.store
 
   let concretize_a_nf store ienv ((a_nf_term, store'), lnamectx) =
-    (* We first weaken_l the abstract values in the abstract normal form *)
+    (* We first weaken_r the abstract values in the abstract normal form *)
     let id_lnamectx = IEnv.embed_renaming @@ IEnv.Renaming.id lnamectx in
     let ienv' = IEnv.tensor ienv id_lnamectx in
     (* Old version: we use to weaken the abstract term
@@ -139,7 +139,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
       OpLang.Nf.map
         ~f_val:(fun aval -> OpLang.AVal.rename aval renaming)
         ~f_fn:Fun.id ~f_cn:Fun.id ~f_ectx:Fun.id a_nf_term in
-    Util.Debug.print_debug @@ "The weaken_l abstract normal form term is :"
+    Util.Debug.print_debug @@ "The weaken_r abstract normal form term is :"
     ^ OpLang.Nf.string_of_nf_term "" OpLang.AVal.string_of_abstract_val
         (fun () -> "")
         IEnv.Renaming.Namectx.Names.string_of_name IEnv.Renaming.Namectx.Names.string_of_name a_nf_term; *)
@@ -150,7 +150,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let f_ectx () = () in
     let nf_term' = OpLang.Nf.map ~f_val ~f_fn ~f_cn ~f_ectx a_nf_term in
     (* Then we deal with the store *)
-    (* TODO: We should also weaken_l the abstract values present in the image of store'*)
+    (* TODO: We should also weaken_r the abstract values present in the image of store'*)
     Util.Debug.print_debug "Updating the store";
     let newstore = Store.update_store store store' in
     ((OpLang.refold_nf_term nf_term', newstore), ienv')

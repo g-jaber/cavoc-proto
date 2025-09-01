@@ -185,21 +185,21 @@ struct
     let copairing (ienv1, cstack1) (ienv2, cstack2) =
       (OpLang.IEnv.copairing ienv1 ienv2, cstack1 @ cstack2)
 
-    let[@warning "-8"] weaken_l (ienv, cstack) (PropCtx (fnamectx, [])) =
-      let ienv' = OpLang.IEnv.weaken_l ienv fnamectx in
+    let[@warning "-8"] weaken_r (ienv, cstack) (PropCtx (fnamectx, [])) =
+      let ienv' = OpLang.IEnv.weaken_r ienv fnamectx in
       let renam = OpLang.Renaming.weak_l (OpLang.IEnv.dom ienv) fnamectx in
       let cstack' = List.map (OpLang.rename_eval_context renam) cstack in
       (ienv', cstack')
 
-    let[@warning "-8"] weaken_r (ienv, cstack) (PropCtx (fnamectx, [])) =
-      let ienv' = OpLang.IEnv.weaken_r ienv fnamectx in
+    let[@warning "-8"] weaken_l (ienv, cstack) (PropCtx (fnamectx, [])) =
+      let ienv' = OpLang.IEnv.weaken_l ienv fnamectx in
       let renam = OpLang.Renaming.weak_r (OpLang.IEnv.dom ienv) fnamectx in
       let cstack' = List.map (OpLang.rename_eval_context renam) cstack in
       (ienv', cstack')
 
     let tensor ienv1 ienv2 =
-      let ienv1' = weaken_l ienv1 (im ienv2) in
-      let ienv2' = weaken_r ienv2 (im ienv1) in
+      let ienv1' = weaken_r ienv1 (im ienv2) in
+      let ienv2' = weaken_l ienv2 (im ienv1) in
       copairing ienv1' ienv2'
 
     let pp_ctx_stack fmt = function

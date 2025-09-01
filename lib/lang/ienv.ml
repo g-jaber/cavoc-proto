@@ -19,11 +19,11 @@ module type IENV = sig
   (* Taking γ₁ : Γ₁ → Δ and γ₂ : Γ₂ → Δ, pairing γ₁ γ₂ : (Γ₁ + Γ₂) → Δ  *)
   val copairing : t -> t -> t
 
-  (* Taking γ : Γ → Δ and Θ, then weaken_l γ Θ : Γ → Δ + Θ *)
-  val weaken_l : t -> Renaming.Namectx.t -> t
-  (* Taking γ : Γ → Δ and Θ, then weaken_l γ Θ : Γ → Θ + Δ *)
-
+  (* Taking γ : Γ → Δ and Θ, then weaken_r γ Θ : Γ → Δ + Θ *)
   val weaken_r : t -> Renaming.Namectx.t -> t
+
+  (* Taking γ : Γ → Δ and Θ, then weaken_l γ Θ : Γ → Θ + Δ *)
+  val weaken_l : t -> Renaming.Namectx.t -> t
 
   (* Taking γ₁ : Γ₁ → Δ₁ and γ₂ : Γ₂ → Δ₂, pairing γ₁ γ₂ : (Γ₁ + Γ₂) → (Δ₁ + Δ₂)  *)
   val tensor : t -> t -> t
@@ -62,13 +62,7 @@ struct
     im: Renaming.Namectx.t;
   }
 
-  let empty im =
-    {
-      map= Util.Pmap.empty;
-      dom= Renaming.Namectx.empty;
-      im
-    }
-
+  let empty im = { map= Util.Pmap.empty; dom= Renaming.Namectx.empty; im }
   let dom ienv = ienv.dom
   let im ienv = ienv.im
 
@@ -92,19 +86,21 @@ struct
       im= ienv1.im;
     }
 
-  let weaken_l ienv namectx =
+  (* Taking γ : Γ → Δ and Θ, then weaken_r γ Θ : Γ → Δ + Θ *)
+  let weaken_r ienv namectx =
     let renam = Renaming.weak_l ienv.im namectx in
+    (* renam : Δ → Δ + Θ *)
     let map = Util.Pmap.map_im (Value.renam_act renam) ienv.map in
     { map; dom= ienv.dom; im= Renaming.im renam }
 
-  let weaken_r ienv namectx =
+  let weaken_l ienv namectx =
     let renam = Renaming.weak_r ienv.im namectx in
     let map = Util.Pmap.map_im (Value.renam_act renam) ienv.map in
     { map; dom= ienv.dom; im= Renaming.im renam }
 
   let tensor ienv1 ienv2 =
-    let ienv1' = weaken_l ienv1 (im ienv2) in
-    let ienv2' = weaken_r ienv2 (im ienv1) in
+    let ienv1' = weaken_r ienv1 (im ienv2) in
+    let ienv2' = weaken_l ienv2 (im ienv1) in
     copairing ienv1' ienv2'
 
   let pp fmt ienv =
@@ -159,7 +155,7 @@ struct
     im: Renaming.Namectx.t;
   }
 
-    let pp fmt ienv =
+  let pp fmt ienv =
     match ienv.map with
     | [] -> Format.fprintf fmt "⋅"
     | map' ->
@@ -172,9 +168,7 @@ struct
     `List
       (List.mapi (fun i typ -> `List [ `Int i; Value.to_yojson typ ]) ienv.map)
 
-  let empty im =
-    { map= []; dom= Renaming.Namectx.empty; im }
-
+  let empty im = { map= []; dom= Renaming.Namectx.empty; im }
   let dom ienv = ienv.dom
   let im ienv = ienv.im
 
@@ -188,8 +182,11 @@ struct
     { map; dom; im }
 
   let copairing ienv1 ienv2 =
-    Util.Debug.print_debug @@ "Copairing " ^ (to_string ienv1) ^ " and " ^ (to_string ienv2)
-    ^ " of image " ^ (Renaming.Namectx.to_string ienv1.im) ^ " and " ^ (Renaming.Namectx.to_string ienv2.im);
+    Util.Debug.print_debug @@ "Copairing " ^ to_string ienv1 ^ " and "
+    ^ to_string ienv2 ^ " of image "
+    ^ Renaming.Namectx.to_string ienv1.im
+    ^ " and "
+    ^ Renaming.Namectx.to_string ienv2.im;
     assert (ienv1.im = ienv2.im);
     {
       map= List.append ienv1.map ienv2.map;
@@ -197,20 +194,28 @@ struct
       im= ienv1.im;
     }
 
-  let weaken_l ienv namectx =
+  let weaken_r ienv namectx =
     let renam = Renaming.weak_l ienv.im namectx in
     let map = List.map (Value.renam_act renam) ienv.map in
     { map; dom= ienv.dom; im= Renaming.im renam }
 
-  let weaken_r ienv namectx =
+  (* Taking γ : Γ → Δ and Θ, then weaken_l γ Θ : Γ → Θ + Δ *)
+  let weaken_l ienv namectx =
+    Util.Debug.print_debug @@ "weaken_l on " ^ to_string ienv
+    ^ " of image context "
+    ^ Renaming.Namectx.to_string ienv.im
+    ^ " with namectx "
+    ^ Renaming.Namectx.to_string namectx;
     let renam = Renaming.weak_r ienv.im namectx in
+    (* renam :  Δ → Θ + Δ *)
+    Util.Debug.print_debug @@ "Creating renam in weak_l: "
+    ^ Renaming.to_string renam;
     let map = List.map (Value.renam_act renam) ienv.map in
     { map; dom= ienv.dom; im= Renaming.im renam }
 
   let tensor ienv1 ienv2 =
-    Util.Debug.print_debug "Tensoring";
-    let ienv1' = weaken_l ienv1 (im ienv2) in
-    let ienv2' = weaken_r ienv2 (im ienv1) in
+    let ienv1' = weaken_r ienv1 (im ienv2) in
+    let ienv2' = weaken_l ienv2 (im ienv1) in
     copairing ienv1' ienv2'
 
   let lookup_exn ienv (i, _) = List.nth ienv.map i
@@ -257,7 +262,11 @@ module Aggregate
 
   type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
 
-  let empty (im1,im2) = (IEnv1.empty im1, IEnv2.empty im2)
+  let pp fmt (ienv1, ienv2) =
+    Format.fprintf fmt "(%a,%a)" IEnv1.pp ienv1 IEnv2.pp ienv2
+
+  let to_string = Format.asprintf "%a" pp
+  let empty (im1, im2) = (IEnv1.empty im1, IEnv2.empty im2)
   let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
   let im (ienv1, ienv2) = (IEnv1.im ienv1, IEnv2.im ienv2)
 
@@ -267,25 +276,22 @@ module Aggregate
   let copairing (ienv11, ienv12) (ienv21, ienv22) =
     (IEnv1.copairing ienv11 ienv21, IEnv2.copairing ienv12 ienv22)
 
-  let weaken_l (ienv1, ienv2) (namectx1, namectx2) =
-    let ienv1' = IEnv1.weaken_l ienv1 namectx1 in
-    let ienv2' = IEnv2.weaken_l ienv2 namectx2 in
-    (ienv1', ienv2')
-
   let weaken_r (ienv1, ienv2) (namectx1, namectx2) =
     let ienv1' = IEnv1.weaken_r ienv1 namectx1 in
     let ienv2' = IEnv2.weaken_r ienv2 namectx2 in
     (ienv1', ienv2')
 
+  let weaken_l (ienv1, ienv2) (namectx1, namectx2) =
+    let ienv1' = IEnv1.weaken_l ienv1 namectx1 in
+    let ienv2' = IEnv2.weaken_l ienv2 namectx2 in
+    (ienv1', ienv2')
+
   let tensor ienv1 ienv2 =
-    let ienv1' = weaken_l ienv1 (im ienv2) in
-    let ienv2' = weaken_r ienv2 (im ienv1) in
+    Util.Debug.print_debug @@ "Tensoring Aggregate " ^ to_string ienv1 ^ " and "
+    ^ to_string ienv2;
+    let ienv1' = weaken_r ienv1 (im ienv2) in
+    let ienv2' = weaken_l ienv2 (im ienv1) in
     copairing ienv1' ienv2'
-
-  let pp fmt (ienv1, ienv2) =
-    Format.fprintf fmt "(%a,%a)" IEnv1.pp ienv1 IEnv2.pp ienv2
-
-  let to_string = Format.asprintf "%a" pp
 
   let lookup_exn (ienv1, ienv2) nn =
     match nn with
@@ -380,7 +386,7 @@ module AggregateCommon
 
   type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
 
-  let empty (im1,im2) = (IEnv1.empty im1, IEnv2.empty im2)
+  let empty (im1, im2) = (IEnv1.empty im1, IEnv2.empty im2)
   let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
   let im (ienv1, ienv2) = (IEnv1.im ienv1, IEnv2.im ienv2)
 
@@ -390,19 +396,19 @@ module AggregateCommon
   let copairing (ienv11, ienv12) (ienv21, ienv22) =
     (IEnv1.copairing ienv11 ienv21, IEnv2.copairing ienv12 ienv22)
 
-  let weaken_l (ienv1, ienv2) (namectx1, namectx2) =
-    let ienv1' = IEnv1.weaken_l ienv1 namectx1 in
-    let ienv2' = IEnv2.weaken_l ienv2 namectx2 in
-    (ienv1', ienv2')
-
   let weaken_r (ienv1, ienv2) (namectx1, namectx2) =
     let ienv1' = IEnv1.weaken_r ienv1 namectx1 in
     let ienv2' = IEnv2.weaken_r ienv2 namectx2 in
     (ienv1', ienv2')
 
+  let weaken_l (ienv1, ienv2) (namectx1, namectx2) =
+    let ienv1' = IEnv1.weaken_l ienv1 namectx1 in
+    let ienv2' = IEnv2.weaken_l ienv2 namectx2 in
+    (ienv1', ienv2')
+
   let tensor ienv1 ienv2 =
-    let ienv1' = weaken_l ienv1 (im ienv2) in
-    let ienv2' = weaken_r ienv2 (im ienv1) in
+    let ienv1' = weaken_r ienv1 (im ienv2) in
+    let ienv2' = weaken_l ienv2 (im ienv1) in
     copairing ienv1' ienv2'
 
   let pp fmt (ienv1, ienv2) =

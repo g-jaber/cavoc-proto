@@ -93,7 +93,7 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
       let (val_assign, heap, cons_ctx') =
         Interpreter.normalize_term_env cons_ctx comp_env in
       let (ienv, namectxP) =
-        Declaration.get_typed_val_env val_assign signature_decl_l in
+        Declaration.get_typed_val_env val_assign signature_decl_l in (* We should pass namectxO to get_typed_val_env so that ienv get the right image namectx*)
       (ienv, (val_assign, heap, cons_ctx'), namectxP, namectxO)
     with
     | Lexer.SyntaxError msg -> failwith ("Lexing Error: " ^ msg)

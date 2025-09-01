@@ -63,7 +63,8 @@ module Make
           TypingLTS.get_storectx act_conf.pos ) in
     let move = (TypingLTS.Moves.Output, (a_nf, lnamectx)) in
     let pos = TypingLTS.trigger_move act_conf.pos move in
-    Util.Debug.print_debug "Before copairing";
+    Util.Debug.print_debug @@ "Before copairing we used to have the namectxO" ^ TypingLTS.Moves.Namectx.to_string (TypingLTS.get_namectxO act_conf.pos)
+    ^ "but ienv as image " ^ TypingLTS.Moves.Namectx.to_string (Lang.IEnv.im ienv);
     let ienv = Lang.IEnv.copairing act_conf.ienv ienv in
     return (move, { store; ienv; pos })
 

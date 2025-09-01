@@ -138,7 +138,7 @@ struct
 
   module IEnv = Ienv.Aggregate (OpLang.IEnv) (CIEnv) (Renaming)
 
-  let embed_value_env valenv = (valenv, CIEnv.empty CIEnv.Renaming.Namectx.empty) (* To be corrected *)
+  let embed_value_env valenv cnamectx = (valenv, CIEnv.empty cnamectx)
 
   let rename (NTerm (cn, term) : term) (renaming, crenaming) =
     let term' = OpLang.rename term renaming in
@@ -168,7 +168,7 @@ struct
   let get_typed_ienv lexBuffer_implem lexBuffer_signature =
     let (int_env, store, namectxP, namectxO) =
       OpLang.get_typed_ienv lexBuffer_implem lexBuffer_signature in
-    ( embed_value_env int_env,
+    ( embed_value_env int_env CIEnv.Renaming.Namectx.empty,
       store,
       embed_name_ctx @@ namectxP,
       embed_name_ctx @@ namectxO )
@@ -382,16 +382,18 @@ struct
                ty (aval, lfnamectx)
       | _ -> false
 
-    let abstracting_value gval (namectxO,cnamectxO) gty =
+    let abstracting_value gval (namectxO, cnamectxO) gty =
       match (gval, gty) with
       | (GPairIn (value, ectx), GProd (ty_v, ty_c)) ->
-          let (aval, val_env) = OpLang.AVal.abstracting_value value namectxO ty_v in
-          let empty_ienv = CIEnv.empty cnamectxO in (* TODO *)
+          let (aval, val_env) =
+            OpLang.AVal.abstracting_value value namectxO ty_v in
+          let empty_ienv = CIEnv.empty cnamectxO in
           let (cn, cienv) = CIEnv.add_fresh empty_ienv "" ty_c ectx in
           (APair (aval, cn), (val_env, cienv))
       | (GVal value, GType ty) ->
-          let (aval, val_env) = OpLang.AVal.abstracting_value value namectxO ty in
-          let ienv = embed_value_env val_env in
+          let (aval, val_env) =
+            OpLang.AVal.abstracting_value value namectxO ty in
+          let ienv = embed_value_env val_env cnamectxO in
           (AVal aval, ienv)
       | (_, _) -> failwith "Ill-typed interactive value. Please report."
 
