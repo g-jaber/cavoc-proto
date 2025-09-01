@@ -15,5 +15,5 @@ module type IBUILD = sig
     unit Lwt.t
 end
 
-module Make : functor (IntLTS : Bipartite.LTS) ->
+module Make : functor (IntLTS : Strategy.LTS) ->
   IBUILD with type conf = IntLTS.conf

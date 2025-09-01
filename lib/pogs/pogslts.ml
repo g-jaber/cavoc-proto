@@ -1,11 +1,10 @@
 module Make (Lang : Lang.Interactive.LANG) :
-  Lts.Bipartite.INT_LTS
-    with module Moves.Namectx = Lang.IEnv.Renaming.Namectx
+  Lts.Strategy.INT_LTS
+    with module TypingLTS.Moves.Namectx = Lang.IEnv.Renaming.Namectx
      and type opconf = Lang.opconf
      and type store = Lang.store
      and type interactive_env = Lang.IEnv.t = struct
   module TypingLTS = Typing.Make (Lang)
-  module OBranchingMonad = TypingLTS.BranchMonad
   module EvalMonad = Lang.EvalMonad
   module Moves = TypingLTS.Moves
 
@@ -61,7 +60,7 @@ module Make (Lang : Lang.Interactive.LANG) :
         Some { opconf; pos }
 
   let o_trans_gen pas_conf =
-    let open OBranchingMonad in
+    let open TypingLTS.BranchMonad in
     let* (((_, move) as input_move), pos) =
       TypingLTS.generate_moves pas_conf.pos in
     let (opconf, _) = Lang.concretize_a_nf pas_conf.store pas_conf.ienv move in
@@ -71,8 +70,8 @@ module Make (Lang : Lang.Interactive.LANG) :
 
   let init_aconf opconf namectxO =
     let pos =
-      TypingLTS.init_act_pos Lang.Storectx.empty Lang.IEnv.Renaming.Namectx.empty namectxO
-    in
+      TypingLTS.init_act_pos Lang.Storectx.empty
+        Lang.IEnv.Renaming.Namectx.empty namectxO in
     { opconf; pos }
 
   let init_pconf store ienv namectxP namectxO =

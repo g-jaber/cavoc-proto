@@ -1,4 +1,4 @@
-module Make (IntLTS : Lts.Bipartite.INT_LTS) = struct
+module Make (IntLTS : Lts.Strategy.INT_LTS) = struct
   module Graph = Lts.Graph.Make(IntLTS)
 
   (* Work in progress*)

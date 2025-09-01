@@ -4,14 +4,15 @@ module Make
       Lts.Typing.LTS
         with module Moves.Namectx = Lang.IEnv.Renaming.Namectx
          and type store_ctx = Lang.Storectx.t
-         and type Moves.move = Lang.abstract_normal_form * Lang.IEnv.Renaming.Namectx.t) :
-  Lts.Bipartite.INT_LTS
-    with module OBranchingMonad = TypingLTS.BranchMonad
-     and module Moves.Namectx = Lang.IEnv.Renaming.Namectx
+         and type Moves.move =
+          Lang.abstract_normal_form * Lang.IEnv.Renaming.Namectx.t) :
+  Lts.Strategy.INT_LTS
+    with module TypingLTS = TypingLTS
+     and module TypingLTS.Moves.Namectx = Lang.IEnv.Renaming.Namectx
      and type opconf = Lang.opconf
      and type store = Lang.store
      and type interactive_env = Lang.IEnv.t = struct
-  module OBranchingMonad = TypingLTS.BranchMonad
+  module TypingLTS = TypingLTS
   module EvalMonad = Lang.EvalMonad
   module Moves = TypingLTS.Moves
 
@@ -63,8 +64,10 @@ module Make
           TypingLTS.get_storectx act_conf.pos ) in
     let move = (TypingLTS.Moves.Output, (a_nf, lnamectx)) in
     let pos = TypingLTS.trigger_move act_conf.pos move in
-    Util.Debug.print_debug @@ "Before copairing we used to have the namectxO" ^ TypingLTS.Moves.Namectx.to_string (TypingLTS.get_namectxO act_conf.pos)
-    ^ "but ienv as image " ^ TypingLTS.Moves.Namectx.to_string (Lang.IEnv.im ienv);
+    Util.Debug.print_debug @@ "Before copairing we used to have the namectxO"
+    ^ TypingLTS.Moves.Namectx.to_string (TypingLTS.get_namectxO act_conf.pos)
+    ^ "but ienv as image "
+    ^ TypingLTS.Moves.Namectx.to_string (Lang.IEnv.im ienv);
     let ienv = Lang.IEnv.copairing act_conf.ienv ienv in
     return (move, { store; ienv; pos })
 
@@ -73,12 +76,11 @@ module Make
     | None -> None
     | Some pos ->
         let (opconf, ienv) =
-          Lang.concretize_a_nf pas_conf.store pas_conf.ienv move
-        in
+          Lang.concretize_a_nf pas_conf.store pas_conf.ienv move in
         Some { opconf; ienv; pos }
 
   let o_trans_gen pas_conf =
-    let open OBranchingMonad in
+    let open TypingLTS.BranchMonad in
     let* (((_, move) as input_move), pos) =
       TypingLTS.generate_moves pas_conf.pos in
     let (opconf, ienv) =
@@ -87,8 +89,8 @@ module Make
 
   let init_aconf opconf namectxO =
     let pos =
-      TypingLTS.init_act_pos Lang.Storectx.empty Lang.IEnv.Renaming.Namectx.empty namectxO
-    in
+      TypingLTS.init_act_pos Lang.Storectx.empty
+        Lang.IEnv.Renaming.Namectx.empty namectxO in
     { opconf; ienv= Lang.IEnv.empty namectxO; pos }
 
   let init_pconf store ienv namectxP namectxO =

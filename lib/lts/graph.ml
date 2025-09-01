@@ -16,11 +16,11 @@ module type GRAPH = sig
     graph
 end
 
-module Make (IntLTS : Bipartite.LTS) :
-  GRAPH with type conf = IntLTS.conf and type move = IntLTS.Moves.pol_move =
+module Make (IntLTS : Strategy.LTS) :
+  GRAPH with type conf = IntLTS.conf and type move = IntLTS.TypingLTS.Moves.pol_move =
 struct
   type conf = IntLTS.conf
-  type move = IntLTS.Moves.pol_move
+  type move = IntLTS.TypingLTS.Moves.pol_move
   type id_state = int
 
   let string_of_id_state = string_of_int
@@ -54,13 +54,13 @@ struct
 
   let idstring_of_state (_, id) = string_of_id_state id
 
-  type transition = PublicTrans of state * IntLTS.Moves.pol_move * state
+  type transition = PublicTrans of state * IntLTS.TypingLTS.Moves.pol_move * state
 
   let string_of_transition = function
     | PublicTrans (st1, act, st2) ->
         idstring_of_state st1 ^ " -> " ^ idstring_of_state st2
         ^ "[color=blue, label=\""
-        ^ IntLTS.Moves.string_of_pol_move act
+        ^ IntLTS.TypingLTS.Moves.string_of_pol_move act
         ^ "\"];"
 
   type graph = {
@@ -136,7 +136,7 @@ struct
       end
     | (IntLTS.Passive pas_conf, _) as pas_state ->
         let* (input_move, act_conf) =
-          para_list (IntLTS.OBranchingMonad.run (IntLTS.o_trans_gen pas_conf))
+          para_list (IntLTS.TypingLTS.BranchMonad.run (IntLTS.o_trans_gen pas_conf))
         in
         let* act_state_option = find_equiv_act_conf act_conf in
         begin

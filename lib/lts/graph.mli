@@ -16,5 +16,5 @@ module type GRAPH = sig
   -> conf -> graph 
 end
 
-module Make : functor (IntLTS : Bipartite.LTS) ->
+module Make : functor (IntLTS : Strategy.LTS) ->
   GRAPH with type conf = IntLTS.conf

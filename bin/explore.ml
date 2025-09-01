@@ -86,8 +86,8 @@ let check_number_filenames () =
      ^ "should have been provided. " ^ usage_msg)
 
 (* There is a tension between using the trick of
-   Lts.Bipartite.LTS with type conf = a,
-   and the fact that this type Lts.Bipartite.LTS.conf is not abstract *)
+   Lts.Strategy.LTS with type conf = a,
+   and the fact that this type Lts.Strategy.LTS.conf is not abstract *)
 
 let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
     (init_conf : a) =
@@ -113,9 +113,9 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
   print_string graph_string
 
 let build_ogs_lts (module IntLang : Lang.Interactive.LANG_WITH_INIT) =
-  let (module OGS_LTS : Lts.Bipartite.INT_LTS
+  let (module OGS_LTS : Lts.Strategy.INT_LTS
         with type opconf = IntLang.opconf
-         and type Moves.Namectx.t = IntLang.IEnv.Renaming.Namectx.t
+         and type TypingLTS.Moves.Namectx.t = IntLang.IEnv.Renaming.Namectx.t
          and type store = IntLang.store
          and type interactive_env = IntLang.IEnv.t) =
     match (!generate_tree, !enable_wb, !enable_visibility) with

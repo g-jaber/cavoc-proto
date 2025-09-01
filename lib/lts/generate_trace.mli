@@ -1,2 +1,2 @@
-module Make : functor (IntLTS : Bipartite.LTS) ->
+module Make : functor (IntLTS : Strategy.LTS) ->
   Graph.GRAPH with type conf = IntLTS.conf
