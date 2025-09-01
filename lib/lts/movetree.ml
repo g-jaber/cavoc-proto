@@ -110,7 +110,6 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
         EvalMonad.return ((moveOut, namectx, storectx), IEnv.empty namectx, movetree)
 
   let get_subject_name : abstract_normal_form -> Names.name option = failwith ""
-  let get_support : abstract_normal_form -> Names.name list = failwith ""
 
   let pp_a_nf :
       pp_dir:(Format.formatter -> unit) ->

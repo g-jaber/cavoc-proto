@@ -39,7 +39,6 @@ module type LANG = sig
       We should check whether we take into account disclosure of locations currently.*)
 
   val get_subject_name : abstract_normal_form -> IEnv.Renaming.Namectx.Names.name option
-  val get_support : abstract_normal_form -> IEnv.Renaming.Namectx.Names.name list
 
   (* The first argument is a string inserted between
      the negative part of the normal form
@@ -200,10 +199,6 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     match snd @@ OpLang.Nf.map_fn None f_fn a_nf_term with
     | None -> snd @@ OpLang.Nf.map_cn None f_cn a_nf_term
     | Some _ as res -> res
-
-  let get_support (a_nf_term, _) =
-    OpLang.Nf.apply_val [] OpLang.AVal.names_of_abstract_val a_nf_term
-  (*TODO: take into account the store part*)
 
   let pp_a_nf ~pp_dir fmt (a_nf_term, store) =
     let pp_ectx fmt () = Format.pp_print_string fmt "" in
