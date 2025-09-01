@@ -7,7 +7,7 @@ module type MOVES = sig
 
   val pp_move : Format.formatter -> move -> unit
   val string_of_move : move -> string
-  val get_subject_name : move -> Namectx.Names.name list
+  val get_subject_name : move -> Namectx.Names.name option
   val get_namectx : move -> Namectx.t
 
   val unify_move :
@@ -125,8 +125,7 @@ module Make (A_nf : A_NF) :
 
   let switch_direction (p, d) = (switch p, d)
 
-  let get_subject_name (move, _) =
-    match A_nf.get_subject_name move with Some n -> [ n ] | None -> []
+  let get_subject_name (move, _) = A_nf.get_subject_name move
 
   let get_namectx (_, lnamectx) = lnamectx
 

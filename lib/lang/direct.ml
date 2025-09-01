@@ -302,9 +302,6 @@ struct
     let f_fn nn = (nn, Some nn) in
     snd @@ OpLang.Nf.map_fn None f_fn a_nf_term
 
-  let get_support (a_nf_term, _) =
-    OpLang.Nf.apply_val [] OpLang.AVal.names_of_abstract_val a_nf_term
-  (*TODO: take into account the store part*)
 
   let pp_a_nf ~pp_dir fmt (a_nf_term, store) =
     let pp_ectx fmt () = Format.pp_print_string fmt "" in

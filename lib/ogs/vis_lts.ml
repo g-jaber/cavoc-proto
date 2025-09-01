@@ -50,18 +50,14 @@ module Make (Moves : Lts.Moves.POLMOVES) :
 
   let get_subject_name move =
     match Moves.get_subject_name move with
-    | [ nn ] -> nn
-    | [] ->
+    | Some nn -> nn
+    | None ->
         Util.Error.failwithf
           "Error: the move %a does not have a subject name. We cannot enforce \
            visibility on it."
           Moves.pp_move move
-    | _ ->
-        Util.Error.failwithf
-          "Error: the move %a  has multiple subject names. We cannot enforce \
-           visibility on it."
-          Moves.pp_move move
 
+          
   let trans_check conf (dir, move) =
     match (conf, dir) with
     | (Active vm, Moves.Output) ->

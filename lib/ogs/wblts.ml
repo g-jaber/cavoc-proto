@@ -32,15 +32,14 @@ module Make (Moves : Lts.Moves.POLMOVES) :
         let cstack' = List.filter Moves.Namectx.Names.is_cname support in
         Some (Passive, cstack' @ cstack)
     | (Passive, Moves.Input) ->
-        let subject_names = Moves.get_subject_name move in
-        let subject_cnames =
-          List.filter Moves.Namectx.Names.is_cname subject_names in
+        let subject_name = Moves.get_subject_name move in
         begin
-          match (subject_cnames, cstack) with
-          | ([ cn ], cn' :: cstack') when cn = cn' ->
+          match (subject_name, cstack) with
+          | (Some nn, cn :: cstack') when nn = cn ->
               Some (Active, cstack')
-              (*We only deal with popping a single continuation name *)
-          | ([], _) -> Some (Active, cstack) (* Really ?*)
+              (*We pop the continuation name *)
+          | (Some nn, _) when not @@ Moves.Namectx.Names.is_cname nn ->
+              Some (Active, cstack)
           | (_, _) -> None
         end
     | _ -> None

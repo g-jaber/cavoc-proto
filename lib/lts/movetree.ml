@@ -30,7 +30,7 @@ module Make (Moves : Moves.NAMED_GEN_MOVES) : MOVETREE = struct
         let map = Util.Pmap.add (moveIn, moveOut) movetree.map in
         Some { movetree with map }
     | Some moveOut' -> (
-        match Moves.unify_move Util.Namespan.empty_nspan moveOut moveOut' with
+        match Moves.unify_move Util.Namespan.empty_nspan moveOut moveOut' with (* We need unify only if there are some disclosed locations*)
         | None -> None
         | Some _ -> Some movetree)
 end
@@ -109,7 +109,7 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
     | Some moveOut ->
         EvalMonad.return ((moveOut, namectx, storectx), IEnv.empty namectx, movetree)
 
-  let get_subject_name : abstract_normal_form -> Names.name option = failwith ""
+  let get_subject_name : abstract_normal_form -> Names.name option = MoveTree.Moves.get_subject_name
 
   let pp_a_nf :
       pp_dir:(Format.formatter -> unit) ->
