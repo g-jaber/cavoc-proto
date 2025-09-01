@@ -88,7 +88,6 @@ module type A_NF = sig
 
   val string_of_a_nf : string -> abstract_normal_form -> string
   val get_subject_name : abstract_normal_form -> IEnv.Renaming.Namectx.Names.name option
-  val get_support : abstract_normal_form -> IEnv.Renaming.Namectx.Names.name list
 
   val is_equiv_a_nf :
     IEnv.Renaming.Namectx.Names.name Util.Namespan.namespan ->

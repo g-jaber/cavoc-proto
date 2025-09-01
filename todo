@@ -55,4 +55,4 @@
 - [x] Switch to a presentation with typed moves
 - [ ] Implement a notion of Stackctx and of Stackenv for direct.ml
 - [x] Pass a namectx argument to abstracting_value to handle correctly the empty ienv
-- [ ] Allow namectx in image of IEnv to be different (and larger) to the one in domain
+- [ ] Switch from val get_nf_term : term -> normal_form_term to val get_nf_term : opconf -> normal_form_term*store
