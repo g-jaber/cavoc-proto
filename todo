@@ -4,7 +4,7 @@
 - [x] Rework the product LTS by using Lts.Typing.Game
 - [ ] Introduce the notion of History-enhancement as a functor from Typing.LTS to Typing.LTS  rather than a module of signature Hislts.HISLTS
 - [x] Define a MOVETREE interface
-- [ ] Implement a functor from MOVETREE to Lang.Interactive.LANG
+- [x] Implement a functor from MOVETREE to Lang.Interactive.LANG
 - [x] Remove the need for CONT_NAMES
 - [x] Add a Names submodule to the Moves interface
 - [x] Remove the Int submodule of the Strategy.INT_LTS signature

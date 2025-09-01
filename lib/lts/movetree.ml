@@ -2,7 +2,7 @@ module type MOVETREE = sig
   module Moves : Moves.NAMED_GEN_MOVES
 
   type movetree = {
-    root: Moves.name;
+    root: Moves.Namectx.Names.name;
     namectxP: Moves.Namectx.t;
     namectxO: Moves.Namectx.t;
     map: (Moves.move, Moves.move) Util.Pmap.pmap;
@@ -17,7 +17,7 @@ module Make (Moves : Moves.NAMED_GEN_MOVES) : MOVETREE = struct
   module Moves = Moves
 
   type movetree = {
-    root: Moves.name;
+    root: Moves.Namectx.Names.name;
     namectxP: Moves.Namectx.t;
     namectxO: Moves.Namectx.t;
     map: (Moves.move, Moves.move) Util.Pmap.pmap;
@@ -113,20 +113,17 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
       Names.name Util.Namespan.namespan option =
     MoveTree.Moves.unify_move
 
-  let generate_a_nf :
-      Storectx.t ->
-      Namectx.t ->
+  let generate_a_nf _storectx namectx :
       (abstract_normal_form * Namectx.t * Namectx.t) BranchMonad.m =
-    (*MoveTree.Moves.generate_moves - Need to handle storectx*)
-    failwith ""
+      let open BranchMonad in
+      let* (move,lnamectx) = MoveTree.Moves.generate_moves namectx in
+      return (move,lnamectx,namectx) (*Need to handle storectx*)
 
-  let type_check_a_nf :
-      Namectx.t ->
-      Namectx.t ->
-      abstract_normal_form * Namectx.t ->
+  let type_check_a_nf namectxP _namectxO (a_nf,lnamectx) :
       Namectx.t option =
-    failwith ""
-  (* There's a mismatch with the signature of MoveTree.Move.check_type_move *)
+      if MoveTree.Moves.check_type_move namectxP (a_nf,lnamectx) then
+        Some lnamectx
+      else None
 
   let concretize_a_nf (movetree : store) (renaming : IEnv.t)
       ((a_nf, _lnamectx) : abstract_normal_form * Namectx.t) =
