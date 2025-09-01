@@ -1,6 +1,6 @@
 module Make (IntLang : Lang.Interactive.LANG) :
   Lts.Typing.LTS
-    with module Moves.Namectx = IntLang.IEnv.Renaming.Namectx
+    with module Moves.Renaming.Namectx = IntLang.IEnv.Renaming.Namectx
      and type store_ctx = IntLang.Storectx.t
      and type Moves.move = IntLang.abstract_normal_form * IntLang.IEnv.Renaming.Namectx.t =
 struct

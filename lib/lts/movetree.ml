@@ -2,9 +2,9 @@ module type MOVETREE = sig
   module Moves : Moves.NAMED_GEN_MOVES
 
   type movetree = {
-    root: Moves.Namectx.Names.name;
-    namectxP: Moves.Namectx.t;
-    namectxO: Moves.Namectx.t;
+    root: Moves.Renaming.Namectx.Names.name;
+    namectxP: Moves.Renaming.Namectx.t;
+    namectxO: Moves.Renaming.Namectx.t;
     map: (Moves.move, Moves.move) Util.Pmap.pmap;
   }
 
@@ -17,9 +17,9 @@ module Make (Moves : Moves.NAMED_GEN_MOVES) : MOVETREE = struct
   module Moves = Moves
 
   type movetree = {
-    root: Moves.Namectx.Names.name;
-    namectxP: Moves.Namectx.t;
-    namectxO: Moves.Namectx.t;
+    root: Moves.Renaming.Namectx.Names.name;
+    namectxP: Moves.Renaming.Namectx.t;
+    namectxO: Moves.Renaming.Namectx.t;
     map: (Moves.move, Moves.move) Util.Pmap.pmap;
   }
 
@@ -46,7 +46,7 @@ end
 
 module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
   Lang.Interactive.LANG = struct
-  module Namectx = MoveTree.Moves.Namectx
+  module Namectx = MoveTree.Moves.Renaming.Namectx
   module Names = Namectx.Names
   module EvalMonad = Util.Monad.Option
   module BranchMonad = MoveTree.Moves.BranchMonad

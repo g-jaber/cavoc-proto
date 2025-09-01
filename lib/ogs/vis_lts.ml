@@ -1,32 +1,32 @@
 module Make (Moves : Lts.Moves.POLMOVES) :
   Lts.Hislts.HISLTS_INIT
     with type move = Moves.pol_move
-     and type name = Moves.Namectx.Names.name = struct
+     and type name = Moves.Renaming.Namectx.Names.name = struct
   (* the view contains the names that Proponent has provided to Opponent. *)
-  type view = Moves.Namectx.Names.name list
+  type view = Moves.Renaming.Namectx.Names.name list
 
   let view_to_yojson nn_l =
     `List
-      (List.map (fun x -> `String (Moves.Namectx.Names.string_of_name x)) nn_l)
+      (List.map (fun x -> `String (Moves.Renaming.Namectx.Names.string_of_name x)) nn_l)
 
   (* the view map associate to each Opponent name the set of Proponent names
      available when it was introduced. *)
-  type view_map = (Moves.Namectx.Names.name, view) Util.Pmap.pmap
+  type view_map = (Moves.Renaming.Namectx.Names.name, view) Util.Pmap.pmap
 
   let view_map_to_yojson vmap =
     let to_string (nn, view) =
-      (Moves.Namectx.Names.string_of_name nn, view_to_yojson view) in
+      (Moves.Renaming.Namectx.Names.string_of_name nn, view_to_yojson view) in
     `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string vmap)
 
   let pp_view fmt v =
     let pp_sep fmt () = Format.pp_print_char fmt ',' in
-    let pp_view_aux = Format.pp_print_list ~pp_sep Moves.Namectx.Names.pp_name in
+    let pp_view_aux = Format.pp_print_list ~pp_sep Moves.Renaming.Namectx.Names.pp_name in
     Format.fprintf fmt "{%a}" pp_view_aux v
 
   let pp_view_map fmt vm =
     let pp_empty fmt () = Format.pp_print_char fmt '.' in
     let pp_pair fmt (n, v) =
-      Format.fprintf fmt "%a ↦ %a" Moves.Namectx.Names.pp_name n pp_view v in
+      Format.fprintf fmt "%a ↦ %a" Moves.Renaming.Namectx.Names.pp_name n pp_view v in
     Util.Pmap.pp_pmap ~pp_empty pp_pair fmt vm
 
   type move = Moves.pol_move
@@ -64,23 +64,23 @@ module Make (Moves : Lts.Moves.POLMOVES) :
         let nn = get_subject_name move in
         let view =
           match Util.Pmap.lookup nn vm with
-          | Some view -> Moves.Namectx.get_names (Moves.get_namectx move) @ view
+          | Some view -> Moves.Renaming.Namectx.get_names (Moves.get_namectx move) @ view
           | None ->
               Util.Error.failwithf
                 "Error: the name %a is not in the view map %a. Please report."
-                Moves.Namectx.Names.pp_name nn pp_view_map vm in
+                Moves.Renaming.Namectx.Names.pp_name nn pp_view_map vm in
         Some (Passive (view, vm))
     | (Passive (view, vm), Moves.Input) ->
         let nn = get_subject_name move in
         if List.mem nn view then
-          let freshn_l = Moves.Namectx.get_names (Moves.get_namectx move) in
+          let freshn_l = Moves.Renaming.Namectx.get_names (Moves.get_namectx move) in
           let vm_l = List.map (fun nn -> (nn, view)) freshn_l in
           let vm' = Util.Pmap.list_to_pmap vm_l in
           Some (Active (Util.Pmap.concat vm vm'))
         else None
     | _ -> None
 
-  type name = Moves.Namectx.Names.name
+  type name = Moves.Renaming.Namectx.Names.name
 
   let init_act_conf _ _ = Active Util.Pmap.empty
   let init_pas_conf nameP _ = Passive (nameP, Util.Pmap.empty)

@@ -2,13 +2,13 @@ module Make
     (Lang : Lang.Interactive.LANG)
     (TypingLTS :
       Lts.Typing.LTS
-        with module Moves.Namectx = Lang.IEnv.Renaming.Namectx
+        with module Moves.Renaming.Namectx = Lang.IEnv.Renaming.Namectx
          and type store_ctx = Lang.Storectx.t
          and type Moves.move =
           Lang.abstract_normal_form * Lang.IEnv.Renaming.Namectx.t) :
   Lts.Strategy.INT_LTS
     with module TypingLTS = TypingLTS
-     and module TypingLTS.Moves.Namectx = Lang.IEnv.Renaming.Namectx
+     and module TypingLTS.Moves.Renaming.Namectx = Lang.IEnv.Renaming.Namectx
      and type opconf = Lang.opconf
      and type store = Lang.store
      and type interactive_env = Lang.IEnv.t = struct
@@ -65,9 +65,9 @@ module Make
     let move = (TypingLTS.Moves.Output, (a_nf, lnamectx)) in
     let pos = TypingLTS.trigger_move act_conf.pos move in
     Util.Debug.print_debug @@ "Before copairing we used to have the namectxO"
-    ^ TypingLTS.Moves.Namectx.to_string (TypingLTS.get_namectxO act_conf.pos)
+    ^ TypingLTS.Moves.Renaming.Namectx.to_string (TypingLTS.get_namectxO act_conf.pos)
     ^ "but ienv as image "
-    ^ TypingLTS.Moves.Namectx.to_string (Lang.IEnv.im ienv);
+    ^ TypingLTS.Moves.Renaming.Namectx.to_string (Lang.IEnv.im ienv);
     let ienv = Lang.IEnv.copairing act_conf.ienv ienv in
     return (move, { store; ienv; pos })
 

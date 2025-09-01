@@ -8,10 +8,10 @@ module type LTS = sig
 
   type position [@@deriving to_yojson]
 
-  val get_namectxO : position -> Moves.Namectx.t
+  val get_namectxO : position -> Moves.Renaming.Namectx.t
   val get_storectx : position -> store_ctx
-  val init_act_pos : store_ctx -> Moves.Namectx.t -> Moves.Namectx.t -> position
-  val init_pas_pos : store_ctx -> Moves.Namectx.t -> Moves.Namectx.t -> position
+  val init_act_pos : store_ctx -> Moves.Renaming.Namectx.t -> Moves.Renaming.Namectx.t -> position
+  val init_pas_pos : store_ctx -> Moves.Renaming.Namectx.t -> Moves.Renaming.Namectx.t -> position
   val string_of_position : position -> string
   val pp_position : Format.formatter -> position -> unit
 

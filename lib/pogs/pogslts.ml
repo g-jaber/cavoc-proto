@@ -1,6 +1,6 @@
 module Make (Lang : Lang.Interactive.LANG) :
   Lts.Strategy.INT_LTS
-    with module TypingLTS.Moves.Namectx = Lang.IEnv.Renaming.Namectx
+    with module TypingLTS.Moves.Renaming.Namectx = Lang.IEnv.Renaming.Namectx
      and type opconf = Lang.opconf
      and type store = Lang.store
      and type interactive_env = Lang.IEnv.t = struct

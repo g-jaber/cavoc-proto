@@ -115,7 +115,7 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
 let build_ogs_lts (module IntLang : Lang.Interactive.LANG_WITH_INIT) =
   let (module OGS_LTS : Lts.Strategy.INT_LTS
         with type opconf = IntLang.opconf
-         and type TypingLTS.Moves.Namectx.t = IntLang.IEnv.Renaming.Namectx.t
+         and type TypingLTS.Moves.Renaming.Namectx.t = IntLang.IEnv.Renaming.Namectx.t
          and type store = IntLang.store
          and type interactive_env = IntLang.IEnv.t) =
     match (!generate_tree, !enable_wb, !enable_visibility) with

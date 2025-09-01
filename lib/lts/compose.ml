@@ -120,7 +120,7 @@ functor
             | None ->
                 let span_string =
                   Util.Namespan.string_of_span
-                    IntLTS.TypingLTS.Moves.Namectx.Names.string_of_name nspan in
+                    IntLTS.TypingLTS.Moves.Renaming.Namectx.Names.string_of_name nspan in
                 Util.Debug.print_debug
                   ("Composing failed in namespan " ^ span_string);
                 return ()

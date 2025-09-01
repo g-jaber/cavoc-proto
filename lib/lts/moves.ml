@@ -1,20 +1,20 @@
 module type MOVES = sig
   (* to be instantiated *)
-  module Namectx : Lang.Typectx.TYPECTX
+  module Renaming : Lang.Renaming.RENAMING
   (* *)
 
   type move
 
   val pp_move : Format.formatter -> move -> unit
   val string_of_move : move -> string
-  val get_subject_name : move -> Namectx.Names.name option
-  val get_namectx : move -> Namectx.t
+  val get_subject_name : move -> Renaming.Namectx.Names.name option
+  val get_namectx : move -> Renaming.Namectx.t
 
   val unify_move :
-    Namectx.Names.name Util.Namespan.namespan ->
+    Renaming.Namectx.Names.name Util.Namespan.namespan ->
     move ->
     move ->
-    Namectx.Names.name Util.Namespan.namespan option
+    Renaming.Namectx.Names.name Util.Namespan.namespan option
 end
 
 module type POLMOVES = sig
@@ -28,28 +28,28 @@ module type POLMOVES = sig
   val switch_direction : pol_move -> pol_move
 
   val unify_pol_move :
-    Namectx.Names.name Util.Namespan.namespan ->
+    Renaming.Namectx.Names.name Util.Namespan.namespan ->
     pol_move ->
     pol_move ->
-    Namectx.Names.name Util.Namespan.namespan option
+    Renaming.Namectx.Names.name Util.Namespan.namespan option
 end
 
 module type GEN_POLMOVES = sig
   include POLMOVES
   module BranchMonad : Util.Monad.BRANCH
 
-  val generate_moves : Namectx.t -> (move * Namectx.t) BranchMonad.m
-  val infer_type_move : Namectx.t -> move -> Namectx.t option
-  val check_type_move : Namectx.t -> move * Namectx.t -> bool
+  val generate_moves : Renaming.Namectx.t -> (move * Renaming.Namectx.t) BranchMonad.m
+  val infer_type_move : Renaming.Namectx.t -> move -> Renaming.Namectx.t option
+  val check_type_move : Renaming.Namectx.t -> move * Renaming.Namectx.t -> bool
 end
 
 module type GEN_MOVES = sig
   include MOVES
   module BranchMonad : Util.Monad.BRANCH
 
-  val generate_moves : Namectx.t -> (move * Namectx.t) BranchMonad.m
-  val infer_type_move : Namectx.t -> move -> Namectx.t option
-  val check_type_move : Namectx.t -> move * Namectx.t -> bool
+  val generate_moves : Renaming.Namectx.t -> (move * Renaming.Namectx.t) BranchMonad.m
+  val infer_type_move : Renaming.Namectx.t -> move -> Renaming.Namectx.t option
+  val check_type_move : Renaming.Namectx.t -> move * Renaming.Namectx.t -> bool
 end
 
 module type NAMED_GEN_MOVES = sig
@@ -59,7 +59,7 @@ module type NAMED_GEN_MOVES = sig
   include
     GEN_MOVES
       with type move = name * copattern
-       and type Namectx.Names.name = name
+       and type Renaming.Namectx.Names.name = name
 end
 
 (* module POLARIZE (Moves : MOVES) : POLMOVES = struct
@@ -98,11 +98,11 @@ end
 
 module Make (A_nf : A_NF) :
   POLMOVES
-    with module Namectx = A_nf.IEnv.Renaming.Namectx
+    with module Renaming = A_nf.IEnv.Renaming
      and type move = A_nf.abstract_normal_form * A_nf.IEnv.Renaming.Namectx.t = struct
-  module Namectx = A_nf.IEnv.Renaming.Namectx
+  module Renaming = A_nf.IEnv.Renaming
 
-  type move = A_nf.abstract_normal_form * Namectx.t
+  type move = A_nf.abstract_normal_form * Renaming.Namectx.t
   type direction = Input | Output
 
   let string_of_direction = function Input -> "?" | Output -> "!"

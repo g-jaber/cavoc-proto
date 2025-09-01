@@ -1,6 +1,6 @@
 module Make (IntLts : Strategy.INT_LTS) :
   Strategy.INT_LTS
-    with type TypingLTS.Moves.Namectx.t = IntLts.TypingLTS.Moves.Namectx.t
+    with type TypingLTS.Moves.Renaming.Namectx.t = IntLts.TypingLTS.Moves.Renaming.Namectx.t
      and type opconf = IntLts.opconf * IntLts.opconf
      and type store = IntLts.store * IntLts.store
      and type interactive_env = IntLts.interactive_env * IntLts.interactive_env =
@@ -15,12 +15,12 @@ struct
   type active_conf =
     IntLts.active_conf
     * IntLts.active_conf
-    * TypingLTS.Moves.Namectx.Names.name Util.Namespan.namespan
+    * TypingLTS.Moves.Renaming.Namectx.Names.name Util.Namespan.namespan
 
   type passive_conf =
     IntLts.passive_conf
     * IntLts.passive_conf
-    * TypingLTS.Moves.Namectx.Names.name Util.Namespan.namespan
+    * TypingLTS.Moves.Renaming.Namectx.Names.name Util.Namespan.namespan
 
   let passive_conf_to_yojson _ = failwith "Not implemented"
 
@@ -29,13 +29,13 @@ struct
   let pp_active_conf fmt (act_conf1, act_conf2, namespan) =
     Format.fprintf fmt "@[⟨%a |@, %a |@, %a⟩]" IntLts.pp_active_conf act_conf1
       IntLts.pp_active_conf act_conf2
-      (Util.Namespan.pp_namespan TypingLTS.Moves.Namectx.Names.pp_name)
+      (Util.Namespan.pp_namespan TypingLTS.Moves.Renaming.Namectx.Names.pp_name)
       namespan
 
   let pp_passive_conf fmt (pas_conf1, pas_conf2, namespan) =
     Format.fprintf fmt "@[⟨%a |@, %a |@, %a⟩]" IntLts.pp_passive_conf pas_conf1
       IntLts.pp_passive_conf pas_conf2
-      (Util.Namespan.pp_namespan TypingLTS.Moves.Namectx.Names.pp_name)
+      (Util.Namespan.pp_namespan TypingLTS.Moves.Renaming.Namectx.Names.pp_name)
       namespan
 
   let string_of_active_conf = Format.asprintf "%a" pp_active_conf
@@ -76,7 +76,7 @@ struct
   let init_aconf (opconf1, opconf2) namectxP =
     let init_aconf1 = IntLts.init_aconf opconf1 namectxP in
     let init_aconf2 = IntLts.init_aconf opconf2 namectxP in
-    let name_l = IntLts.TypingLTS.Moves.Namectx.get_names namectxP in
+    let name_l = IntLts.TypingLTS.Moves.Renaming.Namectx.get_names namectxP in
     let span = Util.Namespan.combine (name_l, name_l) in
     (* Not needed*)
     (init_aconf1, init_aconf2, span)
@@ -84,7 +84,7 @@ struct
   let init_pconf (store1, store2) (ienv1, ienv2) namectxP namectxO =
     let init_pconf1 = IntLts.init_pconf store1 ienv1 namectxP namectxO in
     let init_pconf2 = IntLts.init_pconf store2 ienv2 namectxP namectxO in
-    let name_l = IntLts.TypingLTS.Moves.Namectx.get_names namectxP in
+    let name_l = IntLts.TypingLTS.Moves.Renaming.Namectx.get_names namectxP in
     let span = Util.Namespan.combine (name_l, name_l) in
     (* Should we also use namectxO1 and namectxO2 to build a span ? Or should they be checked to be equal ?*)
     (init_pconf1, init_pconf2, span)

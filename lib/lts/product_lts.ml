@@ -3,7 +3,7 @@ module Make
     (HistLts :
       Hislts.HISLTS_INIT
         with type move = TypingLTS.Moves.pol_move
-         and type name = TypingLTS.Moves.Namectx.Names.name) :
+         and type name = TypingLTS.Moves.Renaming.Namectx.Names.name) :
   Typing.LTS
     with module Moves = TypingLTS.Moves
      and type store_ctx = TypingLTS.store_ctx = struct
@@ -48,15 +48,15 @@ module Make
 
   let init_act_pos storectx namectxP namectxO =
     let pos = TypingLTS.init_act_pos storectx namectxP namectxO in
-    let namesP = TypingLTS.Moves.Namectx.get_names namectxP in
-    let namesO = TypingLTS.Moves.Namectx.get_names namectxO in
+    let namesP = TypingLTS.Moves.Renaming.Namectx.get_names namectxP in
+    let namesO = TypingLTS.Moves.Renaming.Namectx.get_names namectxO in
     let hconf = HistLts.init_act_conf namesP namesO in
     (pos, hconf)
 
   let init_pas_pos storectx namectxP namectxO =
     let pos = TypingLTS.init_pas_pos storectx namectxP namectxO in
-    let namesP = TypingLTS.Moves.Namectx.get_names namectxP in
-    let namesO = TypingLTS.Moves.Namectx.get_names namectxO in
+    let namesP = TypingLTS.Moves.Renaming.Namectx.get_names namectxP in
+    let namesO = TypingLTS.Moves.Renaming.Namectx.get_names namectxO in
     let hconf = HistLts.init_pas_conf namesP namesO in
     (pos, hconf)
 end

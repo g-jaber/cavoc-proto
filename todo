@@ -42,12 +42,12 @@
 - [x] Use typed interactive environments
 - [ ] Keep the Opponent and the Proponent names as two distinct namespaces
 - [ ] Handle reaching a failed program via the EvalMonad
-- [ ] Manage to print De Bruijn names in move with offset
+- [.] Manage to print De Bruijn names in move with offset
 - [x] Embed a Name module inside Namectx
 - [x] Embed a Namectx module inside Moves
 - [x] Embed a Namectx module inside IEnv
 - [x] Embed a Renaming module inside IEnv
-- [ ] Embed a Renaming module inside Moves
+- [.] Embed a Renaming module inside Moves
 - [x] Define the weakening over ienv
 - [x] Define the tensor of ienv
 - [ ] Define an interface for the monoid action for substitution
