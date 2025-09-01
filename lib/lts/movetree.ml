@@ -8,6 +8,7 @@ module type MOVETREE = sig
     map: (Moves.move, Moves.move) Util.Pmap.pmap;
   }
 
+  val pp : Format.formatter -> movetree -> unit
   val trigger : movetree -> Moves.move -> Moves.move option
   val update : movetree -> Moves.move * Moves.move -> movetree option
 end
@@ -22,6 +23,13 @@ module Make (Moves : Moves.NAMED_GEN_MOVES) : MOVETREE = struct
     map: (Moves.move, Moves.move) Util.Pmap.pmap;
   }
 
+  let pp fmt movetree =
+    let pp_sep fmt () = Format.fprintf fmt ", " in
+    let pp_empty fmt () = Format.fprintf fmt "⋅" in
+    let pp_pair fmt (m, m') =
+      Format.fprintf fmt "%a : %a" Moves.pp_move m Moves.pp_move m' in
+    Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt movetree.map
+
   let trigger movetree move = Util.Pmap.lookup move movetree.map
 
   let update movetree (moveIn, moveOut) =
@@ -30,7 +38,8 @@ module Make (Moves : Moves.NAMED_GEN_MOVES) : MOVETREE = struct
         let map = Util.Pmap.add (moveIn, moveOut) movetree.map in
         Some { movetree with map }
     | Some moveOut' -> (
-        match Moves.unify_move Util.Namespan.empty_nspan moveOut moveOut' with (* We need unify only if there are some disclosed locations*)
+        match Moves.unify_move Util.Namespan.empty_nspan moveOut moveOut' with
+        (* We need unify only if there are some disclosed locations*)
         | None -> None
         | Some _ -> Some movetree)
 end
@@ -44,46 +53,22 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
 
   type store = MoveTree.movetree
 
-  let string_of_store : store -> string = failwith ""
-  let pp_store : Format.formatter -> store -> unit = failwith ""
+  let pp_store = MoveTree.pp
+  let string_of_store = Format.asprintf "%a" pp_store
 
-  module Storectx = struct
-    module Names = struct
-      type name = unit [@@deriving to_yojson]
+  module Storectx = Namectx
 
-      let string_of_name () = ""
-      let pp_name fmt () = Format.fprintf fmt ""
-      let is_callable () = false
-      let is_cname () = false
-    end
-
-    type t = unit
-    type typ = unit
-
-    let to_string _ = ""
-    let pp _ _ = failwith ""
-    let empty = ()
-    let concat _ _ = ()
-    let to_yojson = failwith ""
-    let get_names _ = []
-    let lookup_exn _ = failwith ""
-    let is_empty () = true
-    let is_singleton () () () = false
-    let is_last () () () = None
-    let add _ = failwith ""
-    let to_pmap _ = failwith ""
-    let mem () () = true
-    let singleton () = ((), ())
-    let add_fresh () _ () = ((), ())
-    let map _ () = ()
-  end
-
-  let infer_type_store : store -> Storectx.t = failwith ""
+  let infer_type_store movetree =
+    let open MoveTree in
+    movetree.namectxP
 
   type opconf = MoveTree.Moves.move * store
 
-  let string_of_opconf : opconf -> string = failwith ""
-  let pp_opconf : Format.formatter -> opconf -> unit = failwith ""
+  let pp_opconf fmt (move, movetree) =
+    Format.fprintf fmt "⟨%a | %a ⟩" MoveTree.Moves.pp_move move MoveTree.pp
+      movetree
+
+  let string_of_opconf = Format.asprintf "%a" pp_opconf
 
   module Renaming = Lang.Renaming.Make (Namectx)
 
@@ -107,18 +92,19 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
     match MoveTree.trigger movetree move with
     | None -> EvalMonad.fail ()
     | Some moveOut ->
-        EvalMonad.return ((moveOut, namectx, storectx), IEnv.empty namectx, movetree)
+        EvalMonad.return
+          ((moveOut, namectx, storectx), IEnv.empty namectx, movetree)
 
-  let get_subject_name : abstract_normal_form -> Names.name option = MoveTree.Moves.get_subject_name
+  let get_subject_name : abstract_normal_form -> Names.name option =
+    MoveTree.Moves.get_subject_name
 
-  let pp_a_nf :
-      pp_dir:(Format.formatter -> unit) ->
-      Format.formatter ->
-      abstract_normal_form ->
-      unit =
-    failwith "" (*MoveTree.Moves.pp_move - Need to handle pp_dir *)
+  let[@warning "-27"] pp_a_nf ~pp_dir fmt =
+    MoveTree.Moves.pp_move
+      fmt (*MoveTree.Moves.pp_move - Need to handle pp_dir *)
 
-  let string_of_a_nf : string -> abstract_normal_form -> string = failwith ""
+  let string_of_a_nf dir =
+    let pp_dir fmt = Format.fprintf fmt "%s" dir in
+    Format.asprintf "%a" (pp_a_nf ~pp_dir)
 
   let is_equiv_a_nf :
       Names.name Util.Namespan.namespan ->
