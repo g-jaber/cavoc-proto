@@ -38,7 +38,9 @@ module type GEN_POLMOVES = sig
   include POLMOVES
   module BranchMonad : Util.Monad.BRANCH
 
-  val generate_moves : Renaming.Namectx.t -> (move * Renaming.Namectx.t) BranchMonad.m
+  val generate_moves :
+    Renaming.Namectx.t -> (move * Renaming.Namectx.t) BranchMonad.m
+
   val infer_type_move : Renaming.Namectx.t -> move -> Renaming.Namectx.t option
   val check_type_move : Renaming.Namectx.t -> move * Renaming.Namectx.t -> bool
 end
@@ -47,7 +49,9 @@ module type GEN_MOVES = sig
   include MOVES
   module BranchMonad : Util.Monad.BRANCH
 
-  val generate_moves : Renaming.Namectx.t -> (move * Renaming.Namectx.t) BranchMonad.m
+  val generate_moves :
+    Renaming.Namectx.t -> (move * Renaming.Namectx.t) BranchMonad.m
+
   val infer_type_move : Renaming.Namectx.t -> move -> Renaming.Namectx.t option
   val check_type_move : Renaming.Namectx.t -> move * Renaming.Namectx.t -> bool
 end
@@ -80,6 +84,9 @@ module type A_NF = sig
 
   type abstract_normal_form
 
+  val renaming_a_nf :
+    IEnv.Renaming.t -> abstract_normal_form -> abstract_normal_form
+
   val pp_a_nf :
     pp_dir:(Format.formatter -> unit) ->
     Format.formatter ->
@@ -87,7 +94,9 @@ module type A_NF = sig
     unit
 
   val string_of_a_nf : string -> abstract_normal_form -> string
-  val get_subject_name : abstract_normal_form -> IEnv.Renaming.Namectx.Names.name option
+
+  val get_subject_name :
+    abstract_normal_form -> IEnv.Renaming.Namectx.Names.name option
 
   val is_equiv_a_nf :
     IEnv.Renaming.Namectx.Names.name Util.Namespan.namespan ->
@@ -99,10 +108,10 @@ end
 module Make (A_nf : A_NF) :
   POLMOVES
     with module Renaming = A_nf.IEnv.Renaming
-     and type move = A_nf.abstract_normal_form * A_nf.IEnv.Renaming.Namectx.t = struct
+     and type move = A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t = struct
   module Renaming = A_nf.IEnv.Renaming
 
-  type move = A_nf.abstract_normal_form * Renaming.Namectx.t
+  type move = A_nf.abstract_normal_form * Renaming.t
   type direction = Input | Output
 
   let string_of_direction = function Input -> "?" | Output -> "!"
@@ -110,24 +119,23 @@ module Make (A_nf : A_NF) :
 
   type pol_move = direction * move
 
-  let pp_move fmt (move, _) =
+  (* We always rename moves *)
+  let pp_move fmt (move, renaming) =
+    let move' = A_nf.renaming_a_nf renaming move in
     let pp_dir fmt = Format.pp_print_string fmt "" in
-    A_nf.pp_a_nf ~pp_dir fmt move
+    A_nf.pp_a_nf ~pp_dir fmt move'
 
-  let pp_pol_move fmt (dir, (move, _)) =
+  let pp_pol_move fmt (dir, (move, renaming)) =
+    let move' = A_nf.renaming_a_nf renaming move in
     let pp_dir fmt = Format.pp_print_string fmt (string_of_direction dir) in
-    A_nf.pp_a_nf ~pp_dir fmt move
+    Format.fprintf fmt "%a (was %a)" (A_nf.pp_a_nf ~pp_dir) move'
+      (A_nf.pp_a_nf ~pp_dir) move
 
-  let string_of_move (move, _) = A_nf.string_of_a_nf "" move
-
-  let string_of_pol_move (dir, (move, _)) =
-    A_nf.string_of_a_nf (string_of_direction dir) move
-
+  let string_of_move move = Format.asprintf "%a" pp_move move
+  let string_of_pol_move polmove = Format.asprintf "%a" pp_pol_move polmove
   let switch_direction (p, d) = (switch p, d)
-
   let get_subject_name (move, _) = A_nf.get_subject_name move
-
-  let get_namectx (_, lnamectx) = lnamectx
+  let get_namectx (_, renaming) = Renaming.dom renaming
 
   let unify_move span (a_nf1, _) (a_nf2, _) =
     A_nf.is_equiv_a_nf span a_nf1 a_nf2

@@ -2,13 +2,13 @@ module Make
     (Lang : Lang.Interactive.LANG)
     (TypingLTS :
       Lts.Typing.LTS
-        with module Moves.Renaming.Namectx = Lang.IEnv.Renaming.Namectx
+        with module Moves.Renaming = Lang.IEnv.Renaming
          and type store_ctx = Lang.Storectx.t
          and type Moves.move =
-          Lang.abstract_normal_form * Lang.IEnv.Renaming.Namectx.t) :
+          Lang.abstract_normal_form * Lang.IEnv.Renaming.t) :
   Lts.Strategy.INT_LTS
     with module TypingLTS = TypingLTS
-     and module TypingLTS.Moves.Renaming.Namectx = Lang.IEnv.Renaming.Namectx
+     and module TypingLTS.Moves.Renaming = Lang.IEnv.Renaming
      and type opconf = Lang.opconf
      and type store = Lang.store
      and type interactive_env = Lang.IEnv.t = struct
@@ -55,17 +55,20 @@ module Make
   let string_of_active_conf = Format.asprintf "%a" pp_active_conf
   let string_of_passive_conf = Format.asprintf "%a" pp_passive_conf
 
-  let p_trans act_conf =
+  let p_trans (act_conf:active_conf) =
     let open EvalMonad in
+    let namectxP = Lang.IEnv.dom act_conf.ienv in
+    let namectxO = Lang.IEnv.im act_conf.ienv in
     let* ((a_nf, lnamectx, _storectx_discl), ienv, store) =
       Lang.eval
-        ( act_conf.opconf,
-          TypingLTS.get_namectxO act_conf.pos,
-          TypingLTS.get_storectx act_conf.pos ) in
-    let move = (TypingLTS.Moves.Output, (a_nf, lnamectx)) in
+        ( act_conf.opconf, namectxO,
+          TypingLTS.get_storectx act_conf.pos) in
+    let renaming = TypingLTS.Moves.Renaming.weak_r lnamectx namectxP in
+    let move = (TypingLTS.Moves.Output, (a_nf, renaming)) in
     let pos = TypingLTS.trigger_move act_conf.pos move in
     Util.Debug.print_debug @@ "Before copairing we used to have the namectxO"
-    ^ TypingLTS.Moves.Renaming.Namectx.to_string (TypingLTS.get_namectxO act_conf.pos)
+    ^ TypingLTS.Moves.Renaming.Namectx.to_string
+        (TypingLTS.get_namectxO act_conf.pos)
     ^ "but ienv as image "
     ^ TypingLTS.Moves.Renaming.Namectx.to_string (Lang.IEnv.im ienv);
     let ienv = Lang.IEnv.copairing act_conf.ienv ienv in

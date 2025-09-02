@@ -224,6 +224,10 @@ struct
     let fold f a (fnamectx, _ectx_stack) = OpLang.IEnv.fold f a fnamectx
   end
 
+  type abstract_normal_form =
+    (OpLang.AVal.abstract_val, unit, Names.name, unit) OpLang.Nf.nf_term
+    * OpLang.Store.store
+
   let concretize_a_nf store ((fname_env, stack_ctx) as ienv)
       ((a_nf_term, store'), _lnamectx) =
     let get_ectx () =
@@ -243,9 +247,13 @@ struct
     let newstore = OpLang.Store.update_store store store' in
     ((OpLang.refold_nf_term nf_term'', newstore), ienv')
 
-  type abstract_normal_form =
-    (OpLang.AVal.abstract_val, unit, Names.name, unit) OpLang.Nf.nf_term
-    * OpLang.Store.store
+  let renaming_a_nf _renaming (_a_nf_term, _store) = failwith "TODO"
+    (*let a_nf_term' =
+      OpLang.Nf.map
+        ~f_val:(fun aval -> OpLang.AVal.rename aval renaming)
+        ~f_fn:Fun.id ~f_cn:Fun.id ~f_ectx:Fun.id a_nf_term in
+    (a_nf_term', store)*)
+  (* TODO: Rename also the store*)
 
   let labels_of_a_nf_term =
     OpLang.Nf.apply_val [] OpLang.AVal.labels_of_abstract_val
@@ -301,7 +309,6 @@ struct
   let get_subject_name (a_nf_term, _) =
     let f_fn nn = (nn, Some nn) in
     snd @@ OpLang.Nf.map_fn None f_fn a_nf_term
-
 
   let pp_a_nf ~pp_dir fmt (a_nf_term, store) =
     let pp_ectx fmt () = Format.pp_print_string fmt "" in

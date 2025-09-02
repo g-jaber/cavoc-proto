@@ -42,12 +42,12 @@
 - [x] Use typed interactive environments
 - [ ] Keep the Opponent and the Proponent names as two distinct namespaces
 - [ ] Handle reaching a failed program via the EvalMonad
-- [.] Manage to print De Bruijn names in move with offset
+- [x] Manage to print De Bruijn names in move with offset
 - [x] Embed a Name module inside Namectx
 - [x] Embed a Namectx module inside Moves
 - [x] Embed a Namectx module inside IEnv
 - [x] Embed a Renaming module inside IEnv
-- [.] Embed a Renaming module inside Moves
+- [x] Embed a Renaming module inside Moves
 - [x] Define the weakening over ienv
 - [x] Define the tensor of ienv
 - [ ] Define an interface for the monoid action for substitution
@@ -57,3 +57,4 @@
 - [x] Pass a namectx argument to abstracting_value to handle correctly the empty ienv
 - [ ] Switch from val get_nf_term : term -> normal_form_term to val get_nf_term : opconf -> normal_form_term*store
 - [ ] In cps.ml, use named opconf rather than named terms
+- [ ] Add a function add_fresh on renamings

@@ -1,9 +1,9 @@
 module Make (IntLang : Lang.Interactive.LANG) :
   Lts.Typing.LTS
-    with module Moves.Renaming.Namectx = IntLang.IEnv.Renaming.Namectx
+    with module Moves.Renaming = IntLang.IEnv.Renaming
      and type store_ctx = IntLang.Storectx.t
-     and type Moves.move = IntLang.abstract_normal_form * IntLang.IEnv.Renaming.Namectx.t =
-struct
+     and type Moves.move =
+      IntLang.abstract_normal_form * IntLang.IEnv.Renaming.t = struct
   module Moves = Lts.Moves.Make (IntLang)
   module BranchMonad = IntLang.BranchMonad
 
@@ -41,8 +41,8 @@ struct
 
   let pp_pas_position fmt ictx =
     Format.fprintf fmt "@[⟨Σ: %a |@, ΔO: %a |@, ΔP: %a⟩@]" IntLang.Storectx.pp
-      ictx.storectx IntLang.IEnv.Renaming.Namectx.pp ictx.namectxO IntLang.IEnv.Renaming.Namectx.pp
-      ictx.namectxP
+      ictx.storectx IntLang.IEnv.Renaming.Namectx.pp ictx.namectxO
+      IntLang.IEnv.Renaming.Namectx.pp ictx.namectxP
 
   type position = Active of act_position | Passive of pas_position
 
@@ -74,20 +74,25 @@ struct
     match pos with
     | Passive { storectx; namectxP; namectxO } ->
         let* (a_nf, lnamectx, _) = IntLang.generate_a_nf storectx namectxP in
-        let namectxO = IntLang.IEnv.Renaming.Namectx.concat lnamectx namectxO in
-        return ((Moves.Input, (a_nf, lnamectx)), Active { storectx; namectxO })
+        let renaming = IntLang.IEnv.Renaming.weak_r lnamectx namectxO in
+        let namectxO = IntLang.IEnv.Renaming.im renaming in
+        return ((Moves.Input, (a_nf, renaming)), Active { storectx; namectxO })
     | Active { storectx; namectxO } ->
         let* (a_nf, namectxP, namectxO) =
           IntLang.generate_a_nf storectx namectxO in
+        let renaming = IntLang.IEnv.Renaming.id namectxP in
         return
-          ( (Moves.Output, (a_nf, namectxP)),
+          ( (Moves.Output, (a_nf, renaming)),
             Passive { storectx; namectxP; namectxO } )
 
-  let check_move pos (dir, (a_nf, lnamectx)) =
+  let check_move pos (dir, (a_nf, renaming)) =
+    let lnamectx = Moves.Renaming.dom renaming in
     match (dir, pos) with
     | (Moves.Output, Active { storectx; namectxO }) -> begin
         match
-          IntLang.type_check_a_nf IntLang.IEnv.Renaming.Namectx.empty namectxO (a_nf, lnamectx)
+          IntLang.type_check_a_nf IntLang.IEnv.Renaming.Namectx.empty
+            namectxO (* TODO: Should be the other way around ?*)
+            (a_nf, lnamectx)
         with
         | Some namectxO ->
             let namectxP = lnamectx in
@@ -97,7 +102,7 @@ struct
     | (Moves.Input, Passive { storectx; namectxO; namectxP }) -> begin
         match IntLang.type_check_a_nf namectxP namectxO (a_nf, lnamectx) with
         | Some _ ->
-            let namectxO = IntLang.IEnv.Renaming.Namectx.concat namectxO lnamectx in
+            let namectxO = Moves.Renaming.im renaming in
             Some (Active { storectx; namectxO })
         | None -> None
       end

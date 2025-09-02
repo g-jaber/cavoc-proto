@@ -29,6 +29,9 @@ module type LANG = sig
 
   type abstract_normal_form
 
+  val renaming_a_nf :
+    IEnv.Renaming.t -> abstract_normal_form -> abstract_normal_form
+
   val eval :
     opconf * IEnv.Renaming.Namectx.t * Storectx.t ->
     ((abstract_normal_form * IEnv.Renaming.Namectx.t * Storectx.t)
@@ -82,10 +85,7 @@ module type LANG = sig
     IEnv.Renaming.Namectx.t option
 
   val concretize_a_nf :
-    store ->
-    IEnv.t ->
-    abstract_normal_form * IEnv.Renaming.Namectx.t ->
-    opconf * IEnv.t
+    store -> IEnv.t -> abstract_normal_form * IEnv.Renaming.t -> opconf * IEnv.t
 end
 
 module type LANG_WITH_INIT = sig
@@ -149,19 +149,33 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let pp_dir fmt = Format.pp_print_string fmt dir in
     Format.asprintf "%a" (pp_a_nf ~pp_dir)
 
-  let concretize_a_nf store ienv ((a_nf_term, store'), lnamectx) =
-    Util.Debug.print_debug @@ "concretize the a nf "
-    ^ string_of_a_nf "" (a_nf_term, store');
+  let renaming_a_nf renaming (a_nf_term, store) =
+    let a_nf_term' =
+      OpLang.Nf.map
+        ~f_val:(fun aval -> OpLang.AVal.rename aval renaming)
+        ~f_fn:Fun.id ~f_cn:Fun.id ~f_ectx:Fun.id a_nf_term in
+    (a_nf_term', store)
+  (* TODO: Rename also the store*)
+
+  let concretize_a_nf store ienv (a_nf, renaming) =
+    let lnamectx = OpLang.Renaming.dom renaming in
+    (* TO BE CORRECTED *)
+    Util.Debug.print_debug @@ "concretize the a nf " ^ string_of_a_nf "" a_nf;
+    Util.Debug.print_debug @@ "Renaming provided in input  : "
+    ^ IEnv.Renaming.to_string renaming;
+    let (a_nf_term', store') = renaming_a_nf renaming a_nf in
+    Util.Debug.print_debug @@ "After renaming: "
+    ^ string_of_a_nf "" (a_nf_term', store');
     (* Taking ienv:Γ→Θ, then we lift it into ienv':Γ → Θ+Δ with Δ=lnamectx *)
     let ienv' = IEnv.weaken_r ienv lnamectx in
     (* Old version: we use to tensor it
     let id_lnamectx = IEnv.embed_renaming @@ IEnv.Renaming.id lnamectx in
     let ienv' = IEnv.tensor ienv id_lnamectx in*)
-    (* we weaken the abstract term from *)
+    (* we weaken the abstract term from 
     Util.Debug.print_debug @@ "Before creating the renaming";
     let renaming = OpLang.Renaming.weak_r lnamectx (IEnv.im ienv) in
     Util.Debug.print_debug @@ "Before lifting the renaming "
-    ^ IEnv.Renaming.to_string renaming;
+    ^ IEnv.Renaming.to_string renaming;*)
     let renaming = IEnv.embed_renaming @@ renaming in
     Util.Debug.print_debug @@ "Renaming  : " ^ IEnv.to_string renaming;
     (*    let a_nf_term' =
@@ -179,7 +193,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let f_fn nn = IEnv.lookup_exn ienv'' nn in
     let f_cn = f_fn in
     let f_ectx () = () in
-    let nf_term' = OpLang.Nf.map ~f_val ~f_fn ~f_cn ~f_ectx a_nf_term in
+    let nf_term' = OpLang.Nf.map ~f_val ~f_fn ~f_cn ~f_ectx a_nf_term' in
     (* Then we deal with the store *)
     (* TODO: We should also weaken_r the abstract values present in the image of store'*)
     Util.Debug.print_debug "Updating the store";
@@ -187,7 +201,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let newterm = OpLang.refold_nf_term nf_term' in
     Util.Debug.print_debug @@ "Once concretized we get "
     ^ OpLang.string_of_term newterm;
-    ((newterm, newstore), ienv')
+    ((newterm, newstore), ienv') (* We do not use ienv'' here as it has an extra identity component for the renaming of Δ*)
 
   let labels_of_a_nf_term =
     OpLang.Nf.apply_val [] OpLang.AVal.labels_of_abstract_val
@@ -271,6 +285,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let* skel = OpLang.generate_nf_term namectxP in
     let* _ = return @@ Util.Debug.print_debug @@ "Filling the skeleton " in
     let* (a_nf_term, lnamectx) = fill_abstract_val storectx namectxP skel in
+    let* _ = return @@ Util.Debug.print_debug @@ "Once filled we get the new names " ^ OpLang.IEnv.Renaming.Namectx.to_string lnamectx in
     let* store = Store.generate_store storectx in
     return ((a_nf_term, store), lnamectx, namectxP)
 

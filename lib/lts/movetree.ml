@@ -70,7 +70,7 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
 
   let string_of_opconf = Format.asprintf "%a" pp_opconf
 
-  module Renaming = Lang.Renaming.Make (Namectx)
+  module Renaming = MoveTree.Moves.Renaming
 
   module IEnv =
     (* We could use explicitely a renaming here *)
@@ -85,6 +85,8 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
         end)
 
   type abstract_normal_form = MoveTree.Moves.move
+
+  let renaming_a_nf _renaming = failwith "TODO"
 
   let eval ((move, movetree), namectx, storectx) :
       ((abstract_normal_form * Namectx.t * Storectx.t) * IEnv.t * store)
@@ -126,6 +128,6 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
       else None
 
   let concretize_a_nf (movetree : store) (renaming : IEnv.t)
-      ((a_nf, _lnamectx) : abstract_normal_form * Namectx.t) =
+      ((a_nf, _renaming') : abstract_normal_form * Renaming.t) =
     ((a_nf, movetree), renaming)
 end

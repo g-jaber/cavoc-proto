@@ -97,7 +97,7 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
     let i = read_int () in
     match i with 1 -> print_endline @@ conf_str | _ -> () in
   let show_moves_list results_list =
-    print_endline "The possible move are:";
+    print_endline "The possible moves are:";
     List.iter print_endline
       (List.mapi (fun i m -> string_of_int (i + 1) ^ ": " ^ m) results_list)
   in

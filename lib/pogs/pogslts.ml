@@ -1,6 +1,6 @@
 module Make (Lang : Lang.Interactive.LANG) :
   Lts.Strategy.INT_LTS
-    with module TypingLTS.Moves.Renaming.Namectx = Lang.IEnv.Renaming.Namectx
+    with module TypingLTS.Moves.Renaming = Lang.IEnv.Renaming
      and type opconf = Lang.opconf
      and type store = Lang.store
      and type interactive_env = Lang.IEnv.t = struct
@@ -47,7 +47,8 @@ module Make (Lang : Lang.Interactive.LANG) :
         ( act_conf.opconf,
           TypingLTS.get_namectxO act_conf.pos,
           TypingLTS.get_storectx act_conf.pos ) in
-    let move = (TypingLTS.Moves.Output, (a_nf, lnamectx)) in
+    let renaming = TypingLTS.Moves.Renaming.id lnamectx in
+    let move = (TypingLTS.Moves.Output, (a_nf, renaming)) in
     let pos = TypingLTS.trigger_move act_conf.pos move in
     return (move, { store; ienv; pos })
 
