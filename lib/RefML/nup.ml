@@ -8,7 +8,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
      and type negative_type = Types.negative_type
      and type label = Syntax.label
      and type store_ctx = Store.Storectx.t
-     and type name_ctx = Namectx.FNamectx.t * Namectx.PNamectx.t
+     and type name_ctx = Namectx.Namectx.t
      and type interactive_env = Ienv.IEnv.t
      and module BranchMonad = BranchMonad = struct
   (* Instantiation *)
@@ -20,7 +20,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
   type typ = Types.typ
   type negative_type = Types.negative_type
   type store_ctx = Store.Storectx.t
-  type name_ctx = Namectx.FNamectx.t * Namectx.PNamectx.t
+  type name_ctx = Namectx.Namectx.t
   (* *)
 
   open Syntax
@@ -33,7 +33,6 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
   let string_of_abstract_val = Format.asprintf "%a" pp_abstract_val
   let names_of_abstract_val aval = Syntax.get_names aval
   let labels_of_abstract_val = Syntax.get_labels
-  let empty_namectx = (Namectx.FNamectx.empty, Namectx.PNamectx.empty)
   let rename = Syntax.rename
 
   let rec unify_abstract_val nspan nup1 nup2 =
@@ -64,18 +63,18 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
   module BranchMonad = BranchMonad
   open BranchMonad
 
-  let generate_abstract_val ((_, cons_ctx) as storectx) (_, pnamectxP) ty =
-    let rec aux ((fnamectx, pnamectx) as lnamectx) = function
-      | TUnit -> return (Unit, empty_namectx)
+  let generate_abstract_val ((_, cons_ctx) as storectx) namectxP ty =
+    let rec aux renam lnamectx = function
+      | TUnit -> return (Unit, lnamectx)
       | TBool ->
           let* b = para_list @@ [ true; false ] in
-          return (Bool b, empty_namectx)
+          return (Bool b, lnamectx)
       | TInt ->
           let* i = BranchMonad.pick_int () in
-          return (Int i, empty_namectx)
+          return (Int i, lnamectx)
       | TProd (ty1, ty2) ->
-          let* (nup1, lnamectx1) = aux lnamectx ty1 in
-          let* (nup2, lnamectx2) = aux lnamectx1 ty2 in
+          let* (nup1, lnamectx1) = aux renam lnamectx ty1 in
+          let* (nup2, lnamectx2) = aux renam lnamectx1 ty2 in
           return (Pair (nup1, nup2), lnamectx2)
       | TSum _ ->
           failwith "Need to add injection to the syntax of expressions"
@@ -86,17 +85,25 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     lnup1'@lnup2' *)
       | TArrow _ as ty ->
           let nty = Types.force_negative_type ty in
-          let (fn, fnamectx') = Namectx.FNamectx.add_fresh fnamectx "" nty in
-          return (Name (Names.embed_fname fn), (fnamectx', pnamectx))
+          let (fn, lnamectx') = Namectx.Namectx.add_fresh lnamectx "" nty in
+          return (Name fn, lnamectx')
       | TId _ as ty ->
-          let pnamectxP_pmap = Namectx.PNamectx.to_pmap pnamectxP in
-          let pn_list = Util.Pmap.select_im ty pnamectxP_pmap in
+          let namectxP_pmap = Namectx.Namectx.to_pmap namectxP in
+          let pn_list = Util.Pmap.select_im ty namectxP_pmap in
           let* pn = para_list @@ pn_list in
-          return (Name (Names.embed_pname pn), lnamectx)
+          let* _ =
+            return @@ Util.Debug.print_debug @@ "Reusing the pname "
+            ^ Names.string_of_name pn ^ " from the namectx "
+            ^ Namectx.Namectx.to_string namectxP in
+          return (Name pn, lnamectx)
       | TName _ as ty ->
           let nty = Types.force_negative_type ty in
-          let (pn, pnamectx') = Namectx.PNamectx.add_fresh pnamectx "" nty in
-          return (Name (Names.embed_pname pn), (fnamectx, pnamectx'))
+          (*let (pn,renam') = Renaming.Renaming.add_fresh renam "" nty in*)
+          let (pn, lnamectx') = Namectx.Namectx.add_fresh lnamectx "" nty in
+          Util.Debug.print_debug @@ "Creating a fresh pname "
+          ^ Names.string_of_name pn ^ " and putting it in the pnamectx "
+          ^ Namectx.Namectx.to_string lnamectx';
+          return (Name pn, lnamectx')
       | TExn ->
           Util.Debug.print_debug
           @@ "Generating exception abstract values in the store context "
@@ -110,7 +117,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           begin
             match cons_ty with
             | TArrow (pty, _) ->
-                let* (nup, nctx) = aux lnamectx pty in
+                let* (nup, nctx) = aux renam lnamectx pty in
                 return (Constructor (c, nup), nctx)
             | _ -> failwith "TODO"
           end
@@ -118,11 +125,11 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           failwith
             ("Error generating a nup on type " ^ Types.string_of_typ ty
            ^ ". Please report") in
-    aux empty_namectx ty
+    let id_renam = Renaming.Renaming.id namectxP in
+    aux id_renam Namectx.Namectx.empty ty
 
   (* namectxO is needed in the following definition to check freshness, while namectxP is needed for checking existence of box names*)
-  let type_check_abstract_val (_, pnamectx) _ ty
-      (nup, ((lfnamectx, lpnamectx) as lnamectx)) =
+  let type_check_abstract_val namectx _ ty (nup, lnamectx) =
     let rec aux ty (nup, lnamectx) =
       let open Util.Monad.Option in
       match (ty, nup) with
@@ -137,23 +144,20 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           aux ty2 (nup2, lnamectx')
         end
       | (TProd _, _) -> None
-      | (TArrow _, Name (Either.Left fn)) | (TForall _, Name (Either.Left fn))
-        ->
+      | (TArrow _, Name nn) | (TForall _, Name nn) ->
           let nty = Types.force_negative_type ty in
-          let* lfnamectx' = Namectx.FNamectx.is_last lfnamectx fn nty in
-          Some (lfnamectx', lpnamectx)
+          Namectx.Namectx.is_last lnamectx nn nty
       | (TArrow _, _) | (TForall _, _) -> None
-      | (TId id, Name (Either.Right pn)) -> begin
-          match Namectx.PNamectx.lookup_exn pnamectx pn with
+      | (TId id, Name nn) -> begin
+          match Namectx.Namectx.lookup_exn namectx nn with
           (* What about the Not_found exception ?*)
           | TId id' when id = id' -> Some lnamectx
           | _ -> None
         end
       | (TId _, _) -> None
-      | (TName _, Name (Either.Right pn)) ->
+      | (TName _, Name nn) ->
           let nty = Types.force_negative_type ty in
-          let* lpnamectx' = Namectx.PNamectx.is_last lpnamectx pn nty in
-          Some (lfnamectx, lpnamectx')
+          Namectx.Namectx.is_last lnamectx nn nty
       (*TODO: Should we check to who belongs the TName ? *)
       (* | (TExn, Constructor (c, nup')) ->  
         let (TArrow (param_ty, _)) = Util.Pmap.lookup_exn c (Util.Pmap.concat namectxP namectxO) in 
@@ -171,7 +175,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     | Some _ -> false
 
   let abstracting_value (value : value) namectxO ty =
-    let rec aux ((ienvf,ienvp) as ienv) value ty =
+    let rec aux ienv value ty =
       match (value, ty) with
       | (Fun _, TArrow _)
       | (Fix _, TArrow _)
@@ -181,11 +185,10 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
       | (Name _, TForall (_, TArrow _)) -> begin
           let nval = Syntax.force_negative_val value in
           let nty = Types.force_negative_type ty in
-          let (fn, ienvf') = Ienv.IEnvF.add_fresh ienvf "" nty  nval in
-          (Name (Names.embed_fname fn), (ienvf',ienvp))
+          let (fn, ienv') = Ienv.IEnv.add_fresh ienv "" nty nval in
+          (Name fn, ienv')
         end
-      | (Unit, TUnit) | (Bool _, TBool) | (Int _, TInt) ->
-          (value, ienv)
+      | (Unit, TUnit) | (Bool _, TBool) | (Int _, TInt) -> (value, ienv)
       | (Pair (value1, value2), TProd (ty1, ty2)) ->
           let (nup1, ienv1) = aux ienv value1 ty1 in
           let (nup2, ienv2) = aux ienv1 value2 ty2 in
@@ -193,8 +196,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
       | (_, TId _) -> begin
           let nval = Syntax.force_negative_val value in
           let nty = Types.force_negative_type ty in
-          let (pn,ienvp') = Ienv.IEnvP.add_fresh ienvp "" nty nval in
-          (Name (Names.embed_pname pn), (ienvf,ienvp'))
+          let (pn, ienv') = Ienv.IEnv.add_fresh ienv "" nty nval in
+          (Name pn, ienv')
         end
       | (Name _, TName _) -> (value, ienv)
       | (Constructor _, TExn) -> (value, ienv)
@@ -202,9 +205,11 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           failwith
             ("Error: " ^ string_of_term value ^ " of type " ^ string_of_typ ty
            ^ " cannot be abstracted because it is not a value.") in
-    aux (Ienv.IEnv.empty namectxO) value ty 
-  let subst_pnames (_ienvf,ienvp) nup =
+    aux (Ienv.IEnv.empty namectxO) value ty
+
+  let subst_pnames (_ienvf, ienvp) nup =
     let aux nup (nn, nval) =
-      Syntax.subst nup (Name (Names.embed_pname nn)) (embed_negative_val nval) in
+      Syntax.subst nup (Name (Names.embed_pname nn)) (embed_negative_val nval)
+    in
     Ienv.IEnvP.fold aux nup ienvp (* TODO : Not efficient at all*)
 end
