@@ -188,13 +188,13 @@ let get_chosen_action _ =
                             match Js.Opt.to_option input with
                             | None -> acc
                             | Some radio_input ->
-                                if Js.to_bool radio_input##.checked then (
+                                if Js.to_bool radio_input##.checked then
                                   (* Log the action *)
                                   let id_str = Js.to_string radio_input##.id in
                                   (* Extract the number from the id *)
                                   match String.split_on_char '_' id_str with
                                   | [ _; num_str ] -> int_of_string num_str
-                                  | _ -> acc)
+                                  | _ -> acc
                                 else acc))))
               (-4) children in
           Lwt.return selected_action)
@@ -214,15 +214,16 @@ let evaluate_code () =
   fetch_editor_content ();
   (* Set options based on flags *)
   let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
-  (*  let module CpsLang = Lang.Cps.MakeComp (OpLang) in *)
-  let module DirectLang = Lang.Direct.Make (OpLang) in
+  let module CpsLang = Lang.Cps.MakeComp (OpLang) () in
+  (*let module DirectLang = Lang.Direct.Make (OpLang) in *)
   (*  let module IntLang  = Lang.Interactive.Make (DirectLang : Lang.Interactive.LANG_WITH_INIT) in *)
-  let module TypingLTS = Ogs.Typing.Make (DirectLang) in
-  let module OGS_LTS = Ogs.Ogslts.Make (DirectLang) (TypingLTS) in
+  let module IntLang = Lang.Interactive.Make (CpsLang) in
+  let module TypingLTS = Ogs.Typing.Make (IntLang) in
+  let module OGS_LTS = Ogs.Ogslts.Make (IntLang) (TypingLTS) in
   let lexBuffer_code = Lexing.from_string !editor_content in
   let lexBuffer_sig = Lexing.from_string !signature_content in
   let (interactive_env, store, name_ctxP, name_ctxO) =
-    DirectLang.get_typed_ienv lexBuffer_code lexBuffer_sig in
+    IntLang.get_typed_ienv lexBuffer_code lexBuffer_sig in
   let init_conf =
     OGS_LTS.Passive
       (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
@@ -240,8 +241,7 @@ let evaluate_code () =
     let n = n + 1 in
     let%lwt i = get_chosen_action n in
     match i with
-    | i when i >= 0 && i < n ->
-        Lwt.return i
+    | i when i >= 0 && i < n -> Lwt.return i
     | -1 ->
         clear_list ();
         Lwt.fail (Failure "Stop")
@@ -309,7 +309,6 @@ let rec init_page () =
               (* Handle other exceptions *)
               print_to_output ("Unhandled exception: " ^ Printexc.to_string exn);
               Lwt.return_unit))
-
 
 (* "Main" entry point *)
 let () = init_page ()

@@ -208,10 +208,10 @@ let () =
   Arg.parse speclist get_filename usage_msg;
   fix_mode ();
   let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
-  if !enable_cps then
+  (*if !enable_cps then*)
     let module CpsLang = Lang.Cps.MakeComp (OpLang) () in
     let module IntLang = Lang.Interactive.Make (CpsLang) in
     build_ogs_lts (module IntLang)
-  else
+  (*else
     let module DirectLang = Lang.Direct.Make (OpLang) in
-    build_ogs_lts (module DirectLang)
+    build_ogs_lts (module DirectLang)*)
