@@ -5,7 +5,7 @@ module type RENAMING = sig
 
   val pp : Format.formatter -> t -> unit
   val to_string : t -> string
-  val id : Namectx.t -> t
+  val id : Namectx.t -> t (* id Γ :  Γ → Γ *)
   val dom : t -> Namectx.t
   val im : t -> Namectx.t
   val compose : t -> t -> t

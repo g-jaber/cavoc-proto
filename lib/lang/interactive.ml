@@ -73,13 +73,13 @@ module type LANG = sig
     (abstract_normal_form * IEnv.Renaming.Namectx.t * IEnv.Renaming.Namectx.t)
     BranchMonad.m
 
-  (* The typing judgment of an abstracted normal form Γ_P;Γ_O ⊢ A ▷ Δ
-      takes as arguments (Γ_P,Γ_O,A,Δ)
-    and produces the interactive name context Γ'_P where the consumed linear resources of Γ_P has been removed.
+  (* The typing judgment of an abstracted normal form Σ;Γ ⊢ A ▷ Δ
+      takes as arguments (Σ,Γ,A,Δ)
+    and produces the interactive name context Γ' where the linear resources of Γ used by A has been removed.
      It returns None when the type checking fails. *)
 
   val type_check_a_nf :
-    IEnv.Renaming.Namectx.t ->
+    Storectx.t ->
     IEnv.Renaming.Namectx.t ->
     abstract_normal_form * IEnv.Renaming.Namectx.t ->
     IEnv.Renaming.Namectx.t option
@@ -201,7 +201,8 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let newterm = OpLang.refold_nf_term nf_term' in
     Util.Debug.print_debug @@ "Once concretized we get "
     ^ OpLang.string_of_term newterm;
-    ((newterm, newstore), ienv') (* We do not use ienv'' here as it has an extra identity component for the renaming of Δ*)
+    ((newterm, newstore), ienv')
+  (* We do not use ienv'' here as it has an extra identity component for the renaming of Δ*)
 
   let labels_of_a_nf_term =
     OpLang.Nf.apply_val [] OpLang.AVal.labels_of_abstract_val
@@ -285,16 +286,17 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let* skel = OpLang.generate_nf_term namectxP in
     let* _ = return @@ Util.Debug.print_debug @@ "Filling the skeleton " in
     let* (a_nf_term, lnamectx) = fill_abstract_val storectx namectxP skel in
-    let* _ = return @@ Util.Debug.print_debug @@ "Once filled we get the new names " ^ OpLang.IEnv.Renaming.Namectx.to_string lnamectx in
+    let* _ =
+      return @@ Util.Debug.print_debug @@ "Once filled we get the new names "
+      ^ OpLang.IEnv.Renaming.Namectx.to_string lnamectx in
     let* store = Store.generate_store storectx in
     return ((a_nf_term, store), lnamectx, namectxP)
 
-  let type_check_a_nf namectxP namectxO ((nf_term, _), lnamectx) =
+  let type_check_a_nf store_ctx name_ctx ((nf_term, _), lnamectx) =
     (* Why do we ignore the store ? *)
-    let name_ctx = namectxP in
     let type_check_val aval nty =
       let ty = OpLang.negating_type nty in
-      OpLang.AVal.type_check_abstract_val namectxP namectxO ty (aval, lnamectx)
+      OpLang.AVal.type_check_abstract_val store_ctx name_ctx ty (aval, lnamectx)
     in
     OpLang.type_check_nf_term ~name_ctx ~type_check_val nf_term
 

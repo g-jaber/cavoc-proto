@@ -365,21 +365,17 @@ struct
       | AVal aval | APair (aval, _) | APack (_, aval, _) ->
           OpLang.AVal.labels_of_abstract_val aval
 
-    let type_check_abstract_val namectxP namectxO gty
+    let type_check_abstract_val storectx namectx gty
         (aval, (lfnamectx, lcnamectx)) =
       match (gty, aval) with
       | (GType ty, AVal aval) ->
           CNamectx.is_empty lcnamectx
-          && OpLang.AVal.type_check_abstract_val
-               (extract_name_ctx namectxP)
-               (extract_name_ctx namectxO)
-               ty (aval, lfnamectx)
+          && OpLang.AVal.type_check_abstract_val storectx
+               (extract_name_ctx namectx) ty (aval, lfnamectx)
       | (GProd (ty, tyhole), APair (aval, cn)) ->
           CNamectx.is_singleton lcnamectx cn tyhole
-          && OpLang.AVal.type_check_abstract_val
-               (extract_name_ctx namectxP)
-               (extract_name_ctx namectxO)
-               ty (aval, lfnamectx)
+          && OpLang.AVal.type_check_abstract_val storectx
+               (extract_name_ctx namectx) ty (aval, lfnamectx)
       | _ -> false
 
     let abstracting_value gval (namectxO, cnamectxO) gty =
@@ -399,35 +395,29 @@ struct
 
     module BranchMonad = OpLang.AVal.BranchMonad
 
-    (* From the list-presented interactive name context Γ_P and a glue type τ,
-       we generate all the possible pairs (A,Δ) such that
-       Γ_P;_ ⊢ A : τ ▷ Δ
-       Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
     let generate_abstract_val storectx (namectx, _) gtype =
       let open OpLang.AVal.BranchMonad in
       match gtype with
-      | GType ty ->
-          let* (aval, lnamectx) =
-            OpLang.AVal.generate_abstract_val storectx namectx ty in
-          return (AVal aval, embed_name_ctx lnamectx)
-      | GProd (ty, tyhole) ->
-          let* (aval, lnamectx) =
-            OpLang.AVal.generate_abstract_val storectx namectx ty in
-          let (cn, cnamectx) = CNamectx.singleton tyhole in
-          let lnamectx' = (lnamectx, cnamectx) in
-          return (APair (aval, cn), lnamectx')
-      | GExists (tvar_l, ty, tyhole) ->
-          Util.Debug.print_debug
-            "Generating an abstract value for an existential type";
-          let (tname_l, type_subst) = OpLang.generate_typename_subst tvar_l in
-          let ty' = OpLang.apply_type_subst ty type_subst in
-          let tyhole' = OpLang.apply_type_subst tyhole type_subst in
-          let* (aval, lnamectx) =
-            OpLang.AVal.generate_abstract_val storectx namectx ty' in
-          let (cn, cnamectx) = CNamectx.singleton tyhole' in
-          let lnamectx' = (lnamectx, cnamectx) in
-          return (APack (tname_l, aval, cn), lnamectx')
-      | _ -> failwith "The glue type is not valid. Please report."
+        | GType ty ->
+            let* (aval, lnamectx) =
+              OpLang.AVal.generate_abstract_val storectx namectx ty in
+            return (AVal aval, (lnamectx, CNamectx.empty))
+        | GProd (ty, tyhole) ->
+            let* (aval, lnamectx) =
+              OpLang.AVal.generate_abstract_val storectx namectx ty in
+            let (cn,cnamectx) = CNamectx.singleton tyhole in
+            return (APair (aval, cn), (lnamectx, cnamectx))
+        | GExists (tvar_l, ty, tyhole) ->
+            Util.Debug.print_debug
+              "Generating an abstract value for an existential type";
+            let (tname_l, type_subst) = OpLang.generate_typename_subst tvar_l in
+            let ty' = OpLang.apply_type_subst ty type_subst in
+            let tyhole' = OpLang.apply_type_subst tyhole type_subst in
+            let* (aval, lnamectx) =
+              OpLang.AVal.generate_abstract_val storectx namectx ty' in
+            let (cn,cnamectx) = CNamectx.singleton tyhole' in
+            return (APack (tname_l, aval, cn), (lnamectx, cnamectx))
+        | _ -> failwith "The glue type is not valid. Please report."
 
     let unify_abstract_val _nspan _aval1 _aval2 =
       failwith "To be reimplemented."

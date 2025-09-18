@@ -90,8 +90,8 @@ module Make (IntLang : Lang.Interactive.LANG) :
     match (dir, pos) with
     | (Moves.Output, Active { storectx; namectxO }) -> begin
         match
-          IntLang.type_check_a_nf IntLang.IEnv.Renaming.Namectx.empty
-            namectxO (* TODO: Should be the other way around ?*)
+          IntLang.type_check_a_nf storectx
+            namectxO
             (a_nf, lnamectx)
         with
         | Some namectxO ->
@@ -99,8 +99,8 @@ module Make (IntLang : Lang.Interactive.LANG) :
             Some (Passive { storectx; namectxP; namectxO })
         | None -> None
       end
-    | (Moves.Input, Passive { storectx; namectxO; namectxP }) -> begin
-        match IntLang.type_check_a_nf namectxP namectxO (a_nf, lnamectx) with
+    | (Moves.Input, Passive { storectx; namectxP; _ }) -> begin
+        match IntLang.type_check_a_nf storectx namectxP (a_nf, lnamectx) with
         | Some _ ->
             let namectxO = Moves.Renaming.im renaming in
             Some (Active { storectx; namectxO })

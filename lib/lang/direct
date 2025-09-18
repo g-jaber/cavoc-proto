@@ -248,7 +248,7 @@ struct
     ((OpLang.refold_nf_term nf_term'', newstore), ienv')
 
   let renaming_a_nf _renaming (_a_nf_term, _store) = failwith "TODO"
-    (*let a_nf_term' =
+  (*let a_nf_term' =
       OpLang.Nf.map
         ~f_val:(fun aval -> OpLang.AVal.rename aval renaming)
         ~f_fn:Fun.id ~f_cn:Fun.id ~f_ectx:Fun.id a_nf_term in
@@ -354,10 +354,9 @@ struct
         fnamectx_pmap in
     let open BranchMonad in
     let* (skel, typ) = OpLang.generate_nf_term_call fnamectx_split in
-    let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx skel in
+    let* (a_nf_term, renaming) = fill_abstract_val storectx fnamectx skel in
     let* store = OpLang.Store.generate_store storectx in
-    let namectxO = OpCtx (Some typ, lnamectx) in
-    return ((a_nf_term, store), namectxO, namectxP)
+    return ((a_nf_term, store), renaming, namectxP)
 
   let[@warning "-8"] generate_a_nf_ret storectx = function
     | PropCtx (_, []) -> BranchMonad.fail ()
@@ -366,19 +365,18 @@ struct
         let inj_ty ty = ty in
         let open BranchMonad in
         let* (skel, typ) = OpLang.generate_nf_term_ret inj_ty cnamectx_pmap in
-        let* (a_nf_term, lnamectx) = fill_abstract_val storectx fnamectx skel in
+        let* (a_nf_term, renaming) = fill_abstract_val storectx fnamectx skel in
         let* store = OpLang.Store.generate_store storectx in
         let namectxP' = PropCtx (fnamectx, stackctx') in
-        let namectxO = OpCtx (Some typ, lnamectx) in
-        return ((a_nf_term, store), namectxO, namectxP')
+        return ((a_nf_term, store), renaming, namectxP')
 
   let generate_a_nf storectx namectxP =
     BranchMonad.para_pair
       (generate_a_nf_call storectx namectxP)
       (generate_a_nf_ret storectx namectxP)
 
-  let[@warning "-8"] type_check_a_nf
-      (PropCtx (fnamectxP, stack_ctx) as namectxP) (OpCtx (None, fnamectxO))
+  let[@warning "-8"] type_check_a_nf storectx
+      (PropCtx (fnamectxP, stack_ctx) as namectxP)
       ((nf_term, _), OpCtx (Some ty_out, lnamectx')) =
     let inj_ty ty = ty in
     let empty_res = namectxP in
@@ -390,11 +388,10 @@ struct
     let type_check_call aval nty =
       let (_, ty_arg) = OpLang.get_input_type nty in
       let ty_out' = OpLang.get_output_type nty in
-
       begin
         if
           ty_out = ty_out'
-          && OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_arg
+          && OpLang.AVal.type_check_abstract_val storectx fnamectxP ty_arg
                (aval, lnamectx')
         then Some namectxP
         else None
@@ -406,7 +403,7 @@ struct
           let namectxP' = PropCtx (fnamectxP, stack_ctx') in
           if
             ty_out = ty_out'
-            && OpLang.AVal.type_check_abstract_val fnamectxP fnamectxO ty_hole
+            && OpLang.AVal.type_check_abstract_val storectx fnamectxP ty_hole
                  (aval, lnamectx')
           then Some namectxP'
           else None

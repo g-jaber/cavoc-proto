@@ -4,7 +4,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
      and type store_ctx = IntLang.Storectx.t
      and type Moves.move =
       IntLang.abstract_normal_form * IntLang.IEnv.Renaming.t = struct
-  module Moves = Lts.Moves.Make (IntLang : Lts.Moves.A_NF)
+  module Moves = Lts.Moves.Make ((IntLang : Lts.Moves.A_NF))
   module BranchMonad = IntLang.BranchMonad
 
   type store_ctx = IntLang.Storectx.t
@@ -73,15 +73,15 @@ module Make (IntLang : Lang.Interactive.LANG) :
   let check_move pos (dir, (a_nf, renaming)) =
     let lnamectx = Moves.Renaming.dom renaming in
     match (dir, pos) with
-    | (Moves.Output, { status= Active; storectx; namectxP; namectxO }) -> begin
-        match IntLang.type_check_a_nf namectxO namectxP (a_nf, lnamectx) with
+    | (Moves.Output, { status= Active; storectx; namectxO; _ }) -> begin
+        match IntLang.type_check_a_nf storectx namectxO (a_nf, lnamectx) with
         | Some namectxO ->
             let namectxP = Moves.Renaming.im renaming in
             Some { status= Passive; storectx; namectxP; namectxO }
         | None -> None
       end
-    | (Moves.Input, { status= Passive; storectx; namectxP; namectxO }) -> begin
-        match IntLang.type_check_a_nf namectxP namectxO (a_nf, lnamectx) with
+    | (Moves.Input, { status= Passive; storectx; namectxP; _ }) -> begin
+        match IntLang.type_check_a_nf storectx namectxP (a_nf, lnamectx) with
         | Some namectxP ->
             let namectxO = Moves.Renaming.im renaming in
             Some { status= Active; storectx; namectxP; namectxO }

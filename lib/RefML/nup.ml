@@ -12,6 +12,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
      and type interactive_env = Ienv.IEnv.t
      and module BranchMonad = BranchMonad = struct
   (* Instantiation *)
+  module BranchMonad = BranchMonad
+
   type name = Names.name
   type renaming = Renaming.Renaming.t
   type label = Syntax.label
@@ -57,14 +59,14 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           ^ " is not a NUP. Please report.")
 
   (* The following function is used to generate the nups associated to a given type.
-     We also provide a typing context that is used to retrieve the polynorphic names of
-     a given type
+      It takes as input a store context Σ, a name context Γ and a type τ, and
+      generates all nups A and name context Δ such that
+      - Σ;Γ ⊢ A : τ ▷ Δ (as a nup)
   *)
-  module BranchMonad = BranchMonad
-  open BranchMonad
 
-  let generate_abstract_val ((_, cons_ctx) as storectx) namectxP ty =
-    let rec aux renam lnamectx = function
+  let generate_abstract_val ((_, cons_ctx) as storectx) namectx ty =
+    let open BranchMonad in
+    let rec aux lnamectx = function
       | TUnit -> return (Unit, lnamectx)
       | TBool ->
           let* b = para_list @@ [ true; false ] in
@@ -73,8 +75,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           let* i = BranchMonad.pick_int () in
           return (Int i, lnamectx)
       | TProd (ty1, ty2) ->
-          let* (nup1, lnamectx1) = aux renam lnamectx ty1 in
-          let* (nup2, lnamectx2) = aux renam lnamectx1 ty2 in
+          let* (nup1, lnamectx1) = aux lnamectx ty1 in
+          let* (nup2, lnamectx2) = aux lnamectx1 ty2 in
           return (Pair (nup1, nup2), lnamectx2)
       | TSum _ ->
           failwith "Need to add injection to the syntax of expressions"
@@ -88,20 +90,19 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           let (fn, lnamectx') = Namectx.Namectx.add_fresh lnamectx "" nty in
           return (Name fn, lnamectx')
       | TId _ as ty ->
-          let namectxP_pmap = Namectx.Namectx.to_pmap namectxP in
+          let namectxP_pmap = Namectx.Namectx.to_pmap namectx in
           let pn_list = Util.Pmap.select_im ty namectxP_pmap in
           let* pn = para_list @@ pn_list in
           let* _ =
             return @@ Util.Debug.print_debug @@ "Reusing the pname "
             ^ Names.string_of_name pn ^ " from the namectx "
-            ^ Namectx.Namectx.to_string namectxP in
+            ^ Namectx.Namectx.to_string namectx in
           return (Name pn, lnamectx)
       | TName _ as ty ->
           let nty = Types.force_negative_type ty in
-          (*let (pn,renam') = Renaming.Renaming.add_fresh renam "" nty in*)
           let (pn, lnamectx') = Namectx.Namectx.add_fresh lnamectx "" nty in
           Util.Debug.print_debug @@ "Creating a fresh pname "
-          ^ Names.string_of_name pn ^ " and putting it in the pnamectx "
+          ^ Names.string_of_name pn ^ " and putting it in the name context "
           ^ Namectx.Namectx.to_string lnamectx';
           return (Name pn, lnamectx')
       | TExn ->
@@ -117,19 +118,19 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           begin
             match cons_ty with
             | TArrow (pty, _) ->
-                let* (nup, nctx) = aux renam lnamectx pty in
-                return (Constructor (c, nup), nctx)
+                let* (nup, lnamectx') = aux lnamectx pty in
+                return (Constructor (c, nup), lnamectx')
             | _ -> failwith "TODO"
           end
       | ty ->
           failwith
             ("Error generating a nup on type " ^ Types.string_of_typ ty
            ^ ". Please report") in
-    let id_renam = Renaming.Renaming.id namectxP in
-    aux id_renam Namectx.Namectx.empty ty
+    let empty_ctx = Namectx.Namectx.empty in
+    aux empty_ctx ty
 
   (* namectxO is needed in the following definition to check freshness, while namectxP is needed for checking existence of box names*)
-  let type_check_abstract_val namectx _ ty (nup, lnamectx) =
+  let type_check_abstract_val _storectx namectx ty (nup, lnamectx) =
     let rec aux ty (nup, lnamectx) =
       let open Util.Monad.Option in
       match (ty, nup) with
