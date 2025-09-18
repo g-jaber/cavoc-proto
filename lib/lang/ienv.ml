@@ -150,7 +150,7 @@ struct
   let embed_name = Value.embed_name
 
   type t = {
-    map: Value.t list;
+    map: (string * Value.t) list;
     dom: Renaming.Namectx.t;
     im: Renaming.Namectx.t;
   }
@@ -160,13 +160,19 @@ struct
     | [] -> Format.fprintf fmt "⋅"
     | map' ->
         let pp_sep fmt () = Format.fprintf fmt ", " in
-        Format.pp_print_list ~pp_sep Value.pp fmt map'
+        Format.pp_print_list ~pp_sep
+          (fun fmt (str, v) -> Format.fprintf fmt "%s:%a" str Value.pp v)
+          fmt map'
 
   let to_string = Format.asprintf "%a" pp
 
   let to_yojson ienv =
-    `List
-      (List.mapi (fun i typ -> `List [ `Int i; Value.to_yojson typ ]) ienv.map)
+    `Assoc
+      (List.mapi
+         (fun i (str, v) ->
+           let str = Renaming.Namectx.Names.string_of_name (i, str) in
+           (str, Value.to_yojson v))
+         ienv.map)
 
   let empty im = { map= []; dom= Renaming.Namectx.empty; im }
   let dom ienv = ienv.dom
@@ -177,7 +183,9 @@ struct
     let im = Renaming.im renam in
     let names_l = Renaming.Namectx.get_names dom in
     let map =
-      List.map (fun nn -> embed_name @@ Renaming.lookup renam nn) names_l in
+      List.map
+        (fun ((_i, str) as nn) -> (str, embed_name @@ Renaming.lookup renam nn))
+        names_l in
     (* This rely on the fact that names_l is in the right order *)
     { map; dom; im }
 
@@ -197,7 +205,8 @@ struct
   (* Taking γ : Γ → Δ and Θ, then weaken_r γ Θ : Γ → Δ + Θ *)
   let weaken_r ienv namectx =
     let renam = Renaming.weak_l ienv.im namectx in
-    let map = List.map (Value.renam_act renam) ienv.map in
+    let map =
+      List.map (fun (str, v) -> (str, Value.renam_act renam v)) ienv.map in
     { map; dom= ienv.dom; im= Renaming.im renam }
 
   (* Taking γ : Γ → Δ and Θ, then weaken_l γ Θ : Γ → Θ + Δ *)
@@ -211,7 +220,8 @@ struct
     (* renam :  Δ → Θ + Δ *)
     Util.Debug.print_debug @@ "Creating renam in weak_l: "
     ^ Renaming.to_string renam;
-    let map = List.map (Value.renam_act renam) ienv.map in
+    let map =
+      List.map (fun (str, v) -> (str, Value.renam_act renam v)) ienv.map in
     { map; dom= ienv.dom; im= Renaming.im renam }
 
   let tensor ienv1 ienv2 =
@@ -219,20 +229,20 @@ struct
     let ienv2' = weaken_l ienv2 (im ienv1) in
     copairing ienv1' ienv2'
 
-  let lookup_exn ienv (i, _) = List.nth ienv.map i
+  let lookup_exn ienv (i, _) = snd @@ List.nth ienv.map i
 
   let add_fresh ienv str ty value =
     let (nn, dom) = Renaming.Namectx.add_fresh ienv.dom str ty in
-    let map = ienv.map @ [ value ] in
+    let map = ienv.map @ [ (str, value) ] in
     (nn, { ienv with map; dom })
 
   let map f ienv =
-    let map = List.map f ienv.map in
+    let map = List.map (fun (str, v) -> (str, f v)) ienv.map in
     { ienv with map }
 
   let fold (f : 'a -> Renaming.Namectx.Names.name * value -> 'a) (v : 'a)
       (ienv : t) =
-    List.fold_left f v (List.mapi (fun i ty -> ((i, ""), ty)) ienv.map)
+    List.fold_left f v (List.mapi (fun i (str, v) -> ((i, str), v)) ienv.map)
 end
 
 module Aggregate

@@ -107,14 +107,11 @@ module Make_List
       type t [@@deriving to_yojson]
 
       val pp : Format.formatter -> t -> unit
-    end) :
-  TYPECTX
-    with module Names = Names
-     and type typ = Types.t = struct
+    end) : TYPECTX with module Names = Names and type typ = Types.t = struct
   module Names = Names
 
   type typ = Types.t
-  type t = (string*Types.t) list
+  type t = (string * Types.t) list
 
   let empty = []
   let concat = List.append
@@ -123,38 +120,46 @@ module Make_List
     | [] -> Format.fprintf fmt "⋅"
     | name_ctx ->
         let pp_sep fmt () = Format.fprintf fmt ", " in
-        Format.pp_print_list ~pp_sep (fun fmt (_str,typ) -> Types.pp fmt typ) fmt name_ctx
+        Format.pp_print_list ~pp_sep
+          (fun fmt (str, typ) -> Format.fprintf fmt "%s:%a" str Types.pp typ)
+          fmt name_ctx
 
   let to_string = Format.asprintf "%a" pp
-  let get_names = List.mapi (fun i (str,_typ) -> (i, str))
+  let get_names = List.mapi (fun i (str, _typ) -> (i, str))
 
   let to_yojson nctx =
-    `List (List.mapi (fun i (_str,typ) -> `List [ `Int i; Types.to_yojson typ ]) nctx)
+    `Assoc
+      (List.mapi
+         (fun i (str, typ) ->
+           let str = Names.string_of_name (i, str) in
+           (str, Types.to_yojson typ))
+         nctx)
 
   let lookup_exn nctx (i, _) = snd @@ List.nth nctx i
   let is_empty = function [] -> true | _ -> false
 
   let is_singleton nctx (nn, _) ty =
-    match nctx with [ (_,ty') ] when nn = 0 && ty = ty' -> true | _ -> false
+    match nctx with [ (_, ty') ] when nn = 0 && ty = ty' -> true | _ -> false
 
   let is_last name_ctx (nn, _) ty =
     let rec aux name_ctx i acc =
       match name_ctx with
       | [] -> None
-      | [ (_,ty') ] -> if nn = i && ty = ty' then Some (List.rev acc) else None
+      | [ (_, ty') ] -> if nn = i && ty = ty' then Some (List.rev acc) else None
       | hd :: name_ctx' -> aux name_ctx' (i + 1) (hd :: acc) in
     aux name_ctx 0 []
 
   let to_pmap name_ctx =
-    Util.Pmap.list_to_pmap @@ List.mapi (fun i (str,ty) -> ((i, str), ty)) name_ctx
+    Util.Pmap.list_to_pmap
+    @@ List.mapi (fun i (str, ty) -> ((i, str), ty)) name_ctx
 
-  let singleton ty = ((0, ""), [ ("",ty) ])
+  let singleton ty = ((0, ""), [ ("", ty) ])
 
   let add_fresh name_ctx str ty =
     let nn = List.length name_ctx in
-    ((nn, str), name_ctx @ [ (str,ty) ])
+    ((nn, str), name_ctx @ [ (str, ty) ])
 
-  let map f = List.map (fun (str,ty) -> (str,f ty))
+  let map f = List.map (fun (str, ty) -> (str, f ty))
 end
 
 module Aggregate
