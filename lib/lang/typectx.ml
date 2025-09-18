@@ -13,7 +13,6 @@ module type TYPECTX = sig
   val is_empty : t -> bool
   val is_singleton : t -> Names.name -> typ -> bool
   val is_last : t -> Names.name -> typ -> t option
-  val add : t -> Names.name -> typ -> t
   val to_pmap : t -> (Names.name, typ) Util.Pmap.pmap
   val singleton : typ -> Names.name * t
   val mem : t -> Names.name -> bool
@@ -76,7 +75,6 @@ module Make_PMAP
     `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string name_ctx)
 
   let lookup_exn name_ctx nn = Util.Pmap.lookup_exn nn name_ctx
-  let add name_ctx nn ty = Util.Pmap.add (nn, ty) name_ctx
   let to_pmap = Fun.id
   let is_empty = Util.Pmap.is_empty
   let is_singleton name_ctx nn ty = Util.Pmap.is_singleton name_ctx (nn, ty)
@@ -149,9 +147,6 @@ module Make_List
       | [ (_,ty') ] -> if nn = i && ty = ty' then Some (List.rev acc) else None
       | hd :: name_ctx' -> aux name_ctx' (i + 1) (hd :: acc) in
     aux name_ctx 0 []
-
-  (* The add function always add at the end of the list !!!*)
-  let add name_ctx _ ty = name_ctx @ [ ("",ty) ]
 
   let to_pmap name_ctx =
     Util.Pmap.list_to_pmap @@ List.mapi (fun i (str,ty) -> ((i, str), ty)) name_ctx
@@ -227,19 +222,6 @@ module Aggregate
         failwith
           "Error while performing a last test on an aggregated context. Please \
            report."
-
-  let add (namectx1, namectx2) nn ty =
-    match (nn, ty) with
-    | (Either.Left nn', Either.Left ty') ->
-        let namectx1' = Namectx1.add namectx1 nn' ty' in
-        (namectx1', namectx2)
-    | (Either.Right nn', Either.Right ty') ->
-        let namectx2' = Namectx2.add namectx2 nn' ty' in
-        (namectx1, namectx2')
-    | _ ->
-        failwith
-          "Aggregating two typing contexts with non-disjoint set of names. \
-           Please report."
 
   let mem (namectx1, namectx2) nn =
     match nn with
@@ -366,18 +348,6 @@ module AggregateCommon
           "Error while performing a singleton test on an aggregated context. \
            Please report."
 
-  let add (namectx1, namectx2) nn ty =
-    match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with
-    | (None, Some nn') ->
-        let namectx2' = Namectx2.add namectx2 nn' ty in
-        (namectx1, namectx2')
-    | (Some nn', None) ->
-        let namectx1' = Namectx1.add namectx1 nn' ty in
-        (namectx1', namectx2)
-    | _ ->
-        failwith
-          "Aggregating two typing contexts with non-disjoint set of names. \
-           Please report."
 
   let mem (namectx1, namectx2) nn =
     match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with

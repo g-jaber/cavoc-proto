@@ -108,11 +108,6 @@ module Storectx = struct
   let is_last ((_loc_ctx, _cons_ctx) : t) (_loc : location) (_ty : typ) =
     failwith "TODO"
 
-  let add ((loc_ctx, cons_ctx) : t) (loc : location) (ty : typ) =
-    match loc with
-    | Loc l -> (Util.Pmap.add (l, ty) loc_ctx, cons_ctx)
-    | Cons c -> (loc_ctx, Util.Pmap.add (c, ty) cons_ctx)
-
   let to_pmap ((loc_ctx, cons_ctx) : t) =
     let loc_ctx' = Util.Pmap.map_dom (fun l -> Loc l) loc_ctx in
     let cons_ctx' = Util.Pmap.map_dom (fun c -> Cons c) cons_ctx in
