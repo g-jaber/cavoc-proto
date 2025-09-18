@@ -36,9 +36,9 @@
 - [ ] Remove the need of is_callable
 - [x] Transform type_check_abstract_val
 - [x] Make interactive_env type abstract
-- [ ] Cleanup the TYPECTX interface
-  - [ ] Remove add
-  - [ ] Remove mem
+- [x] Cleanup the TYPECTX interface
+  - [x] Remove add
+  - [x] Remove mem
 - [x] Use typed interactive environments
 - [ ] Keep the Opponent and the Proponent names as two distinct namespaces
 - [ ] Handle reaching a failed program via the EvalMonad
