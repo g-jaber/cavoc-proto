@@ -15,7 +15,6 @@ module type TYPECTX = sig
   val is_last : t -> Names.name -> typ -> t option
   val to_pmap : t -> (Names.name, typ) Util.Pmap.pmap
   val singleton : typ -> Names.name * t
-  val mem : t -> Names.name -> bool
   val add_fresh : t -> string -> typ -> Names.name * t
   (* The second argument is used to associate a string to the fresh variable *)
 
@@ -95,8 +94,6 @@ module Make_PMAP
     let nn = Names.fresh_name () in
     (nn, Util.Pmap.singleton (nn, ty))
 
-  let mem namectx nn = Util.Pmap.mem nn namectx
-
   let add_fresh name_ctx str ty =
     let nn = Names.from_string str in
     (nn, Util.Pmap.add (nn, ty) name_ctx)
@@ -152,7 +149,6 @@ module Make_List
     Util.Pmap.list_to_pmap @@ List.mapi (fun i (str,ty) -> ((i, str), ty)) name_ctx
 
   let singleton ty = ((0, ""), [ ("",ty) ])
-  let mem namectx (nn, _) = nn < List.length namectx
 
   let add_fresh name_ctx str ty =
     let nn = List.length name_ctx in
@@ -222,11 +218,6 @@ module Aggregate
         failwith
           "Error while performing a last test on an aggregated context. Please \
            report."
-
-  let mem (namectx1, namectx2) nn =
-    match nn with
-    | Either.Left nn' -> Namectx1.mem namectx1 nn'
-    | Either.Right nn' -> Namectx2.mem namectx2 nn'
 
   let to_pmap (namectx1, namectx2) =
     let namectx1_pmap = Namectx1.to_pmap namectx1 in
@@ -346,16 +337,6 @@ module AggregateCommon
     | _ ->
         failwith
           "Error while performing a singleton test on an aggregated context. \
-           Please report."
-
-
-  let mem (namectx1, namectx2) nn =
-    match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with
-    | (None, Some nn') -> Namectx2.mem namectx2 nn'
-    | (Some nn', None) -> Namectx1.mem namectx1 nn'
-    | _ ->
-        failwith
-          "Aggregating two typing contexts with non-disjoint set of names. \
            Please report."
 
   let to_pmap (namectx1, namectx2) =

@@ -125,18 +125,11 @@ struct
           let* fnamectx' = OpLang.Namectx.is_last fnamectx nn ty in
           return (OpCtx (ty', fnamectx'))
 
-    let add (namectx : t) nn nty =
-      match namectx with
-      | OpCtx (ty, fnamectx) -> OpCtx (ty, OpLang.Namectx.add fnamectx nn nty)
-      | PropCtx (fnamectx, stackctx) ->
-          PropCtx (OpLang.Namectx.add fnamectx nn nty, stackctx)
-
     let to_pmap _ = failwith "TODO"
 
     let singleton _ty =
       failwith "TODO" (* Not clear if it should be an OpCtx or a PropCtx *)
 
-    let mem _ = failwith "TODO"
 
     let add_fresh (namectx : t) str nty =
       match namectx with
