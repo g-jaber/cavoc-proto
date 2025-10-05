@@ -15,6 +15,8 @@ depends: [
   "js_of_ocaml"
   "js_of_ocaml-ppx"
   "odoc" {with-doc}
+  "lwt"
+  "cohttp-lwt-unix"
 ]
 build: [
   ["dune" "subst"] {dev}
