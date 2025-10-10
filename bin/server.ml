@@ -1,7 +1,6 @@
 (*http://localhost:8000/front/index.html*)
 
 open Lwt.Infix
-open Cohttp
 open Cohttp_lwt_unix
 
 let project_root = Filename.dirname (Sys.getcwd ())
