@@ -49,14 +49,22 @@
   js_of_ocaml-ppx
   js_of_ocaml-lwt
   lwt
-    cohttp
+  cohttp
   cohttp-lwt-unix))
 
 (executable
  (name server)
  (public_name cavoc-server)
  (libraries
+  refml
+  lang
+  lts
+  ogs
+  pogs
+  js_of_ocaml
+  js_of_ocaml-ppx
+  js_of_ocaml-lwt
+  lwt
   cohttp
-  cohttp-lwt-unix
-  lwt)
+  cohttp-lwt-unix)
 )

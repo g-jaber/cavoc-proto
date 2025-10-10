@@ -126,9 +126,11 @@ let g f = x := 1; f(); assert (!x = 1)`;
     }
   </script>
   <script>
-    window.onload = function () {
+    /*window.onload = function () {
       // List of files as provided
       const filesList = [
+        "AAAAAAAAAA.ml",
+        "BBBBBBBBBB.ml",
         "cavoc.ml",
         "exception.ml",
         "higher_order.mli",
@@ -156,11 +158,22 @@ let g f = x := 1; f(); assert (!x = 1)`;
         "wbsc.mli",
         "wbsc_interact.ml",
         "while_diverge.mli",
-      ];
+      ];*/
+    
+    window.onload = async function () {
+      
+      let filesList = [];
+      try {
+        const response = await fetch('http://localhost:8000/list_files');
+        filesList = await response.json();
+      }
+      catch(e){
+        console.log(e);
+      }
 
       // Filter the list to get only the .ml files
       const mlFiles = filesList.filter((file) => file.endsWith(".ml"));
-
+ 
       // Populate the dropdown with the .ml file names
       const fileSelect = document.getElementById("file-select-dropdown");
       mlFiles.forEach((file) => {

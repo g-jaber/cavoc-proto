@@ -2,7 +2,7 @@
 
 open Lwt.Infix
 open Cohttp_lwt_unix
-
+(*
 let project_root = Filename.dirname (Sys.getcwd ())
 
 let server =
@@ -25,7 +25,53 @@ let server =
   Server.create ~mode:(`TCP (`Port 8000)) (Server.make ~callback ())
 
 let () = Lwt_main.run server
+*)
+let project_root = Filename.dirname (Sys.getcwd ())
+(*let () = Printf.printf "Dossier racine du projet : %s\n%!" project_root*)
 
+
+let list_files_in_dir dir =
+  try
+    let files = Sys.readdir dir in
+    let file_list = Array.to_list files in
+      (*Printf.printf "Fichiers dans %s : %s\n%!" dir (String.concat ", " file_list);*)
+      file_list
+  with e ->
+      Printf.printf "Erreur lors de la lecture du dossier %s : %s\n%!" dir (Printexc.to_string e);
+      []
+
+let list_files_handler _conn _req _body =
+  let dir = Filename.concat project_root "test" in
+  (*Printf.printf "Tentative de lecture du dossier : %s\n%!" dir;*)
+  let files = list_files_in_dir dir in
+  let json = `List (List.map (fun f -> `String f) files) in
+  let response_body = Yojson.Safe.to_string json in
+  (*Printf.printf "Réponse envoyée : %s\n%!" response_body;*)
+  Server.respond_string ~status:`OK ~body:response_body ()
+
+let callback _conn (req : Request.t) (body : Cohttp_lwt.Body.t) =
+  let uri_path = Request.uri req |> Uri.path in
+  match uri_path with
+  | "/list_files" -> list_files_handler _conn req body
+  | _ ->
+      let file_path =
+        let path =
+          if uri_path = "/" then "front/index.html"
+          else if String.length uri_path > 0 && uri_path.[0] = '/' then
+            String.sub uri_path 1 (String.length uri_path - 1)
+          else uri_path
+        in
+        Filename.concat project_root path
+      in
+      Lwt.catch
+        (fun () ->
+          Lwt_io.with_file ~mode:Lwt_io.Input file_path Lwt_io.read >>= fun body ->
+          Server.respond_string ~status:`OK ~body ())
+        (fun _ -> Server.respond_string ~status:`Not_found ~body:"File not found" ())
+        
+
+let server = Server.create ~mode:(`TCP (`Port 8000)) (Server.make ~callback ())
+let () = Lwt_main.run server
 
 
 
