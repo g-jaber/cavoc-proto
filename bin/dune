@@ -13,7 +13,9 @@
   js_of_ocaml
   js_of_ocaml-ppx
   js_of_ocaml-lwt
-  lwt)
+  lwt
+  cohttp
+  cohttp-lwt-unix)
  (js_of_ocaml
   (flags
    (--pretty --debug-info))))
@@ -30,7 +32,9 @@
   js_of_ocaml
   js_of_ocaml-ppx
   js_of_ocaml-lwt
-  lwt))
+  lwt
+  cohttp
+  cohttp-lwt-unix))
 
 (executable
  (name explore)
@@ -44,7 +48,9 @@
   js_of_ocaml
   js_of_ocaml-ppx
   js_of_ocaml-lwt
-  lwt))
+  lwt
+    cohttp
+  cohttp-lwt-unix))
 
 (executable
  (name server)
