@@ -26,8 +26,9 @@ let server =
 
 let () = Lwt_main.run server
 *)
+
 let project_root = Filename.dirname (Sys.getcwd ())
-(*let () = Printf.printf "Dossier racine du projet : %s\n%!" project_root*)
+let () = Printf.printf "Dossier racine du projet : %s\n%!" project_root
 
 
 let list_files_in_dir dir =
@@ -70,8 +71,24 @@ let callback _conn (req : Request.t) (body : Cohttp_lwt.Body.t) =
         (fun _ -> Server.respond_string ~status:`Not_found ~body:"File not found" ())
         
 
-let server = Server.create ~mode:(`TCP (`Port 8000)) (Server.make ~callback ())
-let () = Lwt_main.run server
+(*let server = Server.create ~mode:(`TCP (`Port 8000)) (Server.make ~callback ())*)
+let start_server () =
+  let mode = `TCP (`Port 8000) in
+  let server = Server.make ~callback () in
+  Lwt.catch
+    (fun () ->
+      Printf.printf " Serveur démarré sur http://localhost:8000/front/index.html\n%!";
+      Server.create ~mode server)
+    (function
+      | Unix.Unix_error (Unix.EADDRINUSE, "bind", _) ->
+          Printf.eprintf " Erreur : le port 8000 est déjà utilisé.\n";
+          Printf.eprintf " Fermez l'autre instance du serveur avant de relancer.\n";
+          exit 1
+      | e ->
+          Printf.eprintf " Erreur inattendue : %s\n" (Printexc.to_string e);
+          exit 1)
+
+let () = Lwt_main.run (start_server ())
 
 
 

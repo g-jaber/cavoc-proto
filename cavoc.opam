@@ -14,9 +14,13 @@ depends: [
   "dune" {>= "3.13"}
   "js_of_ocaml"
   "js_of_ocaml-ppx"
+  "js_of_ocaml-lwt"
+  "lwt"
+  "lwt_ppx"
   "cohttp"
   "cohttp-lwt-unix"
   "odoc" {with-doc}
+  "ppx_deriving_yojson"
 ]
 build: [
   ["dune" "subst"] {dev}
