@@ -18,19 +18,6 @@
   (flags
    (--pretty --debug-info))))
 
-(executable
- (name compose)
- (public_name cavoc-compose)
- (libraries
-  refml
-  lang
-  lts
-  ogs
-  pogs
-  js_of_ocaml
-  js_of_ocaml-ppx
-  js_of_ocaml-lwt
-  lwt))
 
 (executable
  (name explore)

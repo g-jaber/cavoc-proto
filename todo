@@ -58,3 +58,5 @@
 - [ ] Switch from val get_nf_term : term -> normal_form_term to val get_nf_term : opconf -> normal_form_term*store
 - [ ] In cps.ml, use named opconf rather than named terms
 - [ ] Add a function add_fresh on renamings
+- [ ] opconf should comes with their namectx and storectx typing
+- [ ] add a subject_name function 

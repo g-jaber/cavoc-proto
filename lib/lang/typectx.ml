@@ -19,6 +19,8 @@ module type TYPECTX = sig
   (* The second argument is used to associate a string to the fresh variable *)
 
   val map : (typ -> typ) -> t -> t
+  (*val copairing : t * (t -> 'a) -> t * (t -> 'a) -> t -> 'a*)
+  (* we have copairing (f:Γ -> 'a) (g:Δ -> 'a) : ((concat Γ Δ) -> 'a)*)
 end
 
 module type TYPECTX_PMAP = sig
@@ -99,6 +101,17 @@ module Make_PMAP
     (nn, Util.Pmap.add (nn, ty) name_ctx)
 
   let map = Util.Pmap.map_im
+
+  (*let copairing (namectxl, mapl) (namectxr, mapr) nn =
+    match (Util.Pmap.mem nn namectxl, Util.Pmap.mem nn namectxr) with
+    | (false, false) ->
+        failwith @@ "The name " ^ Names.string_of_name nn
+        ^ "is present in none of the two maps. Please report"
+    | (true, true) ->
+        failwith @@ "The name " ^ Names.string_of_name nn
+        ^ "is present in both of the two maps. Please report"
+    | (true, false) -> mapl nn
+    | (false, true) -> mapr nn*)
 end
 
 module Make_List
