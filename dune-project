@@ -20,7 +20,7 @@
  (name cavoc)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml dune js_of_ocaml js_of_ocaml-ppx)
+ (depends ocaml dune js_of_ocaml js_of_ocaml-ppx cohttp cohttp-lwt-unix)
  (tags
   (topics "to describe" your project)))
 
