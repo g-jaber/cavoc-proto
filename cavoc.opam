@@ -18,9 +18,10 @@ depends: [
   "lwt"
   "lwt_ppx"
   "cohttp"
+  "cohttp-lwt-js"
   "cohttp-lwt-unix"
-  "odoc" {with-doc}
   "ppx_deriving_yojson"
+  "odoc" {with-doc}
 ]
 build: [
   ["dune" "subst"] {dev}
