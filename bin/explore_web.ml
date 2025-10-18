@@ -252,11 +252,13 @@ let evaluate_code () =
   IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
     init_conf
 
+
 (* Do page init, creating the callback on the submit button, and managing some button looks*)
 let rec init_page () =
   Printexc.record_backtrace true;
   let button = Dom_html.getElementById "submit" in
   let select_button = Dom_html.getElementById "select-btn" in
+  let load_button = Dom_html.getElementById "load-btn" in
 
   (* Disable the Select button by default *)
   Js.Unsafe.set select_button "disabled" Js._true;
@@ -273,6 +275,13 @@ let rec init_page () =
   (* Set tooltip for the Evaluate button when it's disabled *)
   Js.Unsafe.set button "title"
     (Js.string "Stop evaluation to evaluate new code");
+
+  (* Add event listener for load_button *)
+  let _ = Js_of_ocaml_lwt.Lwt_js_events.clicks load_button (fun _ _ ->
+      clear_list ();
+      init_page ();
+      Lwt.return_unit)
+  in
 
   Js_of_ocaml_lwt.Lwt_js_events.async (fun () ->
       let%lwt _ = Js_of_ocaml_lwt.Lwt_js_events.click button in
