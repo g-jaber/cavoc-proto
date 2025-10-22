@@ -141,6 +141,7 @@ let generate_clickables actions =
 
   (* Clear existing elements *)
   List.iteri
+    (* action should be of type json rather than string *)
     (fun index (id, action) ->
       let checkbox_div = Dom_html.createDiv Dom_html.document in
       let checked_attr =
