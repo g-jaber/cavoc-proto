@@ -45,6 +45,7 @@ module Make (IntLTS : Strategy.LTS) = struct
         let results_list =
           IntLTS.TypingLTS.BranchMonad.run (IntLTS.o_trans_gen pas_conf) in
         let moves_list = List.map (fun (x, _) -> x) results_list in
+        (* We should use json rather string *)
         let string_list = List.map IntLTS.TypingLTS.Moves.string_of_pol_move moves_list in
         show_moves_list string_list;
         let%lwt chosen_index = get_move @@ (List.length string_list - 1) in

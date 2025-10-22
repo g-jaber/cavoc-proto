@@ -3,7 +3,7 @@ module type MOVES = sig
   module Renaming : Lang.Renaming.RENAMING
   (* *)
 
-  type move
+  type move [@@deriving to_yojson]
 
   val pp_move : Format.formatter -> move -> unit
   val string_of_move : move -> string
@@ -21,7 +21,7 @@ module type POLMOVES = sig
   include MOVES
 
   type direction = Input | Output
-  type pol_move = direction * move
+  type pol_move = direction * move [@@deriving to_yojson]
 
   val pp_pol_move : Format.formatter -> pol_move -> unit
   val string_of_pol_move : pol_move -> string
@@ -82,7 +82,7 @@ end *)
 module type A_NF = sig
   module IEnv : Lang.Ienv.IENV
 
-  type abstract_normal_form
+  type abstract_normal_form 
 
   val renaming_a_nf :
     IEnv.Renaming.t -> abstract_normal_form -> abstract_normal_form
@@ -112,12 +112,15 @@ module Make (A_nf : A_NF) :
   module Renaming = A_nf.IEnv.Renaming
 
   type move = A_nf.abstract_normal_form * Renaming.t
-  type direction = Input | Output
+  type direction = Input | Output [@@deriving to_yojson]
+
+  let move_to_yojson ((_a_nf,_):move) : Yojson.Safe.t = 
+    failwith "Not yet implemented"
 
   let string_of_direction = function Input -> "?" | Output -> "!"
   let switch = function Input -> Output | Output -> Input
 
-  type pol_move = direction * move
+  type pol_move = direction * move [@@deriving to_yojson]
 
   (* We always rename moves *)
   let pp_move fmt (move, renaming) =
