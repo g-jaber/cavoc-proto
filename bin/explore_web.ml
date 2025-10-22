@@ -28,25 +28,25 @@ let print_to_output str =
   Js.Unsafe.set output_div "innerHTML" (Js.string new_content);
   Js.Unsafe.set output_div "scrollTop" (Js.Unsafe.get output_div "scrollHeight")
 
-(* Mutable list to store previous actions *)
-let previous_actions : string list ref = ref []
+(* Mutable list to store previous moves *)
+let previous_moves : string list ref = ref []
 
-(*Shows the actions in the html*)
-let display_previous_actions () : unit =
-  let actions_string = String.concat " ; " !previous_actions in
-  let action_display = Dom_html.getElementById "history" in
-  Js.Unsafe.set action_display "textContent" (Js.string actions_string)
+(*Shows the moves in the html*)
+let display_previous_moves () : unit =
+  let moves_string = String.concat " ; " !previous_moves in
+  let move_display = Dom_html.getElementById "history" in
+  Js.Unsafe.set move_display "textContent" (Js.string moves_string)
 
-(* Adds an action to the previous actions list and updates the DOM *)
-let add_action action =
+(* Adds an move to the previous moves list and updates the DOM *)
+let add_move move =
   (* Debugging line *)
-  previous_actions := !previous_actions @ [ action ];
-  display_previous_actions ()
+  previous_moves := !previous_moves @ [ move ];
+  display_previous_moves ()
 
-(* Clears the previous actions list and the DOM display *)
-let flush_actions () =
-  previous_actions := [];
-  display_previous_actions ()
+(* Clears the previous moves list and the DOM display *)
+let flush_moves () =
+  previous_moves := [];
+  display_previous_moves ()
 
 (* Updates the HTML content of a specific container by ID *)
 let update_container (id : string) (content : string) : unit =
@@ -134,15 +134,15 @@ let display_conf conf_json : unit =
   | _ -> print_to_output "Invalid JSON format"
 
 (*function wich generate clickable component on the DOM*)
-let generate_clickables actions =
-  let actions = actions @ [ (-1, "Stop") ] in
-  let actions_list = Dom_html.getElementById "actions-list" in
-  actions_list##.innerHTML := Js.string "";
+let generate_clickables moves =
+  let moves = moves @ [ (-1, "Stop") ] in
+  let moves_list = Dom_html.getElementById "moves-list" in
+  moves_list##.innerHTML := Js.string "";
 
   (* Clear existing elements *)
   List.iteri
-    (* action should be of type json rather than string *)
-    (fun index (id, action) ->
+    (* move should be of type json rather than string *)
+    (fun index (id, move) ->
       let checkbox_div = Dom_html.createDiv Dom_html.document in
       let checked_attr =
         if index = 0 then " checked" else "" (* Check the first radio button *)
@@ -150,27 +150,27 @@ let generate_clickables actions =
       checkbox_div##.innerHTML :=
         Js.string
           (Printf.sprintf
-             "<input type='radio' name='action' id='action_%d'%s> %s" id
-             checked_attr action);
-      Dom.appendChild actions_list checkbox_div)
-    actions
+             "<input type='radio' name='move' id='move_%d'%s> %s" id
+             checked_attr move);
+      Dom.appendChild moves_list checkbox_div)
+    moves
 
 let clear_list () : unit =
-  let actions_list = Dom_html.getElementById "actions-list" in
-  actions_list##.innerHTML := Js.string ""
+  let moves_list = Dom_html.getElementById "moves-list" in
+  moves_list##.innerHTML := Js.string ""
 
-let get_chosen_action _ =
+let get_chosen_move _ =
   let select_btn_opt = Dom_html.getElementById_opt "select-btn" in
   match select_btn_opt with
   | None -> Lwt.return (-2) (* No button found *)
   | Some btn -> (
       Lwt_js_events.click btn >>= fun _ ->
-      let actions_list_opt = Dom_html.getElementById_opt "actions-list" in
-      match actions_list_opt with
-      | None -> Lwt.return (-2) (* No actions list found *)
-      | Some actions_list ->
-          let children = Dom.list_of_nodeList actions_list##.childNodes in
-          let selected_action =
+      let moves_list_opt = Dom_html.getElementById_opt "moves-list" in
+      match moves_list_opt with
+      | None -> Lwt.return (-2) (* No moves list found *)
+      | Some moves_list ->
+          let children = Dom.list_of_nodeList moves_list##.childNodes in
+          let selected_move =
             List.fold_left
               (fun acc child ->
                 match Js.Opt.to_option (Dom_html.CoerceTo.element child) with
@@ -190,7 +190,7 @@ let get_chosen_action _ =
                             | None -> acc
                             | Some radio_input ->
                                 if Js.to_bool radio_input##.checked then
-                                  (* Log the action *)
+                                  (* Log the move *)
                                   let id_str = Js.to_string radio_input##.id in
                                   (* Extract the number from the id *)
                                   match String.split_on_char '_' id_str with
@@ -198,7 +198,7 @@ let get_chosen_action _ =
                                   | _ -> acc
                                 else acc))))
               (-4) children in
-          Lwt.return selected_action)
+          Lwt.return selected_move)
 
 (* Overrides default print functions to redirect to the HTML output div *)
 let () =
@@ -210,7 +210,7 @@ let () =
 
 (* Builds and evaluates the OGS LTS based on the provided code content *)
 let evaluate_code () =
-  flush_actions ();
+  flush_moves ();
   (* Fetch editor content and store in refs *)
   fetch_editor_content ();
   (* Set options based on flags *)
@@ -229,18 +229,18 @@ let evaluate_code () =
     OGS_LTS.Passive
       (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
   let module IBuild = Lts.Interactive_build.Make (OGS_LTS) in
-  let show_move action = add_action action in
+  let show_move move = add_move move in
   let show_conf conf : unit = display_conf conf in
   (*genere les cliquables et les ajoute dans la liste des coups possibles*)
   let show_moves_list results_list =
     (* Convert the moves list into a list of tuples with dummy ids for demonstration *)
-    let actions =
+    let moves =
       List.mapi (fun i results_list -> (i, results_list)) results_list in
-    generate_clickables actions in
+    generate_clickables moves in
   (*event listener sur les cliquables renvoyant l'index de celui sur lequel l'utilisateur a cliqué *)
   let get_move n =
     let n = n + 1 in
-    let%lwt i = get_chosen_action n in
+    let%lwt i = get_chosen_move n in
     match i with
     | i when i >= 0 && i < n -> Lwt.return i
     | -1 ->
@@ -264,7 +264,7 @@ let rec init_page () =
   Js.Unsafe.set select_button "style"
     (Js.string "background-color: grey; cursor: not-allowed;");
   Js.Unsafe.set select_button "title"
-    (Js.string "You must be evaluating code to select an action");
+    (Js.string "You must be evaluating code to select an move");
 
   (* Restore Evaluate button's original state *)
   Js.Unsafe.set button "disabled" Js._false;
@@ -289,18 +289,18 @@ let rec init_page () =
       Js.Unsafe.set select_button "style"
         (Js.string "background-color: ''; cursor: pointer;");
       Js.Unsafe.set select_button "title"
-        (Js.string "You must be evaluating code to select an action");
+        (Js.string "You must be evaluating code to select an move");
 
       Lwt.catch
         (fun () -> evaluate_code ())
         (function
           | Failure msg when msg = "Stop" ->
-              (* Disable Select button again after Stop action *)
+              (* Disable Select button again after Stop move *)
               Js.Unsafe.set select_button "disabled" Js._true;
               Js.Unsafe.set select_button "style"
                 (Js.string "background-color: grey; cursor: not-allowed;");
               Js.Unsafe.set select_button "title"
-                (Js.string "You must be evaluating code to select an action");
+                (Js.string "You must be evaluating code to select an move");
               init_page ();
               (* Recursively call init_page to restore button *)
               Lwt.return_unit
