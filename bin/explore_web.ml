@@ -29,13 +29,14 @@ let print_to_output str =
   Js.Unsafe.set output_div "scrollTop" (Js.Unsafe.get output_div "scrollHeight")
 
 (* Mutable list to store previous moves *)
-let previous_moves : string list ref = ref []
+let previous_moves : Yojson.Safe.t list ref = ref []
 
 (*Shows the moves in the html*)
 let display_previous_moves () : unit =
-  let moves_string = String.concat " ; " !previous_moves in
+  let moves_json = `List !previous_moves in
+  let json_string = Yojson.Safe.to_string moves_json in
   let move_display = Dom_html.getElementById "history" in
-  Js.Unsafe.set move_display "textContent" (Js.string moves_string)
+  Js.Unsafe.set move_display "textContent" (Js.string json_string)
 
 (* Adds an move to the previous moves list and updates the DOM *)
 let add_move move =
@@ -135,8 +136,8 @@ let display_conf conf_json : unit =
 
 (*function wich generate clickable component on the DOM*)
 let generate_clickables moves =
-  let moves = moves @ [ (-1, "Stop") ] in
-  let moves_list = Dom_html.getElementById "moves-list" in
+let moves : (int * Yojson.Safe.t) list = moves @ [ (-1, (`Assoc [ ("label", `String "Stop") ] : Yojson.Safe.t)) ] in
+let moves_list = Dom_html.getElementById "moves-list" in
   moves_list##.innerHTML := Js.string "";
 
   (* Clear existing elements *)
@@ -147,11 +148,24 @@ let generate_clickables moves =
       let checked_attr =
         if index = 0 then " checked" else "" (* Check the first radio button *)
       in
+
+
+      (* extract label from Yojson.Safe.t *)
+          let move_label =
+            match move with
+            | `Assoc props ->
+                (match List.assoc_opt "label" props with
+                  | Some (`String s) -> s
+                  | _ -> "unknown")
+            | _ -> "unknown"
+          in
+
+
       checkbox_div##.innerHTML :=
         Js.string
           (Printf.sprintf
              "<input type='radio' name='move' id='move_%d'%s> %s" id
-             checked_attr move);
+             checked_attr move_label);
       Dom.appendChild moves_list checkbox_div)
     moves
 
