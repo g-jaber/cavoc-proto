@@ -134,8 +134,8 @@ module Make (A_nf : A_NF) :
   let pp_pol_move fmt (dir, (move, renaming)) =
     let move' = A_nf.renaming_a_nf renaming move in
     let pp_dir fmt = Format.pp_print_string fmt (string_of_direction dir) in
-    Format.fprintf fmt "%a (was %a)" (A_nf.pp_a_nf ~pp_dir) move'
-      (A_nf.pp_a_nf ~pp_dir) move
+    Format.fprintf fmt "%a" (A_nf.pp_a_nf ~pp_dir) move'
+      (* (was %a) (A_nf.pp_a_nf ~pp_dir) move*)
 
   let string_of_move move = Format.asprintf "%a" pp_move move
   let string_of_pol_move polmove = Format.asprintf "%a" pp_pol_move polmove
