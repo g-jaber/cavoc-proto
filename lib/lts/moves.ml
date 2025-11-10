@@ -22,6 +22,7 @@ module type POLMOVES = sig
 
   type direction = Input | Output
   type pol_move = direction * move [@@deriving to_yojson]
+  val yojson_of_move : move -> Yojson.Safe.t
 
   val pp_pol_move : Format.formatter -> pol_move -> unit
   val string_of_pol_move : pol_move -> string
@@ -117,6 +118,8 @@ module Make (A_nf : A_NF) :
   let move_to_yojson ((_a_nf,_):move) : Yojson.Safe.t = 
     failwith "Not yet implemented"
 
+
+
   let string_of_direction = function Input -> "?" | Output -> "!"
   let switch = function Input -> Output | Output -> Input
 
@@ -131,11 +134,15 @@ module Make (A_nf : A_NF) :
   let pp_pol_move fmt (dir, (move, renaming)) =
     let move' = A_nf.renaming_a_nf renaming move in
     let pp_dir fmt = Format.pp_print_string fmt (string_of_direction dir) in
-    Format.fprintf fmt "%a (was %a)" (A_nf.pp_a_nf ~pp_dir) move'
-      (A_nf.pp_a_nf ~pp_dir) move
+    Format.fprintf fmt "%a" (A_nf.pp_a_nf ~pp_dir) move'
+      (* (was %a) (A_nf.pp_a_nf ~pp_dir) move*)
 
   let string_of_move move = Format.asprintf "%a" pp_move move
   let string_of_pol_move polmove = Format.asprintf "%a" pp_pol_move polmove
+
+  let yojson_of_move (m : move) : Yojson.Safe.t =
+  `Assoc [ ("label", `String (string_of_move m)) ]
+
   let switch_direction (p, d) = (switch p, d)
   let get_subject_name (move, _) = A_nf.get_subject_name move
   let get_namectx (_, renaming) = Renaming.dom renaming

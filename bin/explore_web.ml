@@ -232,12 +232,49 @@ let evaluate_code () =
   let module IBuild = Lts.Interactive_build.Make (OGS_LTS) in
   let show_move move = add_move move in
   let show_conf conf : unit = display_conf conf in
+
+  let show_moves_list (json_list : Yojson.Safe.t list) =
+  (* On affiche le JSON complet comme libellé *)
+  let display_of (v : Yojson.Safe.t) =
+    Yojson.Safe.pretty_to_string v   (* lisible ; sinon .to_string pour compact *)
+  in
+  let id_of i (v : Yojson.Safe.t) =
+    match v with
+    | `Assoc fields -> (match List.assoc_opt "id" fields with
+                        | Some (`Int n) -> n
+                        | _ -> i)
+    | _ -> i
+  in
+  let moves =
+    List.mapi (fun i v -> (id_of i v, display_of v)) json_list
+  in
+  generate_clickables moves in
   (*genere les cliquables et les ajoute dans la liste des coups possibles*)
-  let show_moves_list results_list =
-    (* Convert the moves list into a list of tuples with dummy ids for demonstration *)
+  (*
+  let show_moves_list (json_list : Yojson.Safe.t list) =
+    let label_of (v : Yojson.Safe.t) =
+      match v with
+      | `Assoc fields -> (
+          match List.assoc_opt "label" fields with
+          | Some (`String s) -> s
+          | Some other       -> Yojson.Safe.to_string other
+          | None             -> Yojson.Safe.to_string v)
+      | `String s -> s
+      | _ -> Yojson.Safe.to_string v
+    in
+    let id_of i (v : Yojson.Safe.t) =
+      match v with
+      | `Assoc fields -> (
+          match List.assoc_opt "id" fields with
+          | Some (`Int n) -> n
+          | _ -> i)
+      | _ -> i
+    in
     let moves =
-      List.mapi (fun i results_list -> (i, results_list)) results_list in
+      List.mapi (fun i v -> (id_of i v, label_of v)) json_list
+    in
     generate_clickables moves in
+    *)
   (*event listener sur les cliquables renvoyant l'index de celui sur lequel l'utilisateur a cliqué *)
   let get_move n =
     let n = n + 1 in
