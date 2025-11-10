@@ -29,14 +29,13 @@ let print_to_output str =
   Js.Unsafe.set output_div "scrollTop" (Js.Unsafe.get output_div "scrollHeight")
 
 (* Mutable list to store previous moves *)
-let previous_moves : Yojson.Safe.t list ref = ref []
+let previous_moves :  string list ref = ref []
 
 (*Shows the moves in the html*)
 let display_previous_moves () : unit =
-  let moves_json =  `List !previous_moves in
-  let json_string = Yojson.Safe.to_string moves_json in
+  let moves_string = String.concat " ; " !previous_moves in
   let move_display = Dom_html.getElementById "history" in
-  Js.Unsafe.set move_display "textContent" (Js.string json_string)
+  Js.Unsafe.set move_display "textContent" (Js.string moves_string)
 
 (* Adds an move to the previous moves list and updates the DOM *)
 let add_move move =
