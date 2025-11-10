@@ -93,7 +93,7 @@ h2 {
 }
 
 /* Actions List and Select Action Styles - All relating to the action list container */
-#select-action {
+#select-move {
   width: 40%;
   height: 99%;
   overflow-y: scroll;
@@ -103,7 +103,7 @@ h2 {
 }
 
 /* Actions List - Styles the list of actions (checkboxes or items inside the action container) */
-#actions-list {
+#moves-list {
   position: relative;
   top: 35px;
   display: flex;
