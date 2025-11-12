@@ -278,13 +278,16 @@ let evaluate_code () =
   let get_move n =
     let n = n + 1 in
     let%lwt i = get_chosen_move n in
+    print_to_output ("Chosen move index: " ^ string_of_int i);
     match i with
     | i when i >= 0 && i < n -> Lwt.return i
     | -1 ->
         clear_list ();
+        print_to_output "AAAAAAAAAA";
         Lwt.fail (Failure "Stop")
     | -2 -> Lwt.fail (Failure "No button")
     | _ ->
+        print_to_output "BBBBBBBBBBB";
         print_to_output "error : unknown";
         Lwt.fail (Failure "Unknown error") in
   IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
