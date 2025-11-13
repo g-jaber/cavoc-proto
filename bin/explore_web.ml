@@ -166,7 +166,7 @@ let display_conf conf_json : unit =
 
 (*function which generate clickable component on the DOM*)
 let generate_clickables moves =
-  let moves = moves @ [ (-1, "Stop") ] in
+  (*let moves = moves @ [ (-1, "Stop") ] in*)
   let moves_list = Dom_html.getElementById "moves-list" in
   moves_list##.innerHTML := Js.string "";
 
