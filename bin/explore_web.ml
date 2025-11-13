@@ -2,6 +2,11 @@ open Js_of_ocaml
 open Js_of_ocaml_lwt
 open Lwt.Infix
 
+(* ---- Ace editor pour l'onglet ienv ---- *)
+
+
+
+
 (* Fetches the content from the HTML editor fields *)
 let editor_content = ref ""
 let signature_content = ref ""
@@ -55,64 +60,154 @@ let generate_store_html (store_str : string) : string =
   |> List.map (fun line -> Printf.sprintf "<div>%s</div>" line)
   |> String.concat "\n"
 
+
+
+let extract_ienv_strings (ienv_json : Yojson.Safe.t) : string list =
+  let of_assoc bindings =
+    bindings
+    |> List.filter_map (function
+         | name, `String expr when expr <> "" ->
+             Some (Printf.sprintf "let %s = %s" name expr)
+         | _ -> None)
+  in
+  let rec aux j =
+    match j with
+    | `Assoc bindings ->
+        of_assoc bindings
+    | `String s when s <> "" ->
+        [ s ]
+    | `List items ->
+        items |> List.concat_map aux
+    | _ ->
+        []
+  in
+  aux ienv_json
+
+
+
+let html_escape (s : string) : string =
+  let s = String.concat "&amp;" (String.split_on_char '&' s) in
+  let s = String.concat "&lt;" (String.split_on_char '<' s) in
+  let s = String.concat "&gt;" (String.split_on_char '>' s) in
+  s
+
+let replace_all (s : string) ~(sub : string) ~(by : string) : string =
+  let sub_len = String.length sub in
+  if sub_len = 0 then s
+  else
+    let rec aux i acc =
+      if i > String.length s - sub_len then
+        let rest = String.sub s i (String.length s - i) in
+        String.concat "" (List.rev (rest :: acc))
+      else if String.sub s i sub_len = sub then
+        aux (i + sub_len) (by :: acc)
+      else
+        aux (i + 1) (String.sub s i 1 :: acc)
+    in
+    aux 0 []
+
+let highlight_ocaml (s : string) : string =
+  (* on commence par échapper le HTML *)
+  let s = html_escape s in
+  (* palette monokai approximative *)
+  let keyword_color = "#f92672" (* rose vif, comme Ace monokai *) in
+  let keywords =
+    [ "let"; "fun"; "match"; "with"; "if"; "then"; "else";
+      "assert"; "in"; "rec"; "type"; "module"; "open" ]
+  in
+  List.fold_left
+    (fun acc kw ->
+       let by =
+         Printf.sprintf
+           "<span style='color:%s;font-weight:bold;'>%s</span>" keyword_color kw
+       in
+       replace_all acc ~sub:kw ~by)
+    s keywords
+
+
 let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
   match ienv_obj with
   | `List items ->
-      (* Cas 1 : Tableau vide *)
       if items = [] then
-        "<div style='padding: 20px; color: #999; text-align: center;'>
+        "<div style='padding: 20px; color: #999; text-align: center;
+                     background:#272822; font-family:monospace;'>
            <h3 style='color: #999;'>Interactive Environment</h3>
            <p>Empty environment</p>
          </div>"
       else
-        (* Cas 2 : Tableau avec des éléments *)
         let items_html =
           items
           |> List.mapi (fun i item ->
                  match item with
                  | `String s ->
+                     (* String directe : on colore comme du code OCaml *)
+                     let displayed = highlight_ocaml s in
                      Printf.sprintf 
-                       "<div class=\"stack-item\">
-                          <span style='color: #75715e; margin-right: 10px;'>[%d]</span>%s
+                       "<div class=\"stack-item\" style='color:#f8f8f2;'>
+                          <span style='color: #75715e; margin-right: 10px;'>[%d]</span>
+                          <pre style='display:inline; margin:0;'>%s</pre>
                         </div>" 
-                       i s
-                 
+                       i displayed
+
                  | `Assoc fields ->
+                     (* Assoc : on colorise les valeurs string comme du code *)
                      let fields_str = 
-                       List.map (fun (k, v) -> 
-                         Printf.sprintf "<strong>%s:</strong> %s" k 
-                           (match v with
-                            | `String s -> s
-                            | _ -> Yojson.Safe.to_string v)
-                       ) fields 
-                       |> String.concat ", " in
+                       fields
+                       |> List.map (fun (k, v) -> 
+                            let v_str =
+                              match v with
+                              | `String s -> highlight_ocaml s
+                              | _ -> html_escape (Yojson.Safe.to_string v)
+                            in
+                            Printf.sprintf "<strong>%s:</strong> %s" k v_str)
+                       |> String.concat ", "
+                     in
                      Printf.sprintf 
-                       "<div class=\"stack-item\">
-                          <span style='color: #75715e; margin-right: 10px;'>[%d]</span>{%s}
+                       "<div class=\"stack-item\" style='color:#f8f8f2;'>
+                          <span style='color: #75715e; margin-right: 10px;'>[%d]</span>
+                          <pre style='display:inline; margin:0;'>%s</pre>
                         </div>" 
                        i fields_str
                  
                  | `List sub_items ->
-                     let sub_str = 
-                       List.map Yojson.Safe.to_string sub_items 
-                       |> String.concat ", " in
+                     (* Sous-liste : on essaie d’en extraire des lignes de code *)
+                     let lines = extract_ienv_strings (`List sub_items) in
+                     let displayed =
+                       match lines with
+                       | [] ->
+                           (* fallback : JSON brut colorisé *)
+                           let sub_str =
+                             Yojson.Safe.to_string (`List sub_items)
+                           in
+                           highlight_ocaml sub_str
+                       | _ ->
+                           lines
+                           |> List.map highlight_ocaml
+                           |> String.concat "<br/>"
+                     in
                      Printf.sprintf 
-                       "<div class=\"stack-item\">
-                          <span style='color: #75715e; margin-right: 10px;'>[%d]</span>[%s]
+                       "<div class=\"stack-item\" style='color:#f8f8f2;'>
+                          <span style='color: #75715e; margin-right: 10px;'>[%d]</span>
+                          <pre style='display:inline; margin:0;'>%s</pre>
                         </div>" 
-                       i sub_str
+                       i displayed
                  
                  | _ ->
+                     (* Autre cas : on affiche le JSON brut, échappé, sans coloration spécifique *)
+                     let s = html_escape (Yojson.Safe.to_string item) in
                      Printf.sprintf 
-                       "<div class=\"stack-item\">
-                          <span style='color: #75715e; margin-right: 10px;'>[%d]</span>%s
+                       "<div class=\"stack-item\" style='color:#f8f8f2;'>
+                          <span style='color: #75715e; margin-right: 10px;'>[%d]</span>
+                          <pre style='display:inline; margin:0;'>%s</pre>
                         </div>" 
-                       i (Yojson.Safe.to_string item))
-          |> String.concat "\n" in
+                       i s)
+          |> String.concat "\n"
+        in
         
         Printf.sprintf
-          "<div style='padding: 20px; height: 100%%; overflow-y: auto;'>
-             <h3 style='color: #2ecc71; margin-top: 0; margin-bottom: 20px;'>
+          "<div style='padding: 20px; height: 100%%; overflow-y: auto;
+                      background:#272822; font-family:monospace;'>
+             <h3 style='color: #a6e22e; margin-top: 0; margin-bottom: 20px;'>
                Interactive Environment
                <span style='color: #75715e; font-size: 0.8em; margin-left: 10px;'>(%d items)</span>
              </h3>
@@ -123,21 +218,25 @@ let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
           (List.length items) items_html
   
   | _ ->
-      (* Cas d'erreur : ce n'est pas un tableau *)
       Printf.sprintf
-        "<div style='padding: 20px; color: #e74c3c;'>
+        "<div style='padding: 20px; color: #e74c3c;
+                     background:#272822; font-family:monospace;'>
            <h3 style='color: #e74c3c; margin-top: 0;'>✗ Format invalide</h3>
            <p>Expected a JSON array, but received something else.</p>
            <div style='background: #2d2e27; padding: 15px; border-radius: 5px; 
-                       margin-top: 15px; overflow-x: auto;'>
+                       margin-top: 15px; overflow-x: auto; color:#f8f8f2;'>
              <code>%s</code>
            </div>
          </div>"
         (Yojson.Safe.pretty_to_string ienv_obj)
 
+
+
+
+
 (* Main display configuration function *)
 let display_conf conf_json : unit =
-  (* Pretty-print the JSON and display it in the ACE editor *)
+  (* 1) Affiche le JSON brut dans l’éditeur config (comme avant) *)
   let conf_str = Yojson.Safe.pretty_to_string conf_json in
   let config_editor = Js.Unsafe.get Js.Unsafe.global "configEditor_instance" in
   let session = Js.Unsafe.get config_editor "session" in
@@ -146,23 +245,25 @@ let display_conf conf_json : unit =
   |> ignore;
   Js.Unsafe.meth_call config_editor "clearSelection" [||] |> ignore;
 
-  (* Decode the JSON to fill store and ienv tabs *)
   match conf_json with
   | `Assoc fields -> (
-      (* Handle "store" tab *)
+      (* store : inchangé *)
       (match List.assoc_opt "store" fields with
-      | Some (`String store_str) ->
-          let store_html = generate_store_html store_str in
-          update_container "store" store_html
-      | _ -> update_container "store" "<div>No store data available</div>");
+       | Some (`String store_str) ->
+           let store_html = generate_store_html store_str in
+           update_container "store" store_html
+       | _ ->
+           update_container "store" "<div>No store data available</div>");
 
-      (* Handle "ienv" tab *)
-      match List.assoc_opt "ienv" fields with
-      | Some ienv_obj ->
-          let ienv_html = generate_ienv_html ienv_obj in
-          update_container "ienv" ienv_html
-      | _ -> update_container "ienv" "<div>No ienv data available</div>")
-  | _ -> print_to_output "Invalid JSON format"
+      (* ienv : HTML + Ace coloré *)
+  (match List.assoc_opt "ienv" fields with
+        | Some ienv_obj ->
+            let ienv_html = generate_ienv_html ienv_obj in
+            update_container "ienv" ienv_html
+        | None ->
+            update_container "ienv" "<div>No ienv data available</div>"))
+    | _ ->
+        print_to_output "Invalid JSON format"
 
 (*function which generate clickable component on the DOM*)
 let generate_clickables moves =
