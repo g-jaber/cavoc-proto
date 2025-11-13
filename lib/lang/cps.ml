@@ -348,6 +348,7 @@ struct
             aval CNames.pp_name cn
 
     let string_of_abstract_val = Format.asprintf "%a" pp_abstract_val
+    let abstract_val_to_yojson aval = `String (string_of_abstract_val aval)
 
     let names_of_abstract_val = function
       | AVal aval ->
@@ -398,26 +399,26 @@ struct
     let generate_abstract_val storectx (namectx, _) gtype =
       let open OpLang.AVal.BranchMonad in
       match gtype with
-        | GType ty ->
-            let* (aval, lnamectx) =
-              OpLang.AVal.generate_abstract_val storectx namectx ty in
-            return (AVal aval, (lnamectx, CNamectx.empty))
-        | GProd (ty, tyhole) ->
-            let* (aval, lnamectx) =
-              OpLang.AVal.generate_abstract_val storectx namectx ty in
-            let (cn,cnamectx) = CNamectx.singleton tyhole in
-            return (APair (aval, cn), (lnamectx, cnamectx))
-        | GExists (tvar_l, ty, tyhole) ->
-            Util.Debug.print_debug
-              "Generating an abstract value for an existential type";
-            let (tname_l, type_subst) = OpLang.generate_typename_subst tvar_l in
-            let ty' = OpLang.apply_type_subst ty type_subst in
-            let tyhole' = OpLang.apply_type_subst tyhole type_subst in
-            let* (aval, lnamectx) =
-              OpLang.AVal.generate_abstract_val storectx namectx ty' in
-            let (cn,cnamectx) = CNamectx.singleton tyhole' in
-            return (APack (tname_l, aval, cn), (lnamectx, cnamectx))
-        | _ -> failwith "The glue type is not valid. Please report."
+      | GType ty ->
+          let* (aval, lnamectx) =
+            OpLang.AVal.generate_abstract_val storectx namectx ty in
+          return (AVal aval, (lnamectx, CNamectx.empty))
+      | GProd (ty, tyhole) ->
+          let* (aval, lnamectx) =
+            OpLang.AVal.generate_abstract_val storectx namectx ty in
+          let (cn, cnamectx) = CNamectx.singleton tyhole in
+          return (APair (aval, cn), (lnamectx, cnamectx))
+      | GExists (tvar_l, ty, tyhole) ->
+          Util.Debug.print_debug
+            "Generating an abstract value for an existential type";
+          let (tname_l, type_subst) = OpLang.generate_typename_subst tvar_l in
+          let ty' = OpLang.apply_type_subst ty type_subst in
+          let tyhole' = OpLang.apply_type_subst tyhole type_subst in
+          let* (aval, lnamectx) =
+            OpLang.AVal.generate_abstract_val storectx namectx ty' in
+          let (cn, cnamectx) = CNamectx.singleton tyhole' in
+          return (APack (tname_l, aval, cn), (lnamectx, cnamectx))
+      | _ -> failwith "The glue type is not valid. Please report."
 
     let unify_abstract_val _nspan _aval1 _aval2 =
       failwith "To be reimplemented."

@@ -18,7 +18,7 @@ module type TYPED = sig
 end
 
 module type STORE = sig
-  type store
+  type store [@@deriving to_yojson]
   type location
 
   val string_of_store : store -> string
@@ -96,7 +96,7 @@ module type COMP = sig
 end
 
 module type NF = sig
-  type ('value, 'ectx, 'fname, 'cname) nf_term
+  type ('value, 'ectx, 'fname, 'cname) nf_term [@@deriving to_yojson]
 
   val pp_nf_term :
     pp_dir:(Format.formatter -> unit) ->

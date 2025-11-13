@@ -1,4 +1,4 @@
-type heap = (Syntax.loc, Syntax.value) Util.Pmap.pmap
+type heap = (Syntax.loc, Syntax.value) Util.Pmap.pmap [@@deriving to_yojson]
 
 val pp_heap : Format.formatter -> heap -> unit
 val string_of_heap : heap -> string

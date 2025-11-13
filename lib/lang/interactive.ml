@@ -10,7 +10,7 @@ module type LANG = sig
   val string_of_opconf : opconf -> string
   val pp_opconf : Format.formatter -> opconf -> unit
 
-  type store
+  type store [@@deriving to_yojson]
 
   val string_of_store : store -> string
   val pp_store : Format.formatter -> store -> unit
@@ -27,7 +27,7 @@ module type LANG = sig
   (* abstract normal forms can be thought of named copatterns when the language is
      of signature Language.WITHAVAL_INOUT. *)
 
-  type abstract_normal_form
+  type abstract_normal_form [@@deriving to_yojson]
 
   val renaming_a_nf :
     IEnv.Renaming.t -> abstract_normal_form -> abstract_normal_form
@@ -119,7 +119,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
   let pp_opconf = OpLang.pp_opconf
   let string_of_opconf = Format.asprintf "%a" pp_opconf
 
-  type store = OpLang.Store.store
+  type store = OpLang.Store.store [@@deriving to_yojson]
 
   let string_of_store = OpLang.Store.string_of_store
   let pp_store = OpLang.Store.pp_store
@@ -262,6 +262,10 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     match snd @@ OpLang.Nf.map_fn None f_fn a_nf_term with
     | None -> snd @@ OpLang.Nf.map_cn None f_cn a_nf_term
     | Some _ as res -> res
+
+  let abstract_normal_form_to_yojson a_nf =
+    let[@warning "-8"] (Some nn) = get_subject_name a_nf in
+    `Assoc [("subjectName",IEnv.Renaming.Namectx.Names.name_to_yojson nn)]
 
   let eval (opconf, namectxO, storectx_discl) =
     let open EvalMonad in

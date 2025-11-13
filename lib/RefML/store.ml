@@ -1,4 +1,4 @@
-type store = Syntax.val_env * Heap.heap * Type_ctx.cons_ctx
+type store = Syntax.val_env * Heap.heap * Type_ctx.cons_ctx [@@deriving to_yojson]
 type location = Loc of Syntax.loc | Cons of Syntax.constructor [@@deriving to_yojson]
 
 (*TODO: We should also print the other components *)

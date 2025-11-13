@@ -12,6 +12,11 @@ let pp_heap fmt heap =
 let string_of_heap =
   Format.asprintf "%a" pp_heap
 
+let heap_to_yojson heap = 
+  let heap_l = Util.Pmap.to_list heap in
+  let heap_l' = List.map (fun (l,v) -> (Syntax.string_of_loc l,Syntax.value_to_yojson v)) heap_l in
+  `Assoc heap_l'
+
 let emptyheap = Util.Pmap.empty
 
 let allocate heap v =
