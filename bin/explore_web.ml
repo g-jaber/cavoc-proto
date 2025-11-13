@@ -161,44 +161,47 @@ let clear_list () : unit =
 
 let get_chosen_move _ =
   let select_btn_opt = Dom_html.getElementById_opt "select-btn" in
-  match select_btn_opt with
-  | None -> Lwt.return (-2) (* No button found *)
-  | Some btn -> (
-      Lwt_js_events.click btn >>= fun _ ->
-      let moves_list_opt = Dom_html.getElementById_opt "moves-list" in
-      match moves_list_opt with
-      | None -> Lwt.return (-2) (* No moves list found *)
-      | Some moves_list ->
-          let children = Dom.list_of_nodeList moves_list##.childNodes in
-          let selected_move =
-            List.fold_left
-              (fun acc child ->
-                match Js.Opt.to_option (Dom_html.CoerceTo.element child) with
-                | None -> acc
-                | Some element -> (
-                    (* Look for input[type='radio'] inside each div *)
-                    match
-                      element##querySelector (Js.string "input[type='radio']")
-                    with
-                    | exception _ -> acc
-                    | input_opt -> (
-                        match Js.Opt.to_option input_opt with
-                        | None -> acc
-                        | Some input -> (
-                            let input = Dom_html.CoerceTo.input input in
-                            match Js.Opt.to_option input with
-                            | None -> acc
-                            | Some radio_input ->
-                                if Js.to_bool radio_input##.checked then
-                                  (* Log the move *)
-                                  let id_str = Js.to_string radio_input##.id in
-                                  (* Extract the number from the id *)
-                                  match String.split_on_char '_' id_str with
-                                  | [ _; num_str ] -> int_of_string num_str
-                                  | _ -> acc
-                                else acc))))
-              (-4) children in
-          Lwt.return selected_move)
+  let load_btn_opt = Dom_html.getElementById_opt "load-btn" in
+  match (select_btn_opt, load_btn_opt) with
+  | (None, _) -> Lwt.return (-2) (* No select button found *)
+  | (_, None) -> Lwt.return (-2) (* No load button found *)
+  | (Some select_btn, Some load_btn) -> (
+      Lwt.choose
+        [
+          (Lwt_js_events.click select_btn >>= fun _ ->
+           let moves_list_opt = Dom_html.getElementById_opt "moves-list" in
+           (match moves_list_opt with
+            | None -> Lwt.return (-2) (* No moves list found *)
+            | Some moves_list ->
+                let children = Dom.list_of_nodeList moves_list##.childNodes in
+                let selected_move =
+                  List.fold_left
+                    (fun acc child ->
+                      match Js.Opt.to_option (Dom_html.CoerceTo.element child) with
+                      | None -> acc
+                      | Some element -> (
+                          match
+                            element##querySelector (Js.string "input[type='radio']")
+                          with
+                          | exception _ -> acc
+                          | input_opt -> (
+                              match Js.Opt.to_option input_opt with
+                              | None -> acc
+                              | Some input -> (
+                                  let input = Dom_html.CoerceTo.input input in
+                                  match Js.Opt.to_option input with
+                                  | None -> acc
+                                  | Some radio_input ->
+                                      if Js.to_bool radio_input##.checked then
+                                        let id_str = Js.to_string radio_input##.id in
+                                        match String.split_on_char '_' id_str with
+                                        | [ _; num_str ] -> int_of_string num_str
+                                        | _ -> acc
+                                      else acc))))
+                    (-4) children in
+                Lwt.return selected_move));
+          (Lwt_js_events.click load_btn >>= fun _ -> Lwt.return (-1));
+        ])
 
 (* Overrides default print functions to redirect to the HTML output div *)
 let () =
@@ -283,11 +286,9 @@ let evaluate_code () =
     | i when i >= 0 && i < n -> Lwt.return i
     | -1 ->
         clear_list ();
-        print_to_output "AAAAAAAAAA";
         Lwt.fail (Failure "Stop")
     | -2 -> Lwt.fail (Failure "No button")
     | _ ->
-        print_to_output "BBBBBBBBBBB";
         print_to_output "error : unknown";
         Lwt.fail (Failure "Unknown error") in
   IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
@@ -299,7 +300,6 @@ let rec init_page () =
   Printexc.record_backtrace true;
   let button = Dom_html.getElementById "submit" in
   let select_button = Dom_html.getElementById "select-btn" in
-  let load_button = Dom_html.getElementById "load-btn" in
 
   (* Disable the Select button by default *)
   Js.Unsafe.set select_button "disabled" Js._true;
@@ -316,13 +316,6 @@ let rec init_page () =
   (* Set tooltip for the Evaluate button when it's disabled *)
   Js.Unsafe.set button "title"
     (Js.string "Stop evaluation to evaluate new code");
-
-  (* Add event listener for load_button *)
-  let _ = Js_of_ocaml_lwt.Lwt_js_events.clicks load_button (fun _ _ ->
-      clear_list ();
-      init_page ();
-      Lwt.return_unit)
-  in
 
   Js_of_ocaml_lwt.Lwt_js_events.async (fun () ->
       let%lwt _ = Js_of_ocaml_lwt.Lwt_js_events.click button in
