@@ -92,27 +92,50 @@ h2 {
   font-family: "Courier New", Courier, monospace;
 }
 
+/* Select Button */
+#select-btn {
+  position: sticky;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #2ecc71;
+  color: #000000;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 16px;
+  font-weight: bold;
+  border: solid 2px black;
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 12px 25px;
+  margin: 10px auto;
+  transition: all 0.3s ease;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+  z-index: 5;
+}
+
 /* Actions List and Select Action Styles - All relating to the action list container */
 #select-move {
   width: 40%;
   height: 99%;
-  overflow-y: scroll;
-  border-radius: 5px;
-  background-color: #01ec86;
-  /* Monokai background color for action list */
+  border-radius: 8px;
+  background: linear-gradient(135deg, #272822 0%, #2d2e27 100%);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
 }
 
 /* Actions List - Styles the list of actions (checkboxes or items inside the action container) */
-#moves-list {
+#moves-list > div {
+  border: 1px solid #3e3f38;
+  border-radius: 8px;
+  padding: 12px 15px;
+  margin-bottom: 10px;
+  background: linear-gradient(135deg, #34352f 0%, #3a3b35 100%);
+  color: #f8f8f2;
+  transition: all 0.3s ease;
+  cursor: pointer;
   position: relative;
-  top: 35px;
-  display: flex;
-  flex-direction: column;
-  user-select: none;
-  margin: 1px;
-  margin-left: 5%;
-  background-color: #01ec86;
-  /* Monokai background color for actions list */
+  overflow: hidden;
 }
 
 /* Radio Button Styles - Specific to radio buttons in the actions list */
