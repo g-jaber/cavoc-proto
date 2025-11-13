@@ -7,6 +7,7 @@ module type MOVETREE = sig
     namectxO: Moves.Renaming.Namectx.t;
     map: (Moves.move, Moves.move) Util.Pmap.pmap;
   }
+  [@@deriving to_yojson]
 
   val pp : Format.formatter -> movetree -> unit
   val trigger : movetree -> Moves.move -> Moves.move option
@@ -30,6 +31,7 @@ module Make (Moves : Moves.NAMED_GEN_MOVES) : MOVETREE = struct
       Format.fprintf fmt "%a : %a" Moves.pp_move m Moves.pp_move m' in
     Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt movetree.map
 
+  let movetree_to_yojson movetree = `String (Format.asprintf "%a" pp movetree)
   let trigger movetree move = Util.Pmap.lookup move movetree.map
 
   let update movetree (moveIn, moveOut) =
@@ -51,7 +53,7 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
   module EvalMonad = Util.Monad.Option
   module BranchMonad = MoveTree.Moves.BranchMonad
 
-  type store = MoveTree.movetree
+  type store = MoveTree.movetree [@@deriving to_yojson]
 
   let pp_store = MoveTree.pp
   let string_of_store = Format.asprintf "%a" pp_store
@@ -84,7 +86,7 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
           let pp = Names.pp_name
         end)
 
-  type abstract_normal_form = MoveTree.Moves.move
+  type abstract_normal_form = MoveTree.Moves.move [@@deriving to_yojson]
 
   let renaming_a_nf _renaming = failwith "TODO"
 
@@ -117,15 +119,15 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
 
   let generate_a_nf _storectx namectx :
       (abstract_normal_form * Namectx.t * Namectx.t) BranchMonad.m =
-      let open BranchMonad in
-      let* (move,lnamectx) = MoveTree.Moves.generate_moves namectx in
-      return (move,lnamectx,namectx) (*Need to handle storectx*)
+    let open BranchMonad in
+    let* (move, lnamectx) = MoveTree.Moves.generate_moves namectx in
+    return (move, lnamectx, namectx)
+  (*Need to handle storectx*)
 
-  let type_check_a_nf namectxP _namectxO (a_nf,lnamectx) :
-      Namectx.t option =
-      if MoveTree.Moves.check_type_move namectxP (a_nf,lnamectx) then
-        Some lnamectx
-      else None
+  let type_check_a_nf namectxP _namectxO (a_nf, lnamectx) : Namectx.t option =
+    if MoveTree.Moves.check_type_move namectxP (a_nf, lnamectx) then
+      Some lnamectx
+    else None
 
   let concretize_a_nf (movetree : store) (renaming : IEnv.t)
       ((a_nf, _renaming') : abstract_normal_form * Renaming.t) =

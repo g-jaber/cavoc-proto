@@ -1,7 +1,7 @@
 type var_ctx = (Syntax.id, Types.typ) Util.Pmap.pmap
 type loc_ctx = (Syntax.loc, Types.typ) Util.Pmap.pmap
 
-type cons_ctx = (Syntax.constructor, Types.typ) Util.Pmap.pmap
+type cons_ctx = (Syntax.constructor, Types.typ) Util.Pmap.pmap [@@deriving to_yojson]
 
 type type_ctx = {
   var_ctx: var_ctx;

@@ -83,7 +83,7 @@ end *)
 module type A_NF = sig
   module IEnv : Lang.Ienv.IENV
 
-  type abstract_normal_form 
+  type abstract_normal_form [@@deriving to_yojson]
 
   val renaming_a_nf :
     IEnv.Renaming.t -> abstract_normal_form -> abstract_normal_form
@@ -115,8 +115,8 @@ module Make (A_nf : A_NF) :
   type move = A_nf.abstract_normal_form * Renaming.t
   type direction = Input | Output [@@deriving to_yojson]
 
-  let move_to_yojson ((_a_nf,_):move) : Yojson.Safe.t = 
-    failwith "Not yet implemented"
+  let move_to_yojson ((a_nf,_):move) : Yojson.Safe.t = 
+    A_nf.abstract_normal_form_to_yojson a_nf
 
 
 

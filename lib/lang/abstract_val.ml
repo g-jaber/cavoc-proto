@@ -20,7 +20,7 @@ module type AVAL = sig
   (* Abstracted values correspond to the observable part of a value.
         They are also called ultimate patterns.
   *)
-  type abstract_val
+  type abstract_val [@@deriving to_yojson]
 
   val pp_abstract_val : Format.formatter -> abstract_val -> unit
   val string_of_abstract_val : abstract_val -> string

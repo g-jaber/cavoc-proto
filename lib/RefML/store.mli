@@ -1,4 +1,4 @@
-type store = Syntax.val_env * Heap.heap * Type_ctx.cons_ctx
+type store = Syntax.val_env * Heap.heap * Type_ctx.cons_ctx [@@deriving to_yojson]
 type location
 
 val string_of_store : store -> string
