@@ -98,7 +98,7 @@ h2 {
   height: 99%;
   overflow-y: scroll;
   border-radius: 5px;
-  background-color: #272822;
+  background-color: #01ec86;
   /* Monokai background color for action list */
 }
 
@@ -111,7 +111,7 @@ h2 {
   user-select: none;
   margin: 1px;
   margin-left: 5%;
-  background-color: #272822;
+  background-color: #01ec86;
   /* Monokai background color for actions list */
 }
 
