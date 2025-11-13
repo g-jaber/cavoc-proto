@@ -162,10 +162,12 @@ let clear_list () : unit =
 let get_chosen_move _ =
   let select_btn_opt = Dom_html.getElementById_opt "select-btn" in
   let load_btn_opt = Dom_html.getElementById_opt "load-btn" in
-  match (select_btn_opt, load_btn_opt) with
-  | (None, _) -> Lwt.return (-2) (* No select button found *)
-  | (_, None) -> Lwt.return (-2) (* No load button found *)
-  | (Some select_btn, Some load_btn) -> (
+  let stop_btn_opt = Dom_html.getElementById_opt "stop-btn" in
+  match (select_btn_opt, load_btn_opt, stop_btn_opt) with
+  | (None, _, _) -> Lwt.return (-2) (* No select button found *)
+  | (_, None, _) -> Lwt.return (-2) (* No load button found *)
+  | (_, _, None) -> Lwt.return (-2) (* No load button found *)
+  | (Some select_btn, Some load_btn, Some stop_btn) -> (
       Lwt.choose
         [
           (Lwt_js_events.click select_btn >>= fun _ ->
@@ -201,6 +203,7 @@ let get_chosen_move _ =
                     (-4) children in
                 Lwt.return selected_move));
           (Lwt_js_events.click load_btn >>= fun _ -> Lwt.return (-1));
+          (Lwt_js_events.click stop_btn >>= fun _ -> Lwt.return (-1));
         ])
 
 (* Overrides default print functions to redirect to the HTML output div *)
@@ -300,12 +303,20 @@ let rec init_page () =
   Printexc.record_backtrace true;
   let button = Dom_html.getElementById "submit" in
   let select_button = Dom_html.getElementById "select-btn" in
+  let stop_button = Dom_html.getElementById "stop-btn" in
 
   (* Disable the Select button by default *)
   Js.Unsafe.set select_button "disabled" Js._true;
   Js.Unsafe.set select_button "style"
     (Js.string "background-color: grey; cursor: not-allowed;");
   Js.Unsafe.set select_button "title"
+    (Js.string "You must be evaluating code to select an move");
+
+  (* Disable the Stop button by default *)
+  Js.Unsafe.set stop_button "disabled" Js._true;
+  Js.Unsafe.set stop_button "style"
+    (Js.string "background-color: grey; cursor: not-allowed;");
+  Js.Unsafe.set stop_button "title"
     (Js.string "You must be evaluating code to select an move");
 
   (* Restore Evaluate button's original state *)
@@ -333,6 +344,13 @@ let rec init_page () =
       Js.Unsafe.set select_button "title"
         (Js.string "You must be evaluating code to select an move");
 
+      (* Enable the Stop button after evaluate is pressed *)
+      Js.Unsafe.set stop_button "disabled" Js._false;
+      Js.Unsafe.set stop_button "style"
+        (Js.string "background-color: ''; cursor: pointer;");
+      Js.Unsafe.set stop_button "title"
+        (Js.string "You must be evaluating code to select an move");
+
       Lwt.catch
         (fun () -> evaluate_code ())
         (function
@@ -343,6 +361,15 @@ let rec init_page () =
                 (Js.string "background-color: grey; cursor: not-allowed;");
               Js.Unsafe.set select_button "title"
                 (Js.string "You must be evaluating code to select an move");
+
+              (* Disable Stop button again after Stop move *)
+              Js.Unsafe.set stop_button "disabled" Js._true;
+              Js.Unsafe.set stop_button "style"
+                (Js.string "background-color: grey; cursor: not-allowed;");
+              Js.Unsafe.set stop_button "title"
+                (Js.string "You must be evaluating code to select an move");
+
+              (* Re-enable Evaluate button after stopping *)
               init_page ();
               (* Recursively call init_page to restore button *)
               Lwt.return_unit

@@ -92,12 +92,17 @@ h2 {
   font-family: "Courier New", Courier, monospace;
 }
 
+/* Container for buttons side by side */
+#buttons-container {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
 /* Select Button */
 #select-btn {
-  position: sticky;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  position: static;
   background-color: #2ecc71;
   color: #000000;
   font-family: "Courier New", Courier, monospace;
@@ -107,10 +112,32 @@ h2 {
   border-radius: 5px;
   cursor: pointer;
   padding: 12px 25px;
-  margin: 10px auto;
   transition: all 0.3s ease;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
-  z-index: 5;
+}
+
+#select-btn:hover {
+  background-color: #32b568;
+}
+
+/* Stop Button */
+#stop-btn {
+  position: static;
+  background-color: #2ecc71;
+  color: #000000;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 16px;
+  font-weight: bold;
+  border: solid 2px black;
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 12px 25px;
+  transition: all 0.3s ease;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+#stop-btn:hover {
+  background-color: #32b568;
 }
 
 /* Actions List and Select Action Styles - All relating to the action list container */
