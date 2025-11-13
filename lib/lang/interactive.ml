@@ -265,7 +265,11 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
 
   let abstract_normal_form_to_yojson a_nf =
     let[@warning "-8"] (Some nn) = get_subject_name a_nf in
-    `Assoc [("subjectName",IEnv.Renaming.Namectx.Names.name_to_yojson nn)]
+    `Assoc
+      [
+        ("subjectName", IEnv.Renaming.Namectx.Names.name_to_yojson nn);
+        ("string", `String (string_of_a_nf "" a_nf));
+      ]
 
   let eval (opconf, namectxO, storectx_discl) =
     let open EvalMonad in
