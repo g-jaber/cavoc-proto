@@ -366,9 +366,9 @@ let evaluate_code () =
       | `Assoc fields -> (
           match List.assoc_opt "id" fields with Some (`Int n) -> n | _ -> i)
       | _ -> i in *)
-    let moves = List.mapi (fun i v -> (i, Yojson.Safe.pretty_to_string v)) json_list in
+    let moves =
+      List.mapi (fun i v -> (i, Yojson.Safe.pretty_to_string v)) json_list in
     generate_clickables moves in
-
   let get_move n =
     let n = n + 1 in
     let%lwt i = get_chosen_move n in
