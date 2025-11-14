@@ -61,11 +61,12 @@ module MakeInt (Mode : MODE) (Prefix : PREFIX) () : NAMES_INT = struct
   let string_of_name (i, s) =
     if s = "" then Prefix.prefix ^ string_of_int i else s
 
-  let name_to_yojson (_, s) = `String s
-
   let pp_name fmt (i, s) =
     if s = "" then Format.fprintf fmt "%s%i" Prefix.prefix i
     else Format.fprintf fmt "%s" s
+
+  
+  let name_to_yojson nn = `String (string_of_name nn)
 
   let is_callable _ = Mode.is_callable
   let is_cname _ = Mode.is_cname
