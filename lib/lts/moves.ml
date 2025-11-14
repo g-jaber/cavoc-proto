@@ -123,7 +123,9 @@ module Make (A_nf : A_NF) :
   let string_of_direction = function Input -> "?" | Output -> "!"
   let switch = function Input -> Output | Output -> Input
 
-  type pol_move = direction * move [@@deriving to_yojson]
+  type pol_move = direction * move
+
+  let pol_move_to_yojson (_,move) = move_to_yojson move 
 
   (* We always rename moves *)
   let pp_move fmt (move, renaming) =

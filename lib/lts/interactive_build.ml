@@ -17,8 +17,8 @@ end
 
 module Make (IntLTS : Strategy.LTS) = struct
   type conf = IntLTS.conf
-  let json_of_pol_move (m : IntLTS.TypingLTS.Moves.pol_move) : Yojson.Safe.t =
-  `Assoc [ ("label", `String (IntLTS.TypingLTS.Moves.string_of_pol_move m)) ]
+  (*let json_of_pol_move (m : IntLTS.TypingLTS.Moves.pol_move) : Yojson.Safe.t =
+  `Assoc [ ("label", `String (IntLTS.TypingLTS.Moves.string_of_pol_move m)) ] *)
   let rec interactive_build
     ~show_move
     ~show_conf
@@ -49,15 +49,17 @@ module Make (IntLTS : Strategy.LTS) = struct
 
       (* JSON pour le front : id + label (+ payload local optionnel) *)
       let json_list =
-        List.mapi
+        List.map IntLTS.TypingLTS.Moves.pol_move_to_yojson moves_list
+       (* List.mapi
           (fun i m ->
+
             `Assoc [
               ("id",     `Int i);
               ("label",  `String (IntLTS.TypingLTS.Moves.string_of_pol_move m));
               (* payload local : pas besoin de Moves.yojson_of_pol_move *)
               ("payload", json_of_pol_move m);
             ])
-          moves_list
+          moves_list*) 
       in
 
       show_moves_list json_list;

@@ -271,12 +271,19 @@ module Aggregate
     | Either.Left nn -> Either.Left (IEnv1.embed_name nn)
     | Either.Right nn -> Either.Right (IEnv2.embed_name nn)
 
-  type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
+  type t = IEnv1.t * IEnv2.t
 
   let pp fmt (ienv1, ienv2) =
     Format.fprintf fmt "(%a,%a)" IEnv1.pp ienv1 IEnv2.pp ienv2
 
   let to_string = Format.asprintf "%a" pp
+
+
+  let to_yojson (ienv1, ienv2) =
+    match (IEnv1.to_yojson ienv1, IEnv2.to_yojson ienv2) with
+    | (`Assoc ienv1_l, `Assoc ienv2_l) -> `Assoc (ienv1_l@ ienv2_l) 
+    | _ -> Util.Error.fail_error "Error in yojson export. Please report"
+
   let empty (im1, im2) = (IEnv1.empty im1, IEnv2.empty im2)
   let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
   let im (ienv1, ienv2) = (IEnv1.im ienv1, IEnv2.im ienv2)
@@ -395,7 +402,7 @@ module AggregateCommon
           "Error while performing a lookup on an aggregated context. Please \
            report."
 
-  type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
+  type t = IEnv1.t * IEnv2.t
 
   let empty (im1, im2) = (IEnv1.empty im1, IEnv2.empty im2)
   let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
@@ -426,6 +433,11 @@ module AggregateCommon
     Format.fprintf fmt "(%a,%a)" IEnv1.pp ienv1 IEnv2.pp ienv2
 
   let to_string = Format.asprintf "%a" pp
+
+    let to_yojson (ienv1, ienv2) =
+    match (IEnv1.to_yojson ienv1, IEnv2.to_yojson ienv2) with
+    | (`Assoc ienv1_l, `Assoc ienv2_l) -> `Assoc (ienv1_l@ ienv2_l) 
+    | _ -> Util.Error.fail_error "Error in yojson export. Please report"
 
   let lookup_exn (ienv1, ienv2) nn =
     match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with

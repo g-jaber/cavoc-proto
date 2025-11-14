@@ -80,10 +80,12 @@ struct
   let string_of_term = Format.asprintf "%a" pp_term
 
   type neval_context = NCtx of (CNames.name * OpLang.eval_context)
-  [@@deriving to_yojson]
 
   let pp_neval_context fmt (NCtx (cn, ectx)) =
     Format.fprintf fmt "[%a]%a" CNames.pp_name cn OpLang.pp_eval_context ectx
+
+  let neval_context_to_yojson (NCtx (_, ectx)) =
+    `String (OpLang.string_of_eval_context ectx)
 
   (*We refine the type of values to allow pairs (V,E) and (V,c) *)
   type value =
