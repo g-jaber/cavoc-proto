@@ -20,12 +20,15 @@ module Make (IntLTS : Strategy.LTS) = struct
     match conf with
     | IntLTS.Active act_conf -> begin
         match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
-        | None ->
+        | PropStop ->
             print_endline
             @@ "Proponent has quitted the game after playing. Congratulation, \
                 you won ! ";
             return ()
-        | Some (output_move, pas_conf) ->
+        | OpStop ->
+            failwith
+              "Opponent has stopped while it was not its turn. Please report."
+        | Continue (output_move, pas_conf) ->
             print_endline @@ "Proponent has played "
             ^ IntLTS.TypingLTS.Moves.string_of_pol_move output_move;
             let* () = emit @@ Trans (conf, output_move) in
@@ -39,7 +42,8 @@ module Make (IntLTS : Strategy.LTS) = struct
         let results_list =
           IntLTS.TypingLTS.BranchMonad.run (IntLTS.o_trans_gen pas_conf) in
         let moves_list = List.map (fun (x, _) -> x) results_list in
-        let string_list = List.map IntLTS.TypingLTS.Moves.string_of_pol_move moves_list in
+        let string_list =
+          List.map IntLTS.TypingLTS.Moves.string_of_pol_move moves_list in
         show_moves_list string_list;
         let chosen_index = get_move (List.length string_list) - 1 in
         let (input_move, act_conf) = List.nth results_list chosen_index in

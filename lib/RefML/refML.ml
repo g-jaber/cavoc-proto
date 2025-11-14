@@ -55,7 +55,7 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
   include Syntax
   include Typed
   module Store = MakeStore (BranchMonad)
-  module EvalMonad = Util.Monad.Option
+  module EvalMonad = Util.Monad.Result
   module IEnv = Ienv.IEnv
 
   type opconf = Interpreter.opconf
@@ -64,7 +64,12 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
     Format.fprintf fmt "@[(@[Computation: %a@] @| @[Store: %a@])@]" pp_term term
       Store.pp_store store
 
-  let normalize_opconf = Interpreter.normalize_opconf
+  let normalize_opconf opconf = 
+    let open EvalMonad in
+    match
+    Interpreter.normalize_opconf opconf with
+    | Some opconf' -> return opconf'
+    | None -> PropStop
 
   let get_typed_opconf nbprog lexBuffer =
     try

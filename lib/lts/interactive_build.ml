@@ -29,10 +29,13 @@ module Make (IntLTS : Strategy.LTS) = struct
   | IntLTS.Active act_conf ->
       begin
         match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
-        | None ->
+        | PropStop ->
             print_endline "Proponent has quitted the game.";
             Lwt.return ()
-        | Some (output_move, pas_conf) ->
+        | OpStop ->
+            print_endline "Proponent has quitted the game.";
+            Lwt.return ()
+        | Continue (output_move, pas_conf) ->
             let move_string = IntLTS.TypingLTS.Moves.string_of_pol_move output_move in
             show_move move_string;
             interactive_build ~show_move ~show_conf ~show_moves_list ~get_move

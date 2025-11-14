@@ -34,10 +34,10 @@ functor
               "Error: trying to compose two passive configurations. Please \
                report." in
       match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
-      | None ->
+      | PropStop | OpStop ->
           Util.Debug.print_debug "Stopping composition";
           return ()
-      | Some (output_move, pas_conf') ->
+      | Continue (output_move, pas_conf') ->
           let input_move = IntLTS.TypingLTS.Moves.switch_direction output_move in
           begin
             match IntLTS.o_trans pas_conf input_move with
@@ -87,10 +87,10 @@ functor
               "Error: trying to compose two passive configurations. Please \
                report." in
       match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
-      | None ->
+      | PropStop | OpStop ->
           Util.Debug.print_debug "Stopping composition";
           return ()
-      | Some (output_move, pas_conf') ->
+      | Continue (output_move, pas_conf') ->
           let* (input_move, act_conf') =
             para_list (IntLTS.TypingLTS.BranchMonad.run (IntLTS.o_trans_gen pas_conf))
           in

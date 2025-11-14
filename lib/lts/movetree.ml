@@ -50,7 +50,7 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
   Lang.Interactive.LANG = struct
   module Namectx = MoveTree.Moves.Renaming.Namectx
   module Names = Namectx.Names
-  module EvalMonad = Util.Monad.Option
+  module EvalMonad = Util.Monad.Result
   module BranchMonad = MoveTree.Moves.BranchMonad
 
   type store = MoveTree.movetree [@@deriving to_yojson]
