@@ -27,7 +27,7 @@ let print_to_output str =
   Js.Unsafe.set output_div "scrollTop" (Js.Unsafe.get output_div "scrollHeight")
 
 (* Mutable list to store previous moves *)
-let previous_moves :  string list ref = ref []
+let previous_moves : string list ref = ref []
 
 (*Shows the moves in the html*)
 let display_previous_moves () : unit =
@@ -57,7 +57,22 @@ let generate_store_html (store_str : string) : string =
   |> List.map (fun line -> Printf.sprintf "<div>%s</div>" line)
   |> String.concat "\n"
 
-
+  (*
+let extract_ienv_strings (ienv_json : Yojson.Safe.t) : string list =
+  let of_assoc bindings =
+    bindings
+    |> List.filter_map (function
+      | (name, `String expr) when expr <> "" ->
+          Some (Printf.sprintf "let %s = %s" name expr)
+      | _ -> None) in
+  let rec aux j =
+    match j with
+    | `Assoc bindings -> of_assoc bindings
+    | `String s when s <> "" -> [ s ]
+    | `List items -> items |> List.concat_map aux
+    | _ -> [] in
+  aux ienv_json
+  *)
 
 let html_escape (s : string) : string =
   let s = String.concat "&amp;" (String.split_on_char '&' s) in
@@ -73,31 +88,40 @@ let replace_all (s : string) ~(sub : string) ~(by : string) : string =
       if i > String.length s - sub_len then
         let rest = String.sub s i (String.length s - i) in
         String.concat "" (List.rev (rest :: acc))
-      else if String.sub s i sub_len = sub then
-        aux (i + sub_len) (by :: acc)
-      else
-        aux (i + 1) (String.sub s i 1 :: acc)
-    in
+      else if String.sub s i sub_len = sub then aux (i + sub_len) (by :: acc)
+      else aux (i + 1) (String.sub s i 1 :: acc) in
     aux 0 []
 
 let highlight_ocaml (s : string) : string =
   (* on commence par échapper le HTML *)
   let s = html_escape s in
   (* palette monokai approximative *)
-  let keyword_color = "#f92672" (* rose vif, comme Ace monokai *) in
+  let keyword_color =
+    "#f92672"
+    (* rose vif, comme Ace monokai *) in
   let keywords =
-    [ "let"; "fun"; "match"; "with"; "if"; "then"; "else";
-      "assert"; "in"; "rec"; "type"; "module"; "open" ]
-  in
+    [
+      "let";
+      "fun";
+      "match";
+      "with";
+      "if";
+      "then";
+      "else";
+      "assert";
+      "in";
+      "rec";
+      "type";
+      "module";
+      "open";
+    ] in
   List.fold_left
     (fun acc kw ->
-       let by =
-         Printf.sprintf
-           "<span style='color:%s;font-weight:bold;'>%s</span>" keyword_color kw
-       in
-       replace_all acc ~sub:kw ~by)
+      let by =
+        Printf.sprintf "<span style='color:%s;font-weight:bold;'>%s</span>"
+          keyword_color kw in
+      replace_all acc ~sub:kw ~by)
     s keywords
-
 
 let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
   match ienv_obj with
@@ -105,44 +129,40 @@ let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
       let items_html =
         fields
         |> List.map (fun (k, v) ->
-               let v_str =
-                 match v with
-                 | `String s -> highlight_ocaml s   (* colorisation OCaml *)
-                 | _ -> html_escape (Yojson.Safe.to_string v)
-               in
-               Printf.sprintf
-                 "<div class=\"stack-item\" style='color:#f8f8f2;'>\n\
-                 \  <span style='color:#75715e; margin-right: 10px;'>%s</span>\n\
-                 <pre style='display:inline; margin:0;'>%s</pre>
-                 \ </div>"
-                 k v_str)
-        |> String.concat "\n"
-      in
+            let v_str =
+              match v with
+              | `String s -> highlight_ocaml s (* colorisation OCaml *)
+              | _ -> html_escape (Yojson.Safe.to_string v) in
+            Printf.sprintf
+              "<div class=\"stack-item\" style='color:#f8f8f2;'>\n\
+              \  <span style='color:#75715e; margin-right: 10px;'>%s</span>\n\
+               <pre style='display:inline; margin:0;'>%s</pre>\n\
+              \                  </div>"
+              k v_str)
+        |> String.concat "\n" in
       Printf.sprintf
         "<div style='padding: 20px; height: 100%%; overflow-y: auto; \
          background:#272822; font-family:monospace;'>\n\
-         \  <h3 style='color: #a6e22e; margin-top: 0; margin-bottom: 20px;'>\n\
-         \    Interactive Environment\n\
-         \  </h3>\n\
-         \  <div style='display: flex; flex-direction: column; gap: 8px;'>\n\
-         \    %s\n\
-         \  </div>\n\
-         \ </div>"
+        \  <h3 style='color: #a6e22e; margin-top: 0; margin-bottom: 20px;'>\n\
+        \    Interactive Environment\n\
+        \  </h3>\n\
+        \  <div style='display: flex; flex-direction: column; gap: 8px;'>\n\
+        \    %s\n\
+        \  </div>\n\
+        \ </div>"
         items_html
-
   | _ ->
       Printf.sprintf
         "<div style='padding: 20px; color: #e74c3c; background:#272822; \
          font-family:monospace;'>\n\
-         \  <h3 style='color: #e74c3c; margin-top: 0;'>✗ Format invalide</h3>\n\
-         \  <p>Expected a JSON object (Assoc), but received something else.</p>\n\
-         \  <div style='background: #2d2e27; padding: 15px; border-radius: 5px; \
+        \  <h3 style='color: #e74c3c; margin-top: 0;'>✗ Format invalide</h3>\n\
+        \  <p>Expected a JSON object (Assoc), but received something else.</p>\n\
+        \  <div style='background: #2d2e27; padding: 15px; border-radius: 5px; \
          margin-top: 15px; overflow-x: auto; color:#f8f8f2;'>\n\
-         \    <code>%s</code>\n\
-         \  </div>\n\
-         \ </div>"
+        \    <code>%s</code>\n\
+        \  </div>\n\
+        \ </div>"
         (Yojson.Safe.pretty_to_string ienv_obj)
-
 
 (* Main display configuration function *)
 let display_conf conf_json : unit =
@@ -159,21 +179,18 @@ let display_conf conf_json : unit =
   | `Assoc fields -> (
       (* store : inchangé *)
       (match List.assoc_opt "store" fields with
-       | Some (`String store_str) ->
-           let store_html = generate_store_html store_str in
-           update_container "store" store_html
-       | _ ->
-           update_container "store" "<div>No store data available</div>");
+      | Some (`String store_str) ->
+          let store_html = generate_store_html store_str in
+          update_container "store" store_html
+      | _ -> update_container "store" "<div>No store data available</div>");
 
       (* ienv : HTML + Ace coloré *)
-  (match List.assoc_opt "ienv" fields with
-        | Some ienv_obj ->
-            let ienv_html = generate_ienv_html ienv_obj in
-            update_container "ienv" ienv_html
-        | None ->
-            update_container "ienv" "<div>No ienv data available</div>"))
-    | _ ->
-        print_to_output "Invalid JSON format"
+      match List.assoc_opt "ienv" fields with
+      | Some ienv_obj ->
+          let ienv_html = generate_ienv_html ienv_obj in
+          update_container "ienv" ienv_html
+      | None -> update_container "ienv" "<div>No ienv data available</div>")
+  | _ -> print_to_output "Invalid JSON format"
 
 (*function which generate clickable component on the DOM*)
 let generate_clickables moves =
@@ -185,13 +202,12 @@ let generate_clickables moves =
   List.iteri
     (fun index (id, move) ->
       let checkbox_div = Dom_html.createDiv Dom_html.document in
-      let checked_attr =
-        if index = 0 then " checked" else ""
-      in
+      let checked_attr = if index = 0 then " checked" else "" in
       checkbox_div##.innerHTML :=
         Js.string
           (Printf.sprintf
-             "<input type='radio' name='move' id='move_%d'%s> <label for='move_%d'>%s</label>" 
+             "<input type='radio' name='move' id='move_%d'%s> <label \
+              for='move_%d'>%s</label>"
              id checked_attr id move);
       Dom.appendChild moves_list checkbox_div)
     moves
@@ -208,23 +224,26 @@ let get_chosen_move _ =
   | (None, _, _) -> Lwt.return (-2) (* No select button found *)
   | (_, None, _) -> Lwt.return (-2) (* No load button found *)
   | (_, _, None) -> Lwt.return (-2) (* No load button found *)
-  | (Some select_btn, Some load_btn, Some stop_btn) -> (
+  | (Some select_btn, Some load_btn, Some stop_btn) ->
       Lwt.choose
         [
-          (Lwt_js_events.click select_btn >>= fun _ ->
-           let moves_list_opt = Dom_html.getElementById_opt "moves-list" in
-           (match moves_list_opt with
+          ( Lwt_js_events.click select_btn >>= fun _ ->
+            let moves_list_opt = Dom_html.getElementById_opt "moves-list" in
+            match moves_list_opt with
             | None -> Lwt.return (-2) (* No moves list found *)
             | Some moves_list ->
                 let children = Dom.list_of_nodeList moves_list##.childNodes in
                 let selected_move =
                   List.fold_left
                     (fun acc child ->
-                      match Js.Opt.to_option (Dom_html.CoerceTo.element child) with
+                      match
+                        Js.Opt.to_option (Dom_html.CoerceTo.element child)
+                      with
                       | None -> acc
                       | Some element -> (
                           match
-                            element##querySelector (Js.string "input[type='radio']")
+                            element##querySelector
+                              (Js.string "input[type='radio']")
                           with
                           | exception _ -> acc
                           | input_opt -> (
@@ -236,16 +255,20 @@ let get_chosen_move _ =
                                   | None -> acc
                                   | Some radio_input ->
                                       if Js.to_bool radio_input##.checked then
-                                        let id_str = Js.to_string radio_input##.id in
-                                        match String.split_on_char '_' id_str with
-                                        | [ _; num_str ] -> int_of_string num_str
+                                        let id_str =
+                                          Js.to_string radio_input##.id in
+                                        match
+                                          String.split_on_char '_' id_str
+                                        with
+                                        | [ _; num_str ] ->
+                                            int_of_string num_str
                                         | _ -> acc
                                       else acc))))
                     (-4) children in
-                Lwt.return selected_move));
+                Lwt.return selected_move );
           (Lwt_js_events.click load_btn >>= fun _ -> Lwt.return (-1));
           (Lwt_js_events.click stop_btn >>= fun _ -> Lwt.return (-1));
-        ])
+        ]
 
 (* Overrides default print functions to redirect to the HTML output div *)
 let () =
@@ -274,19 +297,13 @@ let evaluate_code () =
   let show_conf conf : unit = display_conf conf in
 
   let show_moves_list (json_list : Yojson.Safe.t list) =
-    let display_of (v : Yojson.Safe.t) =
-      Yojson.Safe.pretty_to_string v
-    in
+    let display_of (v : Yojson.Safe.t) = Yojson.Safe.pretty_to_string v in
     let id_of i (v : Yojson.Safe.t) =
       match v with
-      | `Assoc fields -> (match List.assoc_opt "id" fields with
-                          | Some (`Int n) -> n
-                          | _ -> i)
-      | _ -> i
-    in
-    let moves =
-      List.mapi (fun i v -> (id_of i v, display_of v)) json_list
-    in
+      | `Assoc fields -> (
+          match List.assoc_opt "id" fields with Some (`Int n) -> n | _ -> i)
+      | _ -> i in
+    let moves = List.mapi (fun i v -> (id_of i v, display_of v)) json_list in
     generate_clickables moves in
 
   let get_move n =
