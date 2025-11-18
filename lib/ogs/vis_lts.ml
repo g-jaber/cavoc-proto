@@ -7,7 +7,7 @@ module Make (Moves : Lts.Moves.POLMOVES) :
 
   let view_to_yojson nn_l =
     `List
-      (List.map (fun x -> `String (Moves.Renaming.Namectx.Names.string_of_name x)) nn_l)
+      (List.map Moves.Renaming.Namectx.Names.name_to_yojson nn_l)
 
   (* the view map associate to each Opponent name the set of Proponent names
      available when it was introduced. *)
