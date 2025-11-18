@@ -24,7 +24,7 @@ module Make (Lang : Lang.Interactive.LANG) :
   let passive_conf_to_yojson passive_conf =
     `Assoc
       [
-        ("store", `String (Lang.string_of_store passive_conf.store));
+        ("store", Lang.store_to_yojson passive_conf.store);
         ("ienv", Lang.IEnv.to_yojson passive_conf.ienv);
         ("pos", TypingLTS.position_to_yojson passive_conf.pos);
       ]
