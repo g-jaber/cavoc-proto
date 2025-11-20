@@ -1,6 +1,6 @@
 module type IBUILD = sig
   type conf
-  type result = Success | Stopped (* Ajout ici aussi *)
+  type result = Success | Stopped
 
   val interactive_build :
     show_move:(string -> unit) ->
