@@ -1,5 +1,7 @@
 module type IBUILD = sig
   type conf
+  
+  (*Ajout du type result*)
   type result = Success | Stopped
 
   val interactive_build :
@@ -15,7 +17,7 @@ end
 
 module Make (IntLTS : Strategy.LTS) = struct
   type conf = IntLTS.conf
-  type result = Success | Stopped (* Implémentation du type *)
+  type result = Success | Stopped
 
   let rec interactive_build
     ~show_move
@@ -29,7 +31,7 @@ module Make (IntLTS : Strategy.LTS) = struct
         match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
         | PropStop ->
             print_endline "Proponent has quitted the game.";
-            Lwt.return Success (* C'est ici qu'on signale le succès (crash/fin) *)
+            Lwt.return Success (*Retourne un succés quand gagné*)
         | OpStop ->
             print_endline "Opponent has quitted the game.";
             Lwt.return Stopped
