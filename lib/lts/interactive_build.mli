@@ -2,6 +2,9 @@ module type IBUILD = sig
   (* To be instanciated *)
   type conf
 
+  (* Ajout du type result *)
+  type result = Success | Stopped 
+
   (* *)
 
   val interactive_build :
@@ -12,7 +15,7 @@ module type IBUILD = sig
     number of moves *)
     get_move:(int -> int Lwt.t) ->
     conf ->
-    unit Lwt.t
+    result Lwt.t (* Modification du type de retour ici (unit -> result) *)
 end
 
 module Make : functor (IntLTS : Strategy.LTS) ->
