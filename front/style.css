@@ -297,6 +297,7 @@ input[type="radio"] {
 
 .tab-content.active {
   display: block;
+  overflow-y: scroll; 
   padding: 0.05%;
 }
 
