@@ -317,6 +317,14 @@ input[type="radio"] {
   margin: 3px;
 }
 
+/* Highlight class for ienv items when a move is selected */
+.ienv-item-highlighted {
+  border: 3px solid #a6e22e !important;
+  background-color: rgba(166, 226, 46, 0.1) !important;
+  box-shadow: 0 0 10px rgba(166, 226, 46, 0.3) !important;
+  transition: all 0.3s ease;
+}
+
 .stack-item {
   padding: 8px;
   border: 1px solid rgb(152, 152, 152);

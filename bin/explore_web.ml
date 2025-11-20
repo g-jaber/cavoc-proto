@@ -128,17 +128,18 @@ let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
   | `Assoc fields ->
       let items_html =
         fields
-        |> List.map (fun (k, v) ->
+        |> List.map (fun (id, v) ->
             let v_str =
               match v with
               | `String s -> highlight_ocaml s (* colorisation OCaml *)
               | _ -> html_escape (Yojson.Safe.to_string v) in
             Printf.sprintf
-              "<div class=\"stack-item\" style='color:#f8f8f2;'>\n\
+              (* Ajout de l'attribut id='ienv-item-%s' ici vvv *)
+              "<div id='ienv-item-%s' class=\"stack-item\" style='color:#f8f8f2;'>\n\
               \  <span style='color:#75715e; margin-right: 10px;'>%s</span>\n\
                <pre style='display:inline; margin:0;'>%s</pre>\n\
-              \                  </div>"
-              k v_str)
+              \ </div>"
+              id id v_str)
         |> String.concat "\n" in
       Printf.sprintf
         "<div style='padding: 20px; height: 100%%; overflow-y: auto; \
@@ -192,6 +193,35 @@ let display_conf conf_json : unit =
       | None -> update_container "ienv" "<div>No ienv data available</div>")
   | _ -> print_to_output "Invalid JSON format"
 
+(* Fonction pour gérer la surbrillance dans l'ienv *)
+let highlight_subject (move_json_str : string) : unit =
+  (* 1. Nettoyer : Enlever la classe 'ienv-item-highlighted' de tous les éléments *)
+  let previous_highlights = 
+    Dom_html.document##getElementsByClassName (Js.string "ienv-item-highlighted") 
+  in
+  (* On boucle à l'envers ou on utilise une boucle while car la collection est 'live' *)
+  while previous_highlights##.length > 0 do
+    let item = Js.Opt.get (previous_highlights##item 0) (fun () -> assert false) in
+    item##.classList##remove (Js.string "ienv-item-highlighted")
+  done;
+
+  (* 2. Parser le JSON pour trouver le subjectName *)
+  try
+    let json = Yojson.Safe.from_string move_json_str in
+    match json with
+    | `Assoc fields ->
+        (match List.assoc_opt "subjectName" fields with
+        | Some (`String name) ->
+            (* 3. Trouver l'élément et ajouter la classe *)
+            let target_id = "ienv-item-" ^ name in
+            let target_el = Dom_html.getElementById_opt target_id in
+            (match target_el with
+            | Some el -> el##.classList##add (Js.string "ienv-item-highlighted")
+            | None -> ()) (* L'élément n'existe pas dans l'ienv actuel *)
+        | _ -> ()) (* Pas de subjectName ou format incorrect *)
+    | _ -> ()
+  with _ -> () (* Échec du parsing JSON *)
+
 (*function which generate clickable component on the DOM*)
 let generate_clickables moves =
   (*let moves = moves @ [ (-1, "Stop") ] in*)
@@ -209,8 +239,31 @@ let generate_clickables moves =
              "<input type='radio' name='move' id='move_%d'%s> <label \
               for='move_%d'>%s</label>"
              id checked_attr id move);
+             
+      (* --- AJOUT : Gestionnaire d'événement au clic --- *)
+      (* On utilise Lwt_js_events ou directement le DOM onclick *)
+      checkbox_div##.onclick := Dom_html.handler (fun _ ->
+        highlight_subject move; (* Appel de notre fonction magique *)
+       
+        
+        (* Force la sélection du radio button si on clique sur la div (UX bonus) *)
+        let input = checkbox_div##querySelector (Js.string "input") in
+        Js.Opt.iter input (fun node -> 
+           let input_el = Dom_html.CoerceTo.input node in
+           Js.Opt.iter input_el (fun inp -> inp##.checked := Js._true)
+        );
+        
+        Js._true
+      );
       Dom.appendChild moves_list checkbox_div)
-    moves
+    moves;
+     
+    match moves with
+    | (_, first_move_json) :: _ -> 
+        (* Puisque le premier élément (index 0) est checked par défaut, 
+          on applique son highlight tout de suite *)
+        highlight_subject first_move_json
+    | [] -> ()
 
 let clear_list () : unit =
   let moves_list = Dom_html.getElementById "moves-list" in
