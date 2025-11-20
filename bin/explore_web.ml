@@ -57,71 +57,122 @@ let generate_store_html (store_str : string) : string =
   |> List.map (fun line -> Printf.sprintf "<div>%s</div>" line)
   |> String.concat "\n"
 
-  (*
-let extract_ienv_strings (ienv_json : Yojson.Safe.t) : string list =
-  let of_assoc bindings =
-    bindings
-    |> List.filter_map (function
-      | (name, `String expr) when expr <> "" ->
-          Some (Printf.sprintf "let %s = %s" name expr)
-      | _ -> None) in
-  let rec aux j =
-    match j with
-    | `Assoc bindings -> of_assoc bindings
-    | `String s when s <> "" -> [ s ]
-    | `List items -> items |> List.concat_map aux
-    | _ -> [] in
-  aux ienv_json
-  *)
-
 let html_escape (s : string) : string =
   let s = String.concat "&amp;" (String.split_on_char '&' s) in
   let s = String.concat "&lt;" (String.split_on_char '<' s) in
   let s = String.concat "&gt;" (String.split_on_char '>' s) in
   s
 
-let replace_all (s : string) ~(sub : string) ~(by : string) : string =
-  let sub_len = String.length sub in
-  if sub_len = 0 then s
-  else
-    let rec aux i acc =
-      if i > String.length s - sub_len then
-        let rest = String.sub s i (String.length s - i) in
-        String.concat "" (List.rev (rest :: acc))
-      else if String.sub s i sub_len = sub then aux (i + sub_len) (by :: acc)
-      else aux (i + 1) (String.sub s i 1 :: acc) in
-    aux 0 []
+(* Échappe un caractère HTML *)
+let escape_char buf c =
+  match c with
+  | '&' -> Buffer.add_string buf "&amp;"
+  | '<' -> Buffer.add_string buf "&lt;"
+  | '>' -> Buffer.add_string buf "&gt;"
+  | _   -> Buffer.add_char buf c
+
+(* Palette Monokai *)
+let color_keyword   = "#f92672"
+let color_string    = "#e6db74"
+let color_comment   = "#75715e"
+let color_number    = "#ae81ff"
+
+let ocaml_keywords =
+  [ "let"; "in"; "fun"; "function"; "match"; "with"; "type"; "module";
+    "open"; "if"; "then"; "else"; "rec"; "and"; "assert"; "try"; "catch";
+    "struct"; "sig"; "end"; "val" ]
+
+let is_ident_char = function
+  | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' | '\'' -> true
+  | _ -> false
+
+let is_digit = function '0' .. '9' -> true | _ -> false
 
 let highlight_ocaml (s : string) : string =
-  (* on commence par échapper le HTML *)
-  let s = html_escape s in
-  (* palette monokai approximative *)
-  let keyword_color =
-    "#f92672"
-    (* rose vif, comme Ace monokai *) in
-  let keywords =
-    [
-      "let";
-      "fun";
-      "match";
-      "with";
-      "if";
-      "then";
-      "else";
-      "assert";
-      "in";
-      "rec";
-      "type";
-      "module";
-      "open";
-    ] in
-  List.fold_left
-    (fun acc kw ->
-      let by =
-        Printf.sprintf "<span style='color:%s;font-weight:bold;'>%s</span>"
-          keyword_color kw in
-      replace_all acc ~sub:kw ~by)
-    s keywords
+  let len = String.length s in
+  let buf = Buffer.create (len * 2) in
+
+  (* états du mini-lexer *)
+  let rec normal i =
+    if i >= len then ()
+    else
+      match s.[i] with
+      | '"' ->
+          (* début de chaîne *)
+          Buffer.add_string buf ("<span style='color:" ^ color_string ^ ";'>");
+          escape_char buf '"';
+          string (i + 1)
+      | '(' when i + 1 < len && s.[i + 1] = '*' ->
+          (* début de commentaire *)
+          Buffer.add_string buf ("<span style='color:" ^ color_comment ^ ";font-style:italic;'>");
+          escape_char buf '(';
+          escape_char buf '*';
+          comment (i + 2)
+      | c when is_digit c ->
+          (* nombre *)
+          let j = ref (i + 1) in
+          while !j < len && is_digit s.[!j] do
+            incr j
+          done;
+          Buffer.add_string buf ("<span style='color:" ^ color_number ^ ";'>");
+          for k = i to !j - 1 do escape_char buf s.[k] done;
+          Buffer.add_string buf "</span>";
+          normal !j
+      | c when is_ident_char c ->
+          (* ident ou mot-clé *)
+          let j = ref (i + 1) in
+          while !j < len && is_ident_char s.[!j] do
+            incr j
+          done;
+          let word = String.sub s i (!j - i) in
+          if List.mem word ocaml_keywords then
+            Buffer.add_string buf
+              (Printf.sprintf "<span style='color:%s;font-weight:bold;'>%s</span>"
+                 color_keyword word)
+          else
+            (* ident normal *)
+            for k = i to !j - 1 do escape_char buf s.[k] done;
+          normal !j
+      | c ->
+          escape_char buf c;
+          normal (i + 1)
+
+  and string i =
+    if i >= len then (
+      (* on ferme quand même la span si chaîne non terminée *)
+      Buffer.add_string buf "</span>"
+    ) else
+      let c = s.[i] in
+      match c with
+      | '"' ->
+          escape_char buf '"';
+          Buffer.add_string buf "</span>";
+          normal (i + 1)
+      | '\\' when i + 1 < len ->
+          (* séquence d’échappement simple *)
+          escape_char buf '\\';
+          escape_char buf s.[i + 1];
+          string (i + 2)
+      | _ ->
+          escape_char buf c;
+          string (i + 1)
+
+  and comment i =
+    if i >= len then (
+      Buffer.add_string buf "</span>"
+    ) else if i + 1 < len && s.[i] = '*' && s.[i + 1] = ')' then (
+      escape_char buf '*';
+      escape_char buf ')';
+      Buffer.add_string buf "</span>";
+      normal (i + 2)
+    ) else (
+      escape_char buf s.[i];
+      comment (i + 1)
+    )
+  in
+
+  normal 0;
+  Buffer.contents buf
 
 let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
   match ienv_obj with
