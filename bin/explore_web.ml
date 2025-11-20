@@ -276,23 +276,31 @@ let () =
   Sys_js.set_channel_flusher stdout print_to_output;
   Sys_js.set_channel_flusher stderr print_to_output
 
-(* Builds and evaluates the OGS LTS based on the provided code content *)
 let evaluate_code () =
   flush_moves ();
   fetch_editor_content ();
+  (* Initialisation des modules du langage *)
   let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
   let module CpsLang = Lang.Cps.MakeComp (OpLang) () in
   let module IntLang = Lang.Interactive.Make (CpsLang) in
   let module TypingLTS = Ogs.Typing.Make (IntLang) in
   let module OGS_LTS = Ogs.Ogslts.Make (IntLang) (TypingLTS) in
+  
+  (* Parsing et typage *)
   let lexBuffer_code = Lexing.from_string !editor_content in
   let lexBuffer_sig = Lexing.from_string !signature_content in
   let (interactive_env, store, name_ctxP, name_ctxO) =
     IntLang.get_typed_ienv lexBuffer_code lexBuffer_sig in
+    
+  (* Création de la configuration initiale *)
   let init_conf =
     OGS_LTS.Passive
       (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
+      
+  (* Création du module de construction interactif *)
   let module IBuild = Lts.Interactive_build.Make (OGS_LTS) in
+  
+  (* Callbacks pour l'interface *)
   let show_move move = add_move move in
   let show_conf conf : unit = display_conf conf in
 
@@ -319,8 +327,61 @@ let evaluate_code () =
     | _ ->
         print_to_output "error : unknown";
         Lwt.fail (Failure "Unknown error") in
-  IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
-    init_conf
+
+  (* Lancement de la boucle interactive avec gestion du résultat *)
+  (*Le css est généré ici direct PEUT ETRE A CHANGER ?!*)
+  match%lwt IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move init_conf with
+  | IBuild.Success ->
+      (* 1. Création des éléments HTML *)
+      let doc = Dom_html.document in
+      let modal = Dom_html.createDiv doc in
+      let content = Dom_html.createDiv doc in
+      let btn = Dom_html.createButton doc in
+
+      (* 2. Style du Modal (fond sombre transparent qui couvre tout) *)
+      modal##.style##.cssText := Js.string 
+        "position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; \
+         background-color: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;";
+
+      (* 3. Style et contenu de la boîte de dialogue *)
+      content##.style##.cssText := Js.string 
+        "background-color: #272822; border: 2px solid #a6e22e; border-radius: 8px; \
+         padding: 30px; text-align: center; color: #f8f8f2; font-family: monospace; \
+         box-shadow: 0 5px 15px rgba(0,0,0,0.5); min-width: 300px;";
+      
+      content##.innerHTML := Js.string 
+        "<h2 style='color: #a6e22e; margin-top: 0;'>🏆 SUCCÈS !</h2>\
+         <p style='font-size: 1.2em; margin: 20px 0;'>Vous avez déclenché un failwith.</p>";
+
+      (* 4. Configuration du bouton Reset *)
+      btn##.textContent := Js.some (Js.string "Recharger / Reset");
+      
+      btn##.style##.cssText := Js.string 
+        "background-color: #a6e22e; color: #272822; border: none; padding: 12px 24px; \
+         font-size: 16px; font-weight: bold; border-radius: 5px; cursor: pointer; \
+         transition: background 0.3s;";
+      
+      (* Effet hover simple (optionnel, géré ici par JS direct pour simplifier) *)
+      btn##.onmouseover := Dom_html.handler (fun _ -> 
+        btn##.style##.backgroundColor := Js.string "#32b568"; Js._true);
+      btn##.onmouseout := Dom_html.handler (fun _ -> 
+        btn##.style##.backgroundColor := Js.string "#a6e22e"; Js._true);
+
+      (* 5. Action du bouton : Recharger la page *)
+      btn##.onclick := Dom_html.handler (fun _ ->
+        Dom_html.window##.location##reload;
+        Js._true
+      );
+
+      (* 6. Assemblage et ajout au document *)
+      Dom.appendChild content btn;
+      Dom.appendChild modal content;
+      Dom.appendChild doc##.body modal;
+
+      Lwt.return_unit
+
+  | IBuild.Stopped ->
+      Lwt.return_unit
 
 (* Do page init, creating the callback on the submit button, and managing some button looks*)
 let rec init_page () =
