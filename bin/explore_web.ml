@@ -52,7 +52,8 @@ let update_container (id : string) (content : string) : unit =
 
 (* Generates HTML for the "store" tab *)
 let generate_store_html (store_str : string) : string =
-  store_str |> String.split_on_char ';' |> List.map String.trim
+  store_str |> String.split_on_char ';'
+  |> List.map String.trim
   |> List.filter (fun s -> s <> "")
   |> List.map (fun line -> Printf.sprintf "<div>%s</div>" line)
   |> String.concat "\n"
@@ -63,134 +64,29 @@ let html_escape (s : string) : string =
   let s = String.concat "&gt;" (String.split_on_char '>' s) in
   s
 
-(* Échappe un caractère HTML *)
-let escape_char buf c =
-  match c with
-  | '&' -> Buffer.add_string buf "&amp;"
-  | '<' -> Buffer.add_string buf "&lt;"
-  | '>' -> Buffer.add_string buf "&gt;"
-  | _   -> Buffer.add_char buf c
+(* [DEBUT] Code pour la mise en évidence dynamique de ienv avec Ace *)
 
-(* Palette Monokai *)
-let color_keyword   = "#f92672"
-let color_string    = "#e6db74"
-let color_comment   = "#75715e"
-let color_number    = "#ae81ff"
-
-let ocaml_keywords =
-  [ "let"; "in"; "fun"; "function"; "match"; "with"; "type"; "module";
-    "open"; "if"; "then"; "else"; "rec"; "and"; "assert"; "try"; "catch";
-    "struct"; "sig"; "end"; "val" ]
-
-let is_ident_char = function
-  | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' | '\'' -> true
-  | _ -> false
-
-let is_digit = function '0' .. '9' -> true | _ -> false
-
-let highlight_ocaml (s : string) : string =
-  let len = String.length s in
-  let buf = Buffer.create (len * 2) in
-
-  (* états du mini-lexer *)
-  let rec normal i =
-    if i >= len then ()
-    else
-      match s.[i] with
-      | '"' ->
-          (* début de chaîne *)
-          Buffer.add_string buf ("<span style='color:" ^ color_string ^ ";'>");
-          escape_char buf '"';
-          string (i + 1)
-      | '(' when i + 1 < len && s.[i + 1] = '*' ->
-          (* début de commentaire *)
-          Buffer.add_string buf ("<span style='color:" ^ color_comment ^ ";font-style:italic;'>");
-          escape_char buf '(';
-          escape_char buf '*';
-          comment (i + 2)
-      | c when is_digit c ->
-          (* nombre *)
-          let j = ref (i + 1) in
-          while !j < len && is_digit s.[!j] do
-            incr j
-          done;
-          Buffer.add_string buf ("<span style='color:" ^ color_number ^ ";'>");
-          for k = i to !j - 1 do escape_char buf s.[k] done;
-          Buffer.add_string buf "</span>";
-          normal !j
-      | c when is_ident_char c ->
-          (* ident ou mot-clé *)
-          let j = ref (i + 1) in
-          while !j < len && is_ident_char s.[!j] do
-            incr j
-          done;
-          let word = String.sub s i (!j - i) in
-          if List.mem word ocaml_keywords then
-            Buffer.add_string buf
-              (Printf.sprintf "<span style='color:%s;font-weight:bold;'>%s</span>"
-                 color_keyword word)
-          else
-            (* ident normal *)
-            for k = i to !j - 1 do escape_char buf s.[k] done;
-          normal !j
-      | c ->
-          escape_char buf c;
-          normal (i + 1)
-
-  and string i =
-    if i >= len then (
-      (* on ferme quand même la span si chaîne non terminée *)
-      Buffer.add_string buf "</span>"
-    ) else
-      let c = s.[i] in
-      match c with
-      | '"' ->
-          escape_char buf '"';
-          Buffer.add_string buf "</span>";
-          normal (i + 1)
-      | '\\' when i + 1 < len ->
-          (* séquence d’échappement simple *)
-          escape_char buf '\\';
-          escape_char buf s.[i + 1];
-          string (i + 2)
-      | _ ->
-          escape_char buf c;
-          string (i + 1)
-
-  and comment i =
-    if i >= len then (
-      Buffer.add_string buf "</span>"
-    ) else if i + 1 < len && s.[i] = '*' && s.[i + 1] = ')' then (
-      escape_char buf '*';
-      escape_char buf ')';
-      Buffer.add_string buf "</span>";
-      normal (i + 2)
-    ) else (
-      escape_char buf s.[i];
-      comment (i + 1)
-    )
-  in
-
-  normal 0;
-  Buffer.contents buf
-
+(* La fonction generate_ienv_html est modifiée pour insérer le contenu brut
+   dans un élément <pre> avec un ID unique, que Ace prendra ensuite en charge.
+   La coloration OCaml manuelle est supprimée. *)
 let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
   match ienv_obj with
   | `Assoc fields ->
       let items_html =
         fields
-        |> List.map (fun (id, v) ->
+        |> List.mapi (fun i (id, v) ->
             let v_str =
               match v with
-              | `String s -> highlight_ocaml s (* colorisation OCaml *)
-              | _ -> html_escape (Yojson.Safe.to_string v) in
+              | `String s -> s (* CONTENU BRUT POUR ACE *)
+              | _ -> Yojson.Safe.to_string v in
             Printf.sprintf
-              (* Ajout de l'attribut id='ienv-item-%s' ici vvv *)
-              "<div id='ienv-item-%s' class=\"stack-item\" style='color:#f8f8f2;'>\n\
-              \  <span style='color:#75715e; margin-right: 10px;'>%s</span>\n\
-               <pre style='display:inline; margin:0;'>%s</pre>\n\
-              \ </div>"
-              id id v_str)
+              (* Ajout de l'attribut id='ienv-item-%s' pour la surbrillance de visibilité *)
+              (* L'élément <pre> a un ID unique (ienv-content-%s-%i) pour l'initialisation de Ace *)
+              "<div id='ienv-item-%s' class=\"stack-item\" style='position: relative; height: auto;'>\n\
+              \  <span class='ienv-id' style='color:#75715e; margin-right: 10px;'>%s</span>\n\
+               <pre id='ienv-content-%s-%i' class='ienv-code'>%s</pre>\n\
+            \ </div>"
+              id id id i (html_escape v_str))
         |> String.concat "\n" in
       Printf.sprintf
         "<div style='padding: 20px; height: 100%%; overflow-y: auto; \
@@ -198,15 +94,14 @@ let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
         \  <h3 style='color: #a6e22e; margin-top: 0; margin-bottom: 20px;'>\n\
         \    Interactive Environment\n\
         \  </h3>\n\
-        \  <div style='display: flex; flex-direction: column; gap: 8px;'>\n\
+        \  <div id='ienv-list' style='display: flex; flex-direction: column; gap: 8px;'>\n\
         \    %s\n\
         \  </div>\n\
         \ </div>"
         items_html
   | _ ->
       Printf.sprintf
-        "<div style='padding: 20px; color: #e74c3c; background:#272822; \
-         font-family:monospace;'>\n\
+        "<div style='padding: 20px; color: #e74c3c; background:#272822; font-family:monospace;'>\n\
         \  <h3 style='color: #e74c3c; margin-top: 0;'>✗ Format invalide</h3>\n\
         \  <p>Expected a JSON object (Assoc), but received something else.</p>\n\
         \  <div style='background: #2d2e27; padding: 15px; border-radius: 5px; \
@@ -216,7 +111,8 @@ let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
         \ </div>"
         (Yojson.Safe.pretty_to_string ienv_obj)
 
-(* Main display configuration function *)
+
+(* Main display configuration function - modifié pour initialiser Ace sur le contenu de ienv *)
 let display_conf conf_json : unit =
   (* 1) Affiche le JSON brut dans l’éditeur config (comme avant) *)
   let conf_str = Yojson.Safe.pretty_to_string conf_json in
@@ -236,13 +132,81 @@ let display_conf conf_json : unit =
           update_container "store" store_html
       | _ -> update_container "store" "<div>No store data available</div>");
 
-      (* ienv : HTML + Ace coloré *)
+      (* ienv : Ace coloré pour chaque élément *)
       match List.assoc_opt "ienv" fields with
       | Some ienv_obj ->
           let ienv_html = generate_ienv_html ienv_obj in
-          update_container "ienv" ienv_html
+          update_container "ienv" ienv_html;
+
+          (* Code OCaml pour initialiser un éditeur Ace sur chaque bloc de code ienv généré *)
+          let dom_list_to_list node_list =
+            let rec loop i acc =
+              if i < 0 then acc
+              else 
+                match Js.Opt.to_option (node_list##item (i)) with
+                | Some node -> loop (i - 1) (node :: acc)
+                | None -> acc
+            in
+            loop (node_list##.length - 1) []
+          in
+          
+          let ace = Js.Unsafe.get Js.Unsafe.global "ace" in
+          let code_blocks = Dom_html.document##querySelectorAll (Js.string "#ienv .ienv-code") in
+          let code_blocks_list = dom_list_to_list code_blocks in
+          
+          List.iter (fun node ->
+            (* 1. Coerce generic node to HTML element *)
+            let element_opt = Dom_html.CoerceTo.element node in
+            let element = Js.Opt.get element_opt (fun () -> failwith "Not an element") in
+
+            let id = Js.to_string element##.id in
+            
+            (* 2. Handle textContent option *)
+            let text_opt = element##.textContent in
+            let text = Js.to_string (Js.Opt.get text_opt (fun () -> Js.string "")) in
+            
+            (* 3. Clear content for Ace *)
+            element##.innerHTML := Js.string ""; 
+
+            (* 4. Initialize Ace *)
+            let editor = Js.Unsafe.meth_call ace "edit" [| Js.Unsafe.inject (Js.string id) |] in
+            let session = Js.Unsafe.get editor "session" in
+
+            (* Configuration de l'éditeur Ace *)
+            Js.Unsafe.meth_call editor "setTheme" [| Js.Unsafe.inject (Js.string "ace/theme/monokai") |] |> ignore;
+            Js.Unsafe.meth_call editor "setReadOnly" [| Js.Unsafe.inject Js._true |] |> ignore;
+            Js.Unsafe.meth_call editor "setShowPrintMargin" [| Js.Unsafe.inject Js._false |] |> ignore;
+            Js.Unsafe.meth_call editor "setHighlightActiveLine" [| Js.Unsafe.inject Js._false |] |> ignore;
+            Js.Unsafe.meth_call editor "setHighlightGutterLine" [| Js.Unsafe.inject Js._false |] |> ignore;
+            Js.Unsafe.meth_call editor "setOptions" [| Js.Unsafe.inject (Js.Unsafe.obj [| ("maxLines", Js.Unsafe.inject (Js.Unsafe.meth_call session "getScreenLength" [||])) |]) |] |> ignore;
+
+            (* Définition du mode et du contenu *)
+            Js.Unsafe.meth_call session "setMode" [| Js.Unsafe.inject (Js.string "ace/mode/ocaml") |] |> ignore;
+            Js.Unsafe.meth_call session "setValue" [| Js.Unsafe.inject (Js.string text) |] |> ignore;
+            Js.Unsafe.meth_call editor "clearSelection" [| |] |> ignore;
+            
+            (* Ajuster la hauteur *)
+            let new_height = Js.Unsafe.meth_call session "getScreenLength" [| |] |> Js.Unsafe.coerce |> Js.to_float in
+            let style = element##.style in
+            style##.height := Js.string (Printf.sprintf "%fpx" (new_height *. 16.0 +. 4.0));
+            Js.Unsafe.meth_call editor "resize" [| |] |> ignore;
+
+            (* Suppression de la bordure et de la marge via Js.Unsafe pour l'objet style du conteneur Ace (qui n'est pas element ici, mais editor.container) *)
+            let container = Js.Unsafe.get editor "container" in
+            let container_style = Js.Unsafe.get container "style" in
+            Js.Unsafe.set container_style "border" (Js.string "none");
+            Js.Unsafe.set container_style "margin" (Js.string "0");
+            Js.Unsafe.set container_style "padding" (Js.string "0");
+            Js.Unsafe.set container_style "backgroundColor" (Js.string "transparent");
+
+          ) code_blocks_list;
+
       | None -> update_container "ienv" "<div>No ienv data available</div>")
-  | _ -> print_to_output "Invalid JSON format"
+  | _ ->
+      print_to_output "Invalid JSON format"
+
+(* [FIN] Code pour la mise en évidence dynamique de ienv avec Ace *)
+
 
 (* Fonction pour gérer la surbrillance dans l'ienv *)
 let highlight_subject (move_json_str : string) : unit =
@@ -255,7 +219,6 @@ let highlight_subject (move_json_str : string) : unit =
     let item = Js.Opt.get (previous_highlights##item 0) (fun () -> assert false) in
     item##.classList##remove (Js.string "ienv-item-highlighted")
   done;
-
   (* 2. Parser le JSON pour trouver le subjectName *)
   try
     let json = Yojson.Safe.from_string move_json_str in
@@ -270,7 +233,7 @@ let highlight_subject (move_json_str : string) : unit =
             | Some el -> el##.classList##add (Js.string "ienv-item-highlighted")
             | None -> ()) (* L'élément n'existe pas dans l'ienv actuel *)
         | _ -> ()) (* Pas de subjectName ou format incorrect *)
-    | _ -> ()
+    | _ -> () (* Échec du parsing JSON *)
   with _ -> () (* Échec du parsing JSON *)
 
 (*function which generate clickable component on the DOM*)
@@ -278,7 +241,6 @@ let generate_clickables moves =
   (*let moves = moves @ [ (-1, "Stop") ] in*)
   let moves_list = Dom_html.getElementById "moves-list" in
   moves_list##.innerHTML := Js.string "";
-
   (* Clear existing elements *)
   List.iteri
     (fun index (id, move) ->
@@ -296,6 +258,7 @@ let generate_clickables moves =
       checkbox_div##.onclick := Dom_html.handler (fun _ ->
         highlight_subject move; (* Appel de notre fonction magique *)
        
+       
         
         (* Force la sélection du radio button si on clique sur la div (UX bonus) *)
         let input = checkbox_div##querySelector (Js.string "input") in
@@ -303,13 +266,11 @@ let generate_clickables moves =
            let input_el = Dom_html.CoerceTo.input node in
            Js.Opt.iter input_el (fun inp -> inp##.checked := Js._true)
         );
-        
         Js._true
       );
       Dom.appendChild moves_list checkbox_div)
     moves;
-     
-    match moves with
+  match moves with
     | (_, first_move_json) :: _ -> 
         (* Puisque le premier élément (index 0) est checked par défaut, 
           on applique son highlight tout de suite *)
@@ -397,7 +358,8 @@ let evaluate_code () =
     IntLang.get_typed_ienv lexBuffer_code lexBuffer_sig in
     
   (* Création de la configuration initiale *)
-  let init_conf =
+  let init_conf 
+    =
     OGS_LTS.Passive
       (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
       
@@ -444,39 +406,33 @@ let evaluate_code () =
 
       (* 2. Style du Modal (fond sombre transparent qui couvre tout) *)
       modal##.style##.cssText := Js.string 
-        "position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; \
+        "position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; 
+         height: 100%; \
          background-color: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;";
-
       (* 3. Style et contenu de la boîte de dialogue *)
       content##.style##.cssText := Js.string 
         "background-color: #272822; border: 2px solid #a6e22e; border-radius: 8px; \
          padding: 30px; text-align: center; color: #f8f8f2; font-family: monospace; \
          box-shadow: 0 5px 15px rgba(0,0,0,0.5); min-width: 300px;";
-      
       content##.innerHTML := Js.string 
         "<h2 style='color: #a6e22e; margin-top: 0;'>🏆 SUCCÈS !</h2>\
          <p style='font-size: 1.2em; margin: 20px 0;'>Vous avez déclenché un failwith.</p>";
-
       (* 4. Configuration du bouton Reset *)
       btn##.textContent := Js.some (Js.string "Recharger / Reset");
-      
       btn##.style##.cssText := Js.string 
         "background-color: #a6e22e; color: #272822; border: none; padding: 12px 24px; \
          font-size: 16px; font-weight: bold; border-radius: 5px; cursor: pointer; \
          transition: background 0.3s;";
-      
       (* Effet hover simple (optionnel, géré ici par JS direct pour simplifier) *)
       btn##.onmouseover := Dom_html.handler (fun _ -> 
         btn##.style##.backgroundColor := Js.string "#32b568"; Js._true);
       btn##.onmouseout := Dom_html.handler (fun _ -> 
         btn##.style##.backgroundColor := Js.string "#a6e22e"; Js._true);
-
       (* 5. Action du bouton : Recharger la page *)
       btn##.onclick := Dom_html.handler (fun _ ->
         Dom_html.window##.location##reload;
         Js._true
       );
-
       (* 6. Assemblage et ajout au document *)
       Dom.appendChild content btn;
       Dom.appendChild modal content;
@@ -500,23 +456,19 @@ let rec init_page () =
     (Js.string "background-color: grey; cursor: not-allowed;");
   Js.Unsafe.set select_button "title"
     (Js.string "You must be evaluating code to select an move");
-
   (* Disable the Stop button by default *)
   Js.Unsafe.set stop_button "disabled" Js._true;
   Js.Unsafe.set stop_button "style"
     (Js.string "background-color: grey; cursor: not-allowed;");
   Js.Unsafe.set stop_button "title"
     (Js.string "You must be evaluating code to select an move");
-
   (* Restore Evaluate button's original state *)
   Js.Unsafe.set button "disabled" Js._false;
   Js.Unsafe.set button "style"
     (Js.string "background-color: ''; cursor: pointer;");
-
   (* Set tooltip for the Evaluate button when it's disabled *)
   Js.Unsafe.set button "title"
     (Js.string "Stop evaluation to evaluate new code");
-
   Js_of_ocaml_lwt.Lwt_js_events.async (fun () ->
       let%lwt _ = Js_of_ocaml_lwt.Lwt_js_events.click button in
       (* Grey out the button after it is clicked *)
@@ -537,9 +489,9 @@ let rec init_page () =
       Js.Unsafe.set stop_button "disabled" Js._false;
       Js.Unsafe.set stop_button "style"
         (Js.string "background-color: ''; cursor: pointer;");
-      Js.Unsafe.set stop_button "title"
+      Js.Unsafe.set 
+      stop_button "title"
         (Js.string "You must be evaluating code to select an move");
-
       Lwt.catch
         (fun () -> evaluate_code ())
         (function
@@ -547,18 +499,21 @@ let rec init_page () =
               (* Disable Select button again after Stop move *)
               Js.Unsafe.set select_button "disabled" Js._true;
               Js.Unsafe.set select_button "style"
+        
                 (Js.string "background-color: grey; cursor: not-allowed;");
               Js.Unsafe.set select_button "title"
                 (Js.string "You must be evaluating code to select an move");
 
               (* Disable Stop button again after Stop move *)
               Js.Unsafe.set stop_button "disabled" Js._true;
+        
               Js.Unsafe.set stop_button "style"
                 (Js.string "background-color: grey; cursor: not-allowed;");
               Js.Unsafe.set stop_button "title"
                 (Js.string "You must be evaluating code to select an move");
 
               (* Re-enable Evaluate button after stopping *)
+           
               init_page ();
               (* Recursively call init_page to restore button *)
               Lwt.return_unit
