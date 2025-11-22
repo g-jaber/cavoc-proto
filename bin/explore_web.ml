@@ -50,7 +50,7 @@ let update_container (id : string) (content : string) : unit =
   let container = Dom_html.getElementById id in
   container##.innerHTML := Js.string content
 
-(* Generates HTML for the "store" tab *)
+(* Generates HTML for the "store" tab (OLD String format) *)
 let generate_store_html (store_str : string) : string =
   store_str |> String.split_on_char ';'
   |> List.map String.trim
@@ -59,31 +59,90 @@ let generate_store_html (store_str : string) : string =
   |> String.concat "\n"
 
 let html_escape (s : string) : string =
-  let s = String.concat "&amp;" (String.split_on_char '&' s) in
+  let s = String.concat "&amp;"
+    (String.split_on_char '&' s) in
   let s = String.concat "&lt;" (String.split_on_char '<' s) in
-  let s = String.concat "&gt;" (String.split_on_char '>' s) in
+  let s = String.concat "&gt;"
+    (String.split_on_char '>' s) in
   s
+
+(* [NOUVEAU] Génère le HTML pour le store en format JSON List, en filtrant les doublons de ienv *)
+let generate_store_html_from_json (store_json : Yojson.Safe.t) (ienv_json : Yojson.Safe.t option) : string =
+  (* 1. Extraire les paires de ienv si disponible pour comparaison *)
+  let ienv_pairs =
+    match ienv_json with
+    | Some (`Assoc fields) -> fields
+    | _ -> []
+  in
+
+  (* 2. Fonction pour tester les doublons : garde false si pas doublon *)
+  let is_duplicate k v =
+    match List.assoc_opt k ienv_pairs with
+    | Some v_ienv -> v = v_ienv
+    | None -> false
+  in
+
+  (* 3. Traiter la liste du store *)
+  match store_json with
+  | `List items ->
+      (* Aplatir la liste de dictionnaires en une seule liste de paires *)
+      let all_pairs =
+        items
+        |> List.map (function `Assoc pairs -> pairs | _ -> [])
+        |> List.flatten
+      in
+      
+      (* Filtrer les doublons vis-à-vis de ienv *)
+      let filtered_pairs =
+        List.filter (fun (k, v) -> not (is_duplicate k v)) all_pairs
+      in
+
+      (* Générer le HTML *)
+      if filtered_pairs = [] then
+        "<div style='padding: 10px; color: #75715e; font-style: italic;'>Store is empty or all variables are hidden by ienv.</div>"
+      else
+        filtered_pairs
+        |> List.map (fun (k, v) ->
+            let v_str =
+              match v with
+              | `String s -> s
+              | _ -> Yojson.Safe.to_string v
+            in
+            (* Utilisation du style 'stack-item' existant pour la cohérence visuelle, avec des couleurs adaptées *)
+            Printf.sprintf
+              "<div class=\"stack-item\" style='display: flex; flex-direction: row; align-items: baseline; padding: 8px; margin-bottom: 5px;'>\n\
+               <span style='color:#fd971f; font-weight: bold; min-width: 50px; margin-right: 10px;'>%s</span>\n\
+               <span style='color:#e6db74; font-family: monospace; white-space: pre-wrap; word-break: break-all;'>%s</span>\n\
+               </div>"
+              (html_escape k) (html_escape v_str))
+        |> String.concat "\n"
+        |> Printf.sprintf "<div style='padding: 10px; display: flex; flex-direction: column;'>%s</div>"
+
+  | _ -> "<div style='padding: 10px; color: #f92672;'>Invalid store format (expected List of Objects)</div>"
+
 
 (* [DEBUT] Code pour la mise en évidence dynamique de ienv avec Ace *)
 
 (* La fonction generate_ienv_html est modifiée pour insérer le contenu brut
-   dans un élément <pre> avec un ID unique, que Ace prendra ensuite en charge.
-   La coloration OCaml manuelle est supprimée. *)
+   dans un élément <pre> avec un ID unique, que Ace prendra ensuite en charge. *)
 let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
   match ienv_obj with
-  | `Assoc fields ->
+  |
+    `Assoc fields ->
       let items_html =
         fields
         |> List.mapi (fun i (id, v) ->
             let v_str =
               match v with
               | `String s -> s (* CONTENU BRUT POUR ACE *)
+              
               | _ -> Yojson.Safe.to_string v in
             Printf.sprintf
               (* Ajout de l'attribut id='ienv-item-%s' pour la surbrillance de visibilité *)
               (* L'élément <pre> a un ID unique (ienv-content-%s-%i) pour l'initialisation de Ace *)
               "<div id='ienv-item-%s' class=\"stack-item\" style='position: relative; height: auto;'>\n\
-              \  <span class='ienv-id' style='color:#75715e; margin-right: 10px;'>%s</span>\n\
+             
+                <span class='ienv-id' style='color:#75715e; margin-right: 10px;'>%s</span>\n\
                <pre id='ienv-content-%s-%i' class='ienv-code'>%s</pre>\n\
             \ </div>"
               id id id i (html_escape v_str))
@@ -91,21 +150,28 @@ let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
       Printf.sprintf
         "<div style='padding: 20px; height: 100%%; overflow-y: auto; \
          background:#272822; font-family:monospace;'>\n\
-        \  <h3 style='color: #a6e22e; margin-top: 0; margin-bottom: 20px;'>\n\
+  
+             <h3 style='color: #a6e22e; margin-top: 0;
+ margin-bottom: 20px;'>\n\
         \    Interactive Environment\n\
         \  </h3>\n\
-        \  <div id='ienv-list' style='display: flex; flex-direction: column; gap: 8px;'>\n\
+        \  <div id='ienv-list' style='display: flex;
+ flex-direction: column; gap: 8px;'>\n\
         \    %s\n\
         \  </div>\n\
         \ </div>"
         items_html
   | _ ->
       Printf.sprintf
-        "<div style='padding: 20px; color: #e74c3c; background:#272822; font-family:monospace;'>\n\
-        \  <h3 style='color: #e74c3c; margin-top: 0;'>✗ Format invalide</h3>\n\
+        "<div style='padding: 20px;
+ color: #e74c3c; background:#272822; font-family:monospace;'>\n\
+        \  <h3 style='color: #e74c3c;
+ margin-top: 0;'>✗ Format invalide</h3>\n\
         \  <p>Expected a JSON object (Assoc), but received something else.</p>\n\
-        \  <div style='background: #2d2e27; padding: 15px; border-radius: 5px; \
-         margin-top: 15px; overflow-x: auto; color:#f8f8f2;'>\n\
+        \  <div style='background: #2d2e27;
+ padding: 15px; border-radius: 5px; \
+         margin-top: 15px; overflow-x: auto;
+ color:#f8f8f2;'>\n\
         \    <code>%s</code>\n\
         \  </div>\n\
         \ </div>"
@@ -118,34 +184,47 @@ let display_conf conf_json : unit =
   let conf_str = Yojson.Safe.pretty_to_string conf_json in
   let config_editor = Js.Unsafe.get Js.Unsafe.global "configEditor_instance" in
   let session = Js.Unsafe.get config_editor "session" in
-  Js.Unsafe.meth_call session "setValue"
+  Js.Unsafe.meth_call session 
+    "setValue"
     [| Js.Unsafe.inject (Js.string conf_str) |]
   |> ignore;
   Js.Unsafe.meth_call config_editor "clearSelection" [||] |> ignore;
 
   match conf_json with
   | `Assoc fields -> (
-      (* store : inchangé *)
+      
+      (* Récupération de ienv OPTIONNEL pour le filtrage du store *)
+      let ienv_opt = List.assoc_opt "ienv" fields in
+
+      (* Store : Mise à jour pour gérer le format JSON List et le filtrage *)
       (match List.assoc_opt "store" fields with
+      | Some (`List _ as store_json) ->
+          (* NOUVEAU : Format liste d'objets -> affichage filtré *)
+          let store_html = generate_store_html_from_json store_json ienv_opt in
+          update_container "store" store_html
       | Some (`String store_str) ->
+          (* ANCIEN : Format chaîne brute *)
           let store_html = generate_store_html store_str in
           update_container "store" store_html
       | _ -> update_container "store" "<div>No store data available</div>");
 
       (* ienv : Ace coloré pour chaque élément *)
-      match List.assoc_opt "ienv" fields with
-      | Some ienv_obj ->
+      match ienv_opt with
+      |
+        Some ienv_obj ->
           let ienv_html = generate_ienv_html ienv_obj in
           update_container "ienv" ienv_html;
-
           (* Code OCaml pour initialiser un éditeur Ace sur chaque bloc de code ienv généré *)
           let dom_list_to_list node_list =
             let rec loop i acc =
               if i < 0 then acc
               else 
                 match Js.Opt.to_option (node_list##item (i)) with
-                | Some node -> loop (i - 1) (node :: acc)
-                | None -> acc
+ 
+                  |
+                    Some node -> loop (i - 1) (node :: acc)
+                |
+                  None -> acc
             in
             loop (node_list##.length - 1) []
           in
@@ -153,40 +232,49 @@ let display_conf conf_json : unit =
           let ace = Js.Unsafe.get Js.Unsafe.global "ace" in
           let code_blocks = Dom_html.document##querySelectorAll (Js.string "#ienv .ienv-code") in
           let code_blocks_list = dom_list_to_list code_blocks in
-          
+  
+         
           List.iter (fun node ->
             (* 1. Coerce generic node to HTML element *)
             let element_opt = Dom_html.CoerceTo.element node in
             let element = Js.Opt.get element_opt (fun () -> failwith "Not an element") in
 
             let id = Js.to_string element##.id in
+ 
             
             (* 2. Handle textContent option *)
             let text_opt = element##.textContent in
             let text = Js.to_string (Js.Opt.get text_opt (fun () -> Js.string "")) in
             
             (* 3. Clear content for Ace *)
+   
             element##.innerHTML := Js.string ""; 
 
             (* 4. Initialize Ace *)
-            let editor = Js.Unsafe.meth_call ace "edit" [| Js.Unsafe.inject (Js.string id) |] in
+            let editor = Js.Unsafe.meth_call ace "edit" [|
+                Js.Unsafe.inject (Js.string id) |] in
             let session = Js.Unsafe.get editor "session" in
 
             (* Configuration de l'éditeur Ace *)
-            Js.Unsafe.meth_call editor "setTheme" [| Js.Unsafe.inject (Js.string "ace/theme/monokai") |] |> ignore;
+            Js.Unsafe.meth_call editor "setTheme" [|
+                Js.Unsafe.inject (Js.string "ace/theme/monokai") |] |> ignore;
             Js.Unsafe.meth_call editor "setReadOnly" [| Js.Unsafe.inject Js._true |] |> ignore;
-            Js.Unsafe.meth_call editor "setShowPrintMargin" [| Js.Unsafe.inject Js._false |] |> ignore;
+            Js.Unsafe.meth_call editor "setShowPrintMargin" [|
+                Js.Unsafe.inject Js._false |] |> ignore;
             Js.Unsafe.meth_call editor "setHighlightActiveLine" [| Js.Unsafe.inject Js._false |] |> ignore;
-            Js.Unsafe.meth_call editor "setHighlightGutterLine" [| Js.Unsafe.inject Js._false |] |> ignore;
+            Js.Unsafe.meth_call editor "setHighlightGutterLine" [|
+                Js.Unsafe.inject Js._false |] |> ignore;
             Js.Unsafe.meth_call editor "setOptions" [| Js.Unsafe.inject (Js.Unsafe.obj [| ("maxLines", Js.Unsafe.inject (Js.Unsafe.meth_call session "getScreenLength" [||])) |]) |] |> ignore;
-
             (* Définition du mode et du contenu *)
-            Js.Unsafe.meth_call session "setMode" [| Js.Unsafe.inject (Js.string "ace/mode/ocaml") |] |> ignore;
+            Js.Unsafe.meth_call session "setMode" [|
+                Js.Unsafe.inject (Js.string "ace/mode/ocaml") |] |> ignore;
             Js.Unsafe.meth_call session "setValue" [| Js.Unsafe.inject (Js.string text) |] |> ignore;
-            Js.Unsafe.meth_call editor "clearSelection" [| |] |> ignore;
+            Js.Unsafe.meth_call editor "clearSelection" [|
+              |] |> ignore;
             
             (* Ajuster la hauteur *)
-            let new_height = Js.Unsafe.meth_call session "getScreenLength" [| |] |> Js.Unsafe.coerce |> Js.to_float in
+            let new_height = Js.Unsafe.meth_call session "getScreenLength" [|
+              |] |> Js.Unsafe.coerce |> Js.to_float in
             let style = element##.style in
             style##.height := Js.string (Printf.sprintf "%fpx" (new_height *. 16.0 +. 4.0));
             Js.Unsafe.meth_call editor "resize" [| |] |> ignore;
@@ -201,8 +289,10 @@ let display_conf conf_json : unit =
 
           ) code_blocks_list;
 
-      | None -> update_container "ienv" "<div>No ienv data available</div>")
-  | _ ->
+      |
+        None -> update_container "ienv" "<div>No ienv data available</div>")
+  |
+      _ ->
       print_to_output "Invalid JSON format"
 
 (* [FIN] Code pour la mise en évidence dynamique de ienv avec Ace *)
@@ -216,24 +306,28 @@ let highlight_subject (move_json_str : string) : unit =
   in
   (* On boucle à l'envers ou on utilise une boucle while car la collection est 'live' *)
   while previous_highlights##.length > 0 do
-    let item = Js.Opt.get (previous_highlights##item 0) (fun () -> assert false) in
+    let item = Js.Opt.get (previous_highlights##item 0) 
+        (fun () -> assert false) in
     item##.classList##remove (Js.string "ienv-item-highlighted")
   done;
   (* 2. Parser le JSON pour trouver le subjectName *)
   try
     let json = Yojson.Safe.from_string move_json_str in
     match json with
-    | `Assoc fields ->
+    |
+      `Assoc fields ->
         (match List.assoc_opt "subjectName" fields with
         | Some (`String name) ->
             (* 3. Trouver l'élément et ajouter la classe *)
             let target_id = "ienv-item-" ^ name in
             let target_el = Dom_html.getElementById_opt target_id in
             (match target_el with
-            | Some el -> el##.classList##add (Js.string "ienv-item-highlighted")
+     
+              | Some el -> el##.classList##add (Js.string "ienv-item-highlighted")
             | None -> ()) (* L'élément n'existe pas dans l'ienv actuel *)
         | _ -> ()) (* Pas de subjectName ou format incorrect *)
-    | _ -> () (* Échec du parsing JSON *)
+    |
+      _ -> () (* Échec du parsing JSON *)
   with _ -> () (* Échec du parsing JSON *)
 
 (*function which generate clickable component on the DOM*)
@@ -250,7 +344,8 @@ let generate_clickables moves =
         Js.string
           (Printf.sprintf
              "<input type='radio' name='move' id='move_%d'%s> <label \
-              for='move_%d'>%s</label>"
+              
+                for='move_%d'>%s</label>"
              id checked_attr id move);
              
       (* --- AJOUT : Gestionnaire d'événement au clic --- *)
@@ -259,12 +354,14 @@ let generate_clickables moves =
         highlight_subject move; (* Appel de notre fonction magique *)
        
        
+ 
         
         (* Force la sélection du radio button si on clique sur la div (UX bonus) *)
         let input = checkbox_div##querySelector (Js.string "input") in
         Js.Opt.iter input (fun node -> 
            let input_el = Dom_html.CoerceTo.input node in
            Js.Opt.iter input_el (fun inp -> inp##.checked := Js._true)
+        
         );
         Js._true
       );
@@ -275,7 +372,8 @@ let generate_clickables moves =
         (* Puisque le premier élément (index 0) est checked par défaut, 
           on applique son highlight tout de suite *)
         highlight_subject first_move_json
-    | [] -> ()
+    |
+      [] -> ()
 
 let clear_list () : unit =
   let moves_list = Dom_html.getElementById "moves-list" in
@@ -286,50 +384,67 @@ let get_chosen_move _ =
   let load_btn_opt = Dom_html.getElementById_opt "load-btn" in
   let stop_btn_opt = Dom_html.getElementById_opt "stop-btn" in
   match (select_btn_opt, load_btn_opt, stop_btn_opt) with
-  | (None, _, _) -> Lwt.return (-2) (* No select button found *)
-  | (_, None, _) -> Lwt.return (-2) (* No load button found *)
-  | (_, _, None) -> Lwt.return (-2) (* No load button found *)
-  | (Some select_btn, Some load_btn, Some stop_btn) ->
+  |
+    (None, _, _) -> Lwt.return (-2) (* No select button found *)
+  |
+    (_, None, _) -> Lwt.return (-2) (* No load button found *)
+  |
+    (_, _, None) -> Lwt.return (-2) (* No load button found *)
+  |
+    (Some select_btn, Some load_btn, Some stop_btn) ->
       Lwt.choose
         [
           ( Lwt_js_events.click select_btn >>= fun _ ->
             let moves_list_opt = Dom_html.getElementById_opt "moves-list" in
             match moves_list_opt with
             | None -> Lwt.return (-2) (* No moves list found *)
+           
             | Some moves_list ->
                 let children = Dom.list_of_nodeList moves_list##.childNodes in
                 let selected_move =
                   List.fold_left
                     (fun acc child ->
+                
                       match
                         Js.Opt.to_option (Dom_html.CoerceTo.element child)
                       with
                       | None -> acc
+                     
                       | Some element -> (
                           match
                             element##querySelector
                               (Js.string "input[type='radio']")
+          
                           with
                           | exception _ -> acc
                           | input_opt -> (
-                              match Js.Opt.to_option input_opt with
-                              | None -> acc
-                              | Some input -> (
+                         
+                            match Js.Opt.to_option input_opt with
+                              |
+                                None -> acc
+                              |
+                                Some input -> (
                                   let input = Dom_html.CoerceTo.input input in
                                   match Js.Opt.to_option input with
-                                  | None -> acc
+                     
+                                    | None -> acc
                                   | Some radio_input ->
                                       if Js.to_bool radio_input##.checked then
+      
                                         let id_str =
                                           Js.to_string radio_input##.id in
+                    
                                         match
                                           String.split_on_char '_' id_str
+                                    
                                         with
                                         | [ _; num_str ] ->
                                             int_of_string num_str
+      
                                         | _ -> acc
                                       else acc))))
                     (-4) children in
+  
                 Lwt.return selected_move );
           (Lwt_js_events.click load_btn >>= fun _ -> Lwt.return (-1));
           (Lwt_js_events.click stop_btn >>= fun _ -> Lwt.return (-1));
@@ -359,6 +474,7 @@ let evaluate_code () =
     
   (* Création de la configuration initiale *)
   let init_conf 
+ 
     =
     OGS_LTS.Passive
       (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
@@ -373,10 +489,13 @@ let evaluate_code () =
   let show_moves_list (json_list : Yojson.Safe.t list) =
     let display_of (v : Yojson.Safe.t) = Yojson.Safe.pretty_to_string v in
     let id_of i (v : Yojson.Safe.t) =
+  
       match v with
-      | `Assoc fields -> (
+      |
+        `Assoc fields -> (
           match List.assoc_opt "id" fields with Some (`Int n) -> n | _ -> i)
-      | _ -> i in
+      |
+        _ -> i in
     let moves = List.mapi (fun i v -> (id_of i v, display_of v)) json_list in
     generate_clickables moves in
 
@@ -386,18 +505,22 @@ let evaluate_code () =
     print_to_output ("Chosen move index: " ^ string_of_int i);
     match i with
     | i when i >= 0 && i < n -> Lwt.return i
-    | -1 ->
+    |
+      -1 ->
         clear_list ();
         Lwt.fail (Failure "Stop")
-    | -2 -> Lwt.fail (Failure "No button")
-    | _ ->
+    |
+      -2 -> Lwt.fail (Failure "No button")
+    |
+      _ ->
         print_to_output "error : unknown";
         Lwt.fail (Failure "Unknown error") in
 
   (* Lancement de la boucle interactive avec gestion du résultat *)
   (*Le css est généré ici direct PEUT ETRE A CHANGER ?!*)
   match%lwt IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move init_conf with
-  | IBuild.Success ->
+  |
+    IBuild.Success ->
       (* 1. Création des éléments HTML *)
       let doc = Dom_html.document in
       let modal = Dom_html.createDiv doc in
@@ -407,6 +530,7 @@ let evaluate_code () =
       (* 2. Style du Modal (fond sombre transparent qui couvre tout) *)
       modal##.style##.cssText := Js.string 
         "position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; 
+ 
          height: 100%; \
          background-color: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;";
       (* 3. Style et contenu de la boîte de dialogue *)
@@ -479,6 +603,7 @@ let rec init_page () =
         (Js.string "Stop evaluation to evaluate new code");
 
       (* Enable the Select button after evaluate is pressed *)
+     
       Js.Unsafe.set select_button "disabled" Js._false;
       Js.Unsafe.set select_button "style"
         (Js.string "background-color: ''; cursor: pointer;");
@@ -490,6 +615,7 @@ let rec init_page () =
       Js.Unsafe.set stop_button "style"
         (Js.string "background-color: ''; cursor: pointer;");
       Js.Unsafe.set 
+ 
       stop_button "title"
         (Js.string "You must be evaluating code to select an move");
       Lwt.catch
@@ -500,12 +626,14 @@ let rec init_page () =
               Js.Unsafe.set select_button "disabled" Js._true;
               Js.Unsafe.set select_button "style"
         
+ 
                 (Js.string "background-color: grey; cursor: not-allowed;");
               Js.Unsafe.set select_button "title"
                 (Js.string "You must be evaluating code to select an move");
 
               (* Disable Stop button again after Stop move *)
-              Js.Unsafe.set stop_button "disabled" Js._true;
+              Js.Unsafe.set stop_button "disabled" 
+                Js._true;
         
               Js.Unsafe.set stop_button "style"
                 (Js.string "background-color: grey; cursor: not-allowed;");
@@ -517,7 +645,8 @@ let rec init_page () =
               init_page ();
               (* Recursively call init_page to restore button *)
               Lwt.return_unit
-          | exn ->
+          |
+            exn ->
               (* init page again to allow for another exec *)
               init_page ();
               (* Handle other exceptions *)
