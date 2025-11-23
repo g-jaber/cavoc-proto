@@ -150,7 +150,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let pp_dir fmt = Format.pp_print_string fmt dir in
     Format.asprintf "%a" (pp_a_nf ~pp_dir)
 
-    let get_subject_name (a_nf_term, _) =
+  let get_subject_name (a_nf_term, _) =
     let f_fn nn = (nn, Some nn) in
     let f_cn nn = (nn, Some nn) in
     match snd @@ OpLang.Nf.map_fn None f_fn a_nf_term with
@@ -165,7 +165,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
         ("string", `String (string_of_a_nf "" a_nf));
       ]
 
-        let renaming_a_nf renaming (a_nf_term, store) =
+  let renaming_a_nf renaming (a_nf_term, store) =
     let a_nf_term' =
       OpLang.Nf.map
         ~f_val:(fun aval -> OpLang.AVal.rename aval renaming)
@@ -174,6 +174,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
   (* TODO: Rename also the store*)
 
   let concretize_a_nf store ienv (a_nf, renaming) =
+    (* we get renaming : Δ → Γₒ + Δ and ienv : Γₚ → Γₒ*)
     let lnamectx = OpLang.Renaming.dom renaming in
     (* TO BE CORRECTED *)
     Util.Debug.print_debug @@ "concretize the a nf " ^ string_of_a_nf "" a_nf;
@@ -182,12 +183,13 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let (a_nf_term', store') = renaming_a_nf renaming a_nf in
     Util.Debug.print_debug @@ "After renaming: "
     ^ string_of_a_nf "" (a_nf_term', store');
-    (* Taking ienv:Γ→Θ, then we lift it into ienv':Γ → Θ+Δ with Δ=lnamectx *)
+    (* ienv':Γₚ → Γₒ+Δ *)
     let ienv' = IEnv.weaken_r ienv lnamectx in
-    let renaming = IEnv.embed_renaming renaming in
-    Util.Debug.print_debug @@ "Renaming  : " ^ IEnv.to_string renaming;
+    let renaming_lifted = IEnv.embed_renaming renaming in
+    Util.Debug.print_debug @@ "Renaming as ienv  : " ^ IEnv.to_string renaming_lifted;
+    (* ienv'' = ienv ⊗ renaming, so that ienv'':Γₚ+Δ → Γₒ+Δ *)
+    let ienv'' = IEnv.copairing ienv' renaming_lifted in
     (* Then we substitute the names *)
-    let ienv'' = IEnv.copairing ienv' renaming in
     let f_val = OpLang.AVal.subst_pnames ienv'' in
     let f_fn nn = IEnv.lookup_exn ienv'' nn in
     let f_cn = f_fn in
@@ -210,7 +212,6 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
   (* TODO Deal with the abstraction process of the heap properly *)
 
   let abstracting_nf_term nf_term namectxO =
-    (* This is bugged, we should first *)
     Util.Debug.print_debug @@ "Trying to abstract the nf_term ";
     let get_ty nn =
       Util.Debug.print_debug @@ "Looking for "
@@ -254,7 +255,6 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
      since the image of  store_discl might itself has
      labels that becomes diclosed.
      This computation would necessitate an iterative process. *)
-
 
   let eval (opconf, namectxO, storectx_discl) =
     let open EvalMonad in

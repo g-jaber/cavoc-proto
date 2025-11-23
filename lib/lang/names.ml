@@ -65,11 +65,18 @@ module MakeInt (Mode : MODE) (Prefix : PREFIX) () : NAMES_INT = struct
     if s = "" then Format.fprintf fmt "%s%i" Prefix.prefix i
     else Format.fprintf fmt "%s" s
 
-  
   let name_to_yojson nn = `String (string_of_name nn)
-
   let is_callable _ = Mode.is_callable
   let is_cname _ = Mode.is_cname
+end
+
+module MakeUnit : NAMES with type name = unit = struct
+  type name = unit [@@deriving to_yojson]
+
+  let string_of_name () = ""
+  let pp_name fmt () = Format.pp_print_string fmt ""
+  let is_callable () = true
+  let is_cname () = true
 end
 
 module MakeAggregate (Names1 : NAMES) (Names2 : NAMES) :

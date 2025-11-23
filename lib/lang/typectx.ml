@@ -12,6 +12,8 @@ module type TYPECTX = sig
   val lookup_exn : t -> Names.name -> typ
   val is_empty : t -> bool
   val is_singleton : t -> Names.name -> typ -> bool
+
+  (* is_last nctx n t returns the Some nctx' when nctx can be decomposed into nctx plus [n↦t], with this one appearing last in nctx *)
   val is_last : t -> Names.name -> typ -> t option
   val to_pmap : t -> (Names.name, typ) Util.Pmap.pmap
   val singleton : typ -> Names.name * t
@@ -161,6 +163,51 @@ module Make_List
 
   let map f = List.map (fun (str, ty) -> (str, f ty))
 end
+
+module Make_List_Unit (Types : sig
+  type t [@@deriving to_yojson]
+
+  val pp : Format.formatter -> t -> unit
+end) : TYPECTX with type typ = Types.t and type Names.name = unit = struct
+  module Names = Names.MakeUnit 
+
+  type typ = Types.t
+  type t = Types.t list
+
+  let empty = []
+  let concat = List.append
+
+  let pp fmt = function
+    | [] -> Format.fprintf fmt "⋅"
+    | name_ctx ->
+        let pp_sep fmt () = Format.fprintf fmt ", " in
+        Format.pp_print_list ~pp_sep
+          (fun fmt typ -> Format.fprintf fmt "%a" Types.pp typ)
+          fmt name_ctx
+
+  let to_string = Format.asprintf "%a" pp
+  let get_names _ = [ () ]
+  let to_yojson nctx = `List (List.map Types.to_yojson nctx)
+
+  let lookup_exn nctx () =
+    match nctx with
+    | [] -> failwith "The typectx is empty. Please report."
+    | ty :: _ -> ty
+
+  let is_empty = function [] -> true | _ -> false
+
+  let is_singleton nctx () ty =
+    match nctx with [ ty' ] when ty = ty' -> true | _ -> false
+
+  let is_last nctx () ty =
+    match nctx with ty' :: nctx' when ty = ty' -> Some nctx' | _ -> None
+
+  let to_pmap _nctx = Util.Pmap.empty
+  let singleton ty = ((), [ ty ])
+  let add_fresh nctx _str ty = ((), ty :: nctx)
+  let map = List.map
+end
+
 
 module Aggregate
     (Namectx1 : TYPECTX)
