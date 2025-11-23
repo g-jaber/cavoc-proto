@@ -66,7 +66,8 @@ module type LANG = sig
   (* From the interactive name context Γ_P,
      we generate all the possible pairs (A,Δ,Γ'_P) formed by an abstracted normal form A such that
      Γ_P;_ ⊢ A ▷ Δ
-     Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O. *)
+     Freshness of names that appear in Δ is guaranteed by a gensym, so that we do not need to provide Γ_O.
+     TODO: Update last line *)
   val generate_a_nf :
     Storectx.t ->
     IEnv.Renaming.Namectx.t ->
@@ -149,7 +150,22 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let pp_dir fmt = Format.pp_print_string fmt dir in
     Format.asprintf "%a" (pp_a_nf ~pp_dir)
 
-  let renaming_a_nf renaming (a_nf_term, store) =
+    let get_subject_name (a_nf_term, _) =
+    let f_fn nn = (nn, Some nn) in
+    let f_cn nn = (nn, Some nn) in
+    match snd @@ OpLang.Nf.map_fn None f_fn a_nf_term with
+    | None -> snd @@ OpLang.Nf.map_cn None f_cn a_nf_term
+    | Some _ as res -> res
+
+  let abstract_normal_form_to_yojson a_nf =
+    let[@warning "-8"] (Some nn) = get_subject_name a_nf in
+    `Assoc
+      [
+        ("subjectName", IEnv.Renaming.Namectx.Names.name_to_yojson nn);
+        ("string", `String (string_of_a_nf "" a_nf));
+      ]
+
+        let renaming_a_nf renaming (a_nf_term, store) =
     let a_nf_term' =
       OpLang.Nf.map
         ~f_val:(fun aval -> OpLang.AVal.rename aval renaming)
@@ -168,25 +184,8 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     ^ string_of_a_nf "" (a_nf_term', store');
     (* Taking ienv:Γ→Θ, then we lift it into ienv':Γ → Θ+Δ with Δ=lnamectx *)
     let ienv' = IEnv.weaken_r ienv lnamectx in
-    (* Old version: we use to tensor it
-    let id_lnamectx = IEnv.embed_renaming @@ IEnv.Renaming.id lnamectx in
-    let ienv' = IEnv.tensor ienv id_lnamectx in*)
-    (* we weaken the abstract term from 
-    Util.Debug.print_debug @@ "Before creating the renaming";
-    let renaming = OpLang.Renaming.weak_r lnamectx (IEnv.im ienv) in
-    Util.Debug.print_debug @@ "Before lifting the renaming "
-    ^ IEnv.Renaming.to_string renaming;*)
-    let renaming = IEnv.embed_renaming @@ renaming in
+    let renaming = IEnv.embed_renaming renaming in
     Util.Debug.print_debug @@ "Renaming  : " ^ IEnv.to_string renaming;
-    (*    let a_nf_term' =
-      OpLang.Nf.map
-        ~f_val:(fun aval -> OpLang.AVal.rename aval renaming)
-        ~f_fn:Fun.id ~f_cn:Fun.id ~f_ectx:Fun.id a_nf_term in
-    Util.Debug.print_debug @@ "The weaken_r abstract normal form term is :"
-    ^ OpLang.Nf.string_of_nf_term "" OpLang.AVal.string_of_abstract_val
-        (fun () -> "")
-        IEnv.Renaming.Namectx.Names.string_of_name
-        IEnv.Renaming.Namectx.Names.string_of_name a_nf_term;*)
     (* Then we substitute the names *)
     let ienv'' = IEnv.copairing ienv' renaming in
     let f_val = OpLang.AVal.subst_pnames ienv'' in
@@ -256,20 +255,6 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
      labels that becomes diclosed.
      This computation would necessitate an iterative process. *)
 
-  let get_subject_name (a_nf_term, _) =
-    let f_fn nn = (nn, Some nn) in
-    let f_cn nn = (nn, Some nn) in
-    match snd @@ OpLang.Nf.map_fn None f_fn a_nf_term with
-    | None -> snd @@ OpLang.Nf.map_cn None f_cn a_nf_term
-    | Some _ as res -> res
-
-  let abstract_normal_form_to_yojson a_nf =
-    let[@warning "-8"] (Some nn) = get_subject_name a_nf in
-    `Assoc
-      [
-        ("subjectName", IEnv.Renaming.Namectx.Names.name_to_yojson nn);
-        ("string", `String (string_of_a_nf "" a_nf));
-      ]
 
   let eval (opconf, namectxO, storectx_discl) =
     let open EvalMonad in
