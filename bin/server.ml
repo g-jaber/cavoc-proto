@@ -27,7 +27,15 @@ let server =
 let () = Lwt_main.run server
 *)
 
-let project_root = Filename.dirname (Sys.getcwd ())
+let project_root =
+  let cwd = Unix.realpath (Sys.getcwd ()) in
+  let base = Filename.basename cwd in
+  let root =
+    if base = "bin" then Filename.dirname cwd
+    else cwd
+  in
+  Printf.printf "Dossier racine du projet détecté : %s\n%!" root;
+  root
 let () = Printf.printf "Dossier racine du projet : %s\n%!" project_root
 
 

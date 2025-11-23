@@ -297,6 +297,7 @@ input[type="radio"] {
 
 .tab-content.active {
   display: block;
+  overflow-y: scroll; 
   padding: 0.05%;
 }
 
@@ -315,6 +316,14 @@ input[type="radio"] {
   border: 1px solid rgb(152, 152, 152);
   border-radius: 5px;
   margin: 3px;
+}
+
+/* Highlight class for ienv items when a move is selected */
+.ienv-item-highlighted {
+  border: 3px solid #a6e22e !important;
+  background-color: rgba(166, 226, 46, 0.1) !important;
+  box-shadow: 0 0 10px rgba(166, 226, 46, 0.3) !important;
+  transition: all 0.3s ease;
 }
 
 .stack-item {
