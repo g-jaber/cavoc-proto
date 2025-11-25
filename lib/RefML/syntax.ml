@@ -326,7 +326,11 @@ let subst_var expr id = subst expr (Var id)
 
 let rec rename expr renam =
   match expr with
-  | Name nn -> Name (Renaming.Renaming.lookup renam nn)
+  | Name nn -> 
+    begin match Renaming.Renaming.lookup renam nn with
+    | mn -> Name mn
+    | exception Not_found -> expr
+  end
   | Var _ | Loc _ | Hole | Unit | Int _ | Bool _ | Error -> expr
   | Constructor (cons, expr') -> Constructor (cons, rename expr' renam)
   | BinaryOp (op, expr1, expr2) ->
