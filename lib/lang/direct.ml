@@ -72,7 +72,7 @@ struct
   module IEnv = Ienv.Aggregate (OpLang.IEnv) (StackEnv) (Renaming)
 
   type abstract_normal_form =
-    (OpLang.AVal.abstract_val, unit, OpLang.Names.name, unit) OpLang.Nf.nf_term
+    (OpLang.AVal.abstract_val, unit, OpLang.Names.name, UnitNames.name) OpLang.Nf.nf_term
     * OpLang.Store.store
 
   let get_subject_name (a_nf_term, _) =

@@ -376,7 +376,7 @@ module Aggregate
   let to_yojson (ienv1, ienv2) =
     match (IEnv1.to_yojson ienv1, IEnv2.to_yojson ienv2) with
     | (`Assoc ienv1_l, `Assoc ienv2_l) -> `Assoc (ienv1_l @ ienv2_l)
-    | (ienv1_yojson,ienv2_yojson) -> `Tuple [ienv1_yojson; ienv2_yojson]
+    | (ienv1_yojson,ienv2_yojson) -> `List [ienv1_yojson; ienv2_yojson]
 
   let empty (im1, im2) = (IEnv1.empty im1, IEnv2.empty im2)
   let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
@@ -531,7 +531,7 @@ module AggregateCommon
   let to_yojson (ienv1, ienv2) =
     match (IEnv1.to_yojson ienv1, IEnv2.to_yojson ienv2) with
     | (`Assoc ienv1_l, `Assoc ienv2_l) -> `Assoc (ienv1_l @ ienv2_l)
-    | (ienv1_yojson,ienv2_yojson) -> `Tuple [ienv1_yojson; ienv2_yojson]
+    | (ienv1_yojson,ienv2_yojson) -> `List [ienv1_yojson; ienv2_yojson]
 
   let lookup_exn (ienv1, ienv2) nn =
     match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with
