@@ -291,11 +291,12 @@ module Make_Stack
   let embed_renaming _renam =
     failwith "Embed renaming is impossible for stacks. Please report."
 
+  (* We put ienv2 on top of ienv1 !*)
   let copairing ienv1 ienv2 =
     assert (ienv1.im = ienv2.im);
     {
-      stack= List.append ienv1.stack ienv2.stack;
-      dom= Renaming.Namectx.concat ienv1.dom ienv2.dom;
+      stack= List.append ienv2.stack ienv1.stack;
+      dom= Renaming.Namectx.concat ienv2.dom ienv1.dom;
       im= ienv1.im;
     }
 
