@@ -50,7 +50,8 @@ let list_files_in_dir dir =
       []
 
 let list_files_handler _conn _req _body =
-  let dir = Filename.concat project_root "test" in
+  (*let dir = Filename.concat project_root "test" in *)
+  let dir = Filename.concat project_root "tuto" in
   (*Printf.printf "Tentative de lecture du dossier : %s\n%!" dir;*)
   let files = list_files_in_dir dir in
   let json = `List (List.map (fun f -> `String f) files) in
