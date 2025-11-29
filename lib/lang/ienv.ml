@@ -275,11 +275,11 @@ module Make_Stack
 
   let pp fmt ienv =
     match ienv.stack with
-    | [] -> Format.fprintf fmt "⋅"
+    | [] -> Format.fprintf fmt "[]"
     | _ ->
-        let pp_sep fmt () = Format.fprintf fmt ", " in
+        let pp_sep fmt () = Format.fprintf fmt "; " in
         Format.pp_print_list ~pp_sep
-          (fun fmt v -> Format.fprintf fmt "%a" Value.pp v)
+          (fun fmt v -> Format.fprintf fmt "[%a]" Value.pp v)
           fmt ienv.stack
 
   let to_string = Format.asprintf "%a" pp

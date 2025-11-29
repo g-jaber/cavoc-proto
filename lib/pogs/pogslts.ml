@@ -1,16 +1,9 @@
-module Make (Lang : Lang.Interactive.LANG) :
-  Lts.Strategy.INT_LTS
-    with module TypingLTS.Moves.Renaming = Lang.IEnv.Renaming
-     and type opconf = Lang.opconf
-     and type store = Lang.store
-     and type interactive_env = Lang.IEnv.t = struct
+module Make (Lang : Lang.Interactive.LANG_WITH_INIT) :
+  Lts.Strategy.LTS_WITH_INIT = struct
   module TypingLTS = Typing.Make (Lang)
   module EvalMonad = Lang.EvalMonad
   module Moves = TypingLTS.Moves
 
-  type opconf = Lang.opconf
-  type store = Lang.store
-  type interactive_env = Lang.IEnv.t
   type active_conf = { opconf: Lang.opconf; pos: TypingLTS.position }
 
   type passive_conf = {
@@ -82,4 +75,13 @@ module Make (Lang : Lang.Interactive.LANG) :
 
   let equiv_act_conf act_conf act_confb =
     act_conf.opconf = act_confb.opconf (* Fishy *)
+
+  let lexing_init_aconf expr_lexbuffer =
+    let (opconf, namectxO) = Lang.get_typed_opconf "first" expr_lexbuffer in
+    init_aconf opconf namectxO
+
+  let lexing_init_pconf decl_lexbuffer signature_lexbuffer =
+    let (interactive_env, store, name_ctxP, name_ctxO) =
+      Lang.get_typed_ienv decl_lexbuffer signature_lexbuffer in
+    init_pconf store interactive_env name_ctxP name_ctxO
 end

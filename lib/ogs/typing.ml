@@ -52,7 +52,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
         let renaming = IntLang.IEnv.Renaming.weak_r lnamectx namectxO in
         (* now namectxO = Γₒ + Δ *)
         let namectxO = IntLang.IEnv.Renaming.im renaming in
-        Util.Debug.print_debug @@ "The new move " ^ (IntLang.string_of_a_nf "?" a_nf) ^ " is produces new name context :"
+        Util.Debug.print_debug @@ "The new move " ^ (IntLang.string_of_a_nf "?" a_nf) ^ " is producing the new name context :"
         ^ IntLang.IEnv.Renaming.Namectx.to_string lnamectx
         ^ " giving the updated Opponent name context "
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO;

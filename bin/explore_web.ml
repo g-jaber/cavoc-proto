@@ -417,26 +417,27 @@ let () =
   Sys_js.set_channel_flusher stdout print_to_output;
   Sys_js.set_channel_flusher stderr print_to_output
 
+let generate_kind_lts () = 
+  let open Lts_kind in
+  let oplang = RefML in
+  let control = CPS (* DirectStyle *) in
+  let restrictions = [] in
+  {oplang; control; restrictions}
+
 let evaluate_code () =
   flush_moves ();
   fetch_editor_content ();
-  (* Initialisation des modules du langage *)
-  let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
-  let module CpsLang = Lang.Cps.MakeComp (OpLang) () in
-  let module IntLang = Lang.Interactive.Make (CpsLang) in
-  let module TypingLTS = Ogs.Typing.Make (IntLang) in
-  let module OGS_LTS = Ogs.Ogslts.Make (IntLang) (TypingLTS) in
+  let kind_lts = generate_kind_lts () in
+  let (module OGS_LTS) = Lts_kind.build_lts kind_lts in
   
   (* Parsing et typage *)
   let lexBuffer_code = Lexing.from_string !editor_content in
   let lexBuffer_sig = Lexing.from_string !signature_content in
-  let (interactive_env, store, name_ctxP, name_ctxO) =
-    IntLang.get_typed_ienv lexBuffer_code lexBuffer_sig in
     
   (* Création de la configuration initiale *)
   let init_conf =
     OGS_LTS.Passive
-      (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
+      (OGS_LTS.lexing_init_pconf lexBuffer_code lexBuffer_sig) in
       
   (* Création du module de construction interactif *)
   let module IBuild = Lts.Interactive_build.Make (OGS_LTS) in

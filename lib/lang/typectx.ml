@@ -121,12 +121,12 @@ module Make_List
   let pp fmt = function
     | [] -> Format.fprintf fmt "⋅"
     | name_ctx ->
-        let pp_sep fmt () = Format.fprintf fmt ", " in
+        let pp_sep fmt () = Format.fprintf fmt "; " in
         Format.pp_print_list ~pp_sep
           (fun fmt (str, typ) -> Format.fprintf fmt "%s:%a" str Types.pp typ)
           fmt name_ctx
 
-  let to_string = Format.asprintf "%a" pp
+  let to_string = Format.asprintf "[%a]" pp
   let get_names = List.mapi (fun i (str, _typ) -> (i, str))
 
   let to_yojson nctx =
@@ -180,12 +180,12 @@ end) : TYPECTX with type typ = Types.t and type Names.name = unit = struct
   let pp fmt = function
     | [] -> Format.fprintf fmt "⋅"
     | name_ctx ->
-        let pp_sep fmt () = Format.fprintf fmt ", " in
+        let pp_sep fmt () = Format.fprintf fmt "; " in
         Format.pp_print_list ~pp_sep
           (fun fmt typ -> Format.fprintf fmt "%a" Types.pp typ)
           fmt name_ctx
 
-  let to_string = Format.asprintf "%a" pp
+  let to_string = Format.asprintf "[%a]" pp
   let get_names _ = [ () ]
   let to_yojson nctx = `List (List.map Types.to_yojson nctx)
 
@@ -348,7 +348,7 @@ module AggregateCommon
     (Namectx1.concat namectx11 namectx21, Namectx2.concat namectx12 namectx22)
 
   let pp fmt (namectx1, namectx2) =
-    Format.fprintf fmt "(%a,%a)" Namectx1.pp namectx1 Namectx2.pp namectx2
+    Format.fprintf fmt "⟨%a | %a⟩" Namectx1.pp namectx1 Namectx2.pp namectx2
 
   let to_string = Format.asprintf "%a" pp
 
