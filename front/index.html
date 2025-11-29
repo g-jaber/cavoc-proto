@@ -19,6 +19,9 @@
       <h2>Signature OCaml</h2>
       <div id="signatureEditor"></div>
     </div>
+    <div id="help" class="help">
+      <button onclick="alert('Your goal is to trigger a failwith. To achieve this, you must disprove an assumption. \n You just have to start playing by clicking the Evaluate button. Then, first click the select button. It will start the game.')" id="help-btn" class="help-btn">Help</button>
+    </div>
     <div id="file-selection" class="file-selection-container">
       <label for="file-select">Select a file:</label>
       <select id="file-select-dropdown" class="file-select">
@@ -86,11 +89,19 @@
     editor.set;
 
     // Set the default code for the code editor
-    var code = `(* To be tested with
-dune exec explore.exe test/isc.ml test/isc.mli
+    var code = `(*
+Your goal is to trigger a failwith.
+To achieve this, you must disprove an assumption.
+In this simple example, it will trigger itself. Here, x = 0, and the assumption is x = 1.
+You just have to start playing by clicking the "Evaluate" button.
+Then, click the "select button". It will start the game.
+In the "store" panel, you can see that x = lx and lx = 0.
+Select the 2nd line on the left. In the "ienv" panel, it will color "∙; assert (!x = 1)".
+It means that it will play this line: checking if x = 1 or not.
+You won !
 *)
 let x = ref 0
-let g f = x := 1; f(); assert (!x = 1)`;
+let g f = f(); assert (!x = 1)`;
 
     // Set the default code for the signature editor
     var signature = `val g : (unit -> unit) -> unit`;
@@ -187,7 +198,10 @@ let g f = x := 1; f(); assert (!x = 1)`;
       });
 
       // Set the default selected file to "higher_order.ml"
-      const defaultFile = "higher_order.ml";
+      // const defaultFile = "higher_order.ml";
+
+      // Set the default selected file to "tuto1.ml"
+      const defaultFile = "tuto1.ml";
       fileSelect.value = defaultFile;
 
       // Load the selected file into the editor when the load button is clicked
@@ -207,7 +221,8 @@ let g f = x := 1; f(); assert (!x = 1)`;
           const mliFileName = mlFileName.replace(".ml", ".mli");
 
           // Load .ml file content into the editor
-          fetch(`../test/${mlFileName}`)
+          // fetch(`../test/${mlFileName}`)
+          fetch(`../tuto/${mlFileName}`)
             .then((response) => response.text())
             .then((mlContent) => {
               editor.session.setValue(mlContent);
@@ -215,7 +230,8 @@ let g f = x := 1; f(); assert (!x = 1)`;
             .catch((error) => console.error("Error loading .ml file:", error));
 
           // Load .mli file content into the signature editor if it exists
-          fetch(`../test/${mliFileName}`)
+          // fetch(`../test/${mliFileName}`)
+          fetch(`../tuto/${mliFileName}`)
             .then((response) => response.text())
             .then((mliContent) => {
               signatureEditor.session.setValue(mliContent);
