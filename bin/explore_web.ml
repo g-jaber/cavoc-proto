@@ -57,7 +57,8 @@ let generate_store_html (store_str : string) : string =
   |> List.filter (fun s -> s <> "")
   |> List.map (fun line -> Printf.sprintf "<div>%s</div>" line)
   |> String.concat "\n"
-
+  
+(* Escapes HTML special characters (&, <, >) for safe rendering. *)
 let html_escape (s : string) : string =
   let s = String.concat "&amp;"
     (String.split_on_char '&' s) in
@@ -66,7 +67,7 @@ let html_escape (s : string) : string =
     (String.split_on_char '>' s) in
   s
 
-(* [NOUVEAU] Génère le HTML pour le store en format JSON List, en filtrant les doublons de ienv *)
+(* Génère le HTML pour le store en format JSON List, en filtrant les doublons de ienv *)
 let generate_store_html_from_json (store_json : Yojson.Safe.t) (ienv_json : Yojson.Safe.t option) : string =
   (* 1. Extraire les paires de ienv si disponible pour comparaison *)
   let ienv_pairs =
@@ -353,10 +354,12 @@ let generate_clickables moves =
         highlight_subject first_move_json
     | [] -> ()
 
+(* Clear the moves_list. Called when the page is reset*)
 let clear_list () : unit =
   let moves_list = Dom_html.getElementById "moves-list" in
   moves_list##.innerHTML := Js.string ""
 
+(* Waits for user to click on one of the buttons and returns the chosen move index *)
 let get_chosen_move _ =
   let select_btn_opt = Dom_html.getElementById_opt "select-btn" in
   let load_btn_opt = Dom_html.getElementById_opt "load-btn" in
@@ -407,6 +410,7 @@ let get_chosen_move _ =
                                       else acc))))
                     (-4) children in
                 Lwt.return selected_move );
+          (* When button "load" or "stop" are clicked return -1 to make the failure "Stop" happen *)
           (Lwt_js_events.click load_btn >>= fun _ -> Lwt.return (-1));
           (Lwt_js_events.click stop_btn >>= fun _ -> Lwt.return (-1));
         ]
@@ -519,6 +523,9 @@ let evaluate_code () =
       Lwt.return_unit
 
 (* Do page init, creating the callback on the submit button, and managing some button looks*)
+(* Pass of an execution : at start : init_page() -> when evaluate button clicked : evaluate_code(), generate_clickable() -> when select button clicked : get_chosen_move() -> 
+  highlight_subject() -> when stop or load button clicked : exception Failure "Stop" -> init_page() *)
+
 let rec init_page () =
   Printexc.record_backtrace true;
   let button = Dom_html.getElementById "submit" in
