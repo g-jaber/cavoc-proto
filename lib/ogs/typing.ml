@@ -52,7 +52,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
         let renaming = IntLang.IEnv.Renaming.weak_r lnamectx namectxO in
         (* now namectxO = Γₒ + Δ *)
         let namectxO = IntLang.IEnv.Renaming.im renaming in
-        Util.Debug.print_debug @@ "The new move " ^ (IntLang.string_of_a_nf "?" a_nf) ^ " is produces new name context :"
+        Util.Debug.print_debug @@ "The new move " ^ (IntLang.string_of_a_nf "?" a_nf) ^ " is producing the new name context :"
         ^ IntLang.IEnv.Renaming.Namectx.to_string lnamectx
         ^ " giving the updated Opponent name context "
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO;
@@ -98,14 +98,14 @@ module Make (IntLang : Lang.Interactive.LANG) :
         let namectxP = IntLang.IEnv.Renaming.Namectx.concat lnamectx namectxP in
           Util.Debug.print_debug @@ "After trigger, new Proponent name context :"
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxP
-        ^ " and previous Opponent name context"
+        ^ " and new Opponent name context"
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO;
         { status= Passive; storectx; namectxP; namectxO }
     | (Moves.Input, { status= Passive; storectx; namectxP; namectxO }) ->
         let namectxO = IntLang.IEnv.Renaming.Namectx.concat lnamectx namectxO in
           Util.Debug.print_debug @@ "After trigger, new Opponent name context :"
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO
-        ^ " and previous Proponent name context"
+        ^ " and new Proponent name context"
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxP;
         { status= Active; storectx; namectxP; namectxO }
     | _ ->

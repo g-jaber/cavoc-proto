@@ -135,6 +135,8 @@ struct
     Util.Debug.print_debug @@ "Abstracting_nf_term in the context "
     ^ Namectx.to_string namectxO;
     let ty_out = Stackctx.lookup_exn stackctxO () in
+        Util.Debug.print_debug @@ "Return type is "
+    ^ OpLang.string_of_type ty_out ;
     let inj_ty ty = ty in
     let get_type_fname fn =
       let nty = OpLang.Namectx.lookup_exn fnamectxO fn in

@@ -10,6 +10,8 @@ type kind_exe =
   | Prog of string
   | Module of (string*string)
 *)
+
+
 let number_filename = ref 0
 let filename1 = ref ""
 let filename2 = ref ""
@@ -37,13 +39,22 @@ let speclist =
       Arg.Set enable_visibility,
       "Enable the visibility enforcement of the interaction" );
     ( "-no-cps",
-      Tuple [Arg.Clear enable_cps; Arg.Clear enable_wb],
+      Tuple [ Arg.Clear enable_cps; Arg.Clear enable_wb ],
       "Use a representation of actions as calls and return rather than in cps \
        style. This is incompatible with both visibility restriction and open \
        composition." );
   ]
 
 let usage_msg = "Usage: explore filename.ml filename.mli [options]"
+
+let generate_kind_lts () = 
+  let open Lts_kind in
+  let oplang = RefML in
+  let control = if !enable_cps then CPS else DirectStyle in
+  let restrictions = if !enable_wb then [WellBracketing] else [] in
+  let restrictions = if !enable_visibility then Visibility::restrictions else restrictions in
+  {oplang; control; restrictions}
+
 
 let fix_mode () =
   match (!is_compare, !is_compose) with
@@ -112,53 +123,18 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
   let graph_string = Graph.string_of_graph graph in
   print_string graph_string
 
-let build_ogs_lts (module IntLang : Lang.Interactive.LANG_WITH_INIT) =
-  let (module OGS_LTS : Lts.Strategy.INT_LTS
-        with type opconf = IntLang.opconf
-         and type TypingLTS.Moves.Renaming.Namectx.t = IntLang.IEnv.Renaming.Namectx.t
-         and type store = IntLang.store
-         and type interactive_env = IntLang.IEnv.t) =
-    match (!generate_tree, !enable_wb, !enable_visibility) with
-    | (true, _, _) -> (module Pogs.Pogslts.Make (IntLang))
-    | (false, true, true) ->
-        let module TypingLTS = Ogs.Typing.Make (IntLang) in
-        let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
-        let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
-        let module VisLTS = Ogs.Vis_lts.Make (TypingLTS.Moves) in
-        let module ProdLTS = Lts.Product_lts.Make (ProdLTS) (VisLTS) in
-        (module Ogs.Ogslts.Make (IntLang) (ProdLTS))
-    | (false, true, false) ->
-        let module TypingLTS = Ogs.Typing.Make (IntLang) in
-        let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
-        let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
-        (module Ogs.Ogslts.Make (IntLang) (ProdLTS))
-    | (false, false, true) ->
-        let module TypingLTS = Ogs.Typing.Make (IntLang) in
-        let module VisLTS = Ogs.Vis_lts.Make (TypingLTS.Moves) in
-        let module ProdLTS = Lts.Product_lts.Make (TypingLTS) (VisLTS) in
-        (module Ogs.Ogslts.Make (IntLang) (ProdLTS))
-    | (false, false, false) ->
-        let module TypingLTS = Ogs.Typing.Make (IntLang) in
-        (module Ogs.Ogslts.Make (IntLang) (TypingLTS)) in
+
+let build_strategy (module LTS : Lts.Strategy.LTS_WITH_INIT) =
   check_number_filenames ();
   match !is_mode with
   | Compare -> begin
       let inBuffer1 = open_in !filename1 in
-      let lexBuffer1 = Lexing.from_channel inBuffer1 in
-      let (opconf1, namectxO1) = IntLang.get_typed_opconf "first" lexBuffer1 in
-      Util.Debug.print_debug "Getting the second program";
+      let exprBuffer1 = Lexing.from_channel inBuffer1 in
       let inBuffer2 = open_in !filename2 in
-      let lexBuffer2 = Lexing.from_channel inBuffer2 in
-      let (opconf2, namectxO2) = IntLang.get_typed_opconf "second" lexBuffer2 in
-      Util.Debug.print_debug
-        ("Name contexts for Opponent: "
-        ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO1
-        ^ " and "
-        ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO2);
-      (* TODO: We should check that they are equal*)
-      let module Synch_LTS = Lts.Synch_lts.Make (OGS_LTS) in
+      let exprBuffer2 = Lexing.from_channel inBuffer2 in
+      let module Synch_LTS = Lts.Synch_lts.Make (LTS) in
       let init_conf =
-        Synch_LTS.Active (Synch_LTS.init_aconf (opconf1, opconf2) namectxO1)
+        Synch_LTS.Active (Synch_LTS.lexing_init_aconf exprBuffer1 exprBuffer2)
       in
       if !print_dot then
         let module Graph = Lts.Graph.Make (Synch_LTS) in
@@ -172,16 +148,13 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG_WITH_INIT) =
         Util.Debug.print_debug "Getting the program";
         let expr_buffer = open_in !filename1 in
         let expr_lexbuffer = Lexing.from_channel expr_buffer in
-        let (opconf, namectxO) =
-          IntLang.get_typed_opconf "first" expr_lexbuffer in
-        (*Util.Debug.print_debug
-          ("Name contexts for Opponent: " ^ IntLang.string_of_name_ctx namectxO);*)
-        let init_conf = OGS_LTS.Active (OGS_LTS.init_aconf opconf namectxO) in
+        let init_conf =
+          LTS.Active (LTS.lexing_init_aconf expr_lexbuffer) in
         if !print_dot then
-          let module Graph = Lts.Graph.Make (OGS_LTS) in
+          let module Graph = Lts.Graph.Make (LTS) in
           build_graph (module Graph) init_conf
         else
-          let module Generate = Lts.Generate_trace.Make (OGS_LTS) in
+          let module Generate = Lts.Generate_trace.Make (LTS) in
           build_graph (module Generate) init_conf
       end
       else begin
@@ -190,16 +163,14 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG_WITH_INIT) =
         let decl_lexbuffer = Lexing.from_channel decl_buffer in
         let signature_buffer = open_in !filename2 in
         let signature_lexbuffer = Lexing.from_channel signature_buffer in
-        let (interactive_env, store, name_ctxP, name_ctxO) =
-          IntLang.get_typed_ienv decl_lexbuffer signature_lexbuffer in
         let init_conf =
-          OGS_LTS.Passive
-            (OGS_LTS.init_pconf store interactive_env name_ctxP name_ctxO) in
+          LTS.Passive
+            (LTS.lexing_init_pconf decl_lexbuffer signature_lexbuffer) in
         if !print_dot then
-          let module Graph = Lts.Graph.Make (OGS_LTS) in
+          let module Graph = Lts.Graph.Make (LTS) in
           build_graph (module Graph) init_conf
         else
-          let module Generate = Lts.Generate_trace.Make (OGS_LTS) in
+          let module Generate = Lts.Generate_trace.Make (LTS) in
           build_graph (module Generate) init_conf
       end
   | Compose -> failwith "Compose is not yet implemented"
@@ -207,11 +178,6 @@ let build_ogs_lts (module IntLang : Lang.Interactive.LANG_WITH_INIT) =
 let () =
   Arg.parse speclist get_filename usage_msg;
   fix_mode ();
-  let module OpLang = Refml.RefML.WithAVal (Util.Monad.ListB) in
-  if !enable_cps then
-    let module CpsLang = Lang.Cps.MakeComp (OpLang) () in
-    let module IntLang = Lang.Interactive.Make (CpsLang) in
-    build_ogs_lts (module IntLang)
-  else
-    let module DirectLang = Lang.Direct.Make (OpLang) in
-    build_ogs_lts (module DirectLang)
+  let kind_lts = generate_kind_lts () in
+  let lts = Lts_kind.build_lts kind_lts in
+  build_strategy lts

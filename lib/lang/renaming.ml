@@ -218,11 +218,11 @@ module MakeNoName (Namectx : Typectx.TYPECTX with type Names.name = unit) :
     { dom; im= renam1.im }
 
   let weak_l namectx_l namectx_r =
-    { dom = namectx_l;  im= Namectx.concat namectx_l namectx_r }
+    { dom = namectx_l;  im= Namectx.concat namectx_r namectx_l } (* We put things in the other way arround*)
 
   (* weak_r Δ Γ : Δ → Γ + Δ*)
   let weak_r namectx_l namectx_r =
-    { dom= namectx_l; im= Namectx.concat namectx_r namectx_l }
+    { dom= namectx_l; im= Namectx.concat namectx_l namectx_r } (* Same here *)
 
   let sym _namectx_l _namectx_r = failwith "TODO"
 
