@@ -420,7 +420,7 @@ let () =
 let generate_kind_lts () = 
   let open Lts_kind in
   let oplang = RefML in
-  let control = CPS (* DirectStyle *) in
+  let control = (* CPS *)  DirectStyle in
   let restrictions = [] in
   {oplang; control; restrictions}
 

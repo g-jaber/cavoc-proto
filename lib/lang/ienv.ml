@@ -337,8 +337,10 @@ module Make_Stack
   let get_last ienv =
     match ienv.stack with
     | [] -> None
-    | v :: stack -> Some (v, { ienv with stack })
-  (* This is wrong as we do not restrict the domain !*)
+    | v :: stack -> 
+      let ty = Renaming.Namectx.lookup_exn ienv.dom () in
+      let[@warning "-8"] (Some dom) = Renaming.Namectx.is_last ienv.dom () ty in
+      Some (v, { ienv with stack; dom })
 end
 
 module Aggregate

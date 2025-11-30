@@ -230,7 +230,7 @@ module Aggregate
     (Namectx1.concat namectx11 namectx21, Namectx2.concat namectx12 namectx22)
 
   let pp fmt (namectx1, namectx2) =
-    Format.fprintf fmt "(%a,%a)" Namectx1.pp namectx1 Namectx2.pp namectx2
+    Format.fprintf fmt "⟨%a | %a⟩" Namectx1.pp namectx1 Namectx2.pp namectx2
 
   let to_string = Format.asprintf "%a" pp
 
