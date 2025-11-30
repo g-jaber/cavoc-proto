@@ -27,6 +27,7 @@ let server =
 let () = Lwt_main.run server
 *)
 
+(*Allows you to find the path to the project's root folder on the computer*)
 let project_root =
   let cwd = Unix.realpath (Sys.getcwd ()) in
   let base = Filename.basename cwd in
@@ -38,7 +39,7 @@ let project_root =
   root
 let () = Printf.printf "Dossier racine du projet : %s\n%!" project_root
 
-
+(*Create the list of files that can be load*)
 let list_files_in_dir dir =
   try
     let files = Sys.readdir dir in
@@ -49,6 +50,8 @@ let list_files_in_dir dir =
       Printf.printf "Erreur lors de la lecture du dossier %s : %s\n%!" dir (Printexc.to_string e);
       []
 
+(* Handles the API request to list files: reads the "tuto" directory, 
+  converts the list to JSON, and returns an HTTP 200 response. *)
 let list_files_handler _conn _req _body =
   (*let dir = Filename.concat project_root "test" in *)
   let dir = Filename.concat project_root "tuto" in
@@ -59,20 +62,26 @@ let list_files_handler _conn _req _body =
   (*Printf.printf "Réponse envoyée : %s\n%!" response_body;*)
   Server.respond_string ~status:`OK ~body:response_body ()
 
+(* Main router: analyzes the requested URL to route to the API (/list_files) 
+  or to the static file service. *)
 let callback _conn (req : Request.t) (body : Cohttp_lwt.Body.t) =
   let uri_path = Request.uri req |> Uri.path in
   match uri_path with
   | "/list_files" -> list_files_handler _conn req body
   | _ ->
+      (* Logic to serve static files (HTML, JS, CSS) *)
       let file_path =
         let path =
+          (* Redirects root "/" to "front/index.html" by default *)
           if uri_path = "/" then "front/index.html"
+          (* Cleans the path (removes the leading slash) *)
           else if String.length uri_path > 0 && uri_path.[0] = '/' then
             String.sub uri_path 1 (String.length uri_path - 1)
           else uri_path
         in
         Filename.concat project_root path
       in
+      (* Attempts to read the file, returns 404 if not found *)
       Lwt.catch
         (fun () ->
           Lwt_io.with_file ~mode:Lwt_io.Input file_path Lwt_io.read >>= fun body ->
@@ -80,7 +89,8 @@ let callback _conn (req : Request.t) (body : Cohttp_lwt.Body.t) =
         (fun _ -> Server.respond_string ~status:`Not_found ~body:"File not found" ())
         
 
-(*let server = Server.create ~mode:(`TCP (`Port 8000)) (Server.make ~callback ())*)
+(* Initializes and launches the server on port 8000 with error handling 
+  (e.g., port already in use). *)
 let start_server () =
   let mode = `TCP (`Port 8000) in
   let server = Server.make ~callback () in
@@ -89,6 +99,7 @@ let start_server () =
       Printf.printf " Serveur démarré sur http://localhost:8000/front/index.html\n%!";
       Server.create ~mode server)
     (function
+      (* Specific handling if port 8000 is blocked *)
       | Unix.Unix_error (Unix.EADDRINUSE, "bind", _) ->
           Printf.eprintf " Erreur : le port 8000 est déjà utilisé.\n";
           Printf.eprintf " Fermez l'autre instance du serveur avant de relancer.\n";
