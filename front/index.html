@@ -7,6 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.5/ace.js"></script>
     <link rel="stylesheet" href="style.css" />
     <link rel="shortcut icon" href="./" type="image/x-icon" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   </head>
 
   <body>
@@ -20,8 +21,15 @@
       <div id="signatureEditor"></div>
     </div>
     <div id="help" class="help">
-      <button onclick="alert('Your goal is to trigger a failwith. To achieve this, you must disprove an assumption. \n You just have to start playing by clicking the Evaluate button. Then, first click the select button. It will start the game.')" id="help-btn" class="help-btn">Help</button>
+      <button id="help-btn" class="help-btn">Help</button>
     </div>
+    <div id="help-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn">&times;</span>
+      <div id="markdown-content">Chargement...</div>
+    </div>
+    </div>
+
     <div id="file-selection" class="file-selection-container">
       <label for="file-select">Select a file:</label>
       <select id="file-select-dropdown" class="file-select">

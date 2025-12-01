@@ -523,11 +523,77 @@ let evaluate_code () =
   | IBuild.Stopped ->
       Lwt.return_unit
 
+
+
+(* Appel unsafe à la librairie JS 'marked' chargée dans le HTML *)
+let parse_markdown (md : string) : string =
+  let marked = Js.Unsafe.get Js.Unsafe.global "marked" in
+  Js.to_string (Js.Unsafe.meth_call marked "parse" [| Js.Unsafe.inject (Js.string md) |])
+
+(* Fonction pour charger et afficher l'aide *)
+let show_help () =
+  let modal = Dom_html.getElementById "help-modal" in
+  let content_div = Dom_html.getElementById "markdown-content" in
+  
+  (* Affiche direct *)
+  modal##.style##.display := Js.string "block";
+  
+  (* Récupérer le contenu du fichier help.md de manière asynchrone *)
+  let%lwt response = Js_of_ocaml_lwt.XmlHttpRequest.get "help.md" in
+  let html_content = 
+    if response.code = 200 then
+      parse_markdown response.content
+    else
+      "<p style='color:red'>Erreur de chargement du fichier d'aide.</p>"
+  in
+  
+  content_div##.innerHTML := Js.string html_content;
+  Lwt.return_unit
+
+(* Fonction pour fermer l'aide *)
+let close_help () =
+  let modal = Dom_html.getElementById "help-modal" in
+  modal##.style##.display := Js.string "none";
+  Js._true
+
+(* Initialisation listener event *)
+let init_help_events () =
+  let help_btn = Dom_html.getElementById "help-btn" in
+  let close_span = 
+    let elements = Dom_html.document##getElementsByClassName (Js.string "close-btn") in
+    Js.Opt.get (elements##item 0) (fun () -> failwith "close-btn not found")
+  in
+  let modal = Dom_html.getElementById "help-modal" in
+
+  (* Clic sur le bouton Help *)
+  help_btn##.onclick := Dom_html.handler (fun _ -> 
+    Lwt.ignore_result (show_help ()); 
+    Js._true
+  );
+
+(* Clic sur la croix de fermeture *)
+  Js.Opt.iter (Dom_html.CoerceTo.element close_span) (fun el ->
+    el##.onclick := Dom_html.handler (fun _ -> close_help ())
+  );
+
+  (* Clic en dehors de la modale pour fermer *)
+  Dom_html.window##.onclick := Dom_html.handler (fun e ->
+    Js.Opt.case e##.target
+      (fun () -> Js._true) 
+      (fun target ->
+        if (target :> Dom_html.eventTarget Js.t) = (modal :> Dom_html.eventTarget Js.t) then
+          close_help ()
+        else
+          Js._true
+      )
+  )
+  
 (* Do page init, creating the callback on the submit button, and managing some button looks*)
 (* Pass of an execution : at start : init_page() -> when evaluate button clicked : evaluate_code(), generate_clickable() -> when select button clicked : get_chosen_move() -> 
   highlight_subject() -> when stop or load button clicked : exception Failure "Stop" -> init_page() *)
 
 let rec init_page () =
+  init_help_events ();
   Printexc.record_backtrace true;
   let button = Dom_html.getElementById "submit" in
   let select_button = Dom_html.getElementById "select-btn" in
