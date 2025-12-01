@@ -91,6 +91,8 @@ module Make (IntLang : Lang.Interactive.LANG) :
       end
     | _ -> None
 
+  (* Beware that trigger_move does not update correctly the positions when
+    some resources are consumed by the move *)
   let trigger_move pos (dir, move) =
     let lnamectx = Moves.get_namectx move in
     match (dir, pos) with
@@ -98,14 +100,14 @@ module Make (IntLang : Lang.Interactive.LANG) :
         let namectxP = IntLang.IEnv.Renaming.Namectx.concat lnamectx namectxP in
           Util.Debug.print_debug @@ "After trigger, new Proponent name context :"
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxP
-        ^ " and new Opponent name context"
+        ^ " and Opponent name context stays "
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO;
         { status= Passive; storectx; namectxP; namectxO }
     | (Moves.Input, { status= Passive; storectx; namectxP; namectxO }) ->
         let namectxO = IntLang.IEnv.Renaming.Namectx.concat lnamectx namectxO in
           Util.Debug.print_debug @@ "After trigger, new Opponent name context :"
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO
-        ^ " and new Proponent name context"
+        ^ " and Proponent name context stays "
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxP;
         { status= Active; storectx; namectxP; namectxO }
     | _ ->
