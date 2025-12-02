@@ -525,38 +525,37 @@ let evaluate_code () =
 
 
 
-(* Appel unsafe à la librairie JS 'marked' chargée dans le HTML *)
+(* Call the parser with the library loaded in the Html*)
 let parse_markdown (md : string) : string =
   let marked = Js.Unsafe.get Js.Unsafe.global "marked" in
   Js.to_string (Js.Unsafe.meth_call marked "parse" [| Js.Unsafe.inject (Js.string md) |])
 
-(* Fonction pour charger et afficher l'aide *)
+(* Display help*)
 let show_help () =
   let modal = Dom_html.getElementById "help-modal" in
   let content_div = Dom_html.getElementById "markdown-content" in
   
-  (* Affiche direct *)
   modal##.style##.display := Js.string "block";
   
-  (* Récupérer le contenu du fichier help.md de manière asynchrone *)
+  (* Get the data within help.md in a asynchronous way *)
   let%lwt response = Js_of_ocaml_lwt.XmlHttpRequest.get "help.md" in
   let html_content = 
     if response.code = 200 then
       parse_markdown response.content
     else
-      "<p style='color:red'>Erreur de chargement du fichier d'aide.</p>"
+      "<p style='color:red'>Error loading help file.</p>"
   in
   
   content_div##.innerHTML := Js.string html_content;
   Lwt.return_unit
 
-(* Fonction pour fermer l'aide *)
+
 let close_help () =
   let modal = Dom_html.getElementById "help-modal" in
   modal##.style##.display := Js.string "none";
   Js._true
 
-(* Initialisation listener event *)
+(* listener event *)
 let init_help_events () =
   let help_btn = Dom_html.getElementById "help-btn" in
   let close_span = 
@@ -565,18 +564,18 @@ let init_help_events () =
   in
   let modal = Dom_html.getElementById "help-modal" in
 
-  (* Clic sur le bouton Help *)
+  (* User click on the help button *)
   help_btn##.onclick := Dom_html.handler (fun _ -> 
     Lwt.ignore_result (show_help ()); 
     Js._true
   );
 
-(* Clic sur la croix de fermeture *)
+(* user click on the closing cross *)
   Js.Opt.iter (Dom_html.CoerceTo.element close_span) (fun el ->
     el##.onclick := Dom_html.handler (fun _ -> close_help ())
   );
 
-  (* Clic en dehors de la modale pour fermer *)
+  (* user click outside *)
   Dom_html.window##.onclick := Dom_html.handler (fun e ->
     Js.Opt.case e##.target
       (fun () -> Js._true) 
