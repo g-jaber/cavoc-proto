@@ -424,7 +424,7 @@ let () =
 let generate_kind_lts () = 
   let open Lts_kind in
   let oplang = RefML in
-  let control = (* CPS *)  DirectStyle in
+  let control =  CPS  (* DirectStyle *) in
   let restrictions = [] in
   {oplang; control; restrictions}
 
@@ -518,10 +518,10 @@ let evaluate_code () =
       Dom.appendChild modal content;
       Dom.appendChild doc##.body modal;
 
-      Lwt.return_unit
+      Lwt.return ()
 
   | IBuild.Stopped ->
-      Lwt.return_unit
+      Lwt.return ()
 
 
 
@@ -547,7 +547,7 @@ let show_help () =
   in
   
   content_div##.innerHTML := Js.string html_content;
-  Lwt.return_unit
+  Lwt.return ()
 
 
 let close_help () =
@@ -640,7 +640,9 @@ let rec init_page () =
       Js.Unsafe.set stop_button "title"
         (Js.string "You must be evaluating code to select an move");
       Lwt.catch
-        (fun () -> evaluate_code ())
+        (fun () -> 
+          let%lwt result = evaluate_code () in match result with
+          | () -> Lwt.return_unit)
         (function
           | Failure msg when msg = "Stop" ->
               (* Disable Select button again after Stop move *)

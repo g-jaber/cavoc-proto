@@ -1,5 +1,5 @@
 type oplang = RefML
-type control_structure = DirectStyle | CPS
+type control_structure = DirectStyle (* with stack of evaluation contexts *) | CPS (* with continuation names*)
 type restriction = Visibility | WellBracketing
 type kind_lts = {
   oplang : oplang;
