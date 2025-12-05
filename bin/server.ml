@@ -50,16 +50,19 @@ let list_files_in_dir dir =
       Printf.printf "Erreur lors de la lecture du dossier %s : %s\n%!" dir (Printexc.to_string e);
       []
 
-(* Handles the API request to list files: reads the "tuto" directory, 
-  converts the list to JSON, and returns an HTTP 200 response. *)
-let list_files_handler _conn _req _body =
-  (*let dir = Filename.concat project_root "test" in *)
-  let dir = Filename.concat project_root "tuto" in
-  (*Printf.printf "Tentative de lecture du dossier : %s\n%!" dir;*)
+(* Handles the API request to list files: reads "tuto" or "test" based on query param *)
+let list_files_handler _conn req _body =
+  let uri = Request.uri req in
+  let dir_name = 
+    match Uri.get_query_param uri "dir" with
+    | Some "test" -> "test"
+    | _ -> "tuto" (* Par défaut, on sert le tuto pour la sécurité *)
+  in
+  let dir = Filename.concat project_root dir_name in
+  
   let files = list_files_in_dir dir in
   let json = `List (List.map (fun f -> `String f) files) in
   let response_body = Yojson.Safe.to_string json in
-  (*Printf.printf "Réponse envoyée : %s\n%!" response_body;*)
   Server.respond_string ~status:`OK ~body:response_body ()
 
 (* Main router: analyzes the requested URL to route to the API (/list_files) 

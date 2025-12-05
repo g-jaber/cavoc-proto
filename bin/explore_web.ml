@@ -487,6 +487,12 @@ let evaluate_code () =
   (* Lancement de la boucle interactive avec gestion du résultat *)
   match%lwt IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move init_conf with
   | IBuild.Success ->
+    (* --- AJOUT : Enregistrer la victoire dans le navigateur --- *)
+      let local_storage = Js.Unsafe.get Js.Unsafe.global "localStorage" in
+      Js.Unsafe.meth_call local_storage "setItem" 
+        [| Js.Unsafe.inject (Js.string "tuto_completed"); 
+           Js.Unsafe.inject (Js.string "true") |] 
+      |> ignore;
       (* 1. Création des éléments HTML *)
       let doc = Dom_html.document in
       let modal = Dom_html.createDiv doc in
