@@ -1,6 +1,7 @@
 (executable
  (name explore_web)
  (public_name cavoc-explore_web)
+ (package cavoc)
  (modes byte js)
  (preprocess
   (pps js_of_ocaml-ppx lwt_ppx ppx_deriving_yojson))
@@ -23,6 +24,7 @@
 (executable
  (name compose)
  (public_name cavoc-compose)
+ (package cavoc)
  (libraries
   refml
   lang
@@ -39,6 +41,7 @@
 (executable
  (name explore)
  (public_name cavoc-explore)
+ (package cavoc)
  (libraries
   refml
   lang
@@ -55,6 +58,7 @@
 (executable
  (name server)
  (public_name cavoc-server)
+ (package cavoc)
  (libraries
   refml
   lang
