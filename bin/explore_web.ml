@@ -475,7 +475,6 @@ let evaluate_code () =
         Lwt.fail (Failure "Unknown error") in
 
   (* Lancement de la boucle interactive avec gestion du résultat *)
-  (*Le css est généré ici direct PEUT ETRE A CHANGER ?!*)
   match%lwt IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move init_conf with
   | IBuild.Success ->
       (* 1. Création des éléments HTML *)
@@ -493,9 +492,10 @@ let evaluate_code () =
 
         btn##.textContent := Js.some (Js.string "Recharger / Reset");
 
-      (* 5. Action du bouton : Recharger la page *)
+      (* 5. Action du bouton *)
       btn##.onclick := Dom_html.handler (fun _ ->
-        Dom_html.window##.location##reload;
+        Dom.removeChild doc##.body modal;
+        (* Dom_html.window##.location##reload; *)
         Js._true
       );
       (* 6. Assemblage et ajout au document *)
@@ -503,10 +503,13 @@ let evaluate_code () =
       Dom.appendChild modal content;
       Dom.appendChild doc##.body modal;
 
-      Lwt.return ()
+      print_to_output ("TEST1");
+      Lwt.return 1
+
 
   | IBuild.Stopped ->
-      Lwt.return ()
+      print_to_output ("STOPPED");
+      Lwt.return 0
 
 
 
@@ -540,7 +543,7 @@ let close_help () =
   modal##.style##.display := Js.string "none";
   Js._true
 
-(* listener event *)
+(* listener event for the help button *)
 let init_help_events () =
   let help_btn = Dom_html.getElementById "help-btn" in
   let close_span = 
@@ -577,7 +580,7 @@ let init_help_events () =
   highlight_subject() -> when stop or load button clicked : exception Failure "Stop" -> init_page() *)
 
 let rec init_page () =
-  init_help_events ();
+  init_help_events ();    (*initialize the help button*)
   Printexc.record_backtrace true;
   let button = Dom_html.getElementById "submit" in
   let select_button = Dom_html.getElementById "select-btn" in
@@ -627,7 +630,9 @@ let rec init_page () =
       Lwt.catch
         (fun () -> 
           let%lwt result = evaluate_code () in match result with
-          | () -> Lwt.return_unit)
+          | 0 -> Lwt.fail (Failure "Stop")
+          | 1 -> Lwt.fail (Failure "Stop")
+          | _ -> Lwt.return_unit)
         (function
           | Failure msg when msg = "Stop" ->
               (* Disable Select button again after Stop move *)
