@@ -102,18 +102,21 @@ h2 {
 
 /* Select Button */
 #select-btn {
-  position: static;
+
+  position: fixed;
   background-color: #2ecc71;
+  height: 50px;
+  border-radius: 5px;
   color: #000000;
   font-family: "Courier New", Courier, monospace;
-  font-size: 16px;
-  font-weight: bold;
+  font-size: larger;
   border: solid 2px black;
-  border-radius: 5px;
+  bottom: 40%;
+  left: 10%;
+  transform: translate(-50%);
+  z-index: 10;
   cursor: pointer;
   padding: 12px 25px;
-  transition: all 0.3s ease;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* Help Button */
@@ -136,18 +139,21 @@ h2 {
 
 /* Stop Button */
 #stop-btn {
-  position: static;
+
+  position: fixed;
   background-color: #2ecc71;
+  height: 50px;
+  border-radius: 5px;
   color: #000000;
   font-family: "Courier New", Courier, monospace;
-  font-size: 16px;
-  font-weight: bold;
+  font-size: larger;
   border: solid 2px black;
-  border-radius: 5px;
+  bottom: 40%;
+  left: 18%;
+  transform: translate(-50%);
+  z-index: 10;
   cursor: pointer;
   padding: 12px 25px;
-  transition: all 0.3s ease;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
 }
 
 #stop-btn:hover {
