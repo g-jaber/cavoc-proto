@@ -503,12 +503,10 @@ let evaluate_code () =
       Dom.appendChild modal content;
       Dom.appendChild doc##.body modal;
 
-      print_to_output ("TEST1");
       Lwt.return 1
 
 
   | IBuild.Stopped ->
-      print_to_output ("STOPPED");
       Lwt.return 0
 
 
