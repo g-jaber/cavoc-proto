@@ -366,6 +366,24 @@ input[type="radio"] {
   z-index: -1px;
 }
 
+.style-toggle {
+  margin-left: 15px;
+  font-family: "Courier New", Courier, monospace;
+  font-weight: bold;
+  vertical-align: middle;
+}
+
+.style-toggle input {
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.style-toggle label {
+  vertical-align: middle;
+  cursor: pointer;
+  font-size: 14px;
+}
+
 /* Style for Help button */
 .modal {
   display: none; 

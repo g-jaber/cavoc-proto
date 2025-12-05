@@ -422,9 +422,21 @@ let () =
   Sys_js.set_channel_flusher stderr print_to_output
 
 let generate_kind_lts () = 
+
   let open Lts_kind in
   let oplang = RefML in
-  let control =  CPS  (* DirectStyle *) in
+
+  (*let control =  CPS  (* DirectStyle *) in*)
+  let control = 
+    (* Récupération de l'élément *)
+    match Dom_html.getElementById_opt "direct-style-check" with
+    | None -> CPS (* Sécurité si l'élément n'est pas encore dans le DOM *)
+    | Some checkbox_elem ->
+        match Js.Opt.to_option (Dom_html.CoerceTo.input checkbox_elem) with
+        | Some input -> 
+            if Js.to_bool input##.checked then DirectStyle else CPS
+        | None -> CPS
+  in
   let restrictions = [] in
   {oplang; control; restrictions}
 
