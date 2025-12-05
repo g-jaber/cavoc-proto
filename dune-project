@@ -1,4 +1,4 @@
-(lang dune 3.13)
+(lang dune 3.18)
 
 (name cavoc)
 (using menhir 3.0)
@@ -22,6 +22,7 @@
  (description "A longer description")
 (depends
   ocaml
+  odoc
   dune
   js_of_ocaml
   js_of_ocaml-ppx
