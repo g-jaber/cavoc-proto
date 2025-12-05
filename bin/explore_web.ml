@@ -484,30 +484,15 @@ let evaluate_code () =
       let content = Dom_html.createDiv doc in
       let btn = Dom_html.createButton doc in
 
-      (* 2. Style du Modal (fond sombre transparent qui couvre tout) *)
-      modal##.style##.cssText := Js.string 
-        "position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; 
-         height: 100%; \
-         background-color: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;";
-      (* 3. Style et contenu de la boîte de dialogue *)
-      content##.style##.cssText := Js.string 
-        "background-color: #272822; border: 2px solid #a6e22e; border-radius: 8px; \
-         padding: 30px; text-align: center; color: #f8f8f2; font-family: monospace; \
-         box-shadow: 0 5px 15px rgba(0,0,0,0.5); min-width: 300px;";
-      content##.innerHTML := Js.string 
-        "<h2 style='color: #a6e22e; margin-top: 0;'>🏆 SUCCÈS !</h2>\
-         <p style='font-size: 1.2em; margin: 20px 0;'>Vous avez déclenché un failwith.</p>";
-      (* 4. Configuration du bouton Reset *)
-      btn##.textContent := Js.some (Js.string "Recharger / Reset");
-      btn##.style##.cssText := Js.string 
-        "background-color: #a6e22e; color: #272822; border: none; padding: 12px 24px; \
-         font-size: 16px; font-weight: bold; border-radius: 5px; cursor: pointer; \
-         transition: background 0.3s;";
-      (* Effet hover simple (optionnel, géré ici par JS direct pour simplifier) *)
-      btn##.onmouseover := Dom_html.handler (fun _ -> 
-        btn##.style##.backgroundColor := Js.string "#32b568"; Js._true);
-      btn##.onmouseout := Dom_html.handler (fun _ -> 
-        btn##.style##.backgroundColor := Js.string "#a6e22e"; Js._true);
+      modal##.classList##add (Js.string "win-modal");
+      content##.classList##add (Js.string "win-modal-content");
+      btn##.classList##add (Js.string "win-reset-btn");
+      content##.innerHTML := Js.string
+        "<h2 class = 'win-title'>🏆 SUCCÈS !</h2>\
+        <p class = 'win-message'>Vous avez déclenché un failwith.</p>";
+
+        btn##.textContent := Js.some (Js.string "Recharger / Reset");
+
       (* 5. Action du bouton : Recharger la page *)
       btn##.onclick := Dom_html.handler (fun _ ->
         Dom_html.window##.location##reload;
