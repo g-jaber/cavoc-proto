@@ -175,7 +175,7 @@ let display_conf conf_json : unit =
   let conf_str = Yojson.Safe.pretty_to_string conf_json in
   let config_editor = Js.Unsafe.get Js.Unsafe.global "configEditor_instance" in
   let session = Js.Unsafe.get config_editor "session" in
-  Js.Unsafe.meth_call session 
+  Js.Unsafe.meth_call session
     "setValue"
     [| Js.Unsafe.inject (Js.string conf_str) |]
   |> ignore;
@@ -232,7 +232,7 @@ let display_conf conf_json : unit =
             let text = Js.to_string (Js.Opt.get text_opt (fun () -> Js.string "")) in
             
             (* 3. Clear content for Ace *)
-            element##.innerHTML := Js.string ""; 
+            element##.innerHTML := Js.string "";
 
             (* 4. Initialize Ace *)
             let editor = Js.Unsafe.meth_call ace "edit" [|
@@ -289,12 +289,12 @@ let display_conf conf_json : unit =
 (* Fonction pour gérer la surbrillance dans l'ienv *)
 let highlight_subject (move_json_str : string) : unit =
   (* 1. Nettoyer : Enlever la classe 'ienv-item-highlighted' de tous les éléments *)
-  let previous_highlights = 
+  let previous_highlights =
     Dom_html.document##getElementsByClassName (Js.string "ienv-item-highlighted") 
   in
   (* On boucle à l'envers ou on utilise une boucle while car la collection est 'live' *)
   while previous_highlights##.length > 0 do
-    let item = Js.Opt.get (previous_highlights##item 0) 
+    let item = Js.Opt.get (previous_highlights##item 0)
         (fun () -> assert false) in
     item##.classList##remove (Js.string "ienv-item-highlighted")
   done;
@@ -309,7 +309,7 @@ let highlight_subject (move_json_str : string) : unit =
             let target_id = "ienv-item-" ^ name in
             let target_el = Dom_html.getElementById_opt target_id in
             (match target_el with
-             | Some el -> el##.classList##add (Js.string "ienv-item-highlighted")
+            | Some el -> el##.classList##add (Js.string "ienv-item-highlighted")
             | None -> ()) (* L'élément n'existe pas dans l'ienv actuel *)
         | _ -> ()) (* Pas de subjectName ou format incorrect *)
     | _ -> () (* Échec du parsing JSON *)
@@ -328,10 +328,10 @@ let generate_clickables moves =
       checkbox_div##.innerHTML :=
         Js.string
           (Printf.sprintf
-             "<input type='radio' name='move' id='move_%d'%s> <label \
+            "<input type='radio' name='move' id='move_%d'%s> <label \
               for='move_%d'>%s</label>"
-             id checked_attr id move);
-             
+            id checked_attr id move);
+
       (* --- AJOUT : Gestionnaire d'événement au clic --- *)
       (* On utilise Lwt_js_events ou directement le DOM onclick *)
       checkbox_div##.onclick := Dom_html.handler (fun _ ->
@@ -340,8 +340,8 @@ let generate_clickables moves =
         (* Force la sélection du radio button si on clique sur la div (UX bonus) *)
         let input = checkbox_div##querySelector (Js.string "input") in
         Js.Opt.iter input (fun node -> 
-           let input_el = Dom_html.CoerceTo.input node in
-           Js.Opt.iter input_el (fun inp -> inp##.checked := Js._true)
+          let input_el = Dom_html.CoerceTo.input node in
+          Js.Opt.iter input_el (fun inp -> inp##.checked := Js._true)
         );
         Js._true
       );
@@ -349,7 +349,7 @@ let generate_clickables moves =
     moves;
   match moves with
     | (_, first_move_json) :: _ -> 
-        (* Puisque le premier élément (index 0) est checked par défaut, 
+        (* Puisque le premier élément (index 0) est checked par défaut,
           on applique son highlight tout de suite *)
         highlight_subject first_move_json
     | [] -> ()
@@ -421,7 +421,7 @@ let () =
   Sys_js.set_channel_flusher stdout print_to_output;
   Sys_js.set_channel_flusher stderr print_to_output
 
-let generate_kind_lts () = 
+let generate_kind_lts () =
 
   let open Lts_kind in
   let oplang = RefML in
@@ -431,7 +431,7 @@ let generate_kind_lts () =
     | None -> CPS (* Sécurité si l'élément n'est pas encore dans le DOM *)
     | Some checkbox_elem ->
         match Js.Opt.to_option (Dom_html.CoerceTo.input checkbox_elem) with
-        | Some input -> 
+        | Some input ->
             if Js.to_bool input##.checked then DirectStyle else CPS
         | None -> CPS
   in
@@ -491,7 +491,7 @@ let evaluate_code () =
       let local_storage = Js.Unsafe.get Js.Unsafe.global "localStorage" in
       Js.Unsafe.meth_call local_storage "setItem" 
         [| Js.Unsafe.inject (Js.string "tuto_completed"); 
-           Js.Unsafe.inject (Js.string "true") |] 
+          Js.Unsafe.inject (Js.string "true") |] 
       |> ignore;
       (* 1. Création des éléments HTML *)
       let doc = Dom_html.document in
