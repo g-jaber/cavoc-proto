@@ -208,7 +208,7 @@ let display_conf conf_json : unit =
           let dom_list_to_list node_list =
             let rec loop i acc =
               if i < 0 then acc
-              else 
+              else
                 match Js.Opt.to_option (node_list##item (i)) with
                 | Some node -> loop (i - 1) (node :: acc)
                 | None -> acc
@@ -348,7 +348,7 @@ let generate_clickables moves =
       Dom.appendChild moves_list checkbox_div)
     moves;
   match moves with
-    | (_, first_move_json) :: _ -> 
+    | (_, first_move_json) :: _ ->
         (* Puisque le premier élément (index 0) est checked par défaut,
           on applique son highlight tout de suite *)
         highlight_subject first_move_json
@@ -425,7 +425,7 @@ let generate_kind_lts () =
 
   let open Lts_kind in
   let oplang = RefML in
-  let control = 
+  let control =
     (* Récupération de l'élément *)
     match Dom_html.getElementById_opt "direct-style-check" with
     | None -> CPS (* Sécurité si l'élément n'est pas encore dans le DOM *)
@@ -489,9 +489,9 @@ let evaluate_code () =
   | IBuild.Success ->
     (* --- AJOUT : Enregistrer la victoire dans le navigateur --- *)
       let local_storage = Js.Unsafe.get Js.Unsafe.global "localStorage" in
-      Js.Unsafe.meth_call local_storage "setItem" 
-        [| Js.Unsafe.inject (Js.string "tuto_completed"); 
-          Js.Unsafe.inject (Js.string "true") |] 
+      Js.Unsafe.meth_call local_storage "setItem"
+        [| Js.Unsafe.inject (Js.string "tuto_completed");
+          Js.Unsafe.inject (Js.string "true") |]
       |> ignore;
       (* 1. Création des éléments HTML *)
       let doc = Dom_html.document in
@@ -560,15 +560,15 @@ let close_help () =
 (* listener event for the help button *)
 let init_help_events () =
   let help_btn = Dom_html.getElementById "help-btn" in
-  let close_span = 
+  let close_span =
     let elements = Dom_html.document##getElementsByClassName (Js.string "close-btn") in
     Js.Opt.get (elements##item 0) (fun () -> failwith "close-btn not found")
   in
   let modal = Dom_html.getElementById "help-modal" in
 
   (* User click on the help button *)
-  help_btn##.onclick := Dom_html.handler (fun _ -> 
-    Lwt.ignore_result (show_help ()); 
+  help_btn##.onclick := Dom_html.handler (fun _ ->
+    Lwt.ignore_result (show_help ());
     Js._true
   );
 
@@ -580,7 +580,7 @@ let init_help_events () =
   (* user click outside *)
   Dom_html.window##.onclick := Dom_html.handler (fun e ->
     Js.Opt.case e##.target
-      (fun () -> Js._true) 
+      (fun () -> Js._true)
       (fun target ->
         if (target :> Dom_html.eventTarget Js.t) = (modal :> Dom_html.eventTarget Js.t) then
           close_help ()
@@ -642,7 +642,7 @@ let rec init_page () =
       Js.Unsafe.set stop_button "title"
         (Js.string "You must be evaluating code to select an move");
       Lwt.catch
-        (fun () -> 
+        (fun () ->
           let%lwt result = evaluate_code () in match result with
           | 0 -> Lwt.fail (Failure "Stop")
           | 1 -> Lwt.fail (Failure "Stop")
