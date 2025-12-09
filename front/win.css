@@ -1,3 +1,7 @@
+/*
+    This file is used to add style to the win alert
+*/
+
 .win-modal {
     position: fixed;
     z-index: 10000;

@@ -3,15 +3,67 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CAVOC</title>
+    <title>CAVOC - Tutoriel</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.5/ace.js"></script>
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="win.css">
+    <link rel="stylesheet" href="win.css" />
     <link rel="shortcut icon" href="./" type="image/x-icon" />
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+      #tuto-badge {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 2000; /* Au-dessus de tout */
+        background: rgba(39, 40, 34, 0.8); /* Fond sombre semi-transparent */
+        padding: 8px 12px;
+        border-radius: 4px;
+        border-left: 4px solid #a6e22e; /* Touche de vert Monokai */
+        color: #f8f8f2;
+        font-family: "Courier New", Courier, monospace;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      }
+
+      .tuto-title {
+        font-weight: bold;
+        color: #a6e22e;
+      }
+
+      #end-tuto-btn {
+        background-color: #a6e22e;
+        color: #272822;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-weight: bold;
+        font-family: inherit;
+        font-size: 12px;
+        text-transform: uppercase;
+        transition: background 0.3s;
+        display: none; /* Caché par défaut */
+      }
+
+      #end-tuto-btn:hover {
+        background-color: #32b568;
+      }
+    </style>
   </head>
 
   <body>
+    <div id="tuto-badge">
+      <span class="tuto-title">🎓 TUTORIEL</span>
+      <span id="tuto-status" style="font-size: 12px; opacity: 0.8;">En cours...</span>
+      <a href="index.html" style="text-decoration:none;">
+        <button id="end-tuto-btn">Accéder au jeu &rarr;</button>
+      </a>
+    </div>
+
     <div class="container code-section">
       <h2>Code OCaml</h2>
       <div id="editor"></div>
@@ -24,11 +76,12 @@
     <div id="help" class="help">
       <button id="help-btn" class="help-btn">Help</button>
     </div>
+    
     <div id="help-modal" class="modal">
-    <div class="modal-content">
-      <span class="close-btn">&times;</span>
-      <div id="markdown-content">Chargement...</div>
-    </div>
+      <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <div id="markdown-content">Chargement...</div>
+      </div>
     </div>
 
     <div id="file-selection" class="file-selection-container">
@@ -42,6 +95,7 @@
         <label for="direct-style-check" title="Activer le mode DirectStyle">Direct Style</label>
       </span>
     </div>
+
     <div id="output-container">
       <div id="select-move">
         <div id="moves-list">
@@ -85,6 +139,7 @@
       <button id="stop-btn">Stop</button>
       <button id="submit">Evaluate</button>
     </div>
+    
     <script src="../_build/default/bin/explore_web.bc.js"></script>
   </body>
 
@@ -97,7 +152,7 @@
     signatureEditor.setTheme("ace/theme/monokai");
     signatureEditor.session.setMode("ace/mode/ocaml");
     
-    // Store editor instances in global variables to be accessed from OCaml
+    // Store editor instances in global variables
     window.editor_instance = editor;
     window.signatureEditor_instance = signatureEditor;
 
@@ -108,20 +163,13 @@
     configEditor.renderer.$cursorLayer.element.style.display = "none";
     window.configEditor_instance = configEditor;
 
-    //script for config tabs
+    // Config tabs logic
     function openTab(event, tabId) {
-      // Hide all tab contents
       const contents = document.querySelectorAll(".tab-content");
       contents.forEach((content) => content.classList.remove("active"));
-
-      // Remove "active" class from all tab links
       const links = document.querySelectorAll(".tab-link");
       links.forEach((link) => link.classList.remove("active"));
-
-      // Show the selected tab content
       document.getElementById(tabId).classList.add("active");
-
-      // Add "active" class to the clicked tab link
       event.currentTarget.classList.add("active");
     }
   </script>
@@ -129,48 +177,35 @@
   <script>
     window.onload = async function () {
       
-      // --- LOGIQUE DE PROTECTION ---
-      // Vérifie si le joueur a terminé le tutoriel
-      const tutoComplete = localStorage.getItem("tuto_completed");
-      
-      if (tutoComplete !== "true") {
-          // Si le tuto n'est pas fini, on redirige vers la page de tutoriel
-          window.location.href = "indextuto.html";
-          return; // On arrête l'exécution du script ici
-      }
-      
-      // --- LOGIQUE DE JEU (DOSSIER TEST) ---
-      
-      // Ajout d'un bouton pour réinitialiser le jeu (utile pour le debug/démo)
-      const body = document.querySelector("body");
-      const resetBtn = document.createElement("button");
-      resetBtn.innerText = "Reset Tuto";
-      resetBtn.className = "help-btn"; 
-      resetBtn.style.position = "absolute";
-      resetBtn.style.top = "10px";
-      resetBtn.style.left = "10px";
-      resetBtn.onclick = function() {
-          if(confirm("Voulez-vous vraiment réinitialiser votre progression et retourner au tutoriel ?")) {
-            localStorage.removeItem("tuto_completed");
-            window.location.reload();
-          }
-      };
-      body.appendChild(resetBtn);
+      // --- LOGIQUE DE SUIVI DU TUTO ---
+      setInterval(() => {
+        if (localStorage.getItem("tuto_completed") === "true") {
+            const btn = document.getElementById("end-tuto-btn");
+            const status = document.getElementById("tuto-status");
+            
+            if(btn && btn.style.display !== "block") {
+                btn.style.display = "block"; // Affiche le bouton
+                status.innerText = "Terminé !";
+                status.style.color = "#a6e22e";
+                status.style.fontWeight = "bold";
+                
+                // Animation visuelle optionnelle sur le badge
+                document.getElementById("tuto-badge").style.boxShadow = "0 0 15px rgba(166, 226, 46, 0.5)";
+            }
+        }
+      }, 1000);
 
+      // --- CHARGEMENT DES FICHIERS TUTO ---
       let filesList = [];
       try {
-        // On demande au serveur de lister les fichiers du dossier TEST
-        const response = await fetch('http://localhost:8000/list_files?dir=test');
+        // Demande spécifique pour le dossier 'tuto'
+        const response = await fetch('http://localhost:8000/list_files?dir=tuto');
         filesList = await response.json();
-      }
-      catch(e){
-        console.log("Erreur lors du chargement de la liste des fichiers:", e);
+      } catch(e){
+        console.log("Erreur chargement liste tuto:", e);
       }
 
-      // Filter the list to get only the .ml files
       const mlFiles = filesList.filter((file) => file.endsWith(".ml"));
-
-      // Populate the dropdown with the .ml file names
       const fileSelect = document.getElementById("file-select-dropdown");
       mlFiles.forEach((file) => {
         const option = document.createElement("option");
@@ -179,44 +214,28 @@
         fileSelect.appendChild(option);
       });
 
-      // Set default file if available
       if(mlFiles.length > 0) fileSelect.value = mlFiles[0];
 
-      // Load button listener
-      document
-        .getElementById("load-btn")
-        .addEventListener("click", function () {
+      // Bouton LOAD pour les tutos
+      document.getElementById("load-btn").addEventListener("click", function () {
           const selectedFileName = document.getElementById("file-select-dropdown").value;
-          
           if (selectedFileName) {
             const mlFileName = selectedFileName;
             const mliFileName = mlFileName.replace(".ml", ".mli");
 
-            // Load .ml file content from TEST directory
-            fetch(`../test/${mlFileName}`)
-              .then((response) => response.text())
-              .then((mlContent) => {
-                editor.session.setValue(mlContent);
-              })
-              .catch((error) => console.error("Error loading .ml file:", error));
+            // Chemins pointant vers ../tuto/
+            fetch(`../tuto/${mlFileName}`)
+              .then((r) => r.text()).then((c) => editor.session.setValue(c))
+              .catch((e) => console.error("Error loading .ml:", e));
 
-            // Load .mli file content from TEST directory
-            fetch(`../test/${mliFileName}`)
-              .then((response) => response.text())
-              .then((mliContent) => {
-                signatureEditor.session.setValue(mliContent);
-              })
-              .catch((error) => {
-                console.error("Error loading .mli file:", error);
-                signatureEditor.session.setValue("");
-              });
+            fetch(`../tuto/${mliFileName}`)
+              .then((r) => r.text()).then((c) => signatureEditor.session.setValue(c))
+              .catch(() => signatureEditor.session.setValue(""));
           }
-        });
-        
-      // Trigger initial load
-      if(mlFiles.length > 0) {
-          document.getElementById("load-btn").click();
-      }
+      });
+      
+      // Chargement initial
+      if(mlFiles.length > 0) document.getElementById("load-btn").click();
     };
   </script>
 </html>
