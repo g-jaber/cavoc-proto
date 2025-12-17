@@ -21,7 +21,7 @@ let build_intlang kind (module OpLang : Lang.Language.WITHAVAL_INOUT) :
       let module CpsLang = Lang.Cps.MakeComp (OpLang) () in
       (module Lang.Interactive.Make (CpsLang))
 
-(* Cannot work until we get modular explicit in OCaml 
+(* Cannot work until we get modular explicit in OCaml
 let rec build_typing_lst kind (module IntLang : Lang.Interactive.LANG_WITH_INIT)
     : (module Lts.Typing.LTS) =
   let rec aux restrictions (module TypingLTS : Lts.Typing.LTS) :

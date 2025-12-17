@@ -426,16 +426,26 @@ let generate_kind_lts () =
   let open Lts_kind in
   let oplang = RefML in
   let control =
-    (* Récupération de l'élément *)
     match Dom_html.getElementById_opt "direct-style-check" with
-    | None -> CPS (* Sécurité si l'élément n'est pas encore dans le DOM *)
+    | None -> CPS (* security, if the element is not present in the DOM *)
     | Some checkbox_elem ->
         match Js.Opt.to_option (Dom_html.CoerceTo.input checkbox_elem) with
         | Some input ->
             if Js.to_bool input##.checked then DirectStyle else CPS
         | None -> CPS
   in
-  let restrictions = [] in
+  let restrictions =
+    match Dom_html.getElementById_opt "visibility-wellbracketing-check" with
+    | None -> []  (* if the element is absent, the list is null *)
+    | Some checkbox_elem ->
+        match Js.Opt.to_option (Dom_html.CoerceTo.input checkbox_elem) with
+        | Some input ->
+            if Js.to_bool input##.checked
+            then [WellBracketing]
+            else []
+        | None -> []
+  in
+  (* let restrictions = [] in *)
   {oplang; control; restrictions}
 
 let evaluate_code () =
