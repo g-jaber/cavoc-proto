@@ -1,0 +1,69 @@
+/* Conteneur du dropdown */
+.options-dropdown-container {
+  position: relative;
+  display: block; /* S'assure qu'il prend la place nécessaire */
+}
+
+/* Bouton Options - Style ajusté pour matcher Evaluate */
+.options-btn {
+  height: 50px;        /* Même hauteur que Evaluate */
+  background-color: #272822; 
+  color: #f8f8f2;
+  border: 2px solid #000000; /* Bordure noire identique à Evaluate */
+  border-radius: 5px;
+  padding: 0 15px;
+  cursor: pointer;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 16px;     /* Taille de police proche de Evaluate */
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;           /* On enlève le margin-left car le gap du parent gère l'espace */
+}
+
+.options-btn:hover {
+  background-color: #3e3d32;
+  color: #a6e22e;
+}
+
+/* Le menu déroulant (fenêtre) */
+.options-menu-content {
+  display: none; 
+  position: absolute;
+  
+  /* Changement ici : on ouvre vers le HAUT car le bouton est en bas de page */
+  bottom: 100%;       
+  top: auto;          
+  margin-bottom: 10px; /* Petit espace entre le bouton et le menu */
+  
+  left: 0;
+  background-color: #272822;
+  min-width: 180px;
+  box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
+  padding: 10px;
+  border: 1px solid #a6e22e;
+  border-radius: 4px;
+  z-index: 100;
+  text-align: left;
+}
+
+/* Les items dans le menu */
+.option-item {
+  margin: 8px 0;
+  color: #f8f8f2;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+}
+
+.option-item input {
+  margin-right: 10px;
+  cursor: pointer;
+  transform: scale(1.2); /* Checkbox un peu plus grandes */
+}
+
+.option-item label {
+  cursor: pointer;
+}

@@ -434,16 +434,29 @@ let generate_kind_lts () =
             if Js.to_bool input##.checked then DirectStyle else CPS
         | None -> CPS
   in
+  (* 2. Gestion des Restrictions (Liste) *)
   let restrictions =
-    match Dom_html.getElementById_opt "visibility-wellbracketing-check" with
-    | None -> []  (* if the element is absent, the list is null *)
-    | Some checkbox_elem ->
-        match Js.Opt.to_option (Dom_html.CoerceTo.input checkbox_elem) with
-        | Some input ->
-            if Js.to_bool input##.checked
-            then [WellBracketing]
-            else []
-        | None -> []
+    let res_list = ref [] in
+    
+    (* Check WellBracketing *)
+    (match Dom_html.getElementById_opt "wellbracketing-check" with
+    | Some el -> 
+        (match Js.Opt.to_option (Dom_html.CoerceTo.input el) with
+         | Some input when Js.to_bool input##.checked -> 
+              res_list := WellBracketing :: !res_list
+         | _ -> ())
+    | None -> ());
+    
+    (* Check Visibility *)
+    (match Dom_html.getElementById_opt "visibility-check" with
+    | Some el -> 
+        (match Js.Opt.to_option (Dom_html.CoerceTo.input el) with
+         | Some input when Js.to_bool input##.checked -> 
+              res_list := Visibility :: !res_list
+         | _ -> ())
+    | None -> ());
+    
+    !res_list
   in
   (* let restrictions = [] in *)
   {oplang; control; restrictions}

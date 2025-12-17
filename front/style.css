@@ -40,9 +40,24 @@ h2 {
   border-radius: 7px;
 }
 
-/* Submit Button - The 'Evaluer' button styling */
-#submit {
+#center-controls {
   position: fixed;
+  bottom: 40%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;       /* Met les éléments côte à côte */
+  gap: 10px;           /* Espace entre les deux boutons */
+  align-items: center; /* Aligne verticalement */
+}
+
+/* On enlève position: fixed, left, bottom, transform car c'est le parent qui gère ça */
+#submit {
+  position: static; /* Annule le fixed */
+  transform: none;  /* Annule le translate */
+  margin: 0;
+  
+  /* On garde le style visuel */
   background-color: #2ecc71;
   height: 50px;
   border-radius: 5px;
@@ -50,11 +65,19 @@ h2 {
   font-family: "Courier New", Courier, monospace;
   font-size: larger;
   border: solid 2px black;
-  bottom: 40%;
-  left: 50%;
-  transform: translate(-50%);
-  z-index: 10;
   cursor: pointer;
+  padding: 0 20px;
+}
+
+/* On doit aussi corriger le hover pour qu'il ne repasse pas en fixed */
+#submit:hover {
+  position: static;
+  transform: none;
+  background-color: #32b568;
+  /* On répète les propriétés visuelles importantes pour éviter des bugs d'affichage */
+  height: 50px;
+  color: #000000;
+  border: solid 2px black;
 }
 
 #store{
@@ -63,22 +86,6 @@ h2 {
 #store div{
   padding: 20px;
   border: solid 1px rgb(152, 152, 152);
-}
-
-#submit:hover {
-  position: fixed;
-  background-color: #32b568;
-  height: 50px;
-  border-radius: 5px;
-  color: #000000;
-  font-family: "Courier New", Courier, monospace;
-  font-size: larger;
-  border: solid 2px black;
-  bottom: 40%;
-  left: 50%;
-  transform: translate(-50%);
-  z-index: 10;
-  cursor: pointer;
 }
 
 /* Output Container - For displaying the output section at the bottom of the page */

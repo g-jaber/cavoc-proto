@@ -7,6 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.5/ace.js"></script>
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="win.css">
+    <link rel="stylesheet" href="option_window.css">
     <link rel="shortcut icon" href="./" type="image/x-icon" />
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   </head>
@@ -37,12 +38,6 @@
         </select>
       <button id="load-btn" class="load-btn">Load</button>
 
-      <span class="style-toggle">
-        <input type="checkbox" id="direct-style-check" name="direct-style">
-        <label for="direct-style-check" title="Activer le mode DirectStyle">Direct Style</label>
-        <input type="checkbox" id="visibility-wellbracketing-check" name="visibility-wellbracketing">
-        <label for="visibility-wellbracketing-check" title="Activer le mode WellBracketing">WellBracketing</label>
-      </span>
     </div>
     <div id="output-container">
       <div id="select-move">
@@ -85,7 +80,29 @@
     <div id="buttons-container">
       <button id="select-btn">Select</button>
       <button id="stop-btn">Stop</button>
-      <button id="submit">Evaluate</button>
+      <div id="center-controls">
+  
+        <div class="options-dropdown-container">
+          <button id="options-btn" class="options-btn">Options ⚙️</button>
+          <div id="options-menu" class="options-menu-content">
+            <div class="option-item">
+              <input type="checkbox" id="direct-style-check">
+              <label for="direct-style-check">Direct Style</label>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #555; margin: 5px 0;">
+            <div class="option-item">
+              <input type="checkbox" id="wellbracketing-check">
+              <label for="wellbracketing-check">WellBracketing</label>
+            </div>
+            <div class="option-item">
+              <input type="checkbox" id="visibility-check">
+              <label for="visibility-check">Visibility</label>
+            </div>
+          </div>
+        </div>
+
+        <button id="submit">Evaluate</button>
+      </div>
     </div>
     <script src="../_build/default/bin/explore_web.bc.js"></script>
   </body>
@@ -220,5 +237,21 @@
           document.getElementById("load-btn").click();
       }
     };
+
+    // Gestion du menu Options
+    document.getElementById('options-btn').addEventListener('click', function(e) {
+        e.stopPropagation();
+        const menu = document.getElementById('options-menu');
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    });
+
+    // Fermer le menu si on clique ailleurs
+    document.addEventListener('click', function(e) {
+        const menu = document.getElementById('options-menu');
+        const btn = document.getElementById('options-btn');
+        if (menu.style.display === 'block' && !menu.contains(e.target) && e.target !== btn) {
+            menu.style.display = 'none';
+        }
+    });
   </script>
 </html>
