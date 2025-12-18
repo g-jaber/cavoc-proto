@@ -117,20 +117,14 @@
   </script>
   
   <script>
-    // --- CONFIGURATION DES TUTOS ---
-    // Définit les options pour chaque niveau
-    const TUTO_CONFIGS = {
-        
-        // Configuration pour chaque niveau
-        // !!!!!!! A modifier pour utiliser des fichier tutoX.json pour lire les options !!!!!!!
-        1: { directStyle: false, wellBracketing: false, visibility: false },
-        2: { directStyle: false, wellBracketing: true, visibility: false },
-        3: { directStyle: true, wellBracketing: false, visibility: true },
-        // Ajoutez d'autres niveaux ici...
-        default: { directStyle: false, wellBracketing: false, visibility: false }
-    };
-
     let currentLevel = 1;
+
+    // Valeurs par défaut si le fichier JSON est manquant ou incomplet
+    const DEFAULT_CONFIG = { 
+        directStyle: false, 
+        wellBracketing: false, 
+        visibility: false 
+    };
 
     // Fonction appelée par OCaml (explore_web.ml) lors du succès
     window.nextLevel = function() {
@@ -138,48 +132,82 @@
         loadLevel(currentLevel);
     };
 
-    // Fonction pour charger un niveau spécifique
-    function loadLevel(level) {
-        const mlFileName = `tuto${level}.ml`;
-        const mliFileName = `tuto${level}.mli`;
-        
+    // Fonction principale pour charger un niveau
+    async function loadLevel(level) {
         console.log(`Chargement du niveau ${level}...`);
         
-        // Mise à jour visuelle
+        // 1. Mise à jour visuelle du badge
         document.getElementById("level-indicator").innerText = "Niveau " + level;
 
-        // 1. Appliquer les options (checkboxes cachées)
-        const config = TUTO_CONFIGS[level] || TUTO_CONFIGS['default'];
-        document.getElementById('direct-style-check').checked = config.directStyle;
-        document.getElementById('wellbracketing-check').checked = config.wellBracketing;
-        document.getElementById('visibility-check').checked = config.visibility;
+        // Définition des noms de fichiers
+        const jsonFileName = `tuto${level}.json`;
+        const mlFileName = `tuto${level}.ml`;
+        const mliFileName = `tuto${level}.mli`;
 
-        // 2. Charger le fichier .ml
+        // ---------------------------------------------------------
+        // ETAPE A : CHARGEMENT DE LA CONFIGURATION (JSON)
+        // ---------------------------------------------------------
+        try {
+            const response = await fetch(`../tuto/${jsonFileName}`);
+            
+            let config = DEFAULT_CONFIG;
+            
+            if (response.ok) {
+                config = await response.json();
+            } else {
+                console.warn(`Fichier ${jsonFileName} introuvable, utilisation des paramètres par défaut.`);
+            }
+
+            // Application des options aux cases à cocher cachées
+            // L'opérateur '||' assure une valeur par défaut si une clé manque dans le JSON
+            document.getElementById('direct-style-check').checked = config.directStyle || false;
+            document.getElementById('wellbracketing-check').checked = config.wellBracketing || false;
+            document.getElementById('visibility-check').checked = config.visibility || false;
+
+        } catch (error) {
+            console.error("Erreur lors de la lecture du JSON de config :", error);
+            // En cas d'erreur technique, on applique les défauts pour ne pas bloquer
+            document.getElementById('direct-style-check').checked = false;
+            document.getElementById('wellbracketing-check').checked = false;
+            document.getElementById('visibility-check').checked = false;
+        }
+
+        // ---------------------------------------------------------
+        // ETAPE B : CHARGEMENT DU CODE OCAML (.ml et .mli)
+        // ---------------------------------------------------------
+        
+        // On charge le .ml
         fetch(`../tuto/${mlFileName}`)
           .then((response) => {
-              if (!response.ok) throw new Error("Fini"); // Si le fichier n'existe pas, c'est la fin
+              if (!response.ok) throw new Error("Fini"); // Si le .ml n'existe pas, c'est la fin du jeu
               return response.text();
           })
           .then((mlContent) => {
+            // Mise à jour de l'éditeur principal
             editor.session.setValue(mlContent);
             
-            // 3. Charger le fichier .mli correspondant
-            fetch(`../tuto/${mliFileName}`)
-              .then((r) => r.text())
-              .then((c) => signatureEditor.session.setValue(c))
-              .catch(() => signatureEditor.session.setValue("")); // Vide si pas de mli
+            // On charge le .mli (optionnel)
+            return fetch(`../tuto/${mliFileName}`);
+          })
+          .then((response) => {
+              if (response.ok) return response.text();
+              return ""; // Si pas de .mli, on renvoie vide
+          })
+          .then((mliContent) => {
+              signatureEditor.session.setValue(mliContent);
           })
           .catch((error) => {
              if (error.message === "Fini") {
+                 // Gestion de la fin du tutoriel
                  alert("Bravo ! Vous avez terminé tous les tutoriels disponibles !");
-                 window.location.href = "index.html"; // Retour au jeu libre
+                 window.location.href = "index.html"; 
              } else {
-                 console.error("Erreur chargement:", error);
+                 console.error("Erreur chargement code :", error);
              }
           });
     }
 
-    // Démarrage
+    // Démarrage au chargement de la page
     window.onload = function () {
       loadLevel(currentLevel);
     };
