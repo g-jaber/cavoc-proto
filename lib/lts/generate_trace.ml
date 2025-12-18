@@ -47,6 +47,7 @@ module Make (IntLTS : Strategy.LTS) = struct
         show_moves_list string_list;
         let chosen_index = get_move (List.length string_list) - 1 in
         let (input_move, act_conf) = List.nth results_list chosen_index in
+        print_endline @@ "You have chosen the move " ^ (IntLTS.TypingLTS.Moves.string_of_pol_move input_move);
         let* () = emit @@ Trans (conf, input_move) in
         generate ~show_conf ~show_moves_list ~get_move (IntLTS.Active act_conf)
 

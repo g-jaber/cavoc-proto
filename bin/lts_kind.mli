@@ -5,5 +5,5 @@ type kind_lts = {
   oplang : oplang;
   control : control_structure;
   restrictions : restriction list;
-}
+} [@@deriving yojson]
 val build_lts : kind_lts -> (module Lts.Strategy.LTS_WITH_INIT)

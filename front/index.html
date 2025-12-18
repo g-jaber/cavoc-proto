@@ -149,23 +149,7 @@
     window.onload = async function () {
      
       // --- LOGIQUE DE JEU (DOSSIER TEST) ---
-      
-      // Ajout d'un bouton pour réinitialiser le jeu (utile pour le debug/démo)
-      const body = document.querySelector("body");
-      const resetBtn = document.createElement("button");
-      resetBtn.innerText = "Reset Tuto";
-      resetBtn.className = "help-btn"; 
-      resetBtn.style.position = "absolute";
-      resetBtn.style.top = "10px";
-      resetBtn.style.left = "10px";
-      resetBtn.onclick = function() {
-          if(confirm("Voulez-vous vraiment réinitialiser votre progression et retourner au tutoriel ?")) {
-            localStorage.removeItem("tuto_completed");
-            window.location.reload();
-          }
-      };
-      body.appendChild(resetBtn);
-
+    
       let filesList = [];
       try {
         // On demande au serveur de lister les fichiers du dossier TEST
