@@ -1,3 +1,13 @@
+(* ================================================
+   LTS_KIND: Type definitions and LTS construction
+   ================================================
+   Core types and builders for LTS configuration:
+   - Type definitions: oplang, control_structure, restriction, kind_lts
+   - build_lts: Instantiates the appropriate LTS module
+   - build_intlts: Creates intermediate language LTS
+   - build_oplang: Creates operational language module
+   - build_interactive_build: Creates interactive evaluation builder
+*)
 
 type oplang = RefML [@@deriving yojson]
 type control_structure = DirectStyle | CPS [@@deriving yojson]
@@ -20,24 +30,6 @@ let build_intlang kind (module OpLang : Lang.Language.WITHAVAL_INOUT) :
   | CPS ->
       let module CpsLang = Lang.Cps.MakeComp (OpLang) () in
       (module Lang.Interactive.Make (CpsLang))
-
-(* Cannot work until we get modular explicit in OCaml
-let rec build_typing_lst kind (module IntLang : Lang.Interactive.LANG_WITH_INIT)
-    : (module Lts.Typing.LTS) =
-  let rec aux restrictions (module TypingLTS : Lts.Typing.LTS) :
-      (module Lts.Typing.LTS) =
-    match restrictions with
-    | [] -> (module TypingLTS)
-    | WellBracketing :: restrictions' ->
-        let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
-        let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
-        aux restrictions' (module TypingLTS)
-    | Visibility :: restrictions' ->
-        let module VisLTS = Ogs.Vis_lts.Make (TypingLTS.Moves) in
-        let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (VisLTS) in
-        aux restrictions' (module TypingLTS) in
-  aux kind.restrictions (module Ogs.Typing.Make (IntLang))
-  *)
 
 let build_lts kind : (module Lts.Strategy.LTS_WITH_INIT) =
   let (module OpLang) = build_oplang kind in
