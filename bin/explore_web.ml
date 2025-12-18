@@ -137,7 +137,7 @@ let normalize_ienv = function
 (* La fonction generate_ienv_html est modifiée pour insérer le contenu brut
    dans un élément <pre> avec un ID unique, que Ace prendra ensuite en charge. *)
 let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
-  match ienv_obj with
+  match normalize_ienv ienv_obj with
   | `Assoc fields ->
       let items_html =
         fields
