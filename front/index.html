@@ -253,5 +253,12 @@
             menu.style.display = 'none';
         }
     });
+
+    // Interaction automatique : Direct Style active WellBracketing
+    document.getElementById('direct-style-check').addEventListener('change', function() {
+        if (this.checked) {
+            document.getElementById('wellbracketing-check').checked = true;
+        }
+    });
   </script>
 </html>
