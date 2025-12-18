@@ -1,13 +1,13 @@
 
-type oplang = RefML
-type control_structure = DirectStyle | CPS
-type restriction = Visibility | WellBracketing
+type oplang = RefML [@@deriving yojson]
+type control_structure = DirectStyle | CPS [@@deriving yojson]
+type restriction = Visibility | WellBracketing [@@deriving yojson]
 
 type kind_lts = {
   oplang: oplang;
   control: control_structure;
   restrictions: restriction list
-}
+} [@@deriving yojson]
 
 let build_oplang kind : (module Lang.Language.WITHAVAL_INOUT) =
   match kind.oplang with
