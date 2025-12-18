@@ -147,17 +147,7 @@
   
   <script>
     window.onload = async function () {
-      
-      // --- LOGIQUE DE PROTECTION ---
-      // Vérifie si le joueur a terminé le tutoriel
-      const tutoComplete = localStorage.getItem("tuto_completed");
-      
-      if (tutoComplete !== "true") {
-          // Si le tuto n'est pas fini, on redirige vers la page de tutoriel
-          window.location.href = "indextuto.html";
-          return; // On arrête l'exécution du script ici
-      }
-      
+     
       // --- LOGIQUE DE JEU (DOSSIER TEST) ---
       
       // Ajout d'un bouton pour réinitialiser le jeu (utile pour le debug/démo)
@@ -251,6 +241,23 @@
         const btn = document.getElementById('options-btn');
         if (menu.style.display === 'block' && !menu.contains(e.target) && e.target !== btn) {
             menu.style.display = 'none';
+        }
+    });
+
+    // Interaction automatique : Direct Style active WellBracketing
+const directStyleCheck = document.getElementById('direct-style-check');
+    const wellBracketingCheck = document.getElementById('wellbracketing-check');
+
+    directStyleCheck.addEventListener('change', function() {
+        if (this.checked) {
+            // 1. On force WellBracketing à être coché
+            wellBracketingCheck.checked = true;
+            // 2. On verrouille (grise) la case pour empêcher l'utilisateur de la décocher
+            wellBracketingCheck.disabled = true; 
+        } else {
+            // Si on décoche Direct Style, on déverrouille WellBracketing
+            // (L'utilisateur peut maintenant choisir de le laisser ou l'enlever)
+            wellBracketingCheck.disabled = false;
         }
     });
   </script>
