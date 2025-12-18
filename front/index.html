@@ -243,5 +243,22 @@
             menu.style.display = 'none';
         }
     });
+
+    // Interaction automatique : Direct Style active WellBracketing
+const directStyleCheck = document.getElementById('direct-style-check');
+    const wellBracketingCheck = document.getElementById('wellbracketing-check');
+
+    directStyleCheck.addEventListener('change', function() {
+        if (this.checked) {
+            // 1. On force WellBracketing à être coché
+            wellBracketingCheck.checked = true;
+            // 2. On verrouille (grise) la case pour empêcher l'utilisateur de la décocher
+            wellBracketingCheck.disabled = true; 
+        } else {
+            // Si on décoche Direct Style, on déverrouille WellBracketing
+            // (L'utilisateur peut maintenant choisir de le laisser ou l'enlever)
+            wellBracketingCheck.disabled = false;
+        }
+    });
   </script>
 </html>
