@@ -1,0 +1,45 @@
+#tuto-badge {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 2000;
+    /* Au-dessus de tout */
+    background: rgba(39, 40, 34, 0.8);
+    /* Fond sombre semi-transparent */
+    padding: 8px 12px;
+    border-radius: 4px;
+    border-left: 4px solid #a6e22e;
+    /* Touche de vert Monokai */
+    color: #f8f8f2;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.tuto-title {
+    font-weight: bold;
+    color: #a6e22e;
+}
+
+#end-tuto-btn {
+    background-color: #a6e22e;
+    color: #272822;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-weight: bold;
+    font-family: inherit;
+    font-size: 12px;
+    text-transform: uppercase;
+    transition: background 0.3s;
+    display: none;
+    /* Caché par défaut */
+}
+
+#end-tuto-btn:hover {
+    background-color: #32b568;
+}
