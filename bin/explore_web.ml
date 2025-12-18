@@ -527,14 +527,16 @@ let evaluate_code () =
       btn##.classList##add (Js.string "win-reset-btn");
       content##.innerHTML := Js.string
         "<h2 class = 'win-title'>🏆 SUCCÈS !</h2>\
-        <p class = 'win-message'>Vous avez déclenché un failwith.</p>";
+        <p class = 'win-message'>Vous avez déclenché un failwith. Félicitations ! Prêt pour la suite ?</p>";
 
-        btn##.textContent := Js.some (Js.string "Recharger / Reset");
+        btn##.textContent := Js.some (Js.string "Niveau Suivant >>");
 
       (* 5. Action du bouton *)
       btn##.onclick := Dom_html.handler (fun _ ->
         Dom.removeChild doc##.body modal;
-        (* Dom_html.window##.location##reload; *)
+        (* Appel de la fonction JavaScript globale définie dans indextuto.html *)
+        let tuto = Dom_html.getElementById "tuto-badge" in
+        if Js.Opt.test (Dom_html.CoerceTo.element tuto) then Js.Unsafe.meth_call Js.Unsafe.global "nextLevel" [||] |> ignore;
         Js._true
       );
       (* 6. Assemblage et ajout au document *)
