@@ -72,7 +72,11 @@ struct
   module IEnv = Ienv.Aggregate (OpLang.IEnv) (StackEnv) (Renaming)
 
   type abstract_normal_form =
-    (OpLang.AVal.abstract_val, unit, OpLang.Names.name, UnitNames.name) OpLang.Nf.nf_term
+    ( OpLang.AVal.abstract_val,
+      unit,
+      OpLang.Names.name,
+      UnitNames.name )
+    OpLang.Nf.nf_term
     * OpLang.Store.store
 
   let get_subject_name (a_nf_term, _) =
@@ -94,7 +98,16 @@ struct
     let pp_dir fmt = Format.pp_print_string fmt dir in
     Format.asprintf "%a" (pp_a_nf ~pp_dir)
 
-  let abstract_normal_form_to_yojson a_nf = `String (string_of_a_nf "" a_nf)
+  let abstract_normal_form_to_yojson a_nf =
+    let sub_name_str =
+      match get_subject_name a_nf with
+      | None -> `String "ret" (* Rather adhoc*)
+      | Some nn -> IEnv.Renaming.Namectx.Names.name_to_yojson nn in
+    `Assoc
+      [
+        ("subjectName", sub_name_str);
+        ("string", `String (string_of_a_nf "" a_nf));
+      ]
 
   let renaming_a_nf (frenaming, _) (a_nf_term, store) =
     let a_nf_term' =
@@ -135,8 +148,7 @@ struct
     Util.Debug.print_debug @@ "Abstracting_nf_term in the context "
     ^ Namectx.to_string namectxO;
     let ty_out = Stackctx.lookup_exn stackctxO () in
-        Util.Debug.print_debug @@ "Return type is "
-    ^ OpLang.string_of_type ty_out ;
+    Util.Debug.print_debug @@ "Return type is " ^ OpLang.string_of_type ty_out;
     let inj_ty ty = ty in
     let get_type_fname fn =
       let nty = OpLang.Namectx.lookup_exn fnamectxO fn in
@@ -222,7 +234,8 @@ struct
 
   let[@warning "-8"] generate_a_nf_ret storectx (fnamectxP, stackctxP) =
     let open BranchMonad in
-    Util.Debug.print_debug @@ "Generating a_nf ret in stackctxP :" ^ (Stackctx.to_string stackctxP);
+    Util.Debug.print_debug @@ "Generating a_nf ret in stackctxP :"
+    ^ Stackctx.to_string stackctxP;
     if Stackctx.is_empty stackctxP then fail ()
     else
       let ty_hole = Stackctx.lookup_exn stackctxP () in
@@ -234,7 +247,8 @@ struct
       let* (a_nf_term, lfnamectx) = fill_abstract_val storectx fnamectxP skel in
       let* store = OpLang.Store.generate_store storectx in
       let namectxP' = (fnamectxP, stackctx') in
-      Util.Debug.print_debug @@ "We get the following return :" ^ (string_of_a_nf "" (a_nf_term, store));
+      Util.Debug.print_debug @@ "We get the following return :"
+      ^ string_of_a_nf "" (a_nf_term, store);
       return ((a_nf_term, store), (lfnamectx, Stackctx.empty), namectxP')
 
   let generate_a_nf storectx namectxP =
