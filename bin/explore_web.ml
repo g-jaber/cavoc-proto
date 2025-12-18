@@ -123,6 +123,16 @@ let generate_store_html_from_json (store_json : Yojson.Safe.t) (ienv_json : Yojs
 
 
 (* [DEBUT] Code pour la mise en évidence dynamique de ienv avec Ace *)
+let normalize_ienv = function
+  | `Assoc _ as a -> a
+  | `List [`Assoc fields; `List exprs] ->
+      let extra =
+        exprs
+        |> List.mapi (fun i v ->
+            ("stack" ^ string_of_int i, v))
+      in
+      `Assoc (fields @ extra)
+  | other -> other
 
 (* La fonction generate_ienv_html est modifiée pour insérer le contenu brut
    dans un élément <pre> avec un ID unique, que Ace prendra ensuite en charge. *)
