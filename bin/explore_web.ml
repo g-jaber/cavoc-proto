@@ -325,17 +325,31 @@ let generate_clickables moves =
     (fun index (id, move) ->
       let checkbox_div = Dom_html.createDiv Dom_html.document in
       let checked_attr = if index = 0 then " checked" else "" in
+      
+      (* --- MODIFICATION : Préparation du label d'affichage --- *)
+      (* On essaie de parser le JSON pour n'afficher que le champ "string" *)
+      let display_label =
+        try
+          match Yojson.Safe.from_string move with
+          | `Assoc fields ->
+              (match List.assoc_opt "string" fields with
+               | Some (`String s) -> s (* Si trouvé, on affiche ce texte propre *)
+               | _ -> move)            (* Sinon, on garde le JSON brut *)
+          | _ -> move
+        with _ -> move (* En cas d'erreur, fallback sur le JSON brut *)
+      in
+
       checkbox_div##.innerHTML :=
         Js.string
           (Printf.sprintf
             "<input type='radio' name='move' id='move_%d'%s> <label \
               for='move_%d'>%s</label>"
-            id checked_attr id move);
+            id checked_attr id display_label); (* Ici on utilise display_label pour l'affichage *)
 
       (* --- AJOUT : Gestionnaire d'événement au clic --- *)
       (* On utilise Lwt_js_events ou directement le DOM onclick *)
       checkbox_div##.onclick := Dom_html.handler (fun _ ->
-        highlight_subject move; (* Appel de notre fonction magique *)
+        highlight_subject move; (* IMPORTANT : On garde 'move' (le JSON complet) ici pour la logique interne *)
         
         (* Force la sélection du radio button si on clique sur la div (UX bonus) *)
         let input = checkbox_div##querySelector (Js.string "input") in
