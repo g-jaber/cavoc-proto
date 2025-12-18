@@ -147,17 +147,7 @@
   
   <script>
     window.onload = async function () {
-      
-      // --- LOGIQUE DE PROTECTION ---
-      // Vérifie si le joueur a terminé le tutoriel
-      const tutoComplete = localStorage.getItem("tuto_completed");
-      
-      if (tutoComplete !== "true") {
-          // Si le tuto n'est pas fini, on redirige vers la page de tutoriel
-          window.location.href = "indextuto.html";
-          return; // On arrête l'exécution du script ici
-      }
-      
+     
       // --- LOGIQUE DE JEU (DOSSIER TEST) ---
       
       // Ajout d'un bouton pour réinitialiser le jeu (utile pour le debug/démo)
