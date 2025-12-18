@@ -448,3 +448,20 @@ input[type="radio"] {
   border-radius: 3px;
   font-family: "Courier New", Courier, monospace;
 }
+
+/* Ajoutez ceci à la fin de votre style.css */
+
+/* Cible spécifiquement les balises <pre> générées par OCaml dans la console */
+#console pre {
+  white-space: pre-wrap;       /* Conserve le formatage mais force le retour à la ligne */
+  word-wrap: break-word;       /* Coupe les mots s'ils sont plus longs que la ligne */
+  overflow-wrap: break-word;   /* Standard moderne pour couper les mots */
+  margin: 0;                   /* Enlève les marges par défaut qui prennent de la place */
+  max-width: 100%;             /* S'assure que le texte ne dépasse pas le conteneur */
+}
+
+/* S'assure que l'onglet console lui-même ne déborde pas */
+#console {
+  overflow-x: hidden;          /* Empêche l'apparition d'une barre de scroll horizontale parasite */
+  width: 100%;                 /* Force la largeur à rester celle du parent */
+}
