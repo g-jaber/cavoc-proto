@@ -11,17 +11,12 @@
     <link rel="stylesheet" href="tuto.css">
     <link rel="shortcut icon" href="./" type="image/x-icon" />
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
-
   </head>
 
   <body>
     <div id="tuto-badge">
       <span class="tuto-title">🎓 TUTORIEL</span>
-      <span id="tuto-status" style="font-size: 12px; opacity: 0.8;">En cours...</span>
-      <a href="index.html" style="text-decoration:none;">
-        <button id="end-tuto-btn">Accéder au jeu &rarr;</button>
-      </a>
+      <span id="level-indicator" style="font-size: 14px; color: #f8f8f2;">Niveau 1</span>
     </div>
 
     <div class="container code-section">
@@ -33,10 +28,10 @@
       <h2>Signature OCaml</h2>
       <div id="signatureEditor"></div>
     </div>
+    
     <div id="help" class="help">
       <button id="help-btn" class="help-btn">Help</button>
     </div>
-    
     <div id="help-modal" class="modal">
       <div class="modal-content">
         <span class="close-btn">&times;</span>
@@ -44,36 +39,26 @@
       </div>
     </div>
 
-    <div id="file-selection" class="file-selection-container">
-      <label for="file-select">Select a file:</label>
-      <select id="file-select-dropdown" class="file-select">
-        </select>
-      <button id="load-btn" class="load-btn">Load</button>
+    <div style="display: none;">
+       <input type="checkbox" id="direct-style-check">
+       <input type="checkbox" id="wellbracketing-check">
+       <input type="checkbox" id="visibility-check">
+       <button id="load-btn"></button> 
+       <div id="file-select-dropdown"></div> 
     </div>
 
     <div id="output-container">
       <div id="select-move">
-        <div id="moves-list">
-          </div>
+        <div id="moves-list"></div>
       </div>
       <div id="histo-config-container">
         <div class="tabs">
           <div class="tab-nav">
-            <button class="tab-link active" onclick="openTab(event, 'config')">
-              Configuration
-            </button>
-            <button class="tab-link" onclick="openTab(event, 'ienv')">
-              ienv
-            </button>
-            <button class="tab-link" onclick="openTab(event, 'store')">
-              Store
-            </button>
-            <button class="tab-link" onclick="openTab(event, 'histo')">
-              History
-            </button>
-            <button class="tab-link" onclick="openTab(event, 'console')">
-              Console
-            </button>
+            <button class="tab-link active" onclick="openTab(event, 'config')">Configuration</button>
+            <button class="tab-link" onclick="openTab(event, 'ienv')">ienv</button>
+            <button class="tab-link" onclick="openTab(event, 'store')">Store</button>
+            <button class="tab-link" onclick="openTab(event, 'histo')">History</button>
+            <button class="tab-link" onclick="openTab(event, 'console')">Console</button>
           </div>
 
           <div id="config" class="tab-content active"></div>
@@ -89,30 +74,12 @@
         </div>
       </div>
     </div>
+
     <div id="buttons-container">
       <button id="select-btn">Select</button>
       <button id="stop-btn">Stop</button>
+      
       <div id="center-controls">
-  
-        <div class="options-dropdown-container">
-          <button id="options-btn" class="options-btn">Options ⚙️</button>
-          <div id="options-menu" class="options-menu-content">
-            <div class="option-item">
-              <input type="checkbox" id="direct-style-check">
-              <label for="direct-style-check">Direct Style</label>
-            </div>
-            <hr style="border: 0; border-top: 1px solid #555; margin: 5px 0;">
-            <div class="option-item">
-              <input type="checkbox" id="wellbracketing-check">
-              <label for="wellbracketing-check">WellBracketing</label>
-            </div>
-            <div class="option-item">
-              <input type="checkbox" id="visibility-check">
-              <label for="visibility-check">Visibility</label>
-            </div>
-          </div>
-        </div>
-
         <button id="submit">Evaluate</button>
       </div>
     </div>
@@ -121,7 +88,7 @@
   </body>
 
   <script>
-    // Initialize ACE editor
+    // Initialisation ACE Editor
     var editor = ace.edit("editor");
     editor.setTheme("ace/theme/monokai");
     editor.session.setMode("ace/mode/ocaml");
@@ -129,7 +96,6 @@
     signatureEditor.setTheme("ace/theme/monokai");
     signatureEditor.session.setMode("ace/mode/ocaml");
     
-    // Store editor instances in global variables
     window.editor_instance = editor;
     window.signatureEditor_instance = signatureEditor;
 
@@ -140,7 +106,6 @@
     configEditor.renderer.$cursorLayer.element.style.display = "none";
     window.configEditor_instance = configEditor;
 
-    // Config tabs logic
     function openTab(event, tabId) {
       const contents = document.querySelectorAll(".tab-content");
       contents.forEach((content) => content.classList.remove("active"));
@@ -152,83 +117,71 @@
   </script>
   
   <script>
-    window.onload = async function () {
-      
-      // --- LOGIQUE DE SUIVI DU TUTO ---
-      setInterval(() => {
-        if (localStorage.getItem("tuto_completed") === "true") {
-            const btn = document.getElementById("end-tuto-btn");
-            const status = document.getElementById("tuto-status");
-            
-            if(btn && btn.style.display !== "block") {
-                btn.style.display = "block"; // Affiche le bouton
-                status.innerText = "Terminé !";
-                status.style.color = "#a6e22e";
-                status.style.fontWeight = "bold";
-                
-                // Animation visuelle optionnelle sur le badge
-                document.getElementById("tuto-badge").style.boxShadow = "0 0 15px rgba(166, 226, 46, 0.5)";
-            }
-        }
-      }, 1000);
-
-      // --- CHARGEMENT DES FICHIERS TUTO ---
-      let filesList = [];
-      try {
-        // Demande spécifique pour le dossier 'tuto'
-        const response = await fetch('http://localhost:8000/list_files?dir=tuto');
-        filesList = await response.json();
-      } catch(e){
-        console.log("Erreur chargement liste tuto:", e);
-      }
-
-      const mlFiles = filesList.filter((file) => file.endsWith(".ml"));
-      const fileSelect = document.getElementById("file-select-dropdown");
-      mlFiles.forEach((file) => {
-        const option = document.createElement("option");
-        option.value = file;
-        option.text = file;
-        fileSelect.appendChild(option);
-      });
-
-      if(mlFiles.length > 0) fileSelect.value = mlFiles[0];
-
-      // Bouton LOAD pour les tutos
-      document.getElementById("load-btn").addEventListener("click", function () {
-          const selectedFileName = document.getElementById("file-select-dropdown").value;
-          if (selectedFileName) {
-            const mlFileName = selectedFileName;
-            const mliFileName = mlFileName.replace(".ml", ".mli");
-
-            // Chemins pointant vers ../tuto/
-            fetch(`../tuto/${mlFileName}`)
-              .then((r) => r.text()).then((c) => editor.session.setValue(c))
-              .catch((e) => console.error("Error loading .ml:", e));
-
-            fetch(`../tuto/${mliFileName}`)
-              .then((r) => r.text()).then((c) => signatureEditor.session.setValue(c))
-              .catch(() => signatureEditor.session.setValue(""));
-          }
-      });
-      
-      // Chargement initial
-      if(mlFiles.length > 0) document.getElementById("load-btn").click();
+    // --- CONFIGURATION DES TUTOS ---
+    // Définit les options pour chaque niveau
+    const TUTO_CONFIGS = {
+        
+        // Configuration pour chaque niveau
+        // !!!!!!! A modifier pour utiliser des fichier tutoX.json pour lire les options !!!!!!!
+        1: { directStyle: false, wellBracketing: false, visibility: false },
+        2: { directStyle: false, wellBracketing: true, visibility: false },
+        3: { directStyle: true, wellBracketing: false, visibility: true },
+        // Ajoutez d'autres niveaux ici...
+        default: { directStyle: false, wellBracketing: false, visibility: false }
     };
 
-    // Gestion du menu Options
-    document.getElementById('options-btn').addEventListener('click', function(e) {
-        e.stopPropagation();
-        const menu = document.getElementById('options-menu');
-        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-    });
+    let currentLevel = 1;
 
-    // Fermer le menu si on clique ailleurs
-    document.addEventListener('click', function(e) {
-        const menu = document.getElementById('options-menu');
-        const btn = document.getElementById('options-btn');
-        if (menu.style.display === 'block' && !menu.contains(e.target) && e.target !== btn) {
-            menu.style.display = 'none';
-        }
-    });
+    // Fonction appelée par OCaml (explore_web.ml) lors du succès
+    window.nextLevel = function() {
+        currentLevel++;
+        loadLevel(currentLevel);
+    };
+
+    // Fonction pour charger un niveau spécifique
+    function loadLevel(level) {
+        const mlFileName = `tuto${level}.ml`;
+        const mliFileName = `tuto${level}.mli`;
+        
+        console.log(`Chargement du niveau ${level}...`);
+        
+        // Mise à jour visuelle
+        document.getElementById("level-indicator").innerText = "Niveau " + level;
+
+        // 1. Appliquer les options (checkboxes cachées)
+        const config = TUTO_CONFIGS[level] || TUTO_CONFIGS['default'];
+        document.getElementById('direct-style-check').checked = config.directStyle;
+        document.getElementById('wellbracketing-check').checked = config.wellBracketing;
+        document.getElementById('visibility-check').checked = config.visibility;
+
+        // 2. Charger le fichier .ml
+        fetch(`../tuto/${mlFileName}`)
+          .then((response) => {
+              if (!response.ok) throw new Error("Fini"); // Si le fichier n'existe pas, c'est la fin
+              return response.text();
+          })
+          .then((mlContent) => {
+            editor.session.setValue(mlContent);
+            
+            // 3. Charger le fichier .mli correspondant
+            fetch(`../tuto/${mliFileName}`)
+              .then((r) => r.text())
+              .then((c) => signatureEditor.session.setValue(c))
+              .catch(() => signatureEditor.session.setValue("")); // Vide si pas de mli
+          })
+          .catch((error) => {
+             if (error.message === "Fini") {
+                 alert("Bravo ! Vous avez terminé tous les tutoriels disponibles !");
+                 window.location.href = "index.html"; // Retour au jeu libre
+             } else {
+                 console.error("Erreur chargement:", error);
+             }
+          });
+    }
+
+    // Démarrage
+    window.onload = function () {
+      loadLevel(currentLevel);
+    };
   </script>
 </html>
