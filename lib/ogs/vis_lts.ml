@@ -48,20 +48,11 @@ module Make (Moves : Lts.Moves.POLMOVES) :
 
   let string_of_conf = Format.asprintf "%a" pp_conf
 
-  let get_subject_name move =
-    match Moves.get_subject_name move with
-    | Some nn -> nn
-    | None ->
-        Util.Error.failwithf
-          "Error: the move %a does not have a subject name. We cannot enforce \
-           visibility on it."
-          Moves.pp_move move
-
           
   let trans_check conf (dir, move) =
     match (conf, dir) with
     | (Active vm, Moves.Output) ->
-        let nn = get_subject_name move in
+        let nn =  Moves.get_subject_name move in
         let view =
           match Util.Pmap.lookup nn vm with
           | Some view -> Moves.Renaming.Namectx.get_names (Moves.get_namectx move) @ view
@@ -71,7 +62,7 @@ module Make (Moves : Lts.Moves.POLMOVES) :
                 Moves.Renaming.Namectx.Names.pp_name nn pp_view_map vm in
         Some (Passive (view, vm))
     | (Passive (view, vm), Moves.Input) ->
-        let nn = get_subject_name move in
+        let nn =  Moves.get_subject_name move in
         if List.mem nn view then
           let freshn_l = Moves.Renaming.Namectx.get_names (Moves.get_namectx move) in
           let vm_l = List.map (fun nn -> (nn, view)) freshn_l in

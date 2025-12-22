@@ -44,7 +44,7 @@ module type LANG = sig
       We should check whether we take into account disclosure of locations currently.*)
 
   val get_subject_name :
-    abstract_normal_form -> IEnv.Renaming.Namectx.Names.name option
+    abstract_normal_form -> IEnv.Renaming.Namectx.Names.name
 
   (* The first argument is a string inserted between
      the negative part of the normal form
@@ -255,6 +255,17 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
      since the image of  store_discl might itself has
      labels that becomes diclosed.
      This computation would necessitate an iterative process. *)
+
+  let get_subject_name (a_nf_term, _) =
+    let f_fn nn = (nn, Some nn) in
+    let f_cn nn = (nn, Some nn) in
+    match snd @@ OpLang.Nf.map_fn None f_fn a_nf_term with
+    | None -> begin
+        match snd @@ OpLang.Nf.map_cn None f_cn a_nf_term with
+        | None -> failwith "No subject name in an a_nf_term. Please report"
+        | Some nn' -> nn'
+      end
+    | Some nn -> nn
 
   let eval (opconf, namectxO, storectx_discl) =
     let open EvalMonad in

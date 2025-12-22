@@ -2,9 +2,9 @@ module Make (IntLang : Lang.Interactive.LANG) :
   Lts.Typing.LTS
     with module Moves.Renaming = IntLang.IEnv.Renaming
      and type store_ctx = IntLang.Storectx.t
-     and type Moves.move =
+     and type Moves.copattern =
       IntLang.abstract_normal_form * IntLang.IEnv.Renaming.t = struct
-  module Moves = Lts.Moves.Make (IntLang)
+  module Moves = Lts.Moves.Make (IntLang : Lts.Moves.A_NF)
   module BranchMonad = IntLang.BranchMonad
 
   type store_ctx = IntLang.Storectx.t
@@ -76,24 +76,23 @@ module Make (IntLang : Lang.Interactive.LANG) :
         let* (a_nf, lnamectx, _) = IntLang.generate_a_nf storectx namectxP in
         let renaming = IntLang.IEnv.Renaming.weak_r lnamectx namectxO in
         let namectxO = IntLang.IEnv.Renaming.im renaming in
-        return ((Moves.Input, (a_nf, renaming)), Active { storectx; namectxO })
+        let nn = IntLang.get_subject_name a_nf in
+        return
+          ((Moves.Input, (nn, (a_nf, renaming))), Active { storectx; namectxO })
     | Active { storectx; namectxO } ->
         let* (a_nf, namectxP, namectxO) =
           IntLang.generate_a_nf storectx namectxO in
         let renaming = IntLang.IEnv.Renaming.id namectxP in
+        let nn = IntLang.get_subject_name a_nf in
         return
-          ( (Moves.Output, (a_nf, renaming)),
+          ( (Moves.Output, (nn, (a_nf, renaming))),
             Passive { storectx; namectxP; namectxO } )
 
-  let check_move pos (dir, (a_nf, renaming)) =
+  let check_move pos (dir, (_nn,(a_nf, renaming))) =
     let lnamectx = Moves.Renaming.dom renaming in
     match (dir, pos) with
     | (Moves.Output, Active { storectx; namectxO }) -> begin
-        match
-          IntLang.type_check_a_nf storectx
-            namectxO
-            (a_nf, lnamectx)
-        with
+        match IntLang.type_check_a_nf storectx namectxO (a_nf, lnamectx) with
         | Some namectxO ->
             let namectxP = lnamectx in
             Some (Passive { storectx; namectxP; namectxO })

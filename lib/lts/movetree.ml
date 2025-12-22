@@ -1,5 +1,5 @@
 module type MOVETREE = sig
-  module Moves : Moves.NAMED_GEN_MOVES
+  module Moves : Moves.GEN_MOVES
 
   type movetree = {
     root: Moves.Renaming.Namectx.Names.name;
@@ -14,7 +14,7 @@ module type MOVETREE = sig
   val update : movetree -> Moves.move * Moves.move -> movetree option
 end
 
-module Make (Moves : Moves.NAMED_GEN_MOVES) : MOVETREE = struct
+module Make (Moves : Moves.GEN_MOVES) : MOVETREE = struct
   module Moves = Moves
 
   type movetree = {
@@ -46,7 +46,9 @@ module Make (Moves : Moves.NAMED_GEN_MOVES) : MOVETREE = struct
         | Some _ -> Some movetree)
 end
 
-module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
+module MakeLang
+    (MoveTree :
+      MOVETREE with type Moves.Renaming.Namectx.Names.name = int * string) :
   Lang.Interactive.LANG = struct
   module Namectx = MoveTree.Moves.Renaming.Namectx
   module Names = Namectx.Names
@@ -99,7 +101,7 @@ module MakeLang (MoveTree : MOVETREE with type Moves.name = int * string) :
         EvalMonad.return
           ((moveOut, namectx, storectx), IEnv.empty namectx, movetree)
 
-  let get_subject_name : abstract_normal_form -> Names.name option =
+  let get_subject_name : abstract_normal_form -> Names.name =
     MoveTree.Moves.get_subject_name
 
   let[@warning "-27"] pp_a_nf ~pp_dir fmt =

@@ -44,6 +44,7 @@ struct
   module Names = Names.MakeAggregate (OpLang.Names) (UnitNames)
 
   let inj_name nn = Either.Left nn
+  let inj_cname () = Either.Right ()
 
   module Namectx = Typectx.Aggregate (OpLang.Namectx) (Stackctx) (Names)
   module StackRenaming = Renaming.MakeNoName (Stackctx)
@@ -79,9 +80,12 @@ struct
     OpLang.Nf.nf_term
     * OpLang.Store.store
 
-  let get_subject_name (a_nf_term, _) =
+  let get_subject_name ((a_nf_term, _) : abstract_normal_form) :
+      IEnv.Renaming.Namectx.Names.name =
     let f_fn nn = (nn, Some (inj_name nn)) in
-    snd @@ OpLang.Nf.map_fn None f_fn a_nf_term
+    match snd @@ OpLang.Nf.map_fn None f_fn a_nf_term with
+    | Some res -> res
+    | None -> inj_cname ()
 
   let pp_a_nf ~pp_dir fmt (a_nf_term, store) =
     let pp_ectx fmt () = Format.pp_print_string fmt "" in
@@ -100,9 +104,7 @@ struct
 
   let abstract_normal_form_to_yojson a_nf =
     let sub_name_str =
-      match get_subject_name a_nf with
-      | None -> `String "ret" (* Rather adhoc*)
-      | Some nn -> IEnv.Renaming.Namectx.Names.name_to_yojson nn in
+      IEnv.Renaming.Namectx.Names.name_to_yojson @@ get_subject_name a_nf in
     `Assoc
       [
         ("subjectName", sub_name_str);
