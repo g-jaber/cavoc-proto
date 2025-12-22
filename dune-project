@@ -1,4 +1,4 @@
-(lang dune 3.13)
+(lang dune 3.18)
 
 (name cavoc)
 (using menhir 3.0)
@@ -20,7 +20,19 @@
  (name cavoc)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml dune js_of_ocaml js_of_ocaml-ppx)
+(depends
+  ocaml
+  odoc
+  dune
+  js_of_ocaml
+  js_of_ocaml-ppx
+  js_of_ocaml-lwt
+  lwt
+  lwt_ppx
+  cohttp
+  cohttp-lwt-js
+  cohttp-lwt-unix
+  ppx_deriving_yojson)
  (tags
   (topics "to describe" your project)))
 

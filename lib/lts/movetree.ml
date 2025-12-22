@@ -7,6 +7,7 @@ module type MOVETREE = sig
     namectxO: Moves.Renaming.Namectx.t;
     map: (Moves.move, Moves.move) Util.Pmap.pmap;
   }
+  [@@deriving to_yojson]
 
   val pp : Format.formatter -> movetree -> unit
   val trigger : movetree -> Moves.move -> Moves.move option
@@ -30,6 +31,7 @@ module Make (Moves : Moves.GEN_MOVES) : MOVETREE = struct
       Format.fprintf fmt "%a : %a" Moves.pp_move m Moves.pp_move m' in
     Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt movetree.map
 
+  let movetree_to_yojson movetree = `String (Format.asprintf "%a" pp movetree)
   let trigger movetree move = Util.Pmap.lookup move movetree.map
 
   let update movetree (moveIn, moveOut) =
@@ -50,10 +52,10 @@ module MakeLang
   Lang.Interactive.LANG = struct
   module Namectx = MoveTree.Moves.Renaming.Namectx
   module Names = Namectx.Names
-  module EvalMonad = Util.Monad.Option
+  module EvalMonad = Util.Monad.Result
   module BranchMonad = MoveTree.Moves.BranchMonad
 
-  type store = MoveTree.movetree
+  type store = MoveTree.movetree [@@deriving to_yojson]
 
   let pp_store = MoveTree.pp
   let string_of_store = Format.asprintf "%a" pp_store
@@ -86,7 +88,7 @@ module MakeLang
           let pp = Names.pp_name
         end)
 
-  type abstract_normal_form = MoveTree.Moves.move
+  type abstract_normal_form = MoveTree.Moves.move [@@deriving to_yojson]
 
   let renaming_a_nf _renaming = failwith "TODO"
 

@@ -40,8 +40,8 @@
   - [x] Remove add
   - [x] Remove mem
 - [x] Use typed interactive environments
-- [ ] Keep the Opponent and the Proponent names as two distinct namespaces
-- [ ] Handle reaching a failed program via the EvalMonad
+- [x] Keep the Opponent and the Proponent polymorphic names as two distinct namespaces
+- [x] Handle reaching a failed program via the EvalMonad
 - [x] Manage to print De Bruijn names in move with offset
 - [x] Embed a Name module inside Namectx
 - [x] Embed a Namectx module inside Moves
@@ -53,10 +53,12 @@
 - [ ] Define an interface for the monoid action for substitution
 - [x] Remove concat map in IEnv and introduce copairing
 - [x] Switch to a presentation with typed moves
-- [ ] Implement a notion of Stackctx and of Stackenv for direct.ml
+- [x] Implement a notion of Stackctx and of Stackenv for direct.ml
 - [x] Pass a namectx argument to abstracting_value to handle correctly the empty ienv
 - [ ] Switch from val get_nf_term : term -> normal_form_term to val get_nf_term : opconf -> normal_form_term*store
 - [ ] In cps.ml, use named opconf rather than named terms
-- [ ] Add a function add_fresh on renamings
+- [x] Add a function add_fresh on renamings
+- [ ] Do not embed Renaming module inside IEnv
+- [ ] Simplify AggregateCommon by supposing that the type of name is always an Either
 - [ ] opconf should comes with their namectx and storectx typing
 - [ ] add a subject_name function 

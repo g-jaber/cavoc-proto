@@ -1,4 +1,4 @@
-type store = Syntax.val_env * Heap.heap * Type_ctx.cons_ctx
+type store = Syntax.val_env * Heap.heap * Type_ctx.cons_ctx [@@deriving to_yojson]
 type location = Loc of Syntax.loc | Cons of Syntax.constructor [@@deriving to_yojson]
 
 (*TODO: We should also print the other components *)
@@ -69,14 +69,14 @@ module Storectx = struct
           (Util.Pmap.to_list
           @@ Util.Pmap.map
                (fun (loc, ty) ->
-                 (Syntax.string_of_loc loc, `String (Types.string_of_typ ty)))
+                 (Syntax.string_of_loc loc, Types.typ_to_yojson ty))
                loc_ctx);
         `Assoc
           (Util.Pmap.to_list
           @@ Util.Pmap.map
                (fun (cons, ty) ->
                  ( Syntax.string_of_constructor cons,
-                   `String (Types.string_of_typ ty) ))
+                   Types.typ_to_yojson ty ))
                cons_ctx);
       ]
 

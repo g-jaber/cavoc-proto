@@ -125,14 +125,15 @@ struct
   let rec compute_graph_monad ~show_conf ~show_moves_list ~get_move = function
     | (IntLTS.Active act_conf, _) as act_state -> begin
         match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
-        | None -> add_failed_state act_state
-        | Some (pmove, pas_conf) ->
+        | PropStop -> add_failed_state act_state
+        | Continue (pmove, pas_conf) ->
             let* pas_state = add_pas_state pas_conf in
             let edge = PublicTrans (act_state, pmove, pas_state) in
             Util.Debug.print_debug
               ("Adding the transition: " ^ string_of_transition edge);
             let* () = add_edge edge in
             compute_graph_monad ~show_conf ~show_moves_list ~get_move pas_state
+      | OpStop -> failwith "Opponent has stopped while it was not its turn. Please report."
       end
     | (IntLTS.Passive pas_conf, _) as pas_state ->
         let* (input_move, act_conf) =

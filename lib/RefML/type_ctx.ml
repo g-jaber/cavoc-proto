@@ -26,6 +26,14 @@ let pp_cons_ctx fmt cons_ctx =
     Format.fprintf fmt "%a : %a" Syntax.pp_constructor c Types.pp_typ ty in
   Util.Pmap.pp_pmap ~pp_empty pp_pair fmt cons_ctx
 
+let cons_ctx_to_yojson cons_ctx =
+  let cons_ctx_l = Util.Pmap.to_list cons_ctx in
+  let cons_ctx_l' =
+    List.map
+      (fun (c, t) -> (Syntax.string_of_constructor c, Types.typ_to_yojson t))
+      cons_ctx_l in
+  `Assoc cons_ctx_l'
+
 let string_of_var_ctx = Format.asprintf "%a" pp_var_ctx
 let string_of_loc_ctx = Format.asprintf "%a" pp_loc_ctx
 let string_of_cons_ctx = Format.asprintf "%a" pp_cons_ctx
@@ -53,8 +61,9 @@ let apply_type_subst type_ctx tsubst =
   let var_ctx = apply_type_subst_to_ctx tsubst type_ctx.var_ctx in
   let loc_ctx = apply_type_subst_to_ctx tsubst type_ctx.loc_ctx in
   let name_ctx =
-    Namectx.Namectx.map (fun ty -> Types.apply_type_subst ty tsubst) type_ctx.name_ctx
-  in
+    Namectx.Namectx.map
+      (fun ty -> Types.apply_type_subst ty tsubst)
+      type_ctx.name_ctx in
   let cons_ctx = apply_type_subst_to_ctx tsubst type_ctx.cons_ctx in
   let type_env = type_ctx.type_env in
   { var_ctx; loc_ctx; name_ctx; cons_ctx; type_env }
@@ -63,7 +72,7 @@ let build_type_ctx _expr =
   {
     var_ctx= empty_var_ctx;
     loc_ctx= empty_loc_ctx;
-    name_ctx = Namectx.Namectx.empty;
+    name_ctx= Namectx.Namectx.empty;
     cons_ctx= empty_cons_ctx;
     type_env= Types.empty_type_env;
   }

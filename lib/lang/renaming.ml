@@ -182,6 +182,61 @@ module Make (Namectx : Typectx.TYPECTX_LIST) :
     (nn', copairing renam' renam_nn)
 end
 
+module MakeNoName (Namectx : Typectx.TYPECTX with type Names.name = unit) :
+  RENAMING with module Namectx = Namectx = struct
+  module Namectx = Namectx
+
+  type t = {
+    dom: Namectx.t;
+    im: Namectx.t;
+  }
+
+  let pp fmt renam =
+    if Namectx.is_empty renam.dom && Namectx.is_empty renam.im then
+      Format.fprintf fmt ""
+    else
+      Format.fprintf fmt "[%a] ⇒ [%a]" Namectx.pp
+        renam.dom Namectx.pp renam.im
+
+  let to_string = Format.asprintf "%a" pp
+
+  let id namectx =
+    { dom= namectx; im= namectx }
+
+  let dom renam = renam.dom
+  let im renam = renam.im
+
+  let compose renam1 renam2 =
+    assert (renam1.dom = renam2.im);
+    let dom = renam2.dom in
+    let im = renam1.im in
+    { dom; im }
+
+  let copairing renam1 renam2 =
+    assert (renam1.im = renam2.im);
+    let dom = Namectx.concat renam1.dom renam2.dom in
+    { dom; im= renam1.im }
+
+  let weak_l namectx_l namectx_r =
+    { dom = namectx_l;  im= Namectx.concat namectx_r namectx_l } (* We put things in the other way arround*)
+
+  (* weak_r Δ Γ : Δ → Γ + Δ*)
+  let weak_r namectx_l namectx_r =
+    { dom= namectx_l; im= Namectx.concat namectx_l namectx_r } (* Same here *)
+
+  let sym _namectx_l _namectx_r = failwith "TODO"
+
+  let lookup _renam () = ()
+
+  let add_fresh (renam : t) (_str : string) (typ : Namectx.typ) :
+      Namectx.Names.name * t =
+    let (nn, lnamectx) = Namectx.singleton typ in
+    let renam_nn = weak_r lnamectx renam.im in
+    let renam' = { renam with im= Namectx.concat renam.im lnamectx } in
+    let nn' = lookup renam_nn nn in
+    (nn', copairing renam' renam_nn)
+end
+
 module MakeAggregate (* Not used so far *)
     (Namectx1 : Typectx.TYPECTX)
     (Namectx2 : Typectx.TYPECTX)
@@ -278,6 +333,8 @@ module MakeAggregate (* Not used so far *)
     let nn' = lookup renam_nn nn in
     (nn', copairing renam' renam_nn)
 end
+
+
 
 module Aggregate
     (Renam1 : RENAMING)

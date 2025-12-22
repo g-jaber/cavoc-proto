@@ -1,16 +1,9 @@
-module Make (IntLts : Strategy.INT_LTS) :
-  Strategy.INT_LTS
-    with type TypingLTS.Moves.Renaming.Namectx.t = IntLts.TypingLTS.Moves.Renaming.Namectx.t
-     and type opconf = IntLts.opconf * IntLts.opconf
-     and type store = IntLts.store * IntLts.store
-     and type interactive_env = IntLts.interactive_env * IntLts.interactive_env =
-struct
+module Make (IntLts : Strategy.LTS_WITH_INIT) :
+  Strategy.LTS_WITH_INIT_BIN
+    with type TypingLTS.Moves.Renaming.Namectx.t =
+      IntLts.TypingLTS.Moves.Renaming.Namectx.t = struct
   module TypingLTS = IntLts.TypingLTS
   module EvalMonad = IntLts.EvalMonad
-
-  type opconf = IntLts.opconf * IntLts.opconf
-  type store = IntLts.store * IntLts.store
-  type interactive_env = IntLts.interactive_env * IntLts.interactive_env
 
   type active_conf =
     IntLts.active_conf
@@ -73,19 +66,15 @@ struct
     | Some act_conf2 -> return (move, (act_conf1, act_conf2, span))
     | None -> fail ()
 
-  let init_aconf (opconf1, opconf2) namectxP =
-    let init_aconf1 = IntLts.init_aconf opconf1 namectxP in
-    let init_aconf2 = IntLts.init_aconf opconf2 namectxP in
-    let name_l = IntLts.TypingLTS.Moves.Renaming.Namectx.get_names namectxP in
-    let span = Util.Namespan.combine (name_l, name_l) in
-    (* Not needed*)
-    (init_aconf1, init_aconf2, span)
+  let lexing_init_aconf expr1_lexbuffer expr2_lexbuffer =
+    let init_aconf1 = IntLts.lexing_init_aconf expr1_lexbuffer in
+    let init_aconf2 = IntLts.lexing_init_aconf expr2_lexbuffer in
+    (init_aconf1, init_aconf2, Util.Namespan.empty_nspan)
 
-  let init_pconf (store1, store2) (ienv1, ienv2) namectxP namectxO =
-    let init_pconf1 = IntLts.init_pconf store1 ienv1 namectxP namectxO in
-    let init_pconf2 = IntLts.init_pconf store2 ienv2 namectxP namectxO in
-    let name_l = IntLts.TypingLTS.Moves.Renaming.Namectx.get_names namectxP in
-    let span = Util.Namespan.combine (name_l, name_l) in
-    (* Should we also use namectxO1 and namectxO2 to build a span ? Or should they be checked to be equal ?*)
-    (init_pconf1, init_pconf2, span)
+  let lexing_init_pconf decl1_lexbuffer decl2_lexbuffer signature_lexbuffer =
+    let init_pconf1 =
+      IntLts.lexing_init_pconf decl1_lexbuffer signature_lexbuffer in
+    let init_pconf2 =
+      IntLts.lexing_init_pconf decl2_lexbuffer signature_lexbuffer in
+    (init_pconf1, init_pconf2, Util.Namespan.empty_nspan)
 end

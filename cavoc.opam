@@ -11,10 +11,17 @@ doc: "https://url/to/documentation"
 bug-reports: "https://github.com/username/reponame/issues"
 depends: [
   "ocaml"
-  "dune" {>= "3.13"}
+  "odoc"
+  "dune" {>= "3.18"}
   "js_of_ocaml"
   "js_of_ocaml-ppx"
-  "odoc" {with-doc}
+  "js_of_ocaml-lwt"
+  "lwt"
+  "lwt_ppx"
+  "cohttp"
+  "cohttp-lwt-js"
+  "cohttp-lwt-unix"
+  "ppx_deriving_yojson"
 ]
 build: [
   ["dune" "subst"] {dev}
@@ -31,3 +38,4 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/username/reponame.git"
+x-maintenance-intent: ["(latest)"]

@@ -11,7 +11,7 @@ module Make (Moves : Lts.Moves.POLMOVES) :
   let conf_to_yojson (_, cstack) =
     `List
       (List.map
-         (fun x -> `String (Moves.Renaming.Namectx.Names.string_of_name x))
+         Moves.Renaming.Namectx.Names.name_to_yojson
          cstack)
 
   let pp_conf fmt (_, stack) =

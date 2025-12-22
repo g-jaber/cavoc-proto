@@ -20,12 +20,14 @@ struct
   module TypingLTS = IntLTS.TypingLTS
   module EvalMonad = IntLTS.EvalMonad
 
+
+
   type[@warning "-37"] active_conf =
     | ActiveLeft of IntLTS.active_conf * IntLTS.passive_conf
     | ActiveRight of IntLTS.passive_conf * IntLTS.active_conf
 
   type passive_conf = IntLTS.passive_conf * IntLTS.passive_conf
-  [@@deriving to_yojson]
+    [@@deriving to_yojson]
 
   type conf = Active of active_conf | Passive of passive_conf
 

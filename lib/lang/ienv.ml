@@ -16,7 +16,7 @@ module type IENV = sig
   val im : t -> Renaming.Namectx.t
   val embed_renaming : Renaming.t -> t
 
-  (* Taking γ₁ : Γ₁ → Δ and γ₂ : Γ₂ → Δ, pairing γ₁ γ₂ : (Γ₁ + Γ₂) → Δ  *)
+  (* Taking γ₁ : Γ₁ → Δ and γ₂ : Γ₂ → Δ, copairing γ₁ γ₂ : (Γ₁ + Γ₂) → Δ  *)
   val copairing : t -> t -> t
 
   (* Taking γ : Γ → Δ and Θ, then weaken_r γ Θ : Γ → Δ + Θ *)
@@ -38,6 +38,12 @@ module type IENV = sig
 
   val map : (value -> value) -> t -> t
   val fold : ('a -> Renaming.Namectx.Names.name * value -> 'a) -> 'a -> t -> 'a
+end
+
+module type IENV_ORDERED = sig
+  include IENV
+
+  val get_last : t -> (value * t) option
 end
 
 module Make_PMAP
@@ -245,6 +251,98 @@ struct
     List.fold_left f v (List.mapi (fun i (str, v) -> ((i, str), v)) ienv.map)
 end
 
+module Make_Stack
+    (Renaming : Renaming.RENAMING with type Namectx.Names.name = unit)
+    (Value : sig
+      type t [@@deriving to_yojson]
+
+      val renam_act : Renaming.t -> t -> t
+      val embed_name : Renaming.Namectx.Names.name -> t
+      val pp : Format.formatter -> t -> unit
+    end) :
+  IENV_ORDERED with module Renaming = Renaming and type value = Value.t = struct
+  module Renaming = Renaming
+
+  type value = Value.t
+
+  let embed_name = Value.embed_name
+
+  type t = {
+    stack: Value.t list;
+    dom: Renaming.Namectx.t;
+    im: Renaming.Namectx.t;
+  }
+
+  let pp fmt ienv =
+    match ienv.stack with
+    | [] -> Format.fprintf fmt "[]"
+    | _ ->
+        let pp_sep fmt () = Format.fprintf fmt "; " in
+        Format.pp_print_list ~pp_sep
+          (fun fmt v -> Format.fprintf fmt "[%a]" Value.pp v)
+          fmt ienv.stack
+
+  let to_string = Format.asprintf "%a" pp
+  let to_yojson ienv = `List (List.map Value.to_yojson ienv.stack)
+  let empty im = { stack= []; dom= Renaming.Namectx.empty; im }
+  let dom ienv = ienv.dom
+  let im ienv = ienv.im
+
+  let embed_renaming _renam =
+    failwith "Embed renaming is impossible for stacks. Please report."
+
+  (* We put ienv2 on top of ienv1 !*)
+  let copairing ienv1 ienv2 =
+    assert (ienv1.im = ienv2.im);
+    {
+      stack= List.append ienv2.stack ienv1.stack;
+      dom= Renaming.Namectx.concat ienv2.dom ienv1.dom;
+      im= ienv1.im;
+    }
+
+  (* Taking γ : Γ → Δ and Θ, then weaken_r γ Θ : Γ → Δ + Θ *)
+  let weaken_r ienv namectx =
+    let renam = Renaming.weak_l ienv.im namectx in
+    let stack = List.map (Value.renam_act renam) ienv.stack in
+    { stack; dom= ienv.dom; im= Renaming.im renam }
+
+  let weaken_l ienv namectx =
+    let renam = Renaming.weak_r ienv.im namectx in
+    let stack = List.map (Value.renam_act renam) ienv.stack in
+    { stack; dom= ienv.dom; im= Renaming.im renam }
+
+  let tensor ienv1 ienv2 =
+    let ienv1' = weaken_r ienv1 (im ienv2) in
+    let ienv2' = weaken_l ienv2 (im ienv1) in
+    copairing ienv1' ienv2'
+
+  let lookup_exn ienv () =
+    match ienv.stack with
+    | [] -> failwith "Empty stack ienv. Please report"
+    | v :: _ -> v
+
+  let add_fresh ienv str ty value =
+    let ((), dom) = Renaming.Namectx.add_fresh ienv.dom str ty in
+    let stack = value :: ienv.stack in
+    ((), { ienv with stack; dom })
+
+  let map f ienv =
+    let stack = List.map f ienv.stack in
+    { ienv with stack }
+
+  let fold (f : 'a -> Renaming.Namectx.Names.name * value -> 'a) (v : 'a)
+      (ienv : t) =
+    List.fold_left f v (List.map (fun v -> ((), v)) ienv.stack)
+
+  let get_last ienv =
+    match ienv.stack with
+    | [] -> None
+    | v :: stack -> 
+      let ty = Renaming.Namectx.lookup_exn ienv.dom () in
+      let[@warning "-8"] (Some dom) = Renaming.Namectx.is_last ienv.dom () ty in
+      Some (v, { ienv with stack; dom })
+end
+
 module Aggregate
     (IEnv1 : IENV)
     (IEnv2 : IENV)
@@ -271,12 +369,18 @@ module Aggregate
     | Either.Left nn -> Either.Left (IEnv1.embed_name nn)
     | Either.Right nn -> Either.Right (IEnv2.embed_name nn)
 
-  type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
+  type t = IEnv1.t * IEnv2.t
 
   let pp fmt (ienv1, ienv2) =
     Format.fprintf fmt "(%a,%a)" IEnv1.pp ienv1 IEnv2.pp ienv2
 
   let to_string = Format.asprintf "%a" pp
+
+  let to_yojson (ienv1, ienv2) =
+    match (IEnv1.to_yojson ienv1, IEnv2.to_yojson ienv2) with
+    | (`Assoc ienv1_l, `Assoc ienv2_l) -> `Assoc (ienv1_l @ ienv2_l)
+    | (ienv1_yojson,ienv2_yojson) -> `List [ienv1_yojson; ienv2_yojson]
+
   let empty (im1, im2) = (IEnv1.empty im1, IEnv2.empty im2)
   let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
   let im (ienv1, ienv2) = (IEnv1.im ienv1, IEnv2.im ienv2)
@@ -395,7 +499,7 @@ module AggregateCommon
           "Error while performing a lookup on an aggregated context. Please \
            report."
 
-  type t = IEnv1.t * IEnv2.t [@@deriving to_yojson]
+  type t = IEnv1.t * IEnv2.t
 
   let empty (im1, im2) = (IEnv1.empty im1, IEnv2.empty im2)
   let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
@@ -426,6 +530,11 @@ module AggregateCommon
     Format.fprintf fmt "(%a,%a)" IEnv1.pp ienv1 IEnv2.pp ienv2
 
   let to_string = Format.asprintf "%a" pp
+
+  let to_yojson (ienv1, ienv2) =
+    match (IEnv1.to_yojson ienv1, IEnv2.to_yojson ienv2) with
+    | (`Assoc ienv1_l, `Assoc ienv2_l) -> `Assoc (ienv1_l @ ienv2_l)
+    | (ienv1_yojson,ienv2_yojson) -> `List [ienv1_yojson; ienv2_yojson]
 
   let lookup_exn (ienv1, ienv2) nn =
     match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with

@@ -18,3 +18,4 @@ _build/
 # vscode settings
 .vscode
 .DS_Store
+front/server

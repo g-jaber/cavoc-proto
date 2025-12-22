@@ -1,24 +1,17 @@
 module Make
-    (Lang : Lang.Interactive.LANG)
+    (Lang : Lang.Interactive.LANG_WITH_INIT)
     (TypingLTS :
       Lts.Typing.LTS
         with module Moves.Renaming = Lang.IEnv.Renaming
          and type Moves.copattern =
           Lang.abstract_normal_form * Lang.IEnv.Renaming.t
          and type store_ctx = Lang.Storectx.t) :
-  Lts.Strategy.INT_LTS
+  Lts.Strategy.LTS_WITH_INIT
     with module TypingLTS = TypingLTS
-     and module TypingLTS.Moves.Renaming = Lang.IEnv.Renaming
-     and type opconf = Lang.opconf
-     and type store = Lang.store
-     and type interactive_env = Lang.IEnv.t = struct
+     and module TypingLTS.Moves.Renaming = Lang.IEnv.Renaming = struct
   module TypingLTS = TypingLTS
   module EvalMonad = Lang.EvalMonad
   module Moves = TypingLTS.Moves
-
-  type opconf = Lang.opconf
-  type store = Lang.store
-  type interactive_env = Lang.IEnv.t
 
   type active_conf = {
     opconf: Lang.opconf;
@@ -35,7 +28,7 @@ module Make
   let passive_conf_to_yojson passive_conf =
     `Assoc
       [
-        ("store", `String (Lang.string_of_store passive_conf.store));
+        ("store", Lang.store_to_yojson passive_conf.store);
         ("ienv", Lang.IEnv.to_yojson passive_conf.ienv);
         ("pos", TypingLTS.position_to_yojson passive_conf.pos);
       ]
@@ -104,4 +97,13 @@ module Make
 
   let equiv_act_conf act_conf act_confb =
     act_conf.opconf = act_confb.opconf (* That's fishy *)
+
+  let lexing_init_aconf expr_lexbuffer =
+    let (opconf, namectxO) = Lang.get_typed_opconf "first" expr_lexbuffer in
+    init_aconf opconf namectxO
+
+  let lexing_init_pconf decl_lexbuffer signature_lexbuffer =
+    let (interactive_env, store, name_ctxP, name_ctxO) =
+      Lang.get_typed_ienv decl_lexbuffer signature_lexbuffer in
+    init_pconf store interactive_env name_ctxP name_ctxO
 end

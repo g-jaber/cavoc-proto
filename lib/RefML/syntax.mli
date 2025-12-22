@@ -80,7 +80,7 @@ val empty_label_set : label_set
 val get_new_labels : label_set -> term -> label_set
 val get_labels : term -> label_set
 
-type value = term
+type value = term [@@deriving to_yojson]
 
 val pp_value : Format.formatter -> value -> unit
 val string_of_value : value -> string
@@ -97,7 +97,7 @@ val implement_compar_op : binary_op -> int -> int -> bool
 val get_consfun_from_bin_cons : term -> term * term -> term
 val get_consfun_from_un_cons : term -> term -> term
 
-type val_env = (id, value) Util.Pmap.pmap
+type val_env = (id, value) Util.Pmap.pmap [@@deriving to_yojson]
 
 val string_of_val_env : val_env -> string
 val empty_val_env : val_env

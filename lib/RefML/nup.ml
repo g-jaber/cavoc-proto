@@ -33,6 +33,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
 
   let pp_abstract_val = Syntax.pp_term
   let string_of_abstract_val = Format.asprintf "%a" pp_abstract_val
+  let abstract_val_to_yojson aval = `String (string_of_abstract_val aval)
   let names_of_abstract_val aval = Syntax.get_names aval
   let labels_of_abstract_val = Syntax.get_labels
   let rename = Syntax.rename

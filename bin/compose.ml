@@ -38,27 +38,14 @@ let () =
   Util.Debug.print_debug "Getting the program";
   let inBuffer1 = open_in !filename1 in
   let lexBuffer1 = Lexing.from_channel inBuffer1 in
-  let (opconf, namectxO) = IntLang.get_typed_opconf "first" lexBuffer1 in
+  let init_aconf = OGS_LTS.Active (OGS_LTS.lexing_init_aconf lexBuffer1) in
   Util.Debug.print_debug "Getting the module";
   let inBuffer2 = open_in !filename2 in
   let inBuffer3 = open_in !filename3 in
   let lexBuffer2 = Lexing.from_channel inBuffer2 in
   let lexBuffer3 = Lexing.from_channel inBuffer3 in
-  let (ienv, store, namectxO', _) =
-    IntLang.get_typed_ienv lexBuffer2 lexBuffer3 in
-  Util.Debug.print_debug
-    ("Name contexts for Opponent: "
-    ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO
-    ^ " and "
-    ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO');
-  let init_aconf =
-    OGS_LTS.Active
-      (* The following concatenation should be reworked *)
-      (OGS_LTS.init_aconf opconf (IntLang.IEnv.Renaming.Namectx.concat namectxO namectxO'))
-  in
   let init_pconf =
-    OGS_LTS.Passive
-      (OGS_LTS.init_pconf store ienv namectxO' IntLang.IEnv.Renaming.Namectx.empty) in
+    OGS_LTS.Passive (OGS_LTS.lexing_init_pconf lexBuffer2 lexBuffer3) in
   let module Composed_LTS = Lts.Compose.Make (OGS_LTS) in
   let traces = Composed_LTS.get_traces_check init_aconf init_pconf in
   Util.Debug.print_debug "Getting the trace";

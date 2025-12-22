@@ -4,7 +4,7 @@ module type MOVES = sig
   (* *)
 
   type copattern
-  type move = Renaming.Namectx.Names.name * copattern
+  type move = Renaming.Namectx.Names.name * copattern [@@deriving to_yojson]
 
   val pp_move : Format.formatter -> move -> unit
   val string_of_move : move -> string
@@ -22,8 +22,9 @@ module type POLMOVES = sig
   include MOVES
 
   type direction = Input | Output
-  type pol_move = direction * move
+  type pol_move = direction * move [@@deriving to_yojson]
 
+  val yojson_of_move : move -> Yojson.Safe.t
   val pp_pol_move : Format.formatter -> pol_move -> unit
   val string_of_pol_move : pol_move -> string
   val switch_direction : pol_move -> pol_move
@@ -57,7 +58,6 @@ module type GEN_MOVES = sig
   val check_type_move : Renaming.Namectx.t -> move * Renaming.Namectx.t -> bool
 end
 
-
 (* module POLARIZE (Moves : MOVES) : POLMOVES = struct
 include Moves
 
@@ -74,7 +74,7 @@ end *)
 module type A_NF = sig
   module IEnv : Lang.Ienv.IENV
 
-  type abstract_normal_form
+  type abstract_normal_form [@@deriving to_yojson]
 
   val renaming_a_nf :
     IEnv.Renaming.t -> abstract_normal_form -> abstract_normal_form
@@ -100,37 +100,47 @@ end
 module Make (A_nf : A_NF) :
   POLMOVES
     with module Renaming = A_nf.IEnv.Renaming
-     and type copattern = A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t = struct
+     and type copattern = A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t =
+struct
   module Renaming = A_nf.IEnv.Renaming
 
   type copattern = A_nf.abstract_normal_form * Renaming.t
-  type move =  Renaming.Namectx.Names.name * copattern
-  type direction = Input | Output
+  type move = Renaming.Namectx.Names.name * copattern
+  type direction = Input | Output [@@deriving to_yojson]
+
+  let move_to_yojson ((_, (a_nf, _)) : move) : Yojson.Safe.t =
+    A_nf.abstract_normal_form_to_yojson a_nf
 
   let string_of_direction = function Input -> "?" | Output -> "!"
   let switch = function Input -> Output | Output -> Input
 
   type pol_move = direction * move
 
+  let pol_move_to_yojson (_, move) = move_to_yojson move
+
   (* We always rename moves *)
-  let pp_move fmt (_,(a_nf, renaming)) =
+  let pp_move fmt (_, (a_nf, renaming)) =
     let a_nf' = A_nf.renaming_a_nf renaming a_nf in
     let pp_dir fmt = Format.pp_print_string fmt "" in
     A_nf.pp_a_nf ~pp_dir fmt a_nf'
 
-  let pp_pol_move fmt (dir, (_,(a_nf, renaming))) =
+  let pp_pol_move fmt (dir, (_, (a_nf, renaming))) =
     let a_nf' = A_nf.renaming_a_nf renaming a_nf in
     let pp_dir fmt = Format.pp_print_string fmt (string_of_direction dir) in
-    Format.fprintf fmt "%a (was %a)" (A_nf.pp_a_nf ~pp_dir) a_nf'
-      (A_nf.pp_a_nf ~pp_dir) a_nf
+    Format.fprintf fmt "%a" (A_nf.pp_a_nf ~pp_dir) a_nf'
+  (* (was %a) (A_nf.pp_a_nf ~pp_dir) move*)
 
   let string_of_move move = Format.asprintf "%a" pp_move move
   let string_of_pol_move polmove = Format.asprintf "%a" pp_pol_move polmove
-  let switch_direction (p, d) = (switch p, d)
-  let get_subject_name (nn,(_, _)) = nn
-  let get_namectx (_,(_, renaming)) = Renaming.dom renaming
 
-  let unify_move span (_,(a_nf1, _)) (_,(a_nf2, _)) =
+  let yojson_of_move (m : move) : Yojson.Safe.t =
+    `Assoc [ ("label", `String (string_of_move m)) ]
+
+  let switch_direction (p, d) = (switch p, d)
+  let get_subject_name (nn, (_, _)) = nn
+  let get_namectx (_, (_, renaming)) = Renaming.dom renaming
+
+  let unify_move span (_, (a_nf1, _)) (_, (a_nf2, _)) =
     A_nf.is_equiv_a_nf span a_nf1 a_nf2
 
   let unify_pol_move span (dir1, move1) (dir2, move2) =

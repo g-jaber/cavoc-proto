@@ -40,9 +40,24 @@ h2 {
   border-radius: 7px;
 }
 
-/* Submit Button - The 'Evaluer' button styling */
-#submit {
+#center-controls {
   position: fixed;
+  bottom: 40%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;       /* Met les éléments côte à côte */
+  gap: 10px;           /* Espace entre les deux boutons */
+  align-items: center; /* Aligne verticalement */
+}
+
+/* On enlève position: fixed, left, bottom, transform car c'est le parent qui gère ça */
+#submit {
+  position: static; /* Annule le fixed */
+  transform: none;  /* Annule le translate */
+  margin: 0;
+  
+  /* On garde le style visuel */
   background-color: #2ecc71;
   height: 50px;
   border-radius: 5px;
@@ -50,11 +65,19 @@ h2 {
   font-family: "Courier New", Courier, monospace;
   font-size: larger;
   border: solid 2px black;
-  bottom: 40%;
-  left: 50%;
-  transform: translate(-50%);
-  z-index: 10;
   cursor: pointer;
+  padding: 0 20px;
+}
+
+/* On doit aussi corriger le hover pour qu'il ne repasse pas en fixed */
+#submit:hover {
+  position: static;
+  transform: none;
+  background-color: #32b568;
+  /* On répète les propriétés visuelles importantes pour éviter des bugs d'affichage */
+  height: 50px;
+  color: #000000;
+  border: solid 2px black;
 }
 
 #store{
@@ -63,22 +86,6 @@ h2 {
 #store div{
   padding: 20px;
   border: solid 1px rgb(152, 152, 152);
-}
-
-#submit:hover {
-  position: fixed;
-  background-color: #32b568;
-  height: 50px;
-  border-radius: 5px;
-  color: #000000;
-  font-family: "Courier New", Courier, monospace;
-  font-size: larger;
-  border: solid 2px black;
-  bottom: 40%;
-  left: 50%;
-  transform: translate(-50%);
-  z-index: 10;
-  cursor: pointer;
 }
 
 /* Output Container - For displaying the output section at the bottom of the page */
@@ -92,27 +99,98 @@ h2 {
   font-family: "Courier New", Courier, monospace;
 }
 
+/* Container for buttons side by side */
+#buttons-container {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+/* Select Button */
+#select-btn {
+
+  position: fixed;
+  background-color: #2ecc71;
+  height: 50px;
+  border-radius: 5px;
+  color: #000000;
+  font-family: "Courier New", Courier, monospace;
+  font-size: larger;
+  border: solid 2px black;
+  bottom: 40%;
+  left: 10%;
+  transform: translate(-50%);
+  z-index: 10;
+  cursor: pointer;
+  padding: 12px 25px;
+}
+
+/* Help Button */
+#help-btn {
+  position: static;
+  background-color: #000000;
+  color: #ffffff;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 16px;
+  font-weight: bold;
+  border: solid 1px black;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 12px 25px;
+}
+
+#select-btn:hover {
+  background-color: #32b568;
+}
+
+/* Stop Button */
+#stop-btn {
+
+  position: fixed;
+  background-color: #2ecc71;
+  height: 50px;
+  border-radius: 5px;
+  color: #000000;
+  font-family: "Courier New", Courier, monospace;
+  font-size: larger;
+  border: solid 2px black;
+  bottom: 40%;
+  left: 18%;
+  transform: translate(-50%);
+  z-index: 10;
+  cursor: pointer;
+  padding: 12px 25px;
+}
+
+#stop-btn:hover {
+  background-color: #32b568;
+}
+
 /* Actions List and Select Action Styles - All relating to the action list container */
-#select-action {
+#select-move {
   width: 40%;
   height: 99%;
-  overflow-y: scroll;
-  border-radius: 5px;
-  background-color: #272822;
-  /* Monokai background color for action list */
+  overflow-y: scroll; 
+  border-radius: 8px;
+  background: linear-gradient(135deg, #272822 0%, #2d2e27 100%);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
 }
 
 /* Actions List - Styles the list of actions (checkboxes or items inside the action container) */
-#actions-list {
+#moves-list > div {
+  border: 1px solid #3e3f38;
+  border-radius: 8px;
+  padding: 12px 15px;
+  margin-bottom: 10px;
+  background: linear-gradient(135deg, #34352f 0%, #3a3b35 100%);
+  color: #f8f8f2;
+  transition: all 0.3s ease;
+  cursor: pointer;
   position: relative;
-  top: 35px;
-  display: flex;
-  flex-direction: column;
-  user-select: none;
-  margin: 1px;
-  margin-left: 5%;
-  background-color: #272822;
-  /* Monokai background color for actions list */
+  overflow: hidden;
 }
 
 /* Radio Button Styles - Specific to radio buttons in the actions list */
@@ -246,6 +324,7 @@ input[type="radio"] {
 
 .tab-content.active {
   display: block;
+  overflow-y: scroll;
   padding: 0.05%;
 }
 
@@ -266,6 +345,14 @@ input[type="radio"] {
   margin: 3px;
 }
 
+/* Highlight class for ienv items when a move is selected */
+.ienv-item-highlighted {
+  border: 3px solid #a6e22e !important;
+  background-color: rgba(166, 226, 46, 0.1) !important;
+  box-shadow: 0 0 10px rgba(166, 226, 46, 0.3) !important;
+  transition: all 0.3s ease;
+}
+
 .stack-item {
   padding: 8px;
   border: 1px solid rgb(152, 152, 152);
@@ -284,4 +371,97 @@ input[type="radio"] {
   margin-top: 1%;
   transform: translate(-50%, -50%);
   z-index: -1px;
+}
+
+.style-toggle {
+  margin-left: 15px;
+  font-family: "Courier New", Courier, monospace;
+  font-weight: bold;
+  vertical-align: middle;
+}
+
+.style-toggle input {
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.style-toggle label {
+  vertical-align: middle;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* Style for Help button */
+.modal {
+  display: none; 
+  position: fixed; 
+  z-index: 1000; 
+  left: 0;
+  top: 0;
+  width: 100%; 
+  height: 100%; 
+  overflow: auto; 
+  background-color: rgba(0,0,0,0.6); 
+  backdrop-filter: blur(2px); 
+}
+
+.modal-content {
+  background-color: #272822; 
+  color: #f8f8f2;
+  margin: 10% auto; 
+  padding: 20px;
+  border: 2px solid #a6e22e; 
+  border-radius: 8px;
+  width: 60%; 
+  max-width: 800px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+  font-family: Arial, sans-serif;
+  line-height: 1.6;
+}
+
+/* Style du bouton de fermeture (X) */
+.close-btn {
+  color: #aaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.close-btn:hover,
+.close-btn:focus {
+  color: #a6e22e;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* Style spécifique pour le contenu Markdown */
+#markdown-content h1, #markdown-content h2 {
+  color: #a6e22e;
+  border-bottom: 1px solid #3e3d32;
+  padding-bottom: 5px;
+}
+
+#markdown-content code {
+  background-color: #3e3d32;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-family: "Courier New", Courier, monospace;
+}
+
+/* Ajoutez ceci à la fin de votre style.css */
+
+/* Cible spécifiquement les balises <pre> générées par OCaml dans la console */
+#console pre {
+  white-space: pre-wrap;       /* Conserve le formatage mais force le retour à la ligne */
+  word-wrap: break-word;       /* Coupe les mots s'ils sont plus longs que la ligne */
+  overflow-wrap: break-word;   /* Standard moderne pour couper les mots */
+  margin: 0;                   /* Enlève les marges par défaut qui prennent de la place */
+  max-width: 100%;             /* S'assure que le texte ne dépasse pas le conteneur */
+}
+
+/* S'assure que l'onglet console lui-même ne déborde pas */
+#console {
+  overflow-x: hidden;          /* Empêche l'apparition d'une barre de scroll horizontale parasite */
+  width: 100%;                 /* Force la largeur à rester celle du parent */
 }

@@ -1,9 +1,13 @@
 (executable
  (name explore_web)
  (public_name cavoc-explore_web)
+ (package cavoc)
  (modes byte js)
+ (modules explore_web ui_helpers editor_manager moves_manager display_config
+          moves_display lts_config lts_kind evaluate_code help_modal page_init)
  (preprocess
-  (pps js_of_ocaml-ppx lwt_ppx))
+  (pps js_of_ocaml-ppx lwt_ppx ppx_deriving_yojson))
+ (flags (:standard -w -33))
  (libraries
   refml
   lang
@@ -13,15 +17,18 @@
   js_of_ocaml
   js_of_ocaml-ppx
   js_of_ocaml-lwt
-  lwt)
+  lwt
+  cohttp
+  cohttp-lwt-jsoo
+  yojson)
  (js_of_ocaml
-  (flags
-   (--pretty --debug-info))))
+  (flags (--pretty --debug-info))))
 
 
 (executable
  (name explore)
  (public_name cavoc-explore)
+ (package cavoc)
  (libraries
   refml
   lang
@@ -31,4 +38,24 @@
   js_of_ocaml
   js_of_ocaml-ppx
   js_of_ocaml-lwt
-  lwt))
+  lwt
+  cohttp
+  cohttp-lwt-unix))
+
+(executable
+ (name server)
+ (public_name cavoc-server)
+ (package cavoc)
+ (libraries
+  refml
+  lang
+  lts
+  ogs
+  pogs
+  js_of_ocaml
+  js_of_ocaml-ppx
+  js_of_ocaml-lwt
+  lwt
+  cohttp
+  cohttp-lwt-unix)
+)

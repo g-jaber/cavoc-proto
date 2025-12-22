@@ -244,10 +244,12 @@ let rec get_new_labels label_l = function
 
 let get_labels = get_new_labels empty_label_set
 
-type value = term [@@deriving to_yojson]
+type value = term
 
 let pp_value = pp_term
 let string_of_value = string_of_term
+
+let value_to_yojson v = `String (string_of_value v)
 
 let rec isval = function
   (*| Var _ -> true*)
@@ -324,7 +326,11 @@ let subst_var expr id = subst expr (Var id)
 
 let rec rename expr renam =
   match expr with
-  | Name nn -> Name (Renaming.Renaming.lookup renam nn)
+  | Name nn -> 
+    begin match Renaming.Renaming.lookup renam nn with
+    | mn -> Name mn
+    | exception Not_found -> expr
+  end
   | Var _ | Loc _ | Hole | Unit | Int _ | Bool _ | Error -> expr
   | Constructor (cons, expr') -> Constructor (cons, rename expr' renam)
   | BinaryOp (op, expr1, expr2) ->
@@ -414,6 +420,11 @@ type val_env = (id, value) pmap
 
 let string_of_val_env = string_of_pmap "ε" "↪" string_of_id string_of_value
 let empty_val_env = Util.Pmap.empty
+
+let val_env_to_yojson venv =
+  let venv_l = Util.Pmap.to_list venv in
+  let venv_l' = List.map (fun (x,v) -> (string_of_id x,value_to_yojson v)) venv_l in
+  `Assoc venv_l' 
 
 (* Evaluation Contexts *)
 
