@@ -30,7 +30,7 @@
   lwt
   lwt_ppx
   cohttp
-  cohttp-lwt-js
+  cohttp-lwt-jsoo
   cohttp-lwt-unix
   ppx_deriving_yojson)
  (tags
