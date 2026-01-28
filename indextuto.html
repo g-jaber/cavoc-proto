@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CAVOC - Tutoriel</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.5/ace.js"></script>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="win.css" />
+    <link rel="stylesheet" href="option_window.css">
+    <link rel="stylesheet" href="tuto.css">
+    <link rel="shortcut icon" href="./" type="image/x-icon" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  </head>
+
+  <body>
+    <div id="tuto-badge">
+      <span class="tuto-title">🎓 TUTORIEL</span>
+      <span id="level-indicator" style="font-size: 14px; color: #f8f8f2;">Niveau 1</span>
+    </div>
+
+    <div class="container code-section">
+      <h2>Code OCaml</h2>
+      <div id="editor"></div>
+    </div>
+
+    <div class="container signature">
+      <h2>Signature OCaml</h2>
+      <div id="signatureEditor"></div>
+    </div>
+    
+    <div id="help" class="help">
+      <button id="help-btn" class="help-btn">Help</button>
+    </div>
+    <div id="help-modal" class="modal">
+      <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <div id="markdown-content">Chargement...</div>
+      </div>
+    </div>
+
+    <div style="display: none;">
+       <input type="checkbox" id="direct-style-check">
+       <input type="checkbox" id="wellbracketing-check">
+       <input type="checkbox" id="visibility-check">
+       <button id="load-btn"></button> 
+       <div id="file-select-dropdown"></div> 
+    </div>
+
+    <div id="output-container">
+      <div id="select-move">
+        <div id="moves-list"></div>
+      </div>
+      <div id="histo-config-container">
+        <div class="tabs">
+          <div class="tab-nav">
+            <button class="tab-link active" onclick="openTab(event, 'config')">Configuration</button>
+            <button class="tab-link" onclick="openTab(event, 'ienv')">ienv</button>
+            <button class="tab-link" onclick="openTab(event, 'store')">Store</button>
+            <button class="tab-link" onclick="openTab(event, 'histo')">History</button>
+            <button class="tab-link" onclick="openTab(event, 'console')">Console</button>
+          </div>
+
+          <div id="config" class="tab-content active"></div>
+          <div id="ienv" class="tab-content">
+            <div id="ienv-div" class="tab-content active"></div>
+            <div id="stack-container" class="tab-content active"></div>
+          </div>
+          <div id="store" class="tab-content"></div>
+          <div id="histo" class="tab-content">
+            <div id="history"></div>
+          </div>
+          <div id="console" class="tab-content"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="buttons-container">
+      <button id="select-btn">Select</button>
+      <button id="stop-btn">Stop</button>
+      
+      <div id="center-controls">
+        <button id="submit">Evaluate</button>
+      </div>
+    </div>
+    
+    <script src="../_build/default/bin/explore_web.bc.js"></script>
+  </body>
+
+  <script>
+    // Initialisation ACE Editor
+    var editor = ace.edit("editor");
+    editor.setTheme("ace/theme/monokai");
+    editor.session.setMode("ace/mode/ocaml");
+    var signatureEditor = ace.edit("signatureEditor");
+    signatureEditor.setTheme("ace/theme/monokai");
+    signatureEditor.session.setMode("ace/mode/ocaml");
+    
+    window.editor_instance = editor;
+    window.signatureEditor_instance = signatureEditor;
+
+    var configEditor = ace.edit("config");
+    configEditor.setTheme("ace/theme/monokai");
+    configEditor.session.setMode("ace/mode/ocaml");
+    configEditor.setReadOnly(true);
+    configEditor.renderer.$cursorLayer.element.style.display = "none";
+    window.configEditor_instance = configEditor;
+
+    function openTab(event, tabId) {
+      const contents = document.querySelectorAll(".tab-content");
+      contents.forEach((content) => content.classList.remove("active"));
+      const links = document.querySelectorAll(".tab-link");
+      links.forEach((link) => link.classList.remove("active"));
+      document.getElementById(tabId).classList.add("active");
+      event.currentTarget.classList.add("active");
+    }
+  </script>
+  
+  <script>
+    let currentLevel = 1;
+
+    // Valeurs par défaut si le fichier JSON est manquant ou incomplet
+    const DEFAULT_CONFIG = { 
+        directStyle: false, 
+        wellBracketing: false, 
+        visibility: false 
+    };
+
+    // Fonction appelée par OCaml (explore_web.ml) lors du succès
+    window.nextLevel = function() {
+        currentLevel++;
+        loadLevel(currentLevel);
+    };
+
+    // Fonction principale pour charger un niveau
+    async function loadLevel(level) {
+        console.log(`Chargement du niveau ${level}...`);
+        
+        // 1. Mise à jour visuelle du badge
+        document.getElementById("level-indicator").innerText = "Niveau " + level;
+
+        // Définition des noms de fichiers
+        const jsonFileName = `tuto${level}.json`;
+        const mlFileName = `tuto${level}.ml`;
+        const mliFileName = `tuto${level}.mli`;
+
+        // ---------------------------------------------------------
+        // ETAPE A : CHARGEMENT DE LA CONFIGURATION (JSON)
+        // ---------------------------------------------------------
+        try {
+            const response = await fetch(`../tuto/${jsonFileName}`);
+            
+            let config = DEFAULT_CONFIG;
+            
+            if (response.ok) {
+                config = await response.json();
+            } else {
+                console.warn(`Fichier ${jsonFileName} introuvable, utilisation des paramètres par défaut.`);
+            }
+
+            // Application des options aux cases à cocher cachées
+            // L'opérateur '||' assure une valeur par défaut si une clé manque dans le JSON
+            document.getElementById('direct-style-check').checked = config.directStyle || false;
+            document.getElementById('wellbracketing-check').checked = config.wellBracketing || false;
+            document.getElementById('visibility-check').checked = config.visibility || false;
+
+        } catch (error) {
+            console.error("Erreur lors de la lecture du JSON de config :", error);
+            // En cas d'erreur technique, on applique les défauts pour ne pas bloquer
+            document.getElementById('direct-style-check').checked = false;
+            document.getElementById('wellbracketing-check').checked = false;
+            document.getElementById('visibility-check').checked = false;
+        }
+
+        // ---------------------------------------------------------
+        // ETAPE B : CHARGEMENT DU CODE OCAML (.ml et .mli)
+        // ---------------------------------------------------------
+        
+        // On charge le .ml
+        fetch(`../tuto/${mlFileName}`)
+          .then((response) => {
+              if (!response.ok) throw new Error("Fini"); // Si le .ml n'existe pas, c'est la fin du jeu
+              return response.text();
+          })
+          .then((mlContent) => {
+            // Mise à jour de l'éditeur principal
+            editor.session.setValue(mlContent);
+            
+            // On charge le .mli (optionnel)
+            return fetch(`../tuto/${mliFileName}`);
+          })
+          .then((response) => {
+              if (response.ok) return response.text();
+              return ""; // Si pas de .mli, on renvoie vide
+          })
+          .then((mliContent) => {
+              signatureEditor.session.setValue(mliContent);
+          })
+          .catch((error) => {
+             if (error.message === "Fini") {
+                 // Gestion de la fin du tutoriel
+                 alert("Bravo ! Vous avez terminé tous les tutoriels disponibles !");
+                 window.location.href = "index.html"; 
+             } else {
+                 console.error("Erreur chargement code :", error);
+             }
+          });
+    }
+
+    // Démarrage au chargement de la page
+    window.onload = function () {
+      loadLevel(currentLevel);
+    };
+  </script>
+</html>

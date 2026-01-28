@@ -6,7 +6,10 @@
     <title>CAVOC</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.5/ace.js"></script>
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="win.css">
+    <link rel="stylesheet" href="option_window.css">
     <link rel="shortcut icon" href="./" type="image/x-icon" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   </head>
 
   <body>
@@ -19,23 +22,30 @@
       <h2>Signature OCaml</h2>
       <div id="signatureEditor"></div>
     </div>
+    <div id="help" class="help">
+      <button id="help-btn" class="help-btn">Help</button>
+    </div>
+    <div id="help-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn">&times;</span>
+      <div id="markdown-content">Chargement...</div>
+    </div>
+    </div>
+
     <div id="file-selection" class="file-selection-container">
       <label for="file-select">Select a file:</label>
       <select id="file-select-dropdown" class="file-select">
-        <!-- Options will be populated dynamically -->
-      </select>
+        </select>
       <button id="load-btn" class="load-btn">Load</button>
+
     </div>
     <div id="output-container">
-      <div id="select-action">
-        <button id="select-btn">Select</button>
-        <div id="actions-list">
-          <!-- Checkboxes will be dynamically added here -->
-        </div>
+      <div id="select-move">
+        <div id="moves-list">
+          </div>
       </div>
       <div id="histo-config-container">
         <div class="tabs">
-          <!-- Tab navigation -->
           <div class="tab-nav">
             <button class="tab-link active" onclick="openTab(event, 'config')">
               Configuration
@@ -54,7 +64,6 @@
             </button>
           </div>
 
-          <!-- Tab content -->
           <div id="config" class="tab-content active"></div>
           <div id="ienv" class="tab-content">
             <div id="ienv-div" class="tab-content active"></div>
@@ -68,7 +77,33 @@
         </div>
       </div>
     </div>
-    <button id="submit">Evaluate</button>
+    <div id="buttons-container">
+      <button id="select-btn">Select</button>
+      <button id="stop-btn">Stop</button>
+      <div id="center-controls">
+  
+        <div class="options-dropdown-container">
+          <button id="options-btn" class="options-btn">Options ⚙️</button>
+          <div id="options-menu" class="options-menu-content">
+            <div class="option-item">
+              <input type="checkbox" id="direct-style-check">
+              <label for="direct-style-check">Direct Style</label>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #555; margin: 5px 0;">
+            <div class="option-item">
+              <input type="checkbox" id="wellbracketing-check">
+              <label for="wellbracketing-check">WellBracketing</label>
+            </div>
+            <div class="option-item">
+              <input type="checkbox" id="visibility-check">
+              <label for="visibility-check">Visibility</label>
+            </div>
+          </div>
+        </div>
+
+        <button id="submit">Evaluate</button>
+      </div>
+    </div>
     <script src="../_build/default/bin/explore_web.bc.js"></script>
   </body>
 
@@ -80,22 +115,7 @@
     var signatureEditor = ace.edit("signatureEditor");
     signatureEditor.setTheme("ace/theme/monokai");
     signatureEditor.session.setMode("ace/mode/ocaml");
-    editor.set;
-
-    // Set the default code for the code editor
-    var code = `(* To be tested with
-dune exec explore.exe test/isc.ml test/isc.mli
-*)
-let x = ref 0
-let g f = x := 1; f(); assert (!x = 1)`;
-
-    // Set the default code for the signature editor
-    var signature = `val g : (unit -> unit) -> unit`;
-
-    // Apply the code to the editors
-    editor.session.setValue(code);
-    signatureEditor.session.setValue(signature);
-
+    
     // Store editor instances in global variables to be accessed from OCaml
     window.editor_instance = editor;
     window.signatureEditor_instance = signatureEditor;
@@ -108,7 +128,6 @@ let g f = x := 1; f(); assert (!x = 1)`;
     window.configEditor_instance = configEditor;
 
     //script for config tabs
-
     function openTab(event, tabId) {
       // Hide all tab contents
       const contents = document.querySelectorAll(".tab-content");
@@ -125,38 +144,21 @@ let g f = x := 1; f(); assert (!x = 1)`;
       event.currentTarget.classList.add("active");
     }
   </script>
+  
   <script>
-    window.onload = function () {
-      // List of files as provided
-      const filesList = [
-        "cavoc.ml",
-        "exception.ml",
-        "higher_order.mli",
-        "no_visible.ml",
-        "polymorphic_identity.mli",
-        "rec_diverge.ml",
-        "universal_type.mli",
-        "wbsc_context.ml",
-        "while.ml",
-        "compare",
-        "exception.mli",
-        "isc.ml",
-        "no_visible.mli",
-        "private_counter.ml",
-        "rec_diverge.mli",
-        "wbsc.ml",
-        "wbsc_context.mli",
-        "while_diverge.ml",
-        "dune",
-        "higher_order.ml",
-        "isc.mli",
-        "polymorphic_identity.ml",
-        "private_counter.mli",
-        "universal_type.ml",
-        "wbsc.mli",
-        "wbsc_interact.ml",
-        "while_diverge.mli",
-      ];
+    window.onload = async function () {
+     
+      // --- LOGIQUE DE JEU (DOSSIER TEST) ---
+    
+      let filesList = [];
+      try {
+        // On demande au serveur de lister les fichiers du dossier TEST
+        const response = await fetch('http://localhost:8000/list_files?dir=test');
+        filesList = await response.json();
+      }
+      catch(e){
+        console.log("Erreur lors du chargement de la liste des fichiers:", e);
+      }
 
       // Filter the list to get only the .ml files
       const mlFiles = filesList.filter((file) => file.endsWith(".ml"));
@@ -170,47 +172,77 @@ let g f = x := 1; f(); assert (!x = 1)`;
         fileSelect.appendChild(option);
       });
 
-      // Set the default selected file to "higher_order.ml"
-      const defaultFile = "higher_order.ml";
-      fileSelect.value = defaultFile;
+      // Set default file if available
+      if(mlFiles.length > 0) fileSelect.value = mlFiles[0];
 
-      // Load the selected file into the editor when the load button is clicked
+      // Load button listener
       document
         .getElementById("load-btn")
         .addEventListener("click", function () {
-          const selectedFileName = document.getElementById(
-            "file-select-dropdown"
-          ).value;
-          loadFileContent(selectedFileName);
+          const selectedFileName = document.getElementById("file-select-dropdown").value;
+          
+          if (selectedFileName) {
+            const mlFileName = selectedFileName;
+            const mliFileName = mlFileName.replace(".ml", ".mli");
+
+            // Load .ml file content from TEST directory
+            fetch(`../test/${mlFileName}`)
+              .then((response) => response.text())
+              .then((mlContent) => {
+                editor.session.setValue(mlContent);
+              })
+              .catch((error) => console.error("Error loading .ml file:", error));
+
+            // Load .mli file content from TEST directory
+            fetch(`../test/${mliFileName}`)
+              .then((response) => response.text())
+              .then((mliContent) => {
+                signatureEditor.session.setValue(mliContent);
+              })
+              .catch((error) => {
+                console.error("Error loading .mli file:", error);
+                signatureEditor.session.setValue("");
+              });
+          }
         });
-
-      // Function to load the file content into the editor
-      function loadFileContent(selectedFileName) {
-        if (selectedFileName) {
-          const mlFileName = selectedFileName;
-          const mliFileName = mlFileName.replace(".ml", ".mli");
-
-          // Load .ml file content into the editor
-          fetch(`../test/${mlFileName}`)
-            .then((response) => response.text())
-            .then((mlContent) => {
-              editor.session.setValue(mlContent);
-            })
-            .catch((error) => console.error("Error loading .ml file:", error));
-
-          // Load .mli file content into the signature editor if it exists
-          fetch(`../test/${mliFileName}`)
-            .then((response) => response.text())
-            .then((mliContent) => {
-              signatureEditor.session.setValue(mliContent);
-            })
-            .catch((error) => {
-              console.error("Error loading .mli file:", error);
-              // If the .mli file doesn't exist, set signature editor to empty
-              signatureEditor.session.setValue("");
-            });
-        }
+        
+      // Trigger initial load
+      if(mlFiles.length > 0) {
+          document.getElementById("load-btn").click();
       }
     };
+
+    // Gestion du menu Options
+    document.getElementById('options-btn').addEventListener('click', function(e) {
+        e.stopPropagation();
+        const menu = document.getElementById('options-menu');
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    });
+
+    // Fermer le menu si on clique ailleurs
+    document.addEventListener('click', function(e) {
+        const menu = document.getElementById('options-menu');
+        const btn = document.getElementById('options-btn');
+        if (menu.style.display === 'block' && !menu.contains(e.target) && e.target !== btn) {
+            menu.style.display = 'none';
+        }
+    });
+
+    // Interaction automatique : Direct Style active WellBracketing
+const directStyleCheck = document.getElementById('direct-style-check');
+    const wellBracketingCheck = document.getElementById('wellbracketing-check');
+
+    directStyleCheck.addEventListener('change', function() {
+        if (this.checked) {
+            // 1. On force WellBracketing à être coché
+            wellBracketingCheck.checked = true;
+            // 2. On verrouille (grise) la case pour empêcher l'utilisateur de la décocher
+            wellBracketingCheck.disabled = true; 
+        } else {
+            // Si on décoche Direct Style, on déverrouille WellBracketing
+            // (L'utilisateur peut maintenant choisir de le laisser ou l'enlever)
+            wellBracketingCheck.disabled = false;
+        }
+    });
   </script>
 </html>
