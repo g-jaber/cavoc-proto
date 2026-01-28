@@ -340,13 +340,13 @@ struct
     let pp_abstract_val fmt = function
       | AVal aval -> OpLang.AVal.pp_abstract_val fmt aval
       | APair (aval, cn) ->
-          Format.fprintf fmt "(%a,%a)" OpLang.AVal.pp_abstract_val aval
+          Format.fprintf fmt "%a,%a" OpLang.AVal.pp_abstract_val aval
             CNames.pp_name cn
       | APack (tname_l, aval, cn) ->
           let string_l =
             String.concat "," @@ List.map OpLang.string_of_typename tname_l
             (*TODO: introduce a pp_tname_l pretty printer*) in
-          Format.fprintf fmt "(%s,%a,%a)" string_l OpLang.AVal.pp_abstract_val
+          Format.fprintf fmt "%s,%a,%a" string_l OpLang.AVal.pp_abstract_val
             aval CNames.pp_name cn
 
     let string_of_abstract_val = Format.asprintf "%a" pp_abstract_val

@@ -17,7 +17,7 @@ let pp_nf_term ~pp_dir pp_val pp_ectx pp_fn pp_cn fmt = function
   | NFCallback (fn, value, ectx) ->
       let string_ectx = Format.asprintf "%a" pp_ectx ectx in
       let string_ectx' = if string_ectx = "" then "" else string_ectx in
-      Format.fprintf fmt "%a%t%a%s" pp_fn fn pp_dir pp_val value string_ectx'
+      Format.fprintf fmt "%a%t(%a%s)" pp_fn fn pp_dir pp_val value string_ectx'
       (* TODO: Improve the code above *)
   | NFValue (cn, value) ->
       Format.fprintf fmt "%a%t%a" pp_cn cn pp_dir pp_val value
