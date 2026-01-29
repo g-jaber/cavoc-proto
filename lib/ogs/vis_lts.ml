@@ -3,7 +3,8 @@ module Make (Moves : Lts.Moves.POLMOVES) :
     with type move = Moves.pol_move
      and type name = Moves.Renaming.Namectx.Names.name = struct
   (* the view contains the names that Proponent has provided to Opponent. *)
-  type view = Moves.Renaming.Namectx.Names.name list
+    type name = Moves.Renaming.Namectx.Names.name
+  type view = name list
 
   let view_to_yojson nn_l =
     `List
@@ -11,7 +12,7 @@ module Make (Moves : Lts.Moves.POLMOVES) :
 
   (* the view map associate to each Opponent name the set of Proponent names
      available when it was introduced. *)
-  type view_map = (Moves.Renaming.Namectx.Names.name, view) Util.Pmap.pmap
+  type view_map = (name, view) Util.Pmap.pmap
 
   let view_map_to_yojson vmap =
     let to_string (nn, view) =
@@ -55,7 +56,10 @@ module Make (Moves : Lts.Moves.POLMOVES) :
         let nn =  Moves.get_subject_name move in
         let view =
           match Util.Pmap.lookup nn vm with
-          | Some view -> Moves.Renaming.Namectx.get_names (Moves.get_namectx move) @ view
+          | Some view -> begin
+            let str = Format.asprintf "%a" pp_view (Moves.Renaming.Namectx.get_names (Moves.get_namectx move)) in
+            Util.Debug.print_debug @@ "The new names are " ^ str;
+            view @ Moves.Renaming.Namectx.get_names (Moves.get_namectx move) end
           | None ->
               Util.Error.failwithf
                 "Error: the name %a is not in the view map %a. Please report."
@@ -70,8 +74,6 @@ module Make (Moves : Lts.Moves.POLMOVES) :
           Some (Active (Util.Pmap.concat vm vm'))
         else None
     | _ -> None
-
-  type name = Moves.Renaming.Namectx.Names.name
 
   let init_act_conf _ _ = Active Util.Pmap.empty
   let init_pas_conf nameP _ = Passive (nameP, Util.Pmap.empty)
