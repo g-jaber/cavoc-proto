@@ -21,8 +21,7 @@ let list_files_in_dir dir =
   try
     let files = Sys.readdir dir in
     let file_list = Array.to_list files in
-      (*Printf.printf "Fichiers dans %s : %s\n%!" dir (String.concat ", " file_list);*)
-      file_list
+      List.sort String.compare file_list
   with e ->
       Printf.printf "Erreur lors de la lecture du dossier %s : %s\n%!" dir (Printexc.to_string e);
       []

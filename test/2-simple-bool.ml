@@ -1,0 +1,1 @@
+let test b1 b2 = assert (b1 || b2)

@@ -62,3 +62,4 @@
 - [ ] Simplify AggregateCommon by supposing that the type of name is always an Either
 - [ ] opconf should comes with their namectx and storectx typing
 - [ ] add a subject_name function 
+- [ ] Correct treatment of universal quantifiers in direct style
