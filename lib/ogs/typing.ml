@@ -99,14 +99,14 @@ module Make (IntLang : Lang.Interactive.LANG) :
     let lnamectx = Moves.get_namectx move in
     match (dir, pos) with
     | (Moves.Output, { status= Active; storectx; namectxP; namectxO }) ->
-        let namectxP = IntLang.IEnv.Renaming.Namectx.concat lnamectx namectxP in
+        let namectxP = IntLang.IEnv.Renaming.Namectx.concat namectxP lnamectx in
           Util.Debug.print_debug @@ "After trigger, new Proponent name context :"
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxP
         ^ " and Opponent name context stays "
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO;
         { status= Passive; storectx; namectxP; namectxO }
     | (Moves.Input, { status= Passive; storectx; namectxP; namectxO }) ->
-        let namectxO = IntLang.IEnv.Renaming.Namectx.concat lnamectx namectxO in
+        let namectxO = IntLang.IEnv.Renaming.Namectx.concat namectxO lnamectx in
           Util.Debug.print_debug @@ "After trigger, new Opponent name context :"
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO
         ^ " and Proponent name context stays "

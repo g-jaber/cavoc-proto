@@ -178,6 +178,8 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let lnamectx = OpLang.Renaming.dom renaming in
     (* TO BE CORRECTED *)
     Util.Debug.print_debug @@ "concretize the a nf " ^ string_of_a_nf "" a_nf;
+    Util.Debug.print_debug @@ "IEnv provided in input  : "
+    ^ IEnv.to_string ienv;
     Util.Debug.print_debug @@ "Renaming provided in input  : "
     ^ IEnv.Renaming.to_string renaming;
     let (a_nf_term', store') = renaming_a_nf renaming a_nf in

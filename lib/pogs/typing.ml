@@ -88,7 +88,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
           ( (Moves.Output, (nn, (a_nf, renaming))),
             Passive { storectx; namectxP; namectxO } )
 
-  let check_move pos (dir, (_nn,(a_nf, renaming))) =
+  let check_move pos (dir, (_nn, (a_nf, renaming))) =
     let lnamectx = Moves.Renaming.dom renaming in
     match (dir, pos) with
     | (Moves.Output, Active { storectx; namectxO }) -> begin
