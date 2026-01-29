@@ -165,10 +165,11 @@ struct
     match ienv.map with
     | [] -> Format.fprintf fmt "⋅"
     | map' ->
+        let map'' = List.mapi (fun i (str,v) -> ((i,str),v)) map' in 
         let pp_sep fmt () = Format.fprintf fmt ", " in
         Format.pp_print_list ~pp_sep
-          (fun fmt (str, v) -> Format.fprintf fmt "%s:%a" str Value.pp v)
-          fmt map'
+          (fun fmt (nn, v) -> Format.fprintf fmt "%a:%a" Renaming.Namectx.Names.pp_name  nn Value.pp v)
+          fmt map''
 
   let to_string = Format.asprintf "%a" pp
 
@@ -176,7 +177,7 @@ struct
     `Assoc
       (List.mapi
          (fun i (str, v) ->
-           let str = Renaming.Namectx.Names.string_of_name (i, str) in
+           let str = Format.asprintf "%a" Renaming.Namectx.Names.pp_name (i, str) in
            (str, Value.to_yojson v))
          ienv.map)
 
