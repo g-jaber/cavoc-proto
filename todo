@@ -1,17 +1,31 @@
-* Provide an easy way to exit the webserver:
+* Provide an easy way to exit the web-server:
   - [ ] In CLI, by entering "exit" or "quit"
   - [ ] In the webpage, with an "Exit" button
+The main modification will appear in bin/server.ml. It will necessitate to understand how to interrupt the Lwt.run.
+For exiting the server from the webpage, the situation is less clear.
 
 * Improve the error messages of the lexer
   - [ ] Print the line number where the error happens
   - [ ] Print the bad character/string
-
-* Provide a way to backtrack a move during the interaction
-
-* Provide a way for the user to enter with the keyboard the values (for example the integer) provided in the calls and returns
+  - [ ] Print the name of the problematic file
+The modification will be done in lib/RefML/lexer.mll, and possibly in the function `get_typed_opconf` and `get_typed_ienv` lib/RefML/refML.ml
 
 * Improve the gamification of the tutorial
+  - [ ] For each level of the tutorial, pick the right set of options (Direct-style, well-bracketing, visibility, ...)
+        * One need a way to store this right set of options for each level
+  - [ ] store in a session (using a cookie ?) the current level of the tutorial reached by the user, in order to restore it
 
+* Merge the interface of interactive_build.mli (used by the web interface), graph.mli and generate_trace.mli (used by the CLI executable) into a single one, with two implementations
+  - [ ] Handle the fact that for the CLI executable, we do not use the Lwt monad currently
+
+* Provide a way to backtrack an action during the interaction
+  - [ ] Generalize the get_move callback found in both Generate_trace.generate and Interactive_build.interactive_build functions to handle a backtrack event
+  - [ ] Store the configurations reached after each interaction by the module
+  - [ ] Find a generalization of the Lwt monad to handle this backtracking
+
+* Provide a way for the user to enter with the keyboard the values (for example the integer) provided in the calls and returns
+  - [ ] Introduce a notion of abstract value with typed holes, where the holes have to be completed by the user
+  - [ ] Split the get_move callback in two functions: get_partial_move, and get_data
 
 
 - [x] Rename bipartite.ml into strategies.ml
