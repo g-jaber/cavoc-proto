@@ -20,7 +20,7 @@ let pp_nf_term ~pp_dir pp_val pp_ectx pp_fn pp_cn fmt = function
       Format.fprintf fmt "%a%t(%a%s)" pp_fn fn pp_dir pp_val value string_ectx'
       (* TODO: Improve the code above *)
   | NFValue (cn, value) ->
-      Format.fprintf fmt "%a%t%a" pp_cn cn pp_dir pp_val value
+      Format.fprintf fmt "%a%t(%a)" pp_cn cn pp_dir pp_val value
   | NFError cn -> Format.fprintf fmt "%a%t(error)" pp_cn cn pp_dir
   | NFRaise (cn, value) ->
       Format.fprintf fmt "%a%t(raise %a)" pp_cn cn pp_dir pp_val value
