@@ -92,7 +92,7 @@ rule token = parse
   | tvar as t  { TVAR t }
   | constructor as c { CONSTRUCTOR c }
 
-  | _  { failwith (Printf.sprintf "Unexpected char at %d" lexbuf.lex_curr_p.pos_cnum) }
+  | _  { raise (SyntaxError  (Printf.sprintf "Unexpected char at %d" lexbuf.lex_curr_p.pos_cnum)) }
 
 and comment depth = parse
   | '\n'  { newline lexbuf; comment depth lexbuf }
@@ -103,5 +103,5 @@ and comment depth = parse
       | 0 -> token lexbuf
       | _ -> comment (depth - 1) lexbuf
     }
-  | eof     { raise Error }
+  | eof     { raise (SyntaxError "Open comment was not closed before the end of the file.")}
   | _       { comment depth lexbuf }
