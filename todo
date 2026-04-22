@@ -1,12 +1,18 @@
-* Improve the gamification of the tutorial
-
 * Provide an easy way to exit the webserver:
-  - [ ] In CLI, by entering "exit"
+  - [ ] In CLI, by entering "exit" or "quit"
   - [ ] In the webpage, with an "Exit" button
 
 * Improve the error messages of the lexer
   - [ ] Print the line number where the error happens
   - [ ] Print the bad character/string
+
+* Provide a way to backtrack a move during the interaction
+
+* Provide a way for the user to enter with the keyboard the values (for example the integer) provided in the calls and returns
+
+* Improve the gamification of the tutorial
+
+
 
 - [x] Rename bipartite.ml into strategies.ml
   - [x] Incorporate game-indexing in its signature
