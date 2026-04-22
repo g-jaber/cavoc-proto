@@ -1,3 +1,13 @@
+* Improve the gamification of the tutorial
+
+* Provide an easy way to exit the webserver:
+  - [ ] In CLI, by entering "exit"
+  - [ ] In the webpage, with an "Exit" button
+
+* Improve the error messages of the lexer
+  - [ ] Print the line number where the error happens
+  - [ ] Print the bad character/string
+
 - [x] Rename bipartite.ml into strategies.ml
   - [x] Incorporate game-indexing in its signature
 - [x] Remove the need for Lts.Interactive.INT, by only using Lts.Typing.Game and Lang.Interactive.LANG
