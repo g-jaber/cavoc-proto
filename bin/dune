@@ -26,8 +26,8 @@
 
 
 (executable
- (name explore)
- (public_name cavoc-explore)
+ (name explore_cli)
+ (public_name cavoc-explore_cli)
  (package cavoc)
  (libraries
   refml
