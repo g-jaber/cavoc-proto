@@ -34,13 +34,11 @@
 %token TINT
 %token TBOOL
 %token TEXN
-%right ARROW
 
+%right ARROW
 %left ELSE IN
 %left SEMICOLON
 %left ASSIGN
-%nonassoc NOT
-%nonassoc EQ NEQ GREAT GREATEQ LESS LESSEQ
 %left LOR
 %left LAND
 %left PLUS MINUS
@@ -48,6 +46,8 @@
 %nonassoc REF
 %nonassoc ASSERT
 %nonassoc RAISE
+%nonassoc NOT
+%nonassoc EQ NEQ GREAT GREATEQ LESS LESSEQ
 
 %start prog
 %type <Declaration.implem_decl list> prog
