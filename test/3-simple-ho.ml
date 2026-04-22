@@ -1,0 +1,1 @@
+let check_one (f : int -> int) = assert (f 1 = f 1)
