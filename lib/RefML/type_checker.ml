@@ -198,8 +198,8 @@ let rec infer_type type_ctx type_subst expr =
            ^ string_of_typ ty ^ " is not a product type")
       end
   | App (e1, e2) ->
-      let (aty, type_subst') = infer_type type_ctx type_subst e2 in
-      let (fty, type_subst'') = infer_type type_ctx type_subst' e1 in
+      let (fty, type_subst') = infer_type type_ctx type_subst e1 in
+      let (aty, type_subst'') = infer_type type_ctx type_subst' e2 in
       let fty' = Types.apply_type_subst fty type_subst'' in
       let aty' = Types.apply_type_subst aty type_subst'' in
       Util.Debug.print_debug
