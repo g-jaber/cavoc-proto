@@ -143,6 +143,9 @@
         const jsonFileName = `tuto${level}.json`;
         const mlFileName = `tuto${level}.ml`;
         const mliFileName = `tuto${level}.mli`;
+        
+        // Définition du nom de fichier exposé au lexer OCaml
+        window.loadedFile = `tudo${level}`;
 
         // ---------------------------------------------------------
         // ETAPE A : CHARGEMENT DE LA CONFIGURATION (JSON)
