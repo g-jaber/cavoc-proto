@@ -92,7 +92,7 @@ rule token = parse
   | tvar as t  { TVAR t }
   | constructor as c { CONSTRUCTOR c }
 
-  | _  { raise (SyntaxError  (Printf.sprintf "Unexpected char at %d" lexbuf.lex_curr_p.pos_cnum)) }
+  | _ as c { raise (SyntaxError  (Printf.sprintf "Unexpected char '%c'" c )) }
 
 and comment depth = parse
   | '\n'  { newline lexbuf; comment depth lexbuf }
