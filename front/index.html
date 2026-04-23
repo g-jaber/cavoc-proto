@@ -185,6 +185,8 @@
             const mlFileName = selectedFileName;
             const mliFileName = mlFileName.replace(".ml", ".mli");
 
+            window.loadedFile = selectedFileName.slice(0, -3);
+
             // Load .ml file content from TEST directory
             fetch(`../test/${mlFileName}`)
               .then((response) => response.text())
