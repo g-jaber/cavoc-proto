@@ -11,12 +11,16 @@ For exiting the server from the webpage, the situation is less clear.
 The modification will be done in lib/RefML/lexer.mll, and possibly in the function `get_typed_opconf` and `get_typed_ienv` lib/RefML/refML.ml
 
 * Improve the gamification of the tutorial
-  - [ ] For each level of the tutorial, pick the right set of options (Direct-style, well-bracketing, visibility, ...)
-        * One need a way to store this right set of options for each level
+  - [ ] Remove the Evaluate button and always trigger it once we start a new level
   - [ ] store in a session (using a cookie ?) the current level of the tutorial reached by the user, in order to restore it
+
 
 * Merge the interface of interactive_build.mli (used by the web interface), graph.mli and generate_trace.mli (used by the CLI executable) into a single one, with two implementations
   - [ ] Handle the fact that for the CLI executable, we do not use the Lwt monad currently
+
+* Improve handling of errors when reading the inter in get_move in the CLI binary
+
+* Design a type for the return type of get_move representing the action performed by the user
 
 * Provide a way to backtrack an action during the interaction
   - [ ] Generalize the get_move callback found in both Generate_trace.generate and Interactive_build.interactive_build functions to handle a backtrack event
