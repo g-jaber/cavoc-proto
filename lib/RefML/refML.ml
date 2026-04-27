@@ -71,9 +71,20 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
     | Some opconf' -> return opconf'
     | None -> PropStop
 
+  let parse_and_handle_error parser_entry lexbuf =
+    let format_msg msg =
+      let pos = Lexing.lexeme_start_p lexbuf in
+      Printf.sprintf "%s in %s at line %d, column %d" msg pos.pos_fname
+            pos.pos_lnum (pos.pos_cnum - pos.pos_bol + 1) in
+    try parser_entry Lexer.token lexbuf with
+      | Lexer.SyntaxError msg ->
+          failwith (format_msg ("Lexing Error: " ^ msg))
+      | Parser.Error ->
+          failwith (format_msg ("Parsing Error"))
+
   let get_typed_opconf nbprog lexBuffer =
     try
-      let expr = Parser.fullexpr Lexer.token lexBuffer in
+      let expr = parse_and_handle_error Parser.fullexpr lexBuffer in
       let type_ctx = Type_ctx.build_type_ctx expr in
       let (type_ctx, ty) = Type_checker.typing_expr type_ctx expr in
       Util.Debug.print_debug
@@ -81,19 +92,13 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
        ^ Types.string_of_typ ty);
       ((expr, Store.empty_store), ty, Type_ctx.get_name_ctx type_ctx)
     with
-    | Lexer.SyntaxError msg ->
-        failwith ("Lexing Error in the " ^ nbprog ^ " program:" ^ msg)
-    | Parser.Error ->
-        failwith
-          ("Parsing Error in the " ^ nbprog ^ " program:" ^ " at position "
-          ^ string_of_int (Lexing.lexeme_start lexBuffer))
     | Type_checker.TypingError msg ->
         failwith ("Typing Error in the " ^ nbprog ^ " program:" ^ msg)
 
   let get_typed_ienv lexBuffer_implem lexBuffer_signature =
     try
-      let implem_decl_l = Parser.prog Lexer.token lexBuffer_implem in
-      let signature_decl_l = Parser.signature Lexer.token lexBuffer_signature in
+      let implem_decl_l = parse_and_handle_error Parser.prog lexBuffer_implem in
+      let signature_decl_l = parse_and_handle_error Parser.signature lexBuffer_signature in
       let (comp_env, namectxO, cons_ctx) =
         Declaration.get_typed_comp_env implem_decl_l signature_decl_l in
       let (val_assign, heap, cons_ctx') =
@@ -103,14 +108,6 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
       (* We should pass namectxO to get_typed_val_env so that ienv get the right image namectx*)
       (ienv, (val_assign, heap, cons_ctx'), namectxP, namectxO)
     with
-    | Lexer.SyntaxError msg -> failwith ("Lexing Error: " ^ msg)
-    | Parser.Error ->
-        let pos = Lexing.lexeme_start_p lexBuffer_implem in
-        let pos_str =
-          Printf.sprintf "%s:%d:%d" pos.pos_fname pos.pos_lnum
-            (pos.pos_cnum - pos.pos_bol + 1) in
-        failwith ("Parsing Errorr at " ^ pos_str)
-        (* Need to get in which file the Parser.Error is *)
     | Type_checker.TypingError msg -> failwith ("Typing Error: " ^ msg)
 end
 

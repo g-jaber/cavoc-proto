@@ -123,15 +123,18 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
   let graph_string = Graph.string_of_graph graph in
   print_string graph_string
 
+let open_lexbuf filename =
+  let inBuffer = open_in filename in
+  let exprBuffer = Lexing.from_channel inBuffer in
+  Lexing.set_filename exprBuffer filename ;
+  exprBuffer
 
 let build_strategy (module LTS : Lts.Strategy.LTS_WITH_INIT) =
   check_number_filenames ();
   match !is_mode with
   | Compare -> begin
-      let inBuffer1 = open_in !filename1 in
-      let exprBuffer1 = Lexing.from_channel inBuffer1 in
-      let inBuffer2 = open_in !filename2 in
-      let exprBuffer2 = Lexing.from_channel inBuffer2 in
+      let exprBuffer1 = open_lexbuf !filename1 in
+      let exprBuffer2 = open_lexbuf !filename2 in
       let module Synch_LTS = Lts.Synch_lts.Make (LTS) in
       let init_conf =
         Synch_LTS.Active (Synch_LTS.lexing_init_aconf exprBuffer1 exprBuffer2)
@@ -146,8 +149,7 @@ let build_strategy (module LTS : Lts.Strategy.LTS_WITH_INIT) =
   | Explore ->
       if !is_program then begin
         Util.Debug.print_debug "Getting the program";
-        let expr_buffer = open_in !filename1 in
-        let expr_lexbuffer = Lexing.from_channel expr_buffer in
+        let expr_lexbuffer = open_lexbuf !filename1 in
         let init_conf =
           LTS.Active (LTS.lexing_init_aconf expr_lexbuffer) in
         if !print_dot then
@@ -159,10 +161,8 @@ let build_strategy (module LTS : Lts.Strategy.LTS_WITH_INIT) =
       end
       else begin
         Util.Debug.print_debug "Getting the module declaration";
-        let decl_buffer = open_in !filename1 in
-        let decl_lexbuffer = Lexing.from_channel decl_buffer in
-        let signature_buffer = open_in !filename2 in
-        let signature_lexbuffer = Lexing.from_channel signature_buffer in
+        let decl_lexbuffer = open_lexbuf !filename1 in
+        let signature_lexbuffer = open_lexbuf !filename2 in
         let init_conf =
           LTS.Passive
             (LTS.lexing_init_pconf decl_lexbuffer signature_lexbuffer) in

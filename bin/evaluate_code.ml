@@ -23,6 +23,9 @@ let evaluate_code () =
   
   let lexBuffer_code = Lexing.from_string !Editor_manager.editor_content in
   let lexBuffer_sig = Lexing.from_string !Editor_manager.signature_content in
+
+  Lexing.set_filename lexBuffer_code !Editor_manager.editor_filename ;
+  Lexing.set_filename lexBuffer_sig !Editor_manager.signature_filename ;
     
   let init_conf =
     OGS_LTS.Passive

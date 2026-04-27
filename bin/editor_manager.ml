@@ -12,6 +12,9 @@ open Js_of_ocaml
 let editor_content = ref ""
 let signature_content = ref ""
 
+let editor_filename = ref ""
+let signature_filename = ref ""
+
 let fetch_editor_content () =
   let editor = Js.Unsafe.get Js.Unsafe.global "editor_instance" in
   let signature_editor =
@@ -19,4 +22,9 @@ let fetch_editor_content () =
 
   editor_content := Js.to_string (Js.Unsafe.meth_call editor "getValue" [||]);
   signature_content :=
-    Js.to_string (Js.Unsafe.meth_call signature_editor "getValue" [||])
+    Js.to_string (Js.Unsafe.meth_call signature_editor "getValue" [||]) ;
+
+  let selected_filename = Js.to_string (Js.Unsafe.get Js.Unsafe.global "loadedFile") in
+
+  editor_filename := selected_filename ^ ".ml" ;
+  signature_filename := selected_filename ^ ".mli" ;
