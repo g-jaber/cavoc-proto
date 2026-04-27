@@ -21,6 +21,12 @@ let rec init_page () =
   let select_button = Dom_html.getElementById "select-btn" in
   let stop_button = Dom_html.getElementById "stop-btn" in
 
+  let shut_button = Dom_html.getElementById "shutdown-btn" in
+  shut_button##.onclick := Dom_html.handler ( fun _ -> 
+    Lwt.ignore_result (let%lwt _ = Js_of_ocaml_lwt.XmlHttpRequest.get "../stop" in Lwt.return ());
+    Js._true
+  );
+
   Js.Unsafe.set select_button "disabled" Js._true;
   Js.Unsafe.set select_button "style"
     (Js.string "background-color: grey; cursor: not-allowed;");
