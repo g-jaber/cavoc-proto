@@ -2,6 +2,7 @@
 (*http://localhost:8000/front/indextuto.html*)
 
 open Lwt.Infix
+open Lwt.Syntax
 open Cohttp_lwt_unix
 
 (*Allows you to find the path to the project's root folder on the computer*)
@@ -43,10 +44,12 @@ let list_files_handler _conn req _body =
 
 (* Main router: analyzes the requested URL to route to the API (/list_files) 
   or to the static file service. *)
-let callback _conn (req : Request.t) (body : Cohttp_lwt.Body.t) =
+let callback switch _conn (req : Request.t) (body : Cohttp_lwt.Body.t) =
   let uri_path = Request.uri req |> Uri.path in
   match uri_path with
   | "/list_files" -> list_files_handler _conn req body
+  (* Condition de course ? *)
+  | "/stop" -> let* _ = Lwt_switch.turn_off switch in Server.respond_string ~status:`OK ~body:"" ()
   | _ ->
       (* Logic to serve static files (HTML, JS, CSS) *)
       let file_path =
@@ -72,12 +75,20 @@ let callback _conn (req : Request.t) (body : Cohttp_lwt.Body.t) =
   (e.g., port already in use). *)
 let start_server () =
   let mode = `TCP (`Port 8000) in
-  let server = Server.make ~callback () in
+  let switch = Lwt_switch.create () in
+  let stop_thread, stop_wakener = Lwt.wait () in
+
+  Lwt_switch.add_hook (Some switch) (fun () -> 
+      Lwt.wakeup_later stop_wakener ();
+      Lwt.return_unit
+  );
+
+  let server = Server.make ~callback:(callback switch) () in
   Lwt.catch
     (fun () ->
       Printf.printf " Serveur démarré sur le port 8000, site de tuto sur : http://localhost:8000/front/indextuto.html\n%!";
       Printf.printf " Serveur démarré sur http://localhost:8000/front/index.html\n%!";
-      Server.create ~mode server)
+      Server.create ~stop:stop_thread ~mode server)
     (function
       (* Specific handling if port 8000 is blocked *)
       | Unix.Unix_error (Unix.EADDRINUSE, "bind", _) ->
@@ -89,8 +100,3 @@ let start_server () =
           exit 1)
 
 let () = Lwt_main.run (start_server ())
-
-
-
-
-
