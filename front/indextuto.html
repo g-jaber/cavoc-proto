@@ -193,8 +193,6 @@
 
     // Fonction appelée par OCaml (explore_web.ml) lors du succès
     function nextLevel() {
-        closeModal(successModal);
-
         currentLevel++;
         localStorage.setItem(cavocCurrentLevelName, currentLevel);
 
@@ -208,11 +206,20 @@
 
     setModalTitle(successModal, "🏆 SUCCÈS !");
     setModalMessage(successModal, "Vous avez déclenché un failwith. Félicitations ! Prêt pour la suite ?");
-    addModalButton(successModal, "Niveau suivant >>", (_) => nextLevel());
+    addModalButton(successModal, "Niveau suivant >>", _ => {
+        nextLevel();
+        closeModal(successModal);
+    });
 
     setModalTitle(tutoEndModal, "🏆 SUCCÈS !");
     setModalMessage(tutoEndModal, "Vous avez terminé le tutoriel. Félicitations !");
-    addModalButton(tutoEndModal, "Passer à la suite", (_) => {
+    addModalButton(tutoEndModal, "Réinitialiser le tutoriel", _ => {
+        currentLevel = 0;
+
+        nextLevel();
+        closeModal(tutoEndModal);
+    });
+    addModalButton(tutoEndModal, "Passer à la suite", _ => {
         window.location.href = "index.html";
     });
 
