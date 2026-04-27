@@ -117,7 +117,68 @@
   </script>
   
   <script>
-    let currentLevel = 1;
+    function openModal(modal) {
+        modal.style = 'display: flex';
+    }
+
+    function closeModal(modal) {
+        modal.style = 'display: none';
+    }
+
+    function setModalTitle(modal, title) {
+        modal.getElementsByClassName('win-title')[0].innerHTML = title;
+    }
+
+    function setModalMessage(modal, message) {
+        modal.getElementsByClassName('win-message')[0].innerHTML = message;
+    }
+
+    function addModalButton(modal, text, onClick) {
+        const btn = document.createElement('button');
+
+        btn.innerText = text;
+        btn.classList.add('win-reset-btn');
+        btn.addEventListener('click', onClick);
+
+        const content = modal.getElementsByClassName('win-modal-content')[0];
+        content.appendChild(btn);
+    }
+
+    function createModal(id, withCloseButton) {
+        const modal   = document.createElement('div');
+        const content = document.createElement('div');
+        const title   = document.createElement('h2');
+        const par     = document.createElement('p');
+
+        modal.id = id;
+        
+        modal.classList.add('win-modal');
+        content.classList.add('win-modal-content');
+        title.classList.add('win-title');
+        par.classList.add('win-message');
+        
+        if(withCloseButton) {
+            const close = document.createElement('span');
+            close.classList.add('close-btn');
+            close.addEventListener('click', (_) => closeModal(modal));
+            close.innerHTML = '&times;';
+            content.appendChild(close);
+        }
+
+        modal.appendChild(content);
+        content.appendChild(title);
+        content.appendChild(par);
+
+        modal.style = 'display: none';
+
+        document.getElementsByTagName('body')[0].appendChild(modal);
+
+        return modal;
+    }
+
+    /* === Global declarations === */
+    const cavocCurrentLevelName = 'cavoc-current-level';
+    let   currentLevel = localStorage.getItem(cavocCurrentLevelName);
 
     // Valeurs par défaut si le fichier JSON est manquant ou incomplet
     const DEFAULT_CONFIG = { 
@@ -126,11 +187,38 @@
         visibility: false 
     };
 
+    // Declared here because it is required by onSuccess and nextLevel
+    const successModal = createModal('success', false);
+    const tutoEndModal = createModal('tutoEnd', false);
+
     // Fonction appelée par OCaml (explore_web.ml) lors du succès
-    window.nextLevel = function() {
+    function nextLevel() {
+        closeModal(successModal);
+
         currentLevel++;
+        localStorage.setItem(cavocCurrentLevelName, currentLevel);
+
         loadLevel(currentLevel);
-    };
+    }
+
+    // Called by OCaml (see evaluate_code.ml) after a success
+    function onSuccess() {
+        openModal(successModal);
+    }
+
+    setModalTitle(successModal, "🏆 SUCCÈS !");
+    setModalMessage(successModal, "Vous avez déclenché un failwith. Félicitations ! Prêt pour la suite ?");
+    addModalButton(successModal, "Niveau suivant >>", (_) => nextLevel());
+
+    setModalTitle(tutoEndModal, "🏆 SUCCÈS !");
+    setModalMessage(tutoEndModal, "Vous avez terminé le tutoriel. Félicitations !");
+    addModalButton(tutoEndModal, "Passer à la suite", (_) => {
+        window.location.href = "index.html";
+    });
+
+    if(currentLevel === null) {
+        currentLevel = 1;
+    }
 
     // Fonction principale pour charger un niveau
     async function loadLevel(level) {
@@ -202,8 +290,7 @@
           .catch((error) => {
              if (error.message === "Fini") {
                  // Gestion de la fin du tutoriel
-                 alert("Bravo ! Vous avez terminé tous les tutoriels disponibles !");
-                 window.location.href = "index.html"; 
+                 openModal(tutoEndModal);
              } else {
                  console.error("Erreur chargement code :", error);
              }

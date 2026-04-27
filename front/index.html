@@ -146,6 +146,76 @@
   </script>
   
   <script>
+    function openModal(modal) {
+        modal.style = 'display: flex';
+    }
+
+    function closeModal(modal) {
+        modal.style = 'display: none';
+    }
+
+    function setModalTitle(modal, title) {
+        modal.getElementsByClassName('win-title')[0].innerHTML = title;
+    }
+
+    function setModalMessage(modal, message) {
+        modal.getElementsByClassName('win-message')[0].innerHTML = message;
+    }
+
+    function addModalButton(modal, text, onClick) {
+        let btn = document.createElement('button');
+
+        btn.innerText = text;
+        btn.classList.add('win-reset-btn');
+        btn.addEventListener('click', onClick);
+
+        let content = modal.getElementsByClassName('win-modal-content')[0];
+        content.appendChild(btn);
+    }
+
+    function createModal(id, withCloseButton) {
+        let modal   = document.createElement('div');
+        let content = document.createElement('div');
+        let title   = document.createElement('h2');
+        let par     = document.createElement('p');
+
+        modal.id = id;
+        
+        modal.classList.add('win-modal');
+        content.classList.add('win-modal-content');
+        title.classList.add('win-title');
+        par.classList.add('win-message');
+        
+        if(withCloseButton) {
+            let close = document.createElement('span');
+            close.classList.add('close-btn');
+            close.addEventListener('click', (_) => closeModal(modal));
+            close.innerHTML = '&times;';
+            content.appendChild(close);
+        }
+
+        modal.appendChild(content);
+        content.appendChild(title);
+        content.appendChild(par);
+
+        modal.style = 'display: none';
+
+        document.getElementsByTagName('body')[0].appendChild(modal);
+
+        return modal;
+    }
+
+    const successModal = createModal('success', true);
+
+    setModalTitle(successModal, "🏆 SUCCÈS");
+    setModalMessage(successModal, "Vous avez déclenché un failwith. Félicitations !");
+    addModalButton(successModal, "Ok", (_) => closeModal(successModal));
+
+    function onSuccess() {
+        openModal(successModal);
+        // no-op outside of the tutorial
+    }
+
     window.onload = async function () {
      
       // --- LOGIQUE DE JEU (DOSSIER TEST) ---
