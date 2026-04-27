@@ -126,6 +126,13 @@ h2 {
   padding: 12px 25px;
 }
 
+.button-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  row-gap: 8px;
+}
+
 /* Help Button */
 #help-btn {
   position: static;
@@ -141,6 +148,23 @@ h2 {
 }
 
 #select-btn:hover {
+  background-color: #32b568;
+}
+
+#shutdown-btn {
+  position: static;
+  background-color: #000000;
+  color: #ffffff;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 16px;
+  font-weight: bold;
+  border: solid 1px black;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 12px 25px;
+}
+
+#shutdown-btn:hover {
   background-color: #32b568;
 }
 
