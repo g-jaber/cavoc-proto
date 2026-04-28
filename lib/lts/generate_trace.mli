@@ -1,2 +1,2 @@
-module Make : functor (IntLTS : Strategy.LTS) ->
-  Graph.GRAPH with type conf = IntLTS.conf
+module Make : functor (M : Util.Monad.MONAD) (IntLTS : Strategy.LTS) ->
+  Interactive_build.IBUILD with module M = M and type conf = IntLTS.conf

@@ -1,20 +1,22 @@
 module type GRAPH = sig
   (* To be instanciated *)
+  module M : Util.Monad.MONAD
+
   type conf
 
   (* *)
   type graph
 
-  val string_of_graph : graph -> string
   val compute_graph :
-  show_move:(string -> unit) -> 
-  show_conf:(string -> unit) -> 
-  show_moves_list:(Yojson.Safe.t list -> unit) -> 
+    show_move:(string -> unit) ->
+    show_conf:(Yojson.Safe.t -> unit) ->
+    show_moves_list:(Yojson.Safe.t list -> unit) ->
     (* the argument of get_move is the 
     number of moves *)
-    get_move:(int -> int) 
-  -> conf -> graph 
+    get_move:(int -> int M.m) ->
+    conf ->
+    graph M.m
 end
 
-module Make : functor (IntLTS : Strategy.LTS) ->
-  GRAPH with type conf = IntLTS.conf
+module Make : functor (M : Util.Monad.MONAD) (IntLTS : Strategy.LTS) ->
+  GRAPH with module M = M and type conf = IntLTS.conf

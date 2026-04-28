@@ -95,11 +95,17 @@ let check_number_filenames () =
       ("Error: a filenames containing the programs "
      ^ "should have been provided. " ^ usage_msg)
 
+module Output = Util.Monad.Output (struct
+    type t = string
+
+    let show str = str
+end)
+
 (* There is a tension between using the trick of
    Lts.Strategy.LTS with type conf = a,
    and the fact that this type Lts.Strategy.LTS.conf is not abstract *)
 
-let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
+let run_interaction (type a) (module IBuild : Lts.Interactive_build.IBUILD with type conf = a)
     (init_conf : a) =
   (* ask a question with a range of possible answers (rangestr).
      f is of type `(unit -> unit) -> string -> unit` and gets passed
@@ -113,10 +119,10 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
         let askagain = fun () -> ask rangestr f in
         f askagain line in
   let show_move move = print_endline move in
-  let show_conf conf_str =
+  let show_conf conf_json =
     print_endline "Do you want to print the Proponent configuration?";
     let aux askagain = function
-      | "yes" -> print_endline conf_str
+      | "yes" -> print_endline @@ Yojson.Safe.pretty_to_string conf_json
       | "no" -> ()
       | _ -> askagain () in
     ask "yes/no" aux in
@@ -154,12 +160,13 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
       else (
         print_endline "choice out of range";
         askagain ()) in
-    ask (Printf.sprintf "1..%d" n) aux in
-  let graph =
-    Graph.compute_graph ~show_move ~show_conf ~show_moves_list ~get_move
-      init_conf in
+    IBuild.M.return  @@ ask (Printf.sprintf "1..%d" n) aux in
+  let _result =
+    IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
+      init_conf in ()
+(**  let trace = Graph.M.get_trace result in
   let graph_string = Graph.string_of_graph graph in
-  print_string graph_string
+  print_string graph_string*) 
 
 let open_lexbuf filename =
   let inBuffer = open_in filename in
@@ -177,16 +184,16 @@ let build_strategy (module LTS : Lts.Strategy.LTS_WITH_INIT) =
       let init_conf =
         Synch_LTS.Active (Synch_LTS.lexing_init_aconf exprBuffer1 exprBuffer2)
       in
-      let module Generate = Lts.Generate_trace.Make (Synch_LTS) in
-      build_graph (module Generate) init_conf
+      let module Generate = Lts.Generate_trace.Make (Output) (Synch_LTS) in
+    run_interaction (module Generate) init_conf
     end
   | Explore ->
       if !is_program then begin
         Util.Debug.print_debug "Getting the program";
         let expr_lexbuffer = open_lexbuf !filename1 in
         let init_conf = LTS.Active (LTS.lexing_init_aconf expr_lexbuffer) in
-        let module Generate = Lts.Generate_trace.Make (LTS) in
-        build_graph (module Generate) init_conf
+        let module Generate = Lts.Generate_trace.Make (Output) (LTS) in
+        run_interaction (module Generate) init_conf
       end
       else begin
         Util.Debug.print_debug "Getting the module declaration";
@@ -195,8 +202,8 @@ let build_strategy (module LTS : Lts.Strategy.LTS_WITH_INIT) =
         let init_conf =
           LTS.Passive (LTS.lexing_init_pconf decl_lexbuffer signature_lexbuffer)
         in
-        let module Generate = Lts.Generate_trace.Make (LTS) in
-        build_graph (module Generate) init_conf
+        let module Generate = Lts.Generate_trace.Make (Output) (LTS) in
+        run_interaction (module Generate) init_conf
       end
   | Compose -> failwith "Compose is not yet implemented"
 

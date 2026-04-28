@@ -1,23 +1,22 @@
 module type GRAPH = sig
   (* To be instanciated *)
+  module M : Util.Monad.MONAD
   type conf
 
   (* *)
   type graph
 
-  val string_of_graph : graph -> string
-
   val compute_graph :
     show_move:(string -> unit) ->
-    show_conf:(string -> unit) ->
+    show_conf:(Yojson.Safe.t -> unit) ->
     show_moves_list:(Yojson.Safe.t list -> unit) ->
-    get_move:(int -> int) ->
+    get_move:(int -> int M.m) ->
     conf ->
-    graph
+    graph M.m
 end
 
-module Make (IntLTS : Strategy.LTS) : GRAPH with type conf = IntLTS.conf =
-struct
+module Make (M : Util.Monad.MONAD) (IntLTS : Strategy.LTS) : GRAPH with module M = M and type conf = IntLTS.conf = struct
+  module M = M
   type conf = IntLTS.conf
   type id_state = int
 
@@ -68,7 +67,7 @@ struct
     edges: transition list;
   }
 
-  let string_of_graph { states; failed_states; edges } =
+  let _string_of_graph { states; failed_states; edges } =
     let states_string =
       String.concat "\n" (List.map (dotstring_of_state failed_states) states)
     in
@@ -171,5 +170,5 @@ struct
       compute_graph_m ~show_move ~show_conf ~show_moves_list ~get_move init_conf
     in
     let (_, graph) = runState comp empty_graph in
-    graph
+    M.return graph
 end
