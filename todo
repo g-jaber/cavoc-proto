@@ -14,11 +14,14 @@ The modification will be done in lib/RefML/lexer.mll, and possibly in the functi
   - [ ] Remove the Evaluate button and always trigger it once we start a new level
   - [ ] store in a session (using a cookie ?) the current level of the tutorial reached by the user, in order to restore it
 
+* [ ] Improve handling of errors when reading the integer in get_move in the CLI binary
+
+* [ ] Focus on ienv window when loading the page
+
+* [ ] Correct bug in the web interface regarding highlighting the top element of the stack in the ienv window when direct style option is selected.
 
 * Merge the interface of interactive_build.mli (used by the web interface), graph.mli and generate_trace.mli (used by the CLI executable) into a single one, with two implementations
   - [ ] Handle the fact that for the CLI executable, we do not use the Lwt monad currently
-
-* Improve handling of errors when reading the inter in get_move in the CLI binary
 
 * Design a type for the return type of get_move representing the action performed by the user
 
