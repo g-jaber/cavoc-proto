@@ -1,7 +1,6 @@
 module type GRAPH = sig
   (* To be instanciated *)
   type conf
-  type move
 
   (* *)
   type graph
@@ -10,17 +9,16 @@ module type GRAPH = sig
 
   val compute_graph :
     show_conf:(string -> unit) ->
-    show_moves_list:(string list -> unit) ->
+    show_moves_list:(Yojson.Safe.t list -> unit) ->
     get_move:(int -> int) ->
     conf ->
     graph
 end
 
 module Make (IntLTS : Strategy.LTS) :
-  GRAPH with type conf = IntLTS.conf and type move = IntLTS.TypingLTS.Moves.pol_move =
+  GRAPH with type conf = IntLTS.conf =
 struct
   type conf = IntLTS.conf
-  type move = IntLTS.TypingLTS.Moves.pol_move
   type id_state = int
 
   let string_of_id_state = string_of_int

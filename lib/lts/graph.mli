@@ -1,7 +1,6 @@
 module type GRAPH = sig
   (* To be instanciated *)
   type conf
-  type move
 
   (* *)
   type graph
@@ -9,7 +8,7 @@ module type GRAPH = sig
   val string_of_graph : graph -> string
   val compute_graph : 
   show_conf:(string -> unit) -> 
-  show_moves_list:(string list -> unit) -> 
+  show_moves_list:(Yojson.Safe.t list -> unit) -> 
     (* the argument of get_move is the 
     number of moves *)
     get_move:(int -> int) 

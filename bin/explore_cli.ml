@@ -11,7 +11,6 @@ type kind_exe =
   | Module of (string*string)
 *)
 
-
 let number_filename = ref 0
 let filename1 = ref ""
 let filename2 = ref ""
@@ -47,14 +46,15 @@ let speclist =
 
 let usage_msg = "Usage: explore filename.ml filename.mli [options]"
 
-let generate_kind_lts () = 
+let generate_kind_lts () =
   let open Lts_kind in
   let oplang = RefML in
   let control = if !enable_cps then CPS else DirectStyle in
-  let restrictions = if !enable_wb then [WellBracketing] else [] in
-  let restrictions = if !enable_visibility then Visibility::restrictions else restrictions in
-  {oplang; control; restrictions}
-
+  let restrictions = if !enable_wb then [ WellBracketing ] else [] in
+  let restrictions =
+    if !enable_visibility then Visibility :: restrictions else restrictions
+  in
+  { oplang; control; restrictions }
 
 let fix_mode () =
   match (!is_compare, !is_compose) with
@@ -107,33 +107,53 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
      a function that can be used to ask the question again, and the
      line that has just been read *)
   let rec ask rangestr f =
-    Printf.printf "(%s/exit) %!" rangestr ;
+    Printf.printf "(%s/exit) %!" rangestr;
     match String.trim (read_line ()) with
-    | exception End_of_file | "exit" -> exit 0
-    | line -> let askagain = fun () -> ask rangestr f in f askagain line in
+    | (exception End_of_file) | "exit" -> exit 0
+    | line ->
+        let askagain = fun () -> ask rangestr f in
+        f askagain line in
   let show_conf conf_str =
-    print_endline
-      "Do you want to print the Proponent configuration?";
+    print_endline "Do you want to print the Proponent configuration?";
     let aux askagain = function
-    | "yes" -> print_endline conf_str
-    | "no" -> ()
-    | _ -> askagain () in
+      | "yes" -> print_endline conf_str
+      | "no" -> ()
+      | _ -> askagain () in
     ask "yes/no" aux in
   let show_moves_list results_list =
+    let string_of_yojson_move (v : Yojson.Safe.t) =
+      match v with
+      | `Assoc fields -> (
+          match List.assoc_opt "string" fields with
+          | Some (`String str) -> str
+          | _ ->
+              failwith
+                "The yojson encoding of the move does not have a string field. \
+                 Please report.")
+      | _ ->
+          failwith
+            "The yojson encoding of the move is not an Assoc. Please report."
+    in
     print_endline "The possible moves are:";
     List.iter print_endline
-      (List.mapi (fun i m -> string_of_int (i + 1) ^ ": " ^ m) results_list)
-  in
+      (List.mapi
+         (fun i m -> string_of_int (i + 1) ^ ": " ^ string_of_yojson_move m)
+         results_list) in
   let get_move n =
+    let n = n + 1 in
     print_endline
       ("Choose an integer between 1 and " ^ string_of_int n
      ^ " to decide what to do, or type 'exit' to stop.");
     let aux askagain line =
-      let i = try int_of_string line with
-              | Failure _ -> 
-                  if line <> "" then print_endline "invalid integer" ; askagain () in
-      if i > 0 && i <= n then i
-      else ( print_endline "choice out of range" ; askagain () ) in
+      let i =
+        try int_of_string line
+        with Failure _ ->
+          if line <> "" then print_endline "invalid integer";
+          askagain () in
+      if i > 0 && i <= n then i-1
+      else (
+        print_endline "choice out of range";
+        askagain ()) in
     ask (Printf.sprintf "1..%d" n) aux in
   let graph =
     Graph.compute_graph ~show_conf ~show_moves_list ~get_move init_conf in
@@ -143,7 +163,7 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
 let open_lexbuf filename =
   let inBuffer = open_in filename in
   let exprBuffer = Lexing.from_channel inBuffer in
-  Lexing.set_filename exprBuffer filename ;
+  Lexing.set_filename exprBuffer filename;
   exprBuffer
 
 let build_strategy (module LTS : Lts.Strategy.LTS_WITH_INIT) =
@@ -167,8 +187,7 @@ let build_strategy (module LTS : Lts.Strategy.LTS_WITH_INIT) =
       if !is_program then begin
         Util.Debug.print_debug "Getting the program";
         let expr_lexbuffer = open_lexbuf !filename1 in
-        let init_conf =
-          LTS.Active (LTS.lexing_init_aconf expr_lexbuffer) in
+        let init_conf = LTS.Active (LTS.lexing_init_aconf expr_lexbuffer) in
         if !print_dot then
           let module Graph = Lts.Graph.Make (LTS) in
           build_graph (module Graph) init_conf
@@ -181,8 +200,8 @@ let build_strategy (module LTS : Lts.Strategy.LTS_WITH_INIT) =
         let decl_lexbuffer = open_lexbuf !filename1 in
         let signature_lexbuffer = open_lexbuf !filename2 in
         let init_conf =
-          LTS.Passive
-            (LTS.lexing_init_pconf decl_lexbuffer signature_lexbuffer) in
+          LTS.Passive (LTS.lexing_init_pconf decl_lexbuffer signature_lexbuffer)
+        in
         if !print_dot then
           let module Graph = Lts.Graph.Make (LTS) in
           build_graph (module Graph) init_conf

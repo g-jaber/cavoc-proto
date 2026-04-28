@@ -1,6 +1,5 @@
 module Make (IntLTS : Strategy.LTS) = struct
   type conf = IntLTS.conf
-  type move = IntLTS.TypingLTS.Moves.pol_move
   type event = Trans of IntLTS.conf * IntLTS.TypingLTS.Moves.pol_move
 
   let string_of_event = function
@@ -42,10 +41,11 @@ module Make (IntLTS : Strategy.LTS) = struct
         let results_list =
           IntLTS.TypingLTS.BranchMonad.run (IntLTS.o_trans_gen pas_conf) in
         let moves_list = List.map (fun (x, _) -> x) results_list in
-        let string_list =
-          List.map IntLTS.TypingLTS.Moves.string_of_pol_move moves_list in
-        show_moves_list string_list;
-        let chosen_index = get_move (List.length string_list) - 1 in
+        let json_list =
+          List.map IntLTS.TypingLTS.Moves.pol_move_to_yojson moves_list in
+
+        show_moves_list json_list;
+        let chosen_index = get_move (List.length json_list - 1) in
         let (input_move, act_conf) = List.nth results_list chosen_index in
         print_endline @@ "You have chosen the move " ^ (IntLTS.TypingLTS.Moves.string_of_pol_move input_move);
         let* () = emit @@ Trans (conf, input_move) in
