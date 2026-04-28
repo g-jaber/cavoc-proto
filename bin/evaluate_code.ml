@@ -20,19 +20,26 @@ let evaluate_code () =
   Editor_manager.fetch_editor_content ();
   let kind_lts = Lts_config.generate_kind_lts () in
   let (module OGS_LTS) = Lts_kind.build_lts kind_lts in
-  
+
   let lexBuffer_code = Lexing.from_string !Editor_manager.editor_content in
   let lexBuffer_sig = Lexing.from_string !Editor_manager.signature_content in
 
-  Lexing.set_filename lexBuffer_code !Editor_manager.editor_filename ;
-  Lexing.set_filename lexBuffer_sig !Editor_manager.signature_filename ;
-    
+  Lexing.set_filename lexBuffer_code !Editor_manager.editor_filename;
+  Lexing.set_filename lexBuffer_sig !Editor_manager.signature_filename;
+
   let init_conf =
-    OGS_LTS.Passive
-      (OGS_LTS.lexing_init_pconf lexBuffer_code lexBuffer_sig) in
-      
-  let module IBuild = Lts.Interactive_build.Make (OGS_LTS) in
-  
+    OGS_LTS.Passive (OGS_LTS.lexing_init_pconf lexBuffer_code lexBuffer_sig)
+  in
+
+  let module IBuild =
+    Lts.Interactive_build.Make (struct
+        type 'a m = 'a Lwt.t
+
+        let return = Lwt.return
+        let ( let* ) = Lwt.bind
+      end)
+      (OGS_LTS)
+  in
   let show_move move = Moves_manager.add_move move in
   let show_conf conf : unit = Display_config.display_conf conf in
 
@@ -60,11 +67,11 @@ let evaluate_code () =
         Ui_helpers.print_to_output "error : unknown";
         Lwt.fail (Failure "Unknown error") in
 
-  match%lwt IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move init_conf with
-  | IBuild.Success ->
-      let () = Js.Unsafe.global##onSuccess [||] in
+  match%lwt
+    IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
+      init_conf
+  with
+  | IBuild.Success -> let () = Js.Unsafe.global##onSuccess [||] in
 
-      Lwt.return 1
-
-  | IBuild.Stopped ->
-      Lwt.return 0
+                      Lwt.return 1
+  | IBuild.Stopped -> Lwt.return 0

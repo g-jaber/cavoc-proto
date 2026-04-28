@@ -1,4 +1,4 @@
-module type IBUILD = functor (IntLTS : Strategy.LTS) -> sig
+module type IBUILD = functor (M:Util.Monad.MONAD) (IntLTS : Strategy.LTS) -> sig
 
   type result = Success | Stopped 
 
@@ -9,9 +9,9 @@ module type IBUILD = functor (IntLTS : Strategy.LTS) -> sig
     show_moves_list:(Yojson.Safe.t list -> unit) ->
     (* the argument of get_move is the 
     number of moves *)
-    get_move:(int -> int Lwt.t) ->
+    get_move:(int -> int M.m) ->
     IntLTS.conf ->
-    result Lwt.t
+    result M.m
 end
 
 module Make : IBUILD
