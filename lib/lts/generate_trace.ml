@@ -4,7 +4,7 @@ module Make (IntLTS : Strategy.LTS) = struct
   include Util.Monad.Output (struct
     type t = string
 
-    let show str = str 
+    let show str = str
   end)
 
   let rec generate ~show_move ~show_conf ~show_moves_list ~get_move conf =
@@ -22,8 +22,7 @@ module Make (IntLTS : Strategy.LTS) = struct
         | Continue (output_move, pas_conf) ->
             let move_string =
               IntLTS.TypingLTS.Moves.string_of_pol_move output_move in
-            print_endline @@ "Proponent has played "
-            ^ move_string;
+            show_move @@ "Proponent has played " ^ move_string;
             let* () = emit move_string in
             generate ~show_move ~show_conf ~show_moves_list ~get_move
               (IntLTS.Passive pas_conf)
@@ -40,11 +39,11 @@ module Make (IntLTS : Strategy.LTS) = struct
         show_moves_list json_list;
         let chosen_index = get_move (List.length json_list - 1) in
         let (input_move, act_conf) = List.nth results_list chosen_index in
-        let move_string =
-          IntLTS.TypingLTS.Moves.string_of_pol_move input_move in
-        print_endline @@ "You have chosen the move " ^ move_string;
+        let move_string = IntLTS.TypingLTS.Moves.string_of_pol_move input_move in
+        show_move @@ "You have chosen the move " ^ move_string;
         let* () = emit move_string in
-        generate ~show_move ~show_conf ~show_moves_list ~get_move (IntLTS.Active act_conf)
+        generate ~show_move ~show_conf ~show_moves_list ~get_move
+          (IntLTS.Active act_conf)
 
   type graph = event list
 
@@ -52,6 +51,7 @@ module Make (IntLTS : Strategy.LTS) = struct
     String.concat "\n" @@ List.map string_of_event trace_list
 
   let compute_graph ~show_move ~show_conf ~show_moves_list ~get_move act_conf =
-    let result = generate ~show_move ~show_conf ~show_moves_list ~get_move act_conf in
+    let result =
+      generate ~show_move ~show_conf ~show_moves_list ~get_move act_conf in
     get_trace result
 end

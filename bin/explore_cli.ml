@@ -113,7 +113,7 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
     | line ->
         let askagain = fun () -> ask rangestr f in
         f askagain line in
-  let show_move _move = () in
+  let show_move move = print_endline move in
   let show_conf conf_str =
     print_endline "Do you want to print the Proponent configuration?";
     let aux askagain = function
