@@ -22,9 +22,16 @@
       <h2>Signature</h2>
       <div id="signatureEditor"></div>
     </div>
-    <div id="help" class="help">
-      <button id="help-btn" class="help-btn">Help</button>
+    
+    <div class="button-column">
+      <div id="help" class="help">
+        <button id="help-btn" class="help-btn">Help</button>
+      </div>
+      <div id="shutdown" class="shutdown">
+        <button id="shutdown-btn" class="shutdown-btn">shutdown</button>
+      </div>
     </div>
+
     <div id="help-modal" class="modal">
     <div class="modal-content">
       <span class="close-btn">&times;</span>
@@ -184,6 +191,8 @@
           if (selectedFileName) {
             const mlFileName = selectedFileName;
             const mliFileName = mlFileName.replace(".ml", ".mli");
+
+            window.loadedFile = selectedFileName.slice(0, -3);
 
             // Load .ml file content from TEST directory
             fetch(`../test/${mlFileName}`)
