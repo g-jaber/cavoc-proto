@@ -4,9 +4,6 @@ module type IBUILD = sig
 
   type conf
 
-  (* Ajout du type result *)
-  type result = Success | Stopped
-
   (* *)
 
   val interactive_build :
@@ -17,7 +14,7 @@ module type IBUILD = sig
     number of moves *)
     get_move:(int -> int M.m) ->
     conf ->
-    result M.m
+    unit M.m
 end
 
 module Make : functor (M : Util.Monad.MONAD) (IntLTS : Strategy.LTS) ->

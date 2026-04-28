@@ -184,16 +184,16 @@ let build_strategy (module LTS : Lts.Strategy.LTS_WITH_INIT) =
       let init_conf =
         Synch_LTS.Active (Synch_LTS.lexing_init_aconf exprBuffer1 exprBuffer2)
       in
-      let module Generate = Lts.Generate_trace.Make (Output) (Synch_LTS) in
-    run_interaction (module Generate) init_conf
+      let module IBuild = Lts.Interactive_build.Make (Output) (Synch_LTS) in
+    run_interaction (module IBuild) init_conf
     end
   | Explore ->
       if !is_program then begin
         Util.Debug.print_debug "Getting the program";
         let expr_lexbuffer = open_lexbuf !filename1 in
         let init_conf = LTS.Active (LTS.lexing_init_aconf expr_lexbuffer) in
-        let module Generate = Lts.Generate_trace.Make (Output) (LTS) in
-        run_interaction (module Generate) init_conf
+        let module IBuild = Lts.Interactive_build.Make (Output) (LTS) in
+        run_interaction (module IBuild) init_conf
       end
       else begin
         Util.Debug.print_debug "Getting the module declaration";
@@ -202,8 +202,8 @@ let build_strategy (module LTS : Lts.Strategy.LTS_WITH_INIT) =
         let init_conf =
           LTS.Passive (LTS.lexing_init_pconf decl_lexbuffer signature_lexbuffer)
         in
-        let module Generate = Lts.Generate_trace.Make (Output) (LTS) in
-        run_interaction (module Generate) init_conf
+        let module IBuild = Lts.Interactive_build.Make (Output) (LTS) in
+        run_interaction (module IBuild) init_conf
       end
   | Compose -> failwith "Compose is not yet implemented"
 

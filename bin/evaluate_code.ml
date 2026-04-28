@@ -70,8 +70,6 @@ let evaluate_code () =
   match%lwt
     IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
       init_conf
-  with
-  | IBuild.Success -> let () = Js.Unsafe.global##onSuccess [||] in
-
+  with (* Should we deal with failure encapsulated in the Lwt monad ?*)
+  | () -> let () = Js.Unsafe.global##onSuccess [||] in
                       Lwt.return 1
-  | IBuild.Stopped -> Lwt.return 0

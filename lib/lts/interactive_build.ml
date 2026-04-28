@@ -4,9 +4,6 @@ module type IBUILD = sig
 
   type conf
 
-  (* Ajout du type result *)
-  type result = Success | Stopped
-
   (* *)
 
   val interactive_build :
@@ -17,13 +14,12 @@ module type IBUILD = sig
     number of moves *)
     get_move:(int -> int M.m) ->
     conf ->
-    result M.m
+    unit M.m
 end
 
 module Make (M : Util.Monad.MONAD) (IntLTS : Strategy.LTS) = struct
   module M = M
   type conf = IntLTS.conf
-  type result = Success | Stopped
 
   open M
 
@@ -34,10 +30,10 @@ module Make (M : Util.Monad.MONAD) (IntLTS : Strategy.LTS) = struct
         match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
         | PropStop ->
             print_endline "Proponent has quitted the game.";
-            return Success (*Retourne un succés quand gagné*)
+            return ()
         | OpStop ->
-            print_endline "Opponent has quitted the game.";
-            return Stopped
+            failwith
+              "Opponent has stopped while it was not its turn. Please report."
         | Continue (output_move, pas_conf) ->
             let move_string =
               IntLTS.TypingLTS.Moves.string_of_pol_move output_move in
