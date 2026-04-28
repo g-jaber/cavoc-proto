@@ -1,7 +1,13 @@
-module type IBUILD = functor (M:Util.Monad.MONAD) (IntLTS : Strategy.LTS) -> sig
+module type IBUILD = sig
+  (* To be instanciated *)
+  module M : Util.Monad.MONAD
 
-  type result = Success | Stopped 
+  type conf
 
+  (* Ajout du type result *)
+  type result = Success | Stopped
+
+  (* *)
 
   val interactive_build :
     show_move:(string -> unit) ->
@@ -10,8 +16,9 @@ module type IBUILD = functor (M:Util.Monad.MONAD) (IntLTS : Strategy.LTS) -> sig
     (* the argument of get_move is the 
     number of moves *)
     get_move:(int -> int M.m) ->
-    IntLTS.conf ->
+    conf ->
     result M.m
 end
 
-module Make : IBUILD
+module Make : functor (M : Util.Monad.MONAD) (IntLTS : Strategy.LTS) ->
+  IBUILD with module M = M and type conf = IntLTS.conf
