@@ -115,9 +115,13 @@
       event.currentTarget.classList.add("active");
     }
   </script>
+
+  <script src="common.js"></script>
   
   <script>
-    let currentLevel = 1;
+    /* === Global declarations === */
+    const cavocCurrentLevelName = 'cavoc-current-level';
+    let   currentLevel = localStorage.getItem(cavocCurrentLevelName);
 
     // Valeurs par défaut si le fichier JSON est manquant ou incomplet
     const DEFAULT_CONFIG = { 
@@ -126,11 +130,45 @@
         visibility: false 
     };
 
+    // Declared here because it is required by onSuccess and nextLevel
+    const successModal = createModal('success', false);
+    const tutoEndModal = createModal('tutoEnd', false);
+
     // Fonction appelée par OCaml (explore_web.ml) lors du succès
-    window.nextLevel = function() {
+    function nextLevel() {
         currentLevel++;
+        localStorage.setItem(cavocCurrentLevelName, currentLevel);
+
         loadLevel(currentLevel);
-    };
+    }
+
+    // Called by OCaml (see evaluate_code.ml) after a success
+    function onSuccess() {
+        openModal(successModal);
+    }
+
+    setModalTitle(successModal, "🏆 SUCCÈS !");
+    setModalMessage(successModal, "Vous avez déclenché un failwith. Félicitations ! Prêt pour la suite ?");
+    addModalButton(successModal, "Niveau suivant >>", _ => {
+        nextLevel();
+        closeModal(successModal);
+    });
+
+    setModalTitle(tutoEndModal, "🏆 SUCCÈS !");
+    setModalMessage(tutoEndModal, "Vous avez terminé le tutoriel. Félicitations !");
+    addModalButton(tutoEndModal, "Réinitialiser le tutoriel", _ => {
+        currentLevel = 0;
+
+        nextLevel();
+        closeModal(tutoEndModal);
+    });
+    addModalButton(tutoEndModal, "Passer à la suite", _ => {
+        window.location.href = "index.html";
+    });
+
+    if(currentLevel === null) {
+        currentLevel = 1;
+    }
 
     // Fonction principale pour charger un niveau
     async function loadLevel(level) {
@@ -202,8 +240,7 @@
           .catch((error) => {
              if (error.message === "Fini") {
                  // Gestion de la fin du tutoriel
-                 alert("Bravo ! Vous avez terminé tous les tutoriels disponibles !");
-                 window.location.href = "index.html"; 
+                 openModal(tutoEndModal);
              } else {
                  console.error("Erreur chargement code :", error);
              }
