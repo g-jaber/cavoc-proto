@@ -1,18 +1,10 @@
 module Make (IntLTS : Strategy.LTS) = struct
   type conf = IntLTS.conf
-  type trans = Trans of IntLTS.conf * IntLTS.TypingLTS.Moves.pol_move
-
-  let string_of_event = function
-    | Trans (_, move) ->
-        (*IntLTS.Int.string_of_position ictx
-          ^ " -" ^*)
-        IntLTS.TypingLTS.Moves.string_of_pol_move move
-  (*^ "-> "*)
 
   include Util.Monad.Output (struct
-    type t = trans
+    type t = string
 
-    let show = string_of_event
+    let show str = str 
   end)
 
   let rec generate ~show_move ~show_conf ~show_moves_list ~get_move conf =
@@ -28,9 +20,11 @@ module Make (IntLTS : Strategy.LTS) = struct
             failwith
               "Opponent has stopped while it was not its turn. Please report."
         | Continue (output_move, pas_conf) ->
+            let move_string =
+              IntLTS.TypingLTS.Moves.string_of_pol_move output_move in
             print_endline @@ "Proponent has played "
-            ^ IntLTS.TypingLTS.Moves.string_of_pol_move output_move;
-            let* () = emit @@ Trans (conf, output_move) in
+            ^ move_string;
+            let* () = emit move_string in
             generate ~show_move ~show_conf ~show_moves_list ~get_move
               (IntLTS.Passive pas_conf)
       end
@@ -43,12 +37,13 @@ module Make (IntLTS : Strategy.LTS) = struct
         let moves_list = List.map (fun (x, _) -> x) results_list in
         let json_list =
           List.map IntLTS.TypingLTS.Moves.pol_move_to_yojson moves_list in
-
         show_moves_list json_list;
         let chosen_index = get_move (List.length json_list - 1) in
         let (input_move, act_conf) = List.nth results_list chosen_index in
-        print_endline @@ "You have chosen the move " ^ (IntLTS.TypingLTS.Moves.string_of_pol_move input_move);
-        let* () = emit @@ Trans (conf, input_move) in
+        let move_string =
+          IntLTS.TypingLTS.Moves.string_of_pol_move input_move in
+        print_endline @@ "You have chosen the move " ^ move_string;
+        let* () = emit move_string in
         generate ~show_move ~show_conf ~show_moves_list ~get_move (IntLTS.Active act_conf)
 
   type graph = event list
