@@ -201,6 +201,39 @@ module type SHOWABLE = sig
 end
 
 (*** Signature for the combination of Branching and Write monad ***)
+module type OUTPUT = functor (MemState : SHOWABLE) -> sig
+  type event
+
+  val string_of_event : event -> string
+
+  include MONAD
+
+  val emit : MemState.t -> unit m
+  val get_trace : 'a m -> event list
+end
+
+module Output : OUTPUT =
+functor
+  (MemState : SHOWABLE)
+  ->
+  struct
+    type event = MemState.t list
+
+    let string_of_event event =
+      String.concat "·" @@ List.map MemState.show event
+
+    type 'a m = 'a * event
+
+    let emit out : unit m = ((), [ out ])
+
+    let return (value : 'a) : 'a m = (value, [])
+    let get_trace (_, tr) = [ tr ]
+
+    let ( let* ) (x,tr) f =
+          let (y,tr')  = f x in (y, tr @ tr')
+  end
+
+(*** Signature for the combination of Branching and Write monad ***)
 module type BRANCH_WRITE = functor (MemState : SHOWABLE) -> sig
   type trace
 
