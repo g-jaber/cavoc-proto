@@ -6,7 +6,8 @@ module type GRAPH = sig
   type graph
 
   val string_of_graph : graph -> string
-  val compute_graph : 
+  val compute_graph :
+  show_move:(string -> unit) -> 
   show_conf:(string -> unit) -> 
   show_moves_list:(Yojson.Safe.t list -> unit) -> 
     (* the argument of get_move is the 

@@ -1,6 +1,6 @@
 module Make (IntLTS : Strategy.LTS) = struct
   type conf = IntLTS.conf
-  type event = Trans of IntLTS.conf * IntLTS.TypingLTS.Moves.pol_move
+  type trans = Trans of IntLTS.conf * IntLTS.TypingLTS.Moves.pol_move
 
   let string_of_event = function
     | Trans (_, move) ->
@@ -9,13 +9,13 @@ module Make (IntLTS : Strategy.LTS) = struct
         IntLTS.TypingLTS.Moves.string_of_pol_move move
   (*^ "-> "*)
 
-  include Util.Monad.UserChooseWrite (struct
-    type t = event
+  include Util.Monad.Output (struct
+    type t = trans
 
     let show = string_of_event
   end)
 
-  let rec generate ~show_conf ~show_moves_list ~get_move conf =
+  let rec generate ~show_move ~show_conf ~show_moves_list ~get_move conf =
     match conf with
     | IntLTS.Active act_conf -> begin
         match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
@@ -31,7 +31,7 @@ module Make (IntLTS : Strategy.LTS) = struct
             print_endline @@ "Proponent has played "
             ^ IntLTS.TypingLTS.Moves.string_of_pol_move output_move;
             let* () = emit @@ Trans (conf, output_move) in
-            generate ~show_conf ~show_moves_list ~get_move
+            generate ~show_move ~show_conf ~show_moves_list ~get_move
               (IntLTS.Passive pas_conf)
       end
     | IntLTS.Passive pas_conf ->
@@ -49,14 +49,14 @@ module Make (IntLTS : Strategy.LTS) = struct
         let (input_move, act_conf) = List.nth results_list chosen_index in
         print_endline @@ "You have chosen the move " ^ (IntLTS.TypingLTS.Moves.string_of_pol_move input_move);
         let* () = emit @@ Trans (conf, input_move) in
-        generate ~show_conf ~show_moves_list ~get_move (IntLTS.Active act_conf)
+        generate ~show_move ~show_conf ~show_moves_list ~get_move (IntLTS.Active act_conf)
 
-  type graph = trace list
+  type graph = event list
 
   let string_of_graph trace_list =
-    String.concat "\n" @@ List.map string_of_trace trace_list
+    String.concat "\n" @@ List.map string_of_event trace_list
 
-  let compute_graph ~show_conf ~show_moves_list ~get_move act_conf =
-    let result = generate ~show_conf ~show_moves_list ~get_move act_conf in
+  let compute_graph ~show_move ~show_conf ~show_moves_list ~get_move act_conf =
+    let result = generate ~show_move ~show_conf ~show_moves_list ~get_move act_conf in
     get_trace result
 end

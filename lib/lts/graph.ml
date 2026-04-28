@@ -8,6 +8,7 @@ module type GRAPH = sig
   val string_of_graph : graph -> string
 
   val compute_graph :
+    show_move:(string -> unit) ->
     show_conf:(string -> unit) ->
     show_moves_list:(Yojson.Safe.t list -> unit) ->
     get_move:(int -> int) ->
@@ -15,8 +16,7 @@ module type GRAPH = sig
     graph
 end
 
-module Make (IntLTS : Strategy.LTS) :
-  GRAPH with type conf = IntLTS.conf =
+module Make (IntLTS : Strategy.LTS) : GRAPH with type conf = IntLTS.conf =
 struct
   type conf = IntLTS.conf
   type id_state = int
@@ -52,7 +52,8 @@ struct
 
   let idstring_of_state (_, id) = string_of_id_state id
 
-  type transition = PublicTrans of state * IntLTS.TypingLTS.Moves.pol_move * state
+  type transition =
+    | PublicTrans of state * IntLTS.TypingLTS.Moves.pol_move * state
 
   let string_of_transition = function
     | PublicTrans (st1, act, st2) ->
@@ -120,7 +121,8 @@ struct
 
   (* The computation of the graph is always called on an active state*)
   (* TODO: Why ? *)
-  let rec compute_graph_monad ~show_conf ~show_moves_list ~get_move = function
+  let rec compute_graph_monad ~show_move ~show_conf ~show_moves_list ~get_move =
+    function
     | (IntLTS.Active act_conf, _) as act_state -> begin
         match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
         | PropStop -> add_failed_state act_state
@@ -130,37 +132,44 @@ struct
             Util.Debug.print_debug
               ("Adding the transition: " ^ string_of_transition edge);
             let* () = add_edge edge in
-            compute_graph_monad ~show_conf ~show_moves_list ~get_move pas_state
-      | OpStop -> failwith "Opponent has stopped while it was not its turn. Please report."
+            compute_graph_monad ~show_move ~show_conf ~show_moves_list ~get_move
+              pas_state
+        | OpStop ->
+            failwith
+              "Opponent has stopped while it was not its turn. Please report."
       end
     | (IntLTS.Passive pas_conf, _) as pas_state ->
         let* (input_move, act_conf) =
-          para_list (IntLTS.TypingLTS.BranchMonad.run (IntLTS.o_trans_gen pas_conf))
+          para_list
+            (IntLTS.TypingLTS.BranchMonad.run (IntLTS.o_trans_gen pas_conf))
         in
         let* act_state_option = find_equiv_act_conf act_conf in
-        begin
-          match act_state_option with
-          | None ->
-              let* act_state = add_act_state act_conf in
-              let edge = PublicTrans (pas_state, input_move, act_state) in
-              let* () = add_edge edge in
-              compute_graph_monad ~show_conf ~show_moves_list ~get_move
-                act_state
-          | Some act_state ->
-              Util.Debug.print_debug
-                ("Loop detected: \n   "
-                ^ IntLTS.string_of_active_conf act_conf
-                ^ "\n  " ^ string_of_state act_state);
-              let edge = PublicTrans (pas_state, input_move, act_state) in
-              add_edge edge
+        begin match act_state_option with
+        | None ->
+            let* act_state = add_act_state act_conf in
+            let edge = PublicTrans (pas_state, input_move, act_state) in
+            let* () = add_edge edge in
+            compute_graph_monad ~show_move ~show_conf ~show_moves_list ~get_move
+              act_state
+        | Some act_state ->
+            Util.Debug.print_debug
+              ("Loop detected: \n   "
+              ^ IntLTS.string_of_active_conf act_conf
+              ^ "\n  " ^ string_of_state act_state);
+            let edge = PublicTrans (pas_state, input_move, act_state) in
+            add_edge edge
         end
 
-  let compute_graph_m ~show_conf ~show_moves_list ~get_move init_conf =
+  let compute_graph_m ~show_move ~show_conf ~show_moves_list ~get_move init_conf
+      =
     let* init_state = add_conf init_conf in
-    compute_graph_monad ~show_conf ~show_moves_list ~get_move init_state
+    compute_graph_monad ~show_move ~show_conf ~show_moves_list ~get_move
+      init_state
 
-  let compute_graph ~show_conf ~show_moves_list ~get_move init_conf =
-    let comp = compute_graph_m ~show_conf ~show_moves_list ~get_move init_conf in
+  let compute_graph ~show_move ~show_conf ~show_moves_list ~get_move init_conf =
+    let comp =
+      compute_graph_m ~show_move ~show_conf ~show_moves_list ~get_move init_conf
+    in
     let (_, graph) = runState comp empty_graph in
     graph
 end
