@@ -20,7 +20,6 @@ let enable_wb = ref true
 let enable_cps = ref true
 let enable_visibility = ref false
 let generate_tree = ref false
-let print_dot = ref false
 let is_mode = ref Explore
 let is_compare = ref false
 let is_compose = ref false
@@ -151,13 +150,14 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
         with Failure _ ->
           if line <> "" then print_endline "invalid integer";
           askagain () in
-      if i > 0 && i <= n then i-1
+      if i > 0 && i <= n then i - 1
       else (
         print_endline "choice out of range";
         askagain ()) in
     ask (Printf.sprintf "1..%d" n) aux in
   let graph =
-    Graph.compute_graph ~show_move ~show_conf ~show_moves_list ~get_move init_conf in
+    Graph.compute_graph ~show_move ~show_conf ~show_moves_list ~get_move
+      init_conf in
   let graph_string = Graph.string_of_graph graph in
   print_string graph_string
 
@@ -177,24 +177,16 @@ let build_strategy (module LTS : Lts.Strategy.LTS_WITH_INIT) =
       let init_conf =
         Synch_LTS.Active (Synch_LTS.lexing_init_aconf exprBuffer1 exprBuffer2)
       in
-      if !print_dot then
-        let module Graph = Lts.Graph.Make (Synch_LTS) in
-        build_graph (module Graph) init_conf
-      else
-        let module Generate = Lts.Generate_trace.Make (Synch_LTS) in
-        build_graph (module Generate) init_conf
+      let module Generate = Lts.Generate_trace.Make (Synch_LTS) in
+      build_graph (module Generate) init_conf
     end
   | Explore ->
       if !is_program then begin
         Util.Debug.print_debug "Getting the program";
         let expr_lexbuffer = open_lexbuf !filename1 in
         let init_conf = LTS.Active (LTS.lexing_init_aconf expr_lexbuffer) in
-        if !print_dot then
-          let module Graph = Lts.Graph.Make (LTS) in
-          build_graph (module Graph) init_conf
-        else
-          let module Generate = Lts.Generate_trace.Make (LTS) in
-          build_graph (module Generate) init_conf
+        let module Generate = Lts.Generate_trace.Make (LTS) in
+        build_graph (module Generate) init_conf
       end
       else begin
         Util.Debug.print_debug "Getting the module declaration";
@@ -203,12 +195,8 @@ let build_strategy (module LTS : Lts.Strategy.LTS_WITH_INIT) =
         let init_conf =
           LTS.Passive (LTS.lexing_init_pconf decl_lexbuffer signature_lexbuffer)
         in
-        if !print_dot then
-          let module Graph = Lts.Graph.Make (LTS) in
-          build_graph (module Graph) init_conf
-        else
-          let module Generate = Lts.Generate_trace.Make (LTS) in
-          build_graph (module Generate) init_conf
+        let module Generate = Lts.Generate_trace.Make (LTS) in
+        build_graph (module Generate) init_conf
       end
   | Compose -> failwith "Compose is not yet implemented"
 
