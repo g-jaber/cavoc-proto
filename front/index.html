@@ -151,8 +151,21 @@
       event.currentTarget.classList.add("active");
     }
   </script>
+
+  <script src="common.js"></script>
   
   <script>
+    const successModal = createModal('success', true);
+
+    setModalTitle(successModal, "🏆 SUCCÈS");
+    setModalMessage(successModal, "Vous avez déclenché un failwith. Félicitations !");
+    addModalButton(successModal, "Ok", (_) => closeModal(successModal));
+
+    function onSuccess() {
+        openModal(successModal);
+        // no-op outside of the tutorial
+    }
+
     window.onload = async function () {
      
       // --- LOGIQUE DE JEU (DOSSIER TEST) ---

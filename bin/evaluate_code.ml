@@ -62,34 +62,7 @@ let evaluate_code () =
 
   match%lwt IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move init_conf with
   | IBuild.Success ->
-      let local_storage = Js.Unsafe.get Js.Unsafe.global "localStorage" in
-      Js.Unsafe.meth_call local_storage "setItem"
-        [| Js.Unsafe.inject (Js.string "tuto_completed");
-          Js.Unsafe.inject (Js.string "true") |]
-      |> ignore;
-      let doc = Dom_html.document in
-      let modal = Dom_html.createDiv doc in
-      let content = Dom_html.createDiv doc in
-      let btn = Dom_html.createButton doc in
-
-      modal##.classList##add (Js.string "win-modal");
-      content##.classList##add (Js.string "win-modal-content");
-      btn##.classList##add (Js.string "win-reset-btn");
-      content##.innerHTML := Js.string
-        "<h2 class = 'win-title'>🏆 SUCCÈS !</h2>\
-        <p class = 'win-message'>Vous avez déclenché un failwith. Félicitations ! Prêt pour la suite ?</p>";
-
-      btn##.textContent := Js.some (Js.string "Niveau Suivant >>");
-
-      btn##.onclick := Dom_html.handler (fun _ ->
-        Dom.removeChild doc##.body modal;
-        let tuto = Dom_html.getElementById "tuto-badge" in
-        if Js.Opt.test (Dom_html.CoerceTo.element tuto) then Js.Unsafe.meth_call Js.Unsafe.global "nextLevel" [||] |> ignore;
-        Js._true
-      );
-      Dom.appendChild content btn;
-      Dom.appendChild modal content;
-      Dom.appendChild doc##.body modal;
+      let () = Js.Unsafe.global##onSuccess [||] in
 
       Lwt.return 1
 

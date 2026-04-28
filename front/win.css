@@ -47,6 +47,7 @@
     border-radius: 5px;
     cursor: pointer;
     transition: background 0.3s;
+    margin: 0px 12px;
 }
 
 .win-reset-btn:hover {
