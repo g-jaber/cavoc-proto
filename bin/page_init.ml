@@ -23,7 +23,7 @@ let rec init_page () =
 
   let shut_button = Dom_html.getElementById "shutdown-btn" in
   shut_button##.onclick := Dom_html.handler ( fun _ -> 
-    Lwt.ignore_result (let%lwt _ = Js_of_ocaml_lwt.XmlHttpRequest.get "../stop" in Lwt.return ());
+    Lwt.async (fun () -> let%lwt _ = Js_of_ocaml_lwt.XmlHttpRequest.get "../stop" in Lwt.return ());
     Js._true
   );
 
