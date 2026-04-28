@@ -102,11 +102,23 @@ let check_number_filenames () =
 
 let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
     (init_conf : a) =
+  (* ask a question with a range of possible answers (rangestr).
+     f is of type `(unit -> unit) -> string -> unit` and gets passed
+     a function that can be used to ask the question again, and the
+     line that has just been read *)
+  let rec ask rangestr f =
+    Printf.printf "(%s/exit) %!" rangestr ;
+    match String.trim (read_line ()) with
+    | exception End_of_file | "exit" -> exit 0
+    | line -> let askagain = fun () -> ask rangestr f in f askagain line in
   let show_conf conf_str =
     print_endline
-      "Do you want to print the Proponent configuration? (1=yes/0=no)";
-    let i = read_int () in
-    match i with 1 -> print_endline @@ conf_str | _ -> () in
+      "Do you want to print the Proponent configuration?";
+    let aux askagain = function
+    | "yes" -> print_endline conf_str
+    | "no" -> ()
+    | _ -> askagain () in
+    ask "yes/no" aux in
   let show_moves_list results_list =
     print_endline "The possible moves are:";
     List.iter print_endline
@@ -115,9 +127,14 @@ let build_graph (type a) (module Graph : Lts.Graph.GRAPH with type conf = a)
   let get_move n =
     print_endline
       ("Choose an integer between 1 and " ^ string_of_int n
-     ^ " to decide what to do, or choose 0 to stop.");
-    let i = read_int () in
-    if i > 0 && i <= n then i else exit 1 in
+     ^ " to decide what to do, or type 'exit' to stop.");
+    let aux askagain line =
+      let i = try int_of_string line with
+              | Failure _ -> 
+                  if line <> "" then print_endline "invalid integer" ; askagain () in
+      if i > 0 && i <= n then i
+      else ( print_endline "choice out of range" ; askagain () ) in
+    ask (Printf.sprintf "1..%d" n) aux in
   let graph =
     Graph.compute_graph ~show_conf ~show_moves_list ~get_move init_conf in
   let graph_string = Graph.string_of_graph graph in
