@@ -1,8 +1,7 @@
-module type IBUILD = sig
-  type conf
-  
-  (*Ajout du type result*)
-  type result = Success | Stopped
+module type IBUILD = functor (IntLTS : Strategy.LTS) -> sig
+
+  type result = Success | Stopped 
+
 
   val interactive_build :
     show_move:(string -> unit) ->
@@ -11,12 +10,11 @@ module type IBUILD = sig
     (* the argument of get_move is the 
     number of moves *)
     get_move:(int -> int Lwt.t) ->
-    conf ->
+    IntLTS.conf ->
     result Lwt.t
 end
 
 module Make (IntLTS : Strategy.LTS) = struct
-  type conf = IntLTS.conf
   type result = Success | Stopped
 
   let rec interactive_build
