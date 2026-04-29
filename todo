@@ -27,6 +27,8 @@ The modification will be done in lib/RefML/lexer.mll, and possibly in the functi
   - It's difficult to change the type of run_interaction to get a module of the right type...
 
 * Design a type for the return type of get_move representing the action performed by the user
+  - the int type used currently is too naive
+  - we could also encapsulate the return type of get_move in the monad M
 
 * Provide a way to backtrack an action during the interaction
   - [ ] Generalize the get_move callback found in both Generate_trace.generate and Interactive_build.interactive_build functions to handle a backtrack event
