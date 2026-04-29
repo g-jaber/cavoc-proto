@@ -22,6 +22,10 @@ The modification will be done in lib/RefML/lexer.mll, and possibly in the functi
 
 * [x] Merge the interface of interactive_build.mli (used by the web interface), graph.mli and generate_trace.mli (used by the CLI executable) into a single one, with two implementations
 
+* [ ] Restore the generation of a trace of moves via interactive_build in explore_cli
+  - Using emit of the Output monad
+  - It's difficult to change the type of run_interaction to get a module of the right type...
+
 * Design a type for the return type of get_move representing the action performed by the user
 
 * Provide a way to backtrack an action during the interaction

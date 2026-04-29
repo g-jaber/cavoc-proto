@@ -199,8 +199,6 @@ module type SHOWABLE = sig
 
   val show : t -> string
 end
-
-(*** Signature for the combination of Branching and Write monad ***)
 module type OUTPUT = functor (MemState : SHOWABLE) -> sig
   type event
 
