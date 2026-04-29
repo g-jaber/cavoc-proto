@@ -1,22 +1,22 @@
 * Provide an easy way to exit the web-server:
-  - [ ] In CLI, by entering "exit" or "quit"
-  - [ ] In the webpage, with an "Exit" button
+  - [x] In CLI, by entering "exit" or "quit"
+  - [x] In the webpage, with an "Exit" button
 The main modification will appear in bin/server.ml. It will necessitate to understand how to interrupt the Lwt.run.
 For exiting the server from the webpage, the situation is less clear.
 
 * Improve the error messages of the lexer
-  - [ ] Print the line number where the error happens
-  - [ ] Print the bad character/string
-  - [ ] Print the name of the problematic file
+  - [x] Print the line number where the error happens
+  - [x] Print the bad character/string
+  - [x] Print the name of the problematic file
 The modification will be done in lib/RefML/lexer.mll, and possibly in the function `get_typed_opconf` and `get_typed_ienv` lib/RefML/refML.ml
 
 * Improve the gamification of the tutorial
   - [ ] Remove the Evaluate button and always trigger it once we start a new level
-  - [ ] store in a session (using a cookie ?) the current level of the tutorial reached by the user, in order to restore it
+  - [x] store in a session (using a cookie ?) the current level of the tutorial reached by the user, in order to restore it
 
-* [ ] Improve handling of errors when reading the integer in get_move in the CLI binary
+* [x] Improve handling of errors when reading the integer in get_move in the CLI binary
 
-* [ ] Focus on ienv window when loading the page
+* [x] Focus on ienv window when loading the page
 
 * [ ] Correct bug in the web interface regarding highlighting the top element of the stack in the ienv window when direct style option is selected.
 
