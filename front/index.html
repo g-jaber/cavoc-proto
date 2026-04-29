@@ -54,10 +54,10 @@
       <div id="histo-config-container">
         <div class="tabs">
           <div class="tab-nav">
-            <button class="tab-link active" onclick="openTab(event, 'config')">
+            <button class="tab-link" onclick="openTab(event, 'config')">
               Configuration
             </button>
-            <button class="tab-link" onclick="openTab(event, 'ienv')">
+            <button class="tab-link active" onclick="openTab(event, 'ienv')">
               IEnv
             </button>
             <button class="tab-link" onclick="openTab(event, 'store')">
@@ -71,8 +71,8 @@
             </button>
           </div>
 
-          <div id="config" class="tab-content active"></div>
-          <div id="ienv" class="tab-content">
+          <div id="config" class="tab-content"></div>
+          <div id="ienv" class="tab-content active">
             <div id="ienv-div" class="tab-content active"></div>
             <div id="stack-container" class="tab-content active"></div>
           </div>
@@ -167,7 +167,6 @@
     }
 
     window.onload = async function () {
-     
       // --- LOGIQUE DE JEU (DOSSIER TEST) ---
     
       let filesList = [];
