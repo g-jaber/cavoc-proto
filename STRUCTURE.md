@@ -1,3 +1,13 @@
+CAVOC is parametric with respect to the programming language (called machine language in this setting) used to write the code of modules and clients.
+To create a new machine language to use CAVOC on,
+you have to provide an instance of the signature Lib.Lang.LANG_WITH_INIT.
+
+CAVOC provides a functor Lib.Lang.Make to build such an instance from a lower representation, namely an instance of Lib.Lang.Language.WITHAVAL_NEG. 
+
+This signature Lib.Lang.Language.WITHAVAL_NEG enforces that evaluation contexts (i.e. evaluation stacks) are part of values of the language.
+We provide another signature, Lib.Lang.Language.WITHAVAL_INOUT, for languages for which evaluation stacks are distinct syntactic entities.
+We then have a functor Lib.Lang.Cps.MakeComp to transform automatically an instance of WITHAVAL_INOUT into an instance of WITHAVAL_NEG. This functor performs an on-the-fly cps translation of the normal-forms computed by the evaluator of the language.
+
 
 The lib/ directory contains the various subparts of the prototype:
 - util/ contains some basic utility modules for printing, monads, partial maps and span. They should eventually be replaced by proper implementation found in existing libraries.
