@@ -1,0 +1,1 @@
+val fac : int -> int

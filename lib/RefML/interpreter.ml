@@ -12,7 +12,7 @@ let empty_state = []
 
 let check_cycle ((expr, _) as opconf) =
   match expr with
-  | While _ | Fix _ ->
+  | While _ | App (Fix _, _) ->
       let* opconf_list = get () in
       return (List.mem opconf opconf_list)
   | _ -> return false
@@ -276,7 +276,7 @@ let normalize_term_env cons_ctx comp_list =
           aux store' comp_list'
         else begin
           match normalize_opconf (comp, store) with
-          | None ->
+          | None -> (* We should replace this failwith with a proper error*)
               failwith @@ "The operational configuration "
               ^ string_of_opconf (comp, store)
               ^ " is diverging."
