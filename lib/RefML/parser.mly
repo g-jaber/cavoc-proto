@@ -156,7 +156,12 @@ simple_expr:
   | FALSE           { Bool false }
   | LPAR e1=expr COMMA e2=expr RPAR   { Pair (e1, e2) }
   | DEREF v=VAR       { Deref (Var v) }
+  | LBRACE r=record RBRACE  { Record r }
   | LPAR e=expr_with_try RPAR   { e }
+
+record:
+  | v=VAR EQ e=expr { [(v, e)] }
+  | r=record SEMICOLON v=VAR EQ e=expr  { (v, e)::r }
 
 typed_ident:
   | UNIT { let var = fresh_evar () in (var,TUnit) }
@@ -177,6 +182,10 @@ ty:
   | t1=ty ARROW t2=ty { TArrow (t1, t2) }
   | t1=ty MULT t2=ty   { TProd (t1, t2) }
   | LPAR t=ty RPAR { t }
+  | LBRACE r=t_record RBRACE  { TRecord r }
   | TEXN { TExn }
 
+t_record:
+  | v=VAR COLON t=ty  { [(v, t)] }
+  | r=t_record SEMICOLON v=VAR COLON t=ty { (v,t)::r }
 %%

@@ -8,6 +8,7 @@ type typ =
   | TArrow of typ * typ
   | TProd of typ * typ
   | TSum of typ * typ
+  | TRecord of (id * typ) list
   | TRef of typ
   | TExn
   | TVar of typevar

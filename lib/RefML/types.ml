@@ -9,6 +9,7 @@ type typ =
   | TArrow of typ * typ
   | TProd of typ * typ
   | TSum of typ * typ
+  | TRecord of (id * typ) list
   | TRef of typ
   | TExn
   | TVar of typevar
@@ -43,6 +44,7 @@ let rec pp_typ fmt = function
   | TId id -> pp_tid fmt id
   | TName n -> pp_tname fmt n
   | TUndef -> Format.fprintf fmt "undef"
+  | TRecord _ -> failwith "Not yet implemented"
 
 and pp_par_typ fmt = function
   | TArrow (ty1, ty2) ->
@@ -94,6 +96,7 @@ let rec get_new_free_tvars tvar_set = function
   | TForall (tvars, ty) ->
       let tvar_set' = List.fold_left (Fun.flip TVarSet.remove) tvar_set tvars in
       get_new_free_tvars tvar_set' ty
+  | TRecord _ -> failwith "Not yet implemented"
 
 let get_free_tvars ty = TVarSet.elements @@ get_new_free_tvars TVarSet.empty ty
 
@@ -129,6 +132,8 @@ let rec apply_type_subst ty subst =
       @@ "Error applying type substitution on universally quantified type "
       ^ string_of_typ ty
   | TUndef -> failwith "Error: undefined type, please report."
+  | TRecord _ -> failwith "Not yet implemented"
+
 
 let rec subst_type tvar sty ty =
   match ty with
@@ -144,6 +149,8 @@ let rec subst_type tvar sty ty =
       TForall (tvars, subst_type tvar sty ty')
   | TForall _ -> ty
   | TUndef -> failwith "Error: undefined type, please report."
+  | TRecord _ -> failwith "Not yet implemented"
+
 
 let subst_in_tsubst tsubst tvar ty =
   Util.Pmap.map (fun (tvar', ty') -> (tvar', subst_type tvar ty ty')) tsubst
@@ -173,6 +180,8 @@ let rec apply_type_env ty type_env =
     end
   | TForall (tvar_l, ty') -> TForall (tvar_l, apply_type_env ty' type_env)
   | TUndef -> failwith "Error: undefined type, please report."
+  | TRecord _ -> failwith "Not yet implemented"
+
 
 let mgu_type tenv (ty1, ty2) =
   let rec mgu_type_aux ty1 ty2 tsubst =

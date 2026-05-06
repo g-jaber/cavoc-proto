@@ -65,6 +65,7 @@ and term =
   | Unit
   | Int of int
   | Bool of bool
+  | Record of (id * term) list
   | BinaryOp of binary_op * term * term
   | UnaryOp of unary_op * term
   | If of term * term * term
@@ -158,6 +159,7 @@ and pp_term fmt = function
       Format.fprintf fmt "try %a with %a" pp_term e pp_handler_l handler_l
   | Hole -> Format.pp_print_string fmt "∙"
   | Error -> Format.pp_print_string fmt "error"
+  | Record _ -> failwith "Not yet implemented"
 
 and pp_handler fmt (Handler (pat, expr)) =
   Format.fprintf fmt "%a -> %a" pp_pattern pat pp_term expr
@@ -202,6 +204,7 @@ let rec get_new_names lnames = function
       List.fold_left
         (fun lnames (Handler (_, expr)) -> get_new_names lnames expr)
         lnames' handler_l
+  | Record _ -> failwith "Not yet implemented"
 
 let get_names = get_new_names empty_name_set
 
@@ -241,6 +244,7 @@ let rec get_new_labels label_l = function
       List.fold_left
         (fun label_l (Handler (_, expr)) -> get_new_labels label_l expr)
         label_l' handler_l
+  | Record _ -> failwith "Not yet implemented"
 
 let get_labels = get_new_labels empty_label_set
 
@@ -321,6 +325,7 @@ let rec subst expr value value' =
             Handler (pat, subst expr_pat value value')
         | PatVar _ -> Handler (pat, expr_pat) in
       TryWith (expr', List.map aux handler_l)
+  | Record _ -> failwith "Not yet implemented"
 
 let subst_var expr id = subst expr (Var id)
 
@@ -361,6 +366,7 @@ let rec rename expr renam =
         | PatCons _ -> Handler (pat, rename expr_pat renam)
         | PatVar _id -> Handler (pat, rename expr_pat renam) in
       TryWith (expr', List.map aux handler_l)
+  | Record _ -> failwith "Not yet implemented"
 (* Auxiliary functions *)
 
 let implement_arith_op = function
@@ -467,6 +473,7 @@ let rec extract_ctx expr =
       failwith
         ("Error: trying to extract an evaluation context from "
        ^ string_of_term expr ^ ". Please report.")
+  | Record _ -> failwith "Not yet implemented"
 
 and extract_ctx_bin cons_op expr1 expr2 =
   match (isval expr1, isval expr2) with
