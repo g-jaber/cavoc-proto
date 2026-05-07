@@ -44,7 +44,11 @@ let rec pp_typ fmt = function
   | TId id -> pp_tid fmt id
   | TName n -> pp_tname fmt n
   | TUndef -> Format.fprintf fmt "undef"
-  | TRecord _ -> failwith "Not yet implemented"
+  | TRecord ty -> (
+    Format.pp_print_string fmt "{ "; 
+    List.iter (fun (id, ty) -> Format.fprintf fmt "%s : %a; " id pp_par_typ ty) ty;
+    Format.pp_print_string fmt "}"
+  )
 
 and pp_par_typ fmt = function
   | TArrow (ty1, ty2) ->

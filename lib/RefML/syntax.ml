@@ -159,7 +159,11 @@ and pp_term fmt = function
       Format.fprintf fmt "try %a with %a" pp_term e pp_handler_l handler_l
   | Hole -> Format.pp_print_string fmt "∙"
   | Error -> Format.pp_print_string fmt "error"
-  | Record _ -> failwith "Not yet implemented"
+  | Record elt -> (
+    Format.pp_print_string fmt "{ ";
+    List.iter (fun (id, term) -> Format.fprintf fmt "%s = %a; " id pp_term term) elt;
+    Format.pp_print_string fmt "}";
+  )
 
 and pp_handler fmt (Handler (pat, expr)) =
   Format.fprintf fmt "%a -> %a" pp_pattern pat pp_term expr
