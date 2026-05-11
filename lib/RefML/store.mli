@@ -1,4 +1,4 @@
-type store = Syntax.val_env * Heap.heap * Type_ctx.cons_ctx [@@deriving to_yojson]
+type store = Syntax.val_env * Heap.heap * Symbolic.constraints * Type_ctx.cons_ctx [@@deriving to_yojson]
 type location
 
 val string_of_store : store -> string
@@ -11,6 +11,9 @@ val loc_allocate : store -> Syntax.value -> (Syntax.loc*store)
 val loc_modify : store ->  Syntax.loc -> Syntax.value -> store
 val var_add : store -> (Syntax.id*Syntax.value) -> store
 val cons_add : store -> (Syntax.constructor*Types.typ) -> store
+(* Add an unconstrained symbolic value to the store, returning
+   its unique id *)
+val symbolic_add : store -> (Symbolic.symbolic_id * store)
 
 val embed_cons_ctx : Type_ctx.cons_ctx -> store
 

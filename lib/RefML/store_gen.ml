@@ -8,5 +8,5 @@ module Make (BranchMonad : Util.Monad.BRANCH) = struct
     ^ Type_ctx.string_of_loc_ctx loc_ctx;
     let open BranchMonad in
     let* heap = BranchMonad.para_list @@ Heap.generate_heaps loc_ctx in
-    return (Syntax.empty_val_env, heap, cons_ctx)
+    return (Syntax.empty_val_env, heap, Symbolic.empty, cons_ctx)
 end

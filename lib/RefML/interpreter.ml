@@ -6,14 +6,95 @@ type opconf = Syntax.term * store
 let string_of_opconf (expr, store) =
   "(" ^ string_of_term expr ^ " | " ^ Store.string_of_store store ^ ")"
 
+(*
 include Util.Monad.BranchState (struct type t = opconf list end)
+*)
+
+(* TODO: redo the interpreter monad with a runnable monad that returns
+         a list of opconf 
+         add the proper branch_on operation for if statements
+         bug: storing Symbolic _ in the store causes problems
+         because the result of the lookup of a variable is not
+         evaluated again 
+         solution: evaluating x + y when either x or y is a symbolic
+         value should yield another symbolic value *)
+
+module SymbolicEvalState (M : Util.Monad.MEMSTATE) = struct
+    (* The state monad already emulates lazy evaluation of branches *)
+    type 'a m =  M.t -> 'a list * M.t
+
+    let return x =
+      fun st -> [ x ], st
+
+    let ( let* ) (m : 'a m) (f : 'a -> 'b m) : 'b m =
+      let aux st x =
+        let y, st' = (f x) st in st', y
+      in
+      fun st ->
+        let xs, st = m st in
+        let st, ys = List.fold_left_map aux st xs in
+        List.concat ys, st
+
+    let fail () =
+      fun st -> [], st
+
+    let get () =
+      fun st -> [ st ], st
+
+    let set st =
+      fun _ -> [], st
+
+    (* TODO: yield path condition somehow *)
+    let run m st =
+      m st
+
+    let branch cond t f : 'a m =
+      match cond with
+      | Some b ->
+          fun st -> if b then t st else f st
+      | None ->
+          (* TODO: depth first search or breadth first search? *)
+          (*       BFS may require the use of a CPS monad? *)
+          (*       (c.f. soteria) *)
+          fun st ->
+            let ts, st = t st in
+            let fs, st = f st in
+            ts @ fs, st
+end 
+
+(*
+module SymbolicEval = struct
+    type 'a m = unit -> 'a list (* emulate lazy evaluation *)
+
+    let return x =
+      fun () -> [ x ]
+
+    let ( let* ) (m : 'a m) (f : 'a -> 'b m) : 'b m =
+      fun () ->
+        let ms = List.map (fun x -> f x ()) (m ()) in
+        List.concat ms
+
+    let run m =
+      m ()
+;
+    let branch cond t f =
+      match cond with
+      | Some b ->
+          return @@ if b then t () else f ()
+      | None ->
+          return @@ List.concat [ t () ; f () ]
+end
+*)
+
+open SymbolicEvalState (struct type t = opconf list end)
 
 let empty_state = []
 
 let check_cycle ((expr, _) as opconf) =
-  match expr with
+match expr with
   | While _ | App (Fix _, _) ->
       let* opconf_list = get () in
+      (* Dubious? *)
       return (List.mem opconf opconf_list)
   | _ -> return false
 
@@ -138,6 +219,11 @@ let interpreter interpreter (expr, store) =
       let* (nf_guard, store') = interpreter (guard, store) in
       begin
         match nf_guard with
+        | Symbolic _sym ->
+            (* TODO: check cond or not cond for UNSAT and branch accordingly *)
+            let t = interpreter (expr1, store') in
+            let f = interpreter (expr2, store') in
+            branch None t f
         | Bool true -> interpreter (expr1, store')
         | Bool false -> interpreter (expr2, store')
         | _ -> return (If (nf_guard, expr1, expr2), store')
@@ -261,11 +347,8 @@ let normalize_opconf_monad opconf =
 
 let normalize_opconf opconf =
   let comp = normalize_opconf_monad opconf in
-  let (res, _) = runState comp empty_state in
-  match res with
-  | [] -> None
-  | [ nf ] -> Some nf
-  | _ -> failwith "Error: non-determinism in the evaluation. Please report"
+  let (res, _) = run comp empty_state in
+  res
 
 let normalize_term_env cons_ctx comp_list =
   let rec aux store = function
@@ -276,13 +359,15 @@ let normalize_term_env cons_ctx comp_list =
           aux store' comp_list'
         else begin
           match normalize_opconf (comp, store) with
-          | None -> (* We should replace this failwith with a proper error*)
+          | [] -> (* We should replace this failwith with a proper error*)
               failwith @@ "The operational configuration "
               ^ string_of_opconf (comp, store)
               ^ " is diverging."
-          | Some (value, store') ->
+          | (value, store') :: [] ->
               let store'' = Store.var_add store' (var, value) in
               aux store'' comp_list'
+          | _ ->
+              failwith "Error: Non determinism in the initial evaluation. Please report."
         end in
   let store = Store.embed_cons_ctx cons_ctx in
   aux store comp_list

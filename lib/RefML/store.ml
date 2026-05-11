@@ -1,8 +1,8 @@
-type store = Syntax.val_env * Heap.heap * Type_ctx.cons_ctx [@@deriving to_yojson]
+type store = Syntax.val_env * Heap.heap * Symbolic.constraints * Type_ctx.cons_ctx [@@deriving to_yojson]
 type location = Loc of Syntax.loc | Cons of Syntax.constructor [@@deriving to_yojson]
 
 (*TODO: We should also print the other components *)
-let pp_store fmt (_, heap, _) = Heap.pp_heap fmt heap
+let pp_store fmt (_, heap, _, _) = Heap.pp_heap fmt heap
 let string_of_store = Format.asprintf "%a" pp_store
 
 (*let heap_string = Heap.string_of_heap heap in
@@ -10,28 +10,29 @@ let string_of_store = Format.asprintf "%a" pp_store
   else
     let valenv_string = Syntax.string_of_val_env valenv in
     heap_string ^ "| " ^ valenv_string*)
-let empty_store = (Syntax.empty_val_env, Heap.emptyheap, Type_ctx.empty_cons_ctx)
-let loc_lookup (_, heap, _) loc = Heap.lookup heap loc
-let var_lookup (varenv, _, _) var = Util.Pmap.lookup var varenv
-let cons_lookup (_, _, cons_ctx) cons = Util.Pmap.lookup cons cons_ctx
+let empty_store = (Syntax.empty_val_env, Heap.emptyheap, Symbolic.empty, Type_ctx.empty_cons_ctx)
+let loc_lookup (_, heap, _, _) loc = Heap.lookup heap loc
+let var_lookup (varenv, _, _, _) var = Util.Pmap.lookup var varenv
+let cons_lookup (_, _, _, cons_ctx) cons = Util.Pmap.lookup cons cons_ctx
 
-let loc_allocate (valenv, heap, cons_ctx) value =
+let loc_allocate (valenv, heap, constraints, cons_ctx) value =
   let (loc, heap') = Heap.allocate heap value in
-  (loc, (valenv, heap', cons_ctx))
+  (loc, (valenv, heap', constraints, cons_ctx))
 
-let loc_modify (valenv, heap, cons_ctx) loc value =
+let loc_modify (valenv, heap, constraints, cons_ctx) loc value =
   let heap' = Heap.modify heap loc value in
-  (valenv, heap', cons_ctx)
+  (valenv, heap', constraints, cons_ctx)
 
-let var_add (valenv, heap, cons_ctx) varval =
+let var_add (valenv, heap, constraints, cons_ctx) varval =
   let valenv' = Util.Pmap.add varval valenv in
-  (valenv', heap, cons_ctx)
+  (valenv', heap, constraints, cons_ctx)
 
-let cons_add (valenv, heap, cons_ctx) (cons, ty) =
+let cons_add (valenv, heap, constraints, cons_ctx) (cons, ty) =
   let cons_ctx' = Util.Pmap.add (cons, ty) cons_ctx in
-  (valenv, heap, cons_ctx')
+  (valenv, heap, constraints, cons_ctx')
 
-let embed_cons_ctx cons_ctx = (Util.Pmap.empty, Util.Pmap.empty, cons_ctx)
+let embed_cons_ctx cons_ctx =
+  (Util.Pmap.empty, Util.Pmap.empty, Symbolic.empty, cons_ctx)
 
 module Storectx = struct
   type t = Type_ctx.loc_ctx * Type_ctx.cons_ctx
@@ -123,17 +124,18 @@ module Storectx = struct
     (Util.Pmap.map_im f loc_ctx, Util.Pmap.map_im f cons_ctx)
 end
 
-let infer_type_store (_, heap, cons_ctx) = (Heap.loc_ctx_of_heap heap, cons_ctx)
+let infer_type_store (_, heap, _, cons_ctx) = (Heap.loc_ctx_of_heap heap, cons_ctx)
 
-let update_store (valenv, heap1, cons_ctx1) (_, heap2, cons_ctx2) =
+let update_store (valenv, heap1, constraints, cons_ctx1) (_, heap2, _, cons_ctx2) =
   let heap = Heap.update heap1 heap2 in
   let cons_ctx = Util.Pmap.concat cons_ctx1 cons_ctx2 in
-  (valenv, heap, cons_ctx)
-(*We suppose that valenv is immutable.*)
+  (* TODO: merge constraints ? *)
+  (valenv, heap, constraints, cons_ctx)
+  (*We suppose that valenv is immutable.*)
 
-let restrict (loc_ctx, cons_ctx) (_, heap, _) =
+let restrict (loc_ctx, cons_ctx) (_, heap, _, _) =
   let heap' = Heap.restrict loc_ctx heap in
-  (Util.Pmap.empty, heap', cons_ctx)
+  (Util.Pmap.empty, heap', Symbolic.empty, cons_ctx)
 
 type label = Syntax.label
 
@@ -145,3 +147,7 @@ let restrict_ctx (loc_ctx, cons_ctx) label_l =
     Util.Pmap.filter_dom (fun c -> List.mem (Syntax.ConsL c) label_l) cons_ctx
   in
   (loc_ctx', cons_ctx')
+
+let symbolic_add (valenv, heap, constraints, cons_ctx) =
+  let sym, constraints = Symbolic.unconstrained constraints in
+  sym, (valenv, heap, constraints, cons_ctx)

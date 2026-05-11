@@ -2,5 +2,5 @@
 
 type opconf = Syntax.term * Store.store
 
-val normalize_opconf : opconf -> opconf option
+val normalize_opconf : opconf -> opconf list
 val normalize_term_env : Type_ctx.cons_ctx -> Declaration.comp_env -> Store.store

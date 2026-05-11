@@ -62,6 +62,7 @@ and term =
     (* We should generalize constructors so that it takes a list of arguments *)
   | Name of Names.name
   | Loc of loc
+  | Symbolic of Symbolic.symbolic_id
   | Unit
   | Int of int
   | Bool of bool
@@ -123,6 +124,7 @@ and pp_term fmt = function
   | Constructor (c, e) -> Format.fprintf fmt "%a %a" pp_constructor c pp_term e
   | Name n -> Names.pp_name fmt n
   | Loc l -> pp_loc fmt l
+  | Symbolic id -> Symbolic.pp_symbolic fmt id
   | Unit -> Format.pp_print_string fmt "()"
   | Int n -> Format.pp_print_int fmt n
   | Bool b -> Format.pp_print_bool fmt b
@@ -173,7 +175,8 @@ let empty_name_set = []
 
 let rec get_new_names lnames = function
   | Name nn -> if List.mem nn lnames then lnames else nn :: lnames
-  | Var _ | Loc _ | Unit | Int _ | Bool _ | Hole | Error -> lnames
+  | Var _ | Loc _ | Symbolic _
+  | Unit | Int _ | Bool _ | Hole | Error -> lnames
   | Constructor (_, e)
   | UnaryOp (_, e)
   | Fun (_, e)
@@ -213,7 +216,7 @@ let rec get_new_labels label_l = function
   | Loc l -> if List.mem (LocL l) label_l then label_l else LocL l :: label_l
   | Constructor (c, _) ->
       if List.mem (ConsL c) label_l then label_l else ConsL c :: label_l
-  | Name _ | Var _ | Unit | Int _ | Bool _ | Hole | Error -> label_l
+  | Name _ | Var _ | Symbolic _ | Unit | Int _ | Bool _ | Hole | Error -> label_l
   | UnaryOp (_, e)
   | Fun (_, e)
   | Fix (_, _, e)
@@ -256,6 +259,7 @@ let rec isval = function
   | Constructor (_, e) -> isval e
   | Name _ -> true
   | Loc _ -> true
+  | Symbolic _ -> true
   | Unit -> true
   | Int _ -> true
   | Bool _ -> true
@@ -273,7 +277,7 @@ let rec subst expr value value' =
   | Name _ when expr = value -> value'
   | Loc _ when expr = value -> value'
   | Hole when expr = value -> value'
-  | Var _ | Name _ | Loc _ | Hole | Unit | Int _ | Bool _ | Error -> expr
+  | Var _ | Name _ | Symbolic _ | Loc _ | Hole | Unit | Int _ | Bool _ | Error -> expr
   | Constructor (cons, expr') -> Constructor (cons, subst expr' value value')
   | BinaryOp (op, expr1, expr2) ->
       BinaryOp (op, subst expr1 value value', subst expr2 value value')
@@ -331,7 +335,7 @@ let rec rename expr renam =
     | mn -> Name mn
     | exception Not_found -> expr
   end
-  | Var _ | Loc _ | Hole | Unit | Int _ | Bool _ | Error -> expr
+  | Var _ | Loc _ | Symbolic _ | Hole | Unit | Int _ | Bool _ | Error -> expr
   | Constructor (cons, expr') -> Constructor (cons, rename expr' renam)
   | BinaryOp (op, expr1, expr2) ->
       BinaryOp (op, rename expr1 renam, rename expr2 renam)
@@ -438,7 +442,7 @@ let rename_eval_context renaming ectx = rename ectx renaming
 (* extract_ctx decomposes an expression into its redex and the surrounding evaluation context*)
 let rec extract_ctx expr =
   match expr with
-  | Name _ | Loc _ | Unit | Int _ | Bool _ | Fix _ | Fun _ | Error ->
+  | Name _ | Loc _ | Symbolic _ | Unit | Int _ | Bool _ | Fix _ | Fun _ | Error ->
       (expr, Hole)
   | BinaryOp (_, expr1, expr2)
   | App (expr1, expr2)

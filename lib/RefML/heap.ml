@@ -1,5 +1,4 @@
 (* Concrete Heaps *)
-
 type heap = (Syntax.loc, Syntax.value) Util.Pmap.pmap
 
 let pp_heap fmt heap =
