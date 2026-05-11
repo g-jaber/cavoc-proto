@@ -66,6 +66,7 @@ and term =
   | Int of int
   | Bool of bool
   | Record of (id * term) list
+  | Projection of (term * id)
   | BinaryOp of binary_op * term * term
   | UnaryOp of unary_op * term
   | If of term * term * term
@@ -164,6 +165,7 @@ and pp_term fmt = function
     List.iter (fun (id, term) -> Format.fprintf fmt "%s = %a; " id pp_term term) elt;
     Format.pp_print_string fmt "}";
   )
+  | Projection (e, v) -> Format.fprintf fmt "%a.%s" pp_par_term e v
 
 and pp_handler fmt (Handler (pat, expr)) =
   Format.fprintf fmt "%a -> %a" pp_pattern pat pp_term expr
@@ -209,6 +211,7 @@ let rec get_new_names lnames = function
         (fun lnames (Handler (_, expr)) -> get_new_names lnames expr)
         lnames' handler_l
   | Record _ -> failwith "Record not yet implemented (get_new_names)"
+  | Projection _ -> failwith "Projection not yet implemented (get_new_names)"
 
 let get_names = get_new_names empty_name_set
 
@@ -249,6 +252,7 @@ let rec get_new_labels label_l = function
         (fun label_l (Handler (_, expr)) -> get_new_labels label_l expr)
         label_l' handler_l
   | Record _ -> failwith "Record not yet implemented (get_new_labels)"
+  | Projection _ -> failwith "Projection not yet implemented (get_new_labels)"
 
 let get_labels = get_new_labels empty_label_set
 
@@ -330,6 +334,7 @@ let rec subst expr value value' =
         | PatVar _ -> Handler (pat, expr_pat) in
       TryWith (expr', List.map aux handler_l)
   | Record _ -> failwith "Record not yet implemented (subst)"
+  | Projection _ -> failwith "Projection not yet implemented (subst)"
 
 let subst_var expr id = subst expr (Var id)
 
@@ -371,6 +376,7 @@ let rec rename expr renam =
         | PatVar _id -> Handler (pat, rename expr_pat renam) in
       TryWith (expr', List.map aux handler_l)
   | Record _ -> failwith "Record not yet implemented (rename)"
+  | Projection _ -> failwith "Projection not yet implemented (rename)"
 (* Auxiliary functions *)
 
 let implement_arith_op = function
@@ -477,7 +483,8 @@ let rec extract_ctx expr =
       failwith
         ("Error: trying to extract an evaluation context from "
        ^ string_of_term expr ^ ". Please report.")
-  | Record _ -> failwith "Record not yet implemented extract_ctx"
+  | Record _ -> failwith "Record not yet implemented (extract_ctx)"
+  | Projection _ -> failwith "Projection not yet implemented (extract_ctx)"
 
 and extract_ctx_bin cons_op expr1 expr2 =
   match (isval expr1, isval expr2) with

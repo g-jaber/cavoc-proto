@@ -43,6 +43,7 @@ and term =
   | Int of int
   | Bool of bool
   | Record of (id * term) list
+  | Projection of (term * id)
   | BinaryOp of binary_op * term * term
   | UnaryOp of unary_op * term
   | If of term * term * term

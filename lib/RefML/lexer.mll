@@ -80,6 +80,7 @@ rule token = parse
   | ','  { COMMA }
   | ':'  { COLON }
   | ';'  { SEMICOLON }
+  | '.'  { DOT }
   
   | "type" { TYPE }  
   | "val" { VAL } 

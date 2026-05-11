@@ -15,7 +15,7 @@
 %token LAND LOR NOT
 %token NEQ GREAT GREATEQ LESS LESSEQ
 %token TRUE FALSE
-%token LPAR RPAR LBRACE RBRACE COMMA COLON SEMICOLON
+%token LPAR RPAR LBRACE RBRACE COMMA COLON SEMICOLON DOT
 %token LET REC IN
 %token FUN FIX ARROW
 %token IF THEN ELSE
@@ -141,11 +141,13 @@ expr:
   | e1=expr LESS e2=expr    { BinaryOp (Less, e1, e2) }
   | e1=expr LESSEQ e2=expr  { BinaryOp (LessEq, e1, e2) }
 
-
-
 app_expr:
+  | e=proj_expr { e }
+  | e1=app_expr e2=proj_expr         { App (e1, e2) }
+
+proj_expr:
   | e=simple_expr { e }
-  | e1=app_expr e2=simple_expr         { App (e1, e2) }
+  | e = proj_expr DOT l = VAR { Projection (e, l) }
 
 simple_expr:
   | v=VAR             { Var v }
