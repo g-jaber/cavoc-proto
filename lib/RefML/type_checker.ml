@@ -299,7 +299,7 @@ let rec infer_type type_ctx type_subst expr =
   | Error ->
       let tvar = fresh_typevar () in
       (tvar, type_subst)
-  | Record _ -> failwith "Not yet implemented"
+  | Record _ -> failwith "Record not yet implemented (infer_type)"
 
 and check_type type_ctx type_subst expr res_ty =
   let (ty, type_subst') = infer_type type_ctx type_subst expr in

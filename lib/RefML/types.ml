@@ -100,7 +100,7 @@ let rec get_new_free_tvars tvar_set = function
   | TForall (tvars, ty) ->
       let tvar_set' = List.fold_left (Fun.flip TVarSet.remove) tvar_set tvars in
       get_new_free_tvars tvar_set' ty
-  | TRecord _ -> failwith "Not yet implemented"
+  | TRecord _ -> failwith "TRecord not yet implemented (get_new_free_tvars)"
 
 let get_free_tvars ty = TVarSet.elements @@ get_new_free_tvars TVarSet.empty ty
 
@@ -136,7 +136,7 @@ let rec apply_type_subst ty subst =
       @@ "Error applying type substitution on universally quantified type "
       ^ string_of_typ ty
   | TUndef -> failwith "Error: undefined type, please report."
-  | TRecord _ -> failwith "Not yet implemented"
+  | TRecord _ -> failwith "TRecord not yet implemented (apply_type_subst)"
 
 
 let rec subst_type tvar sty ty =
@@ -153,7 +153,7 @@ let rec subst_type tvar sty ty =
       TForall (tvars, subst_type tvar sty ty')
   | TForall _ -> ty
   | TUndef -> failwith "Error: undefined type, please report."
-  | TRecord _ -> failwith "Not yet implemented"
+  | TRecord _ -> failwith "TRecord not yet implemented (subst_type)"
 
 
 let subst_in_tsubst tsubst tvar ty =
@@ -184,7 +184,7 @@ let rec apply_type_env ty type_env =
     end
   | TForall (tvar_l, ty') -> TForall (tvar_l, apply_type_env ty' type_env)
   | TUndef -> failwith "Error: undefined type, please report."
-  | TRecord _ -> failwith "Not yet implemented"
+  | TRecord _ -> failwith "TRecord not yet implemented (apply_type_env)"
 
 
 let mgu_type tenv (ty1, ty2) =
