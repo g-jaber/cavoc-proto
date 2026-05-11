@@ -45,3 +45,5 @@ val fold : ('a -> 'b * 'c -> 'a) -> 'a -> ('b, 'c) pmap -> 'a
 val disjoint : ('a, 'b) pmap -> ('a, 'b) pmap -> bool
 val select_im : 'b -> ('a, 'b) pmap -> 'a list
 val filter_dom : ('a -> bool) -> ('a, 'b) pmap -> ('a, 'b) pmap
+
+val iter : (('a * 'b) -> unit) -> ('a, 'b) pmap -> unit

@@ -9,7 +9,7 @@ type typ =
   | TArrow of typ * typ
   | TProd of typ * typ
   | TSum of typ * typ
-  | TRecord of (id * typ) list
+  | TRecord of (id, typ) Util.Pmap.pmap
   | TRef of typ
   | TExn
   | TVar of typevar
@@ -46,7 +46,7 @@ let rec pp_typ fmt = function
   | TUndef -> Format.fprintf fmt "undef"
   | TRecord ty -> (
     Format.pp_print_string fmt "{ "; 
-    List.iter (fun (id, ty) -> Format.fprintf fmt "%s : %a; " id pp_par_typ ty) ty;
+    Util.Pmap.iter (fun (id, ty) -> Format.fprintf fmt "%s : %a; " id pp_par_typ ty) ty;
     Format.pp_print_string fmt "}"
   )
 

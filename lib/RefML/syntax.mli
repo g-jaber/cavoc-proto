@@ -42,7 +42,7 @@ and term =
   | Unit
   | Int of int
   | Bool of bool
-  | Record of (id * term) list
+  | Record of (id, term) Util.Pmap.pmap
   | Projection of (term * id)
   | BinaryOp of binary_op * term * term
   | UnaryOp of unary_op * term

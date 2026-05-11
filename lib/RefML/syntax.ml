@@ -65,7 +65,7 @@ and term =
   | Unit
   | Int of int
   | Bool of bool
-  | Record of (id * term) list
+  | Record of (id, term) Util.Pmap.pmap
   | Projection of (term * id)
   | BinaryOp of binary_op * term * term
   | UnaryOp of unary_op * term
@@ -162,7 +162,7 @@ and pp_term fmt = function
   | Error -> Format.pp_print_string fmt "error"
   | Record elt -> (
     Format.pp_print_string fmt "{ ";
-    List.iter (fun (id, term) -> Format.fprintf fmt "%s = %a; " id pp_term term) elt;
+    Util.Pmap.iter (fun (id, term) -> Format.fprintf fmt "%s = %a; " id pp_term term) elt;
     Format.pp_print_string fmt "}";
   )
   | Projection (e, v) -> Format.fprintf fmt "%a.%s" pp_par_term e v

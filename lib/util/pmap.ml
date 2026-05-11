@@ -67,3 +67,5 @@ let rec select_im b = function
   | (a, b') :: tl -> if b = b' then a :: select_im b tl else select_im b tl
 
 let filter_dom f = List.filter (fun (a, _) -> f a)
+
+let iter = List.iter
