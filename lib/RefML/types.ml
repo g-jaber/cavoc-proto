@@ -95,12 +95,15 @@ let rec get_new_free_tvars tvar_set = function
   | TArrow (ty1, ty2) | TProd (ty1, ty2) | TSum (ty1, ty2) ->
       let tvar_set' = get_new_free_tvars tvar_set ty1 in
       get_new_free_tvars tvar_set' ty2
+  | TRecord fields -> (
+    let aux current_tvar_set (_id, typ) = get_new_free_tvars current_tvar_set typ in
+    Util.Pmap.fold aux tvar_set fields
+  )
   | TRef ty -> get_new_free_tvars tvar_set ty
   | TVar typevar -> TVarSet.add typevar tvar_set
   | TForall (tvars, ty) ->
       let tvar_set' = List.fold_left (Fun.flip TVarSet.remove) tvar_set tvars in
       get_new_free_tvars tvar_set' ty
-  | TRecord _ -> failwith "TRecord not yet implemented (get_new_free_tvars)"
 
 let get_free_tvars ty = TVarSet.elements @@ get_new_free_tvars TVarSet.empty ty
 
@@ -127,6 +130,9 @@ let rec apply_type_subst ty subst =
       TProd (apply_type_subst ty1 subst, apply_type_subst ty2 subst)
   | TSum (ty1, ty2) ->
       TSum (apply_type_subst ty1 subst, apply_type_subst ty2 subst)
+  | TRecord l -> 
+      let apply_to_ty (id, ty) = (id, (apply_type_subst ty subst)) in
+      TRecord (Util.Pmap.map apply_to_ty l)
   | TVar tvar -> begin
       match Util.Pmap.lookup tvar subst with Some ty' -> ty' | None -> ty
     end
@@ -136,7 +142,6 @@ let rec apply_type_subst ty subst =
       @@ "Error applying type substitution on universally quantified type "
       ^ string_of_typ ty
   | TUndef -> failwith "Error: undefined type, please report."
-  | TRecord _ -> failwith "TRecord not yet implemented (apply_type_subst)"
 
 
 let rec subst_type tvar sty ty =
@@ -146,6 +151,10 @@ let rec subst_type tvar sty ty =
       TArrow (subst_type tvar sty ty1, subst_type tvar sty ty2)
   | TProd (ty1, ty2) -> TProd (subst_type tvar sty ty1, subst_type tvar sty ty2)
   | TSum (ty1, ty2) -> TSum (subst_type tvar sty ty1, subst_type tvar sty ty2)
+  | TRecord l -> (
+    let apply_to_ty (id, ty) = (id, subst_type tvar sty ty) in
+    TRecord (Util.Pmap.map apply_to_ty l)
+  )
   | TVar tvar' when tvar = tvar' -> sty
   | TVar _ -> ty
   | TId _ | TName _ -> ty
@@ -153,7 +162,6 @@ let rec subst_type tvar sty ty =
       TForall (tvars, subst_type tvar sty ty')
   | TForall _ -> ty
   | TUndef -> failwith "Error: undefined type, please report."
-  | TRecord _ -> failwith "TRecord not yet implemented (subst_type)"
 
 
 let subst_in_tsubst tsubst tvar ty =
@@ -179,12 +187,15 @@ let rec apply_type_env ty type_env =
       TProd (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
   | TSum (ty1, ty2) ->
       TSum (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
+  | TRecord l -> (
+    let apply_to_ty (id, ty) = (id, apply_type_env ty type_env) in
+    TRecord (Util.Pmap.map apply_to_ty l)
+  )
   | TId id -> begin
       match Util.Pmap.lookup id type_env with Some ty' -> ty' | None -> ty
     end
   | TForall (tvar_l, ty') -> TForall (tvar_l, apply_type_env ty' type_env)
   | TUndef -> failwith "Error: undefined type, please report."
-  | TRecord _ -> failwith "TRecord not yet implemented (apply_type_env)"
 
 
 let mgu_type tenv (ty1, ty2) =
