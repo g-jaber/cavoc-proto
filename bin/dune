@@ -59,3 +59,11 @@
   cohttp
   cohttp-lwt-unix)
 )
+
+(executable
+  (name refml_eval)
+  (public_name refml-eval)
+  (package cavoc)
+  (libraries
+    refml
+    util))

@@ -38,6 +38,17 @@ module MakeStore (BranchMonad : Util.Monad.BRANCH) :
   include Store_gen.Make (BranchMonad)
 end
 
+let parse_and_handle_error parser_entry lexbuf =
+  let format_msg msg =
+    let pos = Lexing.lexeme_start_p lexbuf in
+    Printf.sprintf "%s in %s at line %d, column %d" msg pos.pos_fname
+          pos.pos_lnum (pos.pos_cnum - pos.pos_bol + 1) in
+  try parser_entry Lexer.token lexbuf with
+    | Lexer.SyntaxError msg ->
+        failwith (format_msg ("Lexing Error: " ^ msg))
+    | Parser.Error ->
+        failwith (format_msg ("Parsing Error"))
+
 module MakeComp (BranchMonad : Util.Monad.BRANCH) :
   Lang.Language.COMP
     with type term = Syntax.term
@@ -70,17 +81,6 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
     Interpreter.normalize_opconf opconf with
     | Some opconf' -> return opconf'
     | None -> PropStop
-
-  let parse_and_handle_error parser_entry lexbuf =
-    let format_msg msg =
-      let pos = Lexing.lexeme_start_p lexbuf in
-      Printf.sprintf "%s in %s at line %d, column %d" msg pos.pos_fname
-            pos.pos_lnum (pos.pos_cnum - pos.pos_bol + 1) in
-    try parser_entry Lexer.token lexbuf with
-      | Lexer.SyntaxError msg ->
-          failwith (format_msg ("Lexing Error: " ^ msg))
-      | Parser.Error ->
-          failwith (format_msg ("Parsing Error"))
 
   let get_typed_opconf nbprog lexBuffer =
     try
