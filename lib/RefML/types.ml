@@ -213,6 +213,17 @@ let mgu_type tenv (ty1, ty2) =
             let ty22' = apply_type_subst ty22 tsubst' in
             mgu_type_aux ty12' ty22' tsubst'
       end
+    | (TRecord f1, TRecord f2) -> (
+      if List.length (Util.Pmap.dom f1) <> List.length (Util.Pmap.dom f2) then None
+      else 
+        let unify_field t_subst_opt (id, ty) = 
+          Option.bind t_subst_opt (fun tsubst -> (
+          Option.bind (Util.Pmap.lookup id f2) (fun ty2 -> 
+            mgu_type_aux ty ty2 tsubst
+          )))
+        in
+        Util.Pmap.fold unify_field (Some tsubst) f1 
+    )
     | (TVar tvar1, TVar tvar2) when tvar1 = tvar2 -> Some tsubst
     | (TVar tvar, ty) | (ty, TVar tvar) ->
         Util.Debug.print_debug @@ "New constraint: " ^ tvar ^ " = "
