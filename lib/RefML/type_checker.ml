@@ -66,6 +66,16 @@ let rec infer_type type_ctx type_subst expr =
   | Unit -> (TUnit, type_subst)
   | Int _ -> (TInt, type_subst)
   | Bool _ -> (TBool, type_subst)
+  | Record fields -> (
+    let inferance_step (type_subst, acc) (id, term) = 
+        let (ty, type_subst') = infer_type type_ctx type_subst term in 
+        (type_subst', Util.Pmap.add (id, ty) acc)
+    in
+    let (final_subst, inferred_fields) = 
+        Util.Pmap.fold inferance_step (type_subst, Util.Pmap.empty ) fields
+    in (TRecord inferred_fields, final_subst)
+    (* Should we do a List.rev on inferred_fields ? *)
+  )
   | BinaryOp (Plus, e1, e2)
   | BinaryOp (Minus, e1, e2)
   | BinaryOp (Mult, e1, e2)
@@ -299,7 +309,6 @@ let rec infer_type type_ctx type_subst expr =
   | Error ->
       let tvar = fresh_typevar () in
       (tvar, type_subst)
-  | Record _ -> failwith "Record not yet implemented (infer_type)"
   | Projection _ -> failwith "Projection not yet implemented (infer_type)"
 
 and check_type type_ctx type_subst expr res_ty =
