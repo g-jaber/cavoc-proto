@@ -22,6 +22,7 @@ depends: [
   "cohttp-lwt-jsoo"
   "cohttp-lwt-unix"
   "ppx_deriving_yojson"
+  "menhir" {>= "20180523"}
 ]
 build: [
   ["dune" "subst"] {dev}

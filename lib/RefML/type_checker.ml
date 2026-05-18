@@ -63,13 +63,7 @@ let rec infer_type type_ctx type_subst expr =
             ("Error: the location " ^ Syntax.string_of_loc l
            ^ " is not defined.")
     end
-  | Symbolic sym -> begin
-      match Util.Pmap.lookup sym type_ctx.sym_ctx with
-      | Some ty -> (ty, type_subst)
-      | None ->
-          Util.Error.fail_error ("Error: the symbolic variable "
-            ^ Symbolic.string_of_symbolic sym ^ " is not defined.")
-    end
+  | Symbolic (_, ty) -> (ty, type_subst)
   | Unit -> (TUnit, type_subst)
   | Int _ -> (TInt, type_subst)
   | Bool _ -> (TBool, type_subst)

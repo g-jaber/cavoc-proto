@@ -104,12 +104,11 @@ module MakeComp (BranchMonad : Util.Monad.BRANCH) :
       let signature_decl_l = parse_and_handle_error Parser.signature lexBuffer_signature in
       let (comp_env, namectxO, cons_ctx) =
         Declaration.get_typed_comp_env implem_decl_l signature_decl_l in
-      let (val_assign, heap, symbolic, cons_ctx') =
-        Interpreter.normalize_term_env cons_ctx comp_env in
+      let store = Interpreter.normalize_term_env cons_ctx comp_env in
       let (ienv, namectxP) =
-        Declaration.get_typed_val_env val_assign signature_decl_l in
+        Declaration.get_typed_val_env store.valenv signature_decl_l in
       (* We should pass namectxO to get_typed_val_env so that ienv get the right image namectx*)
-      (ienv, (val_assign, heap, symbolic, cons_ctx'), namectxP, namectxO)
+      (ienv, store, namectxP, namectxO)
     with
     | Type_checker.TypingError msg -> failwith ("Typing Error: " ^ msg)
 end

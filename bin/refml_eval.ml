@@ -25,16 +25,13 @@ let () =
 
   (* TODO: add symbolic_add to the store signature in lib/lang/language.mli ? *)
   let register_symbolic (store, tyctx) (name, ty) =
-    let sym, store = Refml.Store.symbolic_add store in
-    let store = Store.var_add store (name, Symbolic sym) in
-
+    let store = Store.symbolic_add_named store name ty in
     let tyctx = Type_ctx.extend_var_ctx tyctx name ty in
-    let tyctx = Type_ctx.extend_symbolic_ctx tyctx sym ty in
 
-    (store, tyctx), (sym, name)
+    (store, tyctx)
   in
 
-  let (store, type_ctx), _ = List.fold_left_map
+  let store, type_ctx = List.fold_left
     register_symbolic (store, type_ctx) symbolic_names in
 
   let _, _ = Type_checker.typing_expr type_ctx expr in

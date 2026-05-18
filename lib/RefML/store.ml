@@ -1,38 +1,61 @@
-type store = Syntax.val_env * Heap.heap * Symbolic.constraints * Type_ctx.cons_ctx [@@deriving to_yojson]
 type location = Loc of Syntax.loc | Cons of Syntax.constructor [@@deriving to_yojson]
 
+type store =
+  { valenv : Syntax.val_env
+  ; heap : Heap.heap
+  ; branch : Symbolic.branch
+  ; cons_ctx : Type_ctx.cons_ctx
+  } [@@deriving to_yojson]
+
 (*TODO: We should also print the other components *)
-let pp_store fmt (_, heap, _, _) = Heap.pp_heap fmt heap
+let pp_store fmt { heap ; branch ; _ } =
+  Format.fprintf fmt
+    "<@[<v>heap: %a@ pathdecl: [@[<v>%a@]]@ pathcond: [@[<v>%a@]]@]>"
+    Heap.pp_heap heap
+    Symbolic.pp_pathdecl branch.pathdecl
+    Symbolic.pp_pathcond branch.pathcond
 let string_of_store = Format.asprintf "%a" pp_store
 
-(*let heap_string = Heap.string_of_heap heap in
-  if valenv = Util.Pmap.empty then heap_string
-  else
-    let valenv_string = Syntax.string_of_val_env valenv in
-    heap_string ^ "| " ^ valenv_string*)
-let empty_store = (Syntax.empty_val_env, Heap.emptyheap, Symbolic.empty, Type_ctx.empty_cons_ctx)
-let loc_lookup (_, heap, _, _) loc = Heap.lookup heap loc
-let var_lookup (varenv, _, _, _) var = Util.Pmap.lookup var varenv
-let cons_lookup (_, _, _, cons_ctx) cons = Util.Pmap.lookup cons cons_ctx
+let empty_store =
+  { valenv = Syntax.empty_val_env
+  ; heap = Heap.emptyheap
+  ; branch = Symbolic.empty
+  ; cons_ctx = Type_ctx.empty_cons_ctx
+  }
 
-let loc_allocate (valenv, heap, constraints, cons_ctx) value =
-  let (loc, heap') = Heap.allocate heap value in
-  (loc, (valenv, heap', constraints, cons_ctx))
+let loc_lookup store loc = Heap.lookup store.heap loc
+let var_lookup store var = Util.Pmap.lookup var store.valenv
+let cons_lookup store cons = Util.Pmap.lookup cons store.cons_ctx
 
-let loc_modify (valenv, heap, constraints, cons_ctx) loc value =
-  let heap' = Heap.modify heap loc value in
-  (valenv, heap', constraints, cons_ctx)
+let loc_allocate store value =
+  let (loc, heap) = Heap.allocate store.heap value in
+  (loc, { store with heap })
 
-let var_add (valenv, heap, constraints, cons_ctx) varval =
-  let valenv' = Util.Pmap.add varval valenv in
-  (valenv', heap, constraints, cons_ctx)
+let loc_modify store loc value =
+  let heap = Heap.modify store.heap loc value in
+  { store with heap }
 
-let cons_add (valenv, heap, constraints, cons_ctx) (cons, ty) =
-  let cons_ctx' = Util.Pmap.add (cons, ty) cons_ctx in
-  (valenv, heap, constraints, cons_ctx')
+let var_add store varval =
+  let valenv = Util.Pmap.add varval store.valenv in
+  { store with valenv }
+
+let cons_add store (cons, ty) =
+  let cons_ctx = Util.Pmap.add (cons, ty) store.cons_ctx in
+  { store with cons_ctx }
+
+let symbolic_add store =
+  let sym, branch = Symbolic.unconstrained store.branch in
+  sym, { store with branch }
+
+let symbolic_add_named store name ty =
+  let sym, store = symbolic_add store in
+  var_add store (name, Symbolic (Kvar sym, ty))
+
+let symbolic_add_constraint store konstraint =
+  { store with branch = Symbolic.add_constraint store.branch konstraint }
 
 let embed_cons_ctx cons_ctx =
-  (Util.Pmap.empty, Util.Pmap.empty, Symbolic.empty, cons_ctx)
+  { empty_store with cons_ctx }
 
 module Storectx = struct
   type t = Type_ctx.loc_ctx * Type_ctx.cons_ctx
@@ -124,18 +147,19 @@ module Storectx = struct
     (Util.Pmap.map_im f loc_ctx, Util.Pmap.map_im f cons_ctx)
 end
 
-let infer_type_store (_, heap, _, cons_ctx) = (Heap.loc_ctx_of_heap heap, cons_ctx)
+let infer_type_store { heap ; cons_ctx ; _ } =
+  (Heap.loc_ctx_of_heap heap, cons_ctx)
 
-let update_store (valenv, heap1, constraints, cons_ctx1) (_, heap2, _, cons_ctx2) =
-  let heap = Heap.update heap1 heap2 in
-  let cons_ctx = Util.Pmap.concat cons_ctx1 cons_ctx2 in
+let update_store store1 store2 =
+  let heap = Heap.update store1.heap store2.heap in
+  let cons_ctx = Util.Pmap.concat store1.cons_ctx store2.cons_ctx in
   (* TODO: merge constraints ? *)
-  (valenv, heap, constraints, cons_ctx)
+  { store1 with heap ; cons_ctx }
   (*We suppose that valenv is immutable.*)
 
-let restrict (loc_ctx, cons_ctx) (_, heap, _, _) =
-  let heap' = Heap.restrict loc_ctx heap in
-  (Util.Pmap.empty, heap', Symbolic.empty, cons_ctx)
+let restrict (loc_ctx, cons_ctx) store =
+  let heap = Heap.restrict loc_ctx store.heap in
+  { empty_store with heap ; cons_ctx }
 
 type label = Syntax.label
 
@@ -147,7 +171,3 @@ let restrict_ctx (loc_ctx, cons_ctx) label_l =
     Util.Pmap.filter_dom (fun c -> List.mem (Syntax.ConsL c) label_l) cons_ctx
   in
   (loc_ctx', cons_ctx')
-
-let symbolic_add (valenv, heap, constraints, cons_ctx) =
-  let sym, constraints = Symbolic.unconstrained constraints in
-  sym, (valenv, heap, constraints, cons_ctx)

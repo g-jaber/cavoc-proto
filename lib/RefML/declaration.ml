@@ -185,7 +185,6 @@ let get_typed_comp_env implem_decl_l sign_decl_l =
     {
       var_ctx= Type_ctx.empty_var_ctx;
       loc_ctx= Type_ctx.empty_loc_ctx;
-      sym_ctx= Type_ctx.empty_sym_ctx;
       name_ctx= name_ctxO;
       cons_ctx;
       type_env;

@@ -39,7 +39,7 @@ and term =
   | Constructor of constructor * term
   | Name of Names.name
   | Loc of loc
-  | Symbolic of Symbolic.symbolic_id
+  | Symbolic of Symbolic.konstraint * Types.typ
   | Unit
   | Int of int
   | Bool of bool
