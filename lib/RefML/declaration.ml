@@ -167,12 +167,30 @@ let typing_decl_l type_ctx var_decls comp_decl_l =
       end in
   aux [] type_ctx comp_decl_l
 
+let update_label_ctx label_ctx (newTId, ty) =
+  let add_new_field label_ctx (label, _ty) = Util.Pmap.modadd (label, newTId) label_ctx in
+  let accumulate_fields fields = Util.Pmap.fold add_new_field label_ctx fields in
+  (* Tried to handle type aliasing but this is not enough (does not support type b = a;; type b = int) *)
+  (* let replace_tid label_ctx oldTId newTid = 
+    Util.Pmap.map_im (fun currentId -> if currentId = oldTId then newTid else oldTId) label_ctx in *)
+  match ty with
+  | Types.TRecord fields -> accumulate_fields fields
+  (* | Types.TId oldTId -> replace_tid label_ctx oldTId newTId *)
+  | _ -> label_ctx
+
+let create_label_ctx type_decl_l = 
+  let rec aux l label_ctx = match l with
+    | [] -> label_ctx
+    | elt::l' -> aux l' (update_label_ctx label_ctx elt)
+  in aux type_decl_l Type_ctx.empty_label_ctx
+
 let get_typed_comp_env implem_decl_l sign_decl_l =
   let (comp_decl_l, implem_type_decl_l, implem_exn_l) =
     split_implem_decl_list implem_decl_l in
   let (var_decl_l, type_priv_decl_l, type_publ_decl_l, sign_exn_l) =
     split_signature_decl_list sign_decl_l in
   let type_env = Util.Pmap.list_to_pmap implem_type_decl_l in
+  let label_ctx = create_label_ctx implem_type_decl_l in
   let cons_ctx = Util.Pmap.list_to_pmap implem_exn_l in
   var_decl_included comp_decl_l var_decl_l;
   type_priv_included type_env type_priv_decl_l;
@@ -188,6 +206,7 @@ let get_typed_comp_env implem_decl_l sign_decl_l =
       name_ctx= name_ctxO;
       cons_ctx;
       type_env;
+      label_ctx;
     } in
   let (comp_env, name_ctxO') = typing_decl_l type_ctx var_decls comp_decl_l in
   (comp_env, name_ctxO', cons_ctx)

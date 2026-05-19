@@ -3,10 +3,12 @@
 type var_ctx = (Syntax.id, Types.typ) Util.Pmap.pmap
 type loc_ctx = (Syntax.loc, Types.typ) Util.Pmap.pmap
 type cons_ctx = (Syntax.constructor, Types.typ) Util.Pmap.pmap
+type label_ctx = (Syntax.id, Syntax.id) Util.Pmap.pmap
 
 let empty_var_ctx = Util.Pmap.empty
 let empty_loc_ctx = Util.Pmap.empty
 let empty_cons_ctx = Util.Pmap.empty
+let empty_label_ctx = Util.Pmap.empty
 
 let pp_var_ctx fmt var_ctx =
   let pp_empty fmt () = Format.fprintf fmt "⋅" in
@@ -26,6 +28,12 @@ let pp_cons_ctx fmt cons_ctx =
     Format.fprintf fmt "%a : %a" Syntax.pp_constructor c Types.pp_typ ty in
   Util.Pmap.pp_pmap ~pp_empty pp_pair fmt cons_ctx
 
+let pp_label_ctx fmt var_ctx =
+  let pp_empty fmt () = Format.fprintf fmt "⋅" in
+  let pp_pair fmt (label, id) =
+    Format.fprintf fmt "%a : %a" Syntax.pp_id label Syntax.pp_id id in
+  Util.Pmap.pp_pmap ~pp_empty pp_pair fmt var_ctx
+
 let cons_ctx_to_yojson cons_ctx =
   let cons_ctx_l = Util.Pmap.to_list cons_ctx in
   let cons_ctx_l' =
@@ -37,6 +45,7 @@ let cons_ctx_to_yojson cons_ctx =
 let string_of_var_ctx = Format.asprintf "%a" pp_var_ctx
 let string_of_loc_ctx = Format.asprintf "%a" pp_loc_ctx
 let string_of_cons_ctx = Format.asprintf "%a" pp_cons_ctx
+let string_of_label_ctx = Format.asprintf "%a" pp_label_ctx
 
 type type_ctx = {
   var_ctx: var_ctx;
@@ -44,12 +53,14 @@ type type_ctx = {
   name_ctx: Namectx.Namectx.t;
   cons_ctx: cons_ctx;
   type_env: Types.type_env;
+  label_ctx: label_ctx;
 }
 
 let get_var_ctx type_ctx = type_ctx.var_ctx
 let get_name_ctx type_ctx = type_ctx.name_ctx
 let get_loc_ctx type_ctx = type_ctx.loc_ctx
 let get_type_env type_ctx = type_ctx.type_env
+let get_label_ctx type_ctx = type_ctx.label_ctx
 
 let extend_var_ctx type_ctx var ty =
   { type_ctx with var_ctx= Util.Pmap.modadd (var, ty) type_ctx.var_ctx }
@@ -66,7 +77,8 @@ let apply_type_subst type_ctx tsubst =
       type_ctx.name_ctx in
   let cons_ctx = apply_type_subst_to_ctx tsubst type_ctx.cons_ctx in
   let type_env = type_ctx.type_env in
-  { var_ctx; loc_ctx; name_ctx; cons_ctx; type_env }
+  let label_ctx = type_ctx.label_ctx in
+  { var_ctx; loc_ctx; name_ctx; cons_ctx; type_env; label_ctx }
 
 let build_type_ctx _expr =
   {
@@ -75,4 +87,5 @@ let build_type_ctx _expr =
     name_ctx= Namectx.Namectx.empty;
     cons_ctx= empty_cons_ctx;
     type_env= Types.empty_type_env;
+    label_ctx = empty_label_ctx;
   }
