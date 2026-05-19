@@ -168,7 +168,10 @@ let typing_decl_l type_ctx var_decls comp_decl_l =
   aux [] type_ctx comp_decl_l
 
 let update_label_ctx label_ctx (newTId, ty) =
-  let add_new_field label_ctx (label, _ty) = Util.Pmap.modadd (label, newTId) label_ctx in
+  let add_new_field label_ctx (label, _ty) = Util.Pmap.failadd (label, newTId) 
+    (fun () -> Util.Error.fail_error "Records cannot have similarly named field") 
+    label_ctx 
+  in
   let accumulate_fields fields = Util.Pmap.fold add_new_field label_ctx fields in
   (* Tried to handle type aliasing but this is not enough (does not support type b = a;; type b = int) *)
   (* let replace_tid label_ctx oldTId newTid = 
