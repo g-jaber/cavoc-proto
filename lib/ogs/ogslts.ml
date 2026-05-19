@@ -50,6 +50,8 @@ module Make
 
   let p_trans (act_conf : active_conf) =
     let open EvalMonad in
+    (* TODO: It looks like P and O are swapped. Shouldn't the
+             opponent environment be the domain of the IEnv? *)
     let namectxP = Lang.IEnv.dom act_conf.ienv in
     let namectxO = Lang.IEnv.im act_conf.ienv in
     let* ((a_nf, lnamectx, _storectx_discl), ienv, store) =
@@ -87,6 +89,7 @@ module Make
   let init_pconf store ienv namectxP namectxO =
     let store_ctx = Lang.Storectx.empty in
     (* we suppose that the initial store is not shared *)
+    (* TODO: Why? *)
     let pos = TypingLTS.init_pas_pos store_ctx namectxP namectxO in
     { store; ienv; pos }
 

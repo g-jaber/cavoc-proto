@@ -105,6 +105,11 @@
               <input type="checkbox" id="visibility-check">
               <label for="visibility-check">Visibility</label>
             </div>
+            <hr style="border: 0; border-top: 1px solid #555; margin: 5px 0;">
+            <div class="option-item">
+              <input type="checkbox" id="debug-log-check">
+              <label for="debug-log-check">Debug Log</label>
+            </div>
           </div>
         </div>
 
@@ -165,6 +170,11 @@
         openModal(successModal);
         // no-op outside of the tutorial
     }
+
+    const debugLogCheck = document.getElementById('debug-log-check');
+    debugLogCheck.addEventListener('change', (e) => {
+        cavocToggleDebug(e.target.checked);
+    });
 
     window.onload = async function () {
       // --- LOGIQUE DE JEU (DOSSIER TEST) ---

@@ -44,6 +44,9 @@ module SymbolicEvalState = struct
     let store () =
       fun store -> [ store, store ]
 
+    let para_pair ma mb =
+      fun store -> ma store @ mb store
+
     let run m store =
       m store
 
@@ -54,7 +57,7 @@ module SymbolicEvalState = struct
       let set_store store = fun _ -> [ (), store ] in
 
       let branch_with m b =
-        let k = if b then k else Symbolic.Knot k in
+        let k = if b then k else Symbolic.neg k in
         let* store = store () in
         let  store = Store.symbolic_add_constraint store k in
 
@@ -62,16 +65,17 @@ module SymbolicEvalState = struct
           (Printf.sprintf "branch: checking for sat of %s..."
             (Symbolic.string_of_constraint k)) ;
 
+        (* TODO: maybe checking for UNSAT would be a better idea.
+                 If k is UNSAT, we know which branch to take. Also,
+                 adding further constraints cannot make k SAT, which
+                 could enable further optimizations? *)
         if Symbolic.check_sat store.branch then
           let* _ = set_store store in m
         else
           fail ()
       in
 
-      fun store ->
-        let ts = branch_with t true store in
-        let fs = branch_with f false store in
-        ts @ fs
+      para_pair (branch_with t true) (branch_with f false)
 end
 
 open SymbolicEvalState
@@ -246,7 +250,7 @@ let interpreter interpreter expr : value SymbolicEvalState.m =
       begin
         match nf with
         | Symbolic (k1, _) ->
-            return @@ Symbolic (Knot k1, TBool)
+            return @@ Symbolic (Symbolic.neg k1, TBool)
         | Bool b -> return @@ Bool (not b)
         | _ -> return @@ UnaryOp (Not, nf)
       end

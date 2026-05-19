@@ -14,6 +14,10 @@ type konstraint = (* constraint is a keyword in ocaml *)
   | Kand  of konstraint * konstraint
   | Kor   of konstraint * konstraint
 
+let neg = function
+  | Knot k -> k
+  | k -> Knot k
+
 let rec formula_of_konstraint = function
   | Kvar sym -> F.make_atom sym
   | Kbool b -> if b then F.f_true else F.f_false

@@ -73,6 +73,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           let* b = para_list @@ [ true; false ] in
           return (Bool b, lnamectx)
       | TInt ->
+          (* TODO: replace pick_int by some kind of "Hole" constructor *)
           let* i = BranchMonad.pick_int () in
           return (Int i, lnamectx)
       | TProd (ty1, ty2) ->
