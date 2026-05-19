@@ -75,9 +75,12 @@ rule token = parse
 
   | '('  { LPAR }
   | ')'  { RPAR }
+  | '{'  { LBRACE }
+  | '}'  { RBRACE }
   | ','  { COMMA }
   | ':'  { COLON }
   | ';'  { SEMICOLON }
+  | '.'  { DOT }
   
   | "type" { TYPE }  
   | "val" { VAL } 

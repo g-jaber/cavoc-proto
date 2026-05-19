@@ -170,7 +170,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           ^ Types.string_of_typ ty ^ ". Please report."
       | (TUndef, _) | (TRef _, _) | (TSum _, _) | (TExn, _) ->
           failwith @@ "Error: type-checking a nup of type "
-          ^ Types.string_of_typ ty ^ " is not yet supported." in
+          ^ Types.string_of_typ ty ^ " is not yet supported."
+      | (TRecord _, _) -> failwith "Record not yet implemented (type_check_abstract_val)" in
     match aux ty (nup, lnamectx) with
     | None -> false
     | Some lnamectx when Namectx.Namectx.is_empty lnamectx -> true

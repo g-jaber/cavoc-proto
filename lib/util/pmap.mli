@@ -16,6 +16,7 @@ val is_in_dom_im : 'a * 'b -> ('a, 'b) pmap -> bool
 val add : 'a * 'b -> ('a, 'b) pmap -> ('a, 'b) pmap
 val add_span : 'a * 'b -> ('a, 'b) pmap -> ('a, 'b) pmap option
 val modadd : 'a * 'b -> ('a, 'b) pmap -> ('a, 'b) pmap
+val failadd : 'a * 'b -> (unit -> ('a, 'b) pmap) -> ('a, 'b) pmap -> ('a, 'b) pmap
 
 (* The first argument of string_of_pmap is the string for the empty map,
    the second is the string for the separation symbol between the index and its value *)
@@ -45,3 +46,5 @@ val fold : ('a -> 'b * 'c -> 'a) -> 'a -> ('b, 'c) pmap -> 'a
 val disjoint : ('a, 'b) pmap -> ('a, 'b) pmap -> bool
 val select_im : 'b -> ('a, 'b) pmap -> 'a list
 val filter_dom : ('a -> bool) -> ('a, 'b) pmap -> ('a, 'b) pmap
+
+val iter : (('a * 'b) -> unit) -> ('a, 'b) pmap -> unit

@@ -15,7 +15,7 @@
 %token LAND LOR NOT
 %token NEQ GREAT GREATEQ LESS LESSEQ
 %token TRUE FALSE
-%token LPAR RPAR COMMA COLON SEMICOLON
+%token LPAR RPAR LBRACE RBRACE COMMA COLON SEMICOLON DOT
 %token LET REC IN
 %token FUN FIX ARROW
 %token IF THEN ELSE
@@ -141,11 +141,13 @@ expr:
   | e1=expr LESS e2=expr    { BinaryOp (Less, e1, e2) }
   | e1=expr LESSEQ e2=expr  { BinaryOp (LessEq, e1, e2) }
 
-
-
 app_expr:
+  | e=proj_expr { e }
+  | e1=app_expr e2=proj_expr         { App (e1, e2) }
+
+proj_expr:
   | e=simple_expr { e }
-  | e1=app_expr e2=simple_expr         { App (e1, e2) }
+  | e = proj_expr DOT l = VAR { Projection (e, l) }
 
 simple_expr:
   | v=VAR             { Var v }
@@ -156,7 +158,12 @@ simple_expr:
   | FALSE           { Bool false }
   | LPAR e1=expr COMMA e2=expr RPAR   { Pair (e1, e2) }
   | DEREF v=VAR       { Deref (Var v) }
+  | LBRACE r=record RBRACE  { Record (Util.Pmap.list_to_pmap r) }
   | LPAR e=expr_with_try RPAR   { e }
+
+record:
+  | v=VAR EQ e=expr { [(v, e)] }
+  | r=record SEMICOLON v=VAR EQ e=expr  { (v, e)::r }
 
 typed_ident:
   | UNIT { let var = fresh_evar () in (var,TUnit) }
@@ -177,6 +184,10 @@ ty:
   | t1=ty ARROW t2=ty { TArrow (t1, t2) }
   | t1=ty MULT t2=ty   { TProd (t1, t2) }
   | LPAR t=ty RPAR { t }
+  | LBRACE r=t_record RBRACE  { TRecord (Util.Pmap.list_to_pmap r) }
   | TEXN { TExn }
 
+t_record:
+  | v=VAR COLON t=ty  { [(v, t)] }
+  | r=t_record SEMICOLON v=VAR COLON t=ty { (v,t)::r }
 %%

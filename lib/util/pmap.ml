@@ -35,6 +35,11 @@ let rec modadd (x, v) = function
   | (y, _) :: pmap when x = y -> (y, v) :: pmap
   | hd :: pmap -> hd :: modadd (x, v) pmap
 
+let rec failadd (x, v) fail_func = function
+  | [] -> [ (x, v) ]
+  | (y, _) :: _pmap when x = y -> fail_func ()
+  | hd :: pmap -> hd :: failadd (x, v) fail_func pmap
+
 let rec string_of_pmap empty sep string_of_dom string_of_im = function
   | [] -> empty
   | [ (x, v) ] -> string_of_dom x ^ sep ^ string_of_im v
@@ -67,3 +72,5 @@ let rec select_im b = function
   | (a, b') :: tl -> if b = b' then a :: select_im b tl else select_im b tl
 
 let filter_dom f = List.filter (fun (a, _) -> f a)
+
+let iter = List.iter

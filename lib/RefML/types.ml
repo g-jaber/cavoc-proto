@@ -9,6 +9,7 @@ type typ =
   | TArrow of typ * typ
   | TProd of typ * typ
   | TSum of typ * typ
+  | TRecord of (id, typ) Util.Pmap.pmap
   | TRef of typ
   | TExn
   | TVar of typevar
@@ -43,6 +44,11 @@ let rec pp_typ fmt = function
   | TId id -> pp_tid fmt id
   | TName n -> pp_tname fmt n
   | TUndef -> Format.fprintf fmt "undef"
+  | TRecord ty -> (
+    Format.pp_print_string fmt "{ "; 
+    Util.Pmap.iter (fun (id, ty) -> Format.fprintf fmt "%s : %a; " id pp_par_typ ty) ty;
+    Format.pp_print_string fmt "}"
+  )
 
 and pp_par_typ fmt = function
   | TArrow (ty1, ty2) ->
@@ -89,6 +95,10 @@ let rec get_new_free_tvars tvar_set = function
   | TArrow (ty1, ty2) | TProd (ty1, ty2) | TSum (ty1, ty2) ->
       let tvar_set' = get_new_free_tvars tvar_set ty1 in
       get_new_free_tvars tvar_set' ty2
+  | TRecord fields -> (
+    let aux current_tvar_set (_id, typ) = get_new_free_tvars current_tvar_set typ in
+    Util.Pmap.fold aux tvar_set fields
+  )
   | TRef ty -> get_new_free_tvars tvar_set ty
   | TVar typevar -> TVarSet.add typevar tvar_set
   | TForall (tvars, ty) ->
@@ -120,6 +130,9 @@ let rec apply_type_subst ty subst =
       TProd (apply_type_subst ty1 subst, apply_type_subst ty2 subst)
   | TSum (ty1, ty2) ->
       TSum (apply_type_subst ty1 subst, apply_type_subst ty2 subst)
+  | TRecord l -> 
+      let apply_to_ty (id, ty) = (id, (apply_type_subst ty subst)) in
+      TRecord (Util.Pmap.map apply_to_ty l)
   | TVar tvar -> begin
       match Util.Pmap.lookup tvar subst with Some ty' -> ty' | None -> ty
     end
@@ -130,6 +143,7 @@ let rec apply_type_subst ty subst =
       ^ string_of_typ ty
   | TUndef -> failwith "Error: undefined type, please report."
 
+
 let rec subst_type tvar sty ty =
   match ty with
   | TUnit | TInt | TBool | TRef _ | TExn -> ty
@@ -137,6 +151,10 @@ let rec subst_type tvar sty ty =
       TArrow (subst_type tvar sty ty1, subst_type tvar sty ty2)
   | TProd (ty1, ty2) -> TProd (subst_type tvar sty ty1, subst_type tvar sty ty2)
   | TSum (ty1, ty2) -> TSum (subst_type tvar sty ty1, subst_type tvar sty ty2)
+  | TRecord l -> (
+    let apply_to_ty (id, ty) = (id, subst_type tvar sty ty) in
+    TRecord (Util.Pmap.map apply_to_ty l)
+  )
   | TVar tvar' when tvar = tvar' -> sty
   | TVar _ -> ty
   | TId _ | TName _ -> ty
@@ -144,6 +162,7 @@ let rec subst_type tvar sty ty =
       TForall (tvars, subst_type tvar sty ty')
   | TForall _ -> ty
   | TUndef -> failwith "Error: undefined type, please report."
+
 
 let subst_in_tsubst tsubst tvar ty =
   Util.Pmap.map (fun (tvar', ty') -> (tvar', subst_type tvar ty ty')) tsubst
@@ -168,11 +187,16 @@ let rec apply_type_env ty type_env =
       TProd (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
   | TSum (ty1, ty2) ->
       TSum (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
+  | TRecord l -> (
+    let apply_to_ty (id, ty) = (id, apply_type_env ty type_env) in
+    TRecord (Util.Pmap.map apply_to_ty l)
+  )
   | TId id -> begin
       match Util.Pmap.lookup id type_env with Some ty' -> ty' | None -> ty
     end
   | TForall (tvar_l, ty') -> TForall (tvar_l, apply_type_env ty' type_env)
   | TUndef -> failwith "Error: undefined type, please report."
+
 
 let mgu_type tenv (ty1, ty2) =
   let rec mgu_type_aux ty1 ty2 tsubst =
@@ -189,6 +213,17 @@ let mgu_type tenv (ty1, ty2) =
             let ty22' = apply_type_subst ty22 tsubst' in
             mgu_type_aux ty12' ty22' tsubst'
       end
+    | (TRecord f1, TRecord f2) -> (
+      if List.length (Util.Pmap.dom f1) <> List.length (Util.Pmap.dom f2) then None
+      else 
+        let unify_field t_subst_opt (id, ty) = 
+          Option.bind t_subst_opt (fun tsubst -> (
+          Option.bind (Util.Pmap.lookup id f2) (fun ty2 -> 
+            mgu_type_aux ty ty2 tsubst
+          )))
+        in
+        Util.Pmap.fold unify_field (Some tsubst) f1 
+    )
     | (TVar tvar1, TVar tvar2) when tvar1 = tvar2 -> Some tsubst
     | (TVar tvar, ty) | (ty, TVar tvar) ->
         Util.Debug.print_debug @@ "New constraint: " ^ tvar ^ " = "
