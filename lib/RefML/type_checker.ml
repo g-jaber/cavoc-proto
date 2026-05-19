@@ -66,15 +66,55 @@ let rec infer_type type_ctx type_subst expr =
   | Unit -> (TUnit, type_subst)
   | Int _ -> (TInt, type_subst)
   | Bool _ -> (TBool, type_subst)
-  | Record fields -> (
-    let inferance_step (type_subst, acc) (id, term) = 
+  | Record fields ->
+      let inferance_step (type_subst, acc) (id, term) = 
         let (ty, type_subst') = infer_type type_ctx type_subst term in 
         (type_subst', Util.Pmap.add (id, ty) acc)
-    in
-    let (final_subst, inferred_fields) = 
+      in
+      let (final_subst, inferred_fields) = 
         Util.Pmap.fold inferance_step (type_subst, Util.Pmap.empty ) fields
-    in (TRecord inferred_fields, final_subst)
-    (* Should we do a List.rev on inferred_fields ? *)
+      in (TRecord inferred_fields, final_subst)
+      (* Should we do a List.rev on inferred_fields ? *)
+  | Projection (term, id) -> (
+      let get_tid_from_label label = (
+        let id_ref = Util.Pmap.lookup label (Type_ctx.get_label_ctx type_ctx) in
+        match id_ref with 
+        | Some type_id -> Types.TId type_id
+        | None -> Util.Error.fail_error (
+            "Error typing " ^ Syntax.string_of_term (Projection (term, id)) ^ " : "
+            ^ "Unbound record field " ^ Syntax.string_of_id label
+        )
+      ) in
+      let get_associated_tid term id = (
+        let rty, type_subst' = infer_type type_ctx type_subst term in 
+        let rty' = Types.apply_type_subst rty type_subst' in 
+        let associated_tid = get_tid_from_label id in
+        begin match mgu_type (Type_ctx.get_type_env type_ctx) (rty', associated_tid) with
+        | Some type_subst'' -> (associated_tid, compose_type_subst type_subst'' type_subst')
+        | None -> Util.Error.fail_error (
+            "Error typing " ^ Syntax.string_of_term (Projection (term, id)) ^ " : "
+            ^ "Unbound record field " ^ Syntax.string_of_id id
+        )
+        end
+      ) in
+      let get_type_from_fields fields field_name = 
+        match Util.Pmap.lookup field_name fields with
+        | Some ty -> ty
+        | None -> Util.Error.fail_error (
+            "Error typing " ^ Syntax.string_of_term (Projection (term, id)) ^ " : "
+            ^ "Unbound record field " ^ Syntax.string_of_id field_name
+        )
+      in
+      let rec get_type_from_tid ty field = match ty with 
+        | TId id -> get_type_from_tid (Util.Pmap.lookup_exn id (Type_ctx.get_type_env type_ctx)) field
+        | TRecord fields -> get_type_from_fields fields field
+        | _ -> Util.Error.fail_error (
+            "Error typing " ^ Syntax.string_of_term (Projection (term, id)) ^ " : "
+            ^ Syntax.string_of_term term ^ " is not a record type"
+        )
+      in
+      let associated_tid, type_subst = get_associated_tid term id in 
+      (get_type_from_tid associated_tid id, type_subst)
   )
   | BinaryOp (Plus, e1, e2)
   | BinaryOp (Minus, e1, e2)
@@ -309,8 +349,6 @@ let rec infer_type type_ctx type_subst expr =
   | Error ->
       let tvar = fresh_typevar () in
       (tvar, type_subst)
-  | Projection _ -> failwith "Projection not yet implemented (infer_type)"
-
 and check_type type_ctx type_subst expr res_ty =
   let (ty, type_subst') = infer_type type_ctx type_subst expr in
   let ty_inst = Types.apply_type_subst ty type_subst' in
