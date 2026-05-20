@@ -65,21 +65,26 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
       - Σ;Γ ⊢ A : τ ▷ Δ (as a nup)
   *)
 
-  let generate_abstract_val ((_, cons_ctx) as storectx) namectx ty =
+  let generate_abstract_val (_, _, cons_ctx as storectx) namectx ty =
     let open BranchMonad in
-    let rec aux lnamectx = function
-      | TUnit -> return (Unit, lnamectx)
+    let rec aux (storectx, lnamectx as res) = function
+      | TUnit -> return (Unit, res)
       | TBool ->
-          let* b = para_list @@ [ true; false ] in
-          return (Bool b, lnamectx)
+          let id, storectx' =
+            match Store.Storectx.add_fresh storectx "" TBool with
+            | (Sym id, storectx') -> id, storectx'
+            | _ -> failwith "add_fresh should have return a symbolic variable"
+          in
+          let value = Symbolic (Symbolic.Kvar id) in
+          return (value, (storectx', lnamectx))
       | TInt ->
           (* TODO: replace pick_int by some kind of "Hole" constructor *)
           let* i = BranchMonad.pick_int () in
-          return (Int i, lnamectx)
+          return (Int i, res)
       | TProd (ty1, ty2) ->
-          let* (nup1, lnamectx1) = aux lnamectx ty1 in
-          let* (nup2, lnamectx2) = aux lnamectx1 ty2 in
-          return (Pair (nup1, nup2), lnamectx2)
+          let* (nup1, res) = aux res ty1 in
+          let* (nup2, res) = aux res ty2 in
+          return (Pair (nup1, nup2), res)
       | TSum _ ->
           failwith "Need to add injection to the syntax of expressions"
           (*
@@ -89,8 +94,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
     lnup1'@lnup2' *)
       | TArrow _ as ty ->
           let nty = Types.force_negative_type ty in
-          let (fn, lnamectx') = Namectx.Namectx.add_fresh lnamectx "" nty in
-          return (Name fn, lnamectx')
+          let (fn, (lnamectx')) = Namectx.Namectx.add_fresh lnamectx "" nty in
+          return (Name fn, (storectx, lnamectx'))
       | TId _ as ty ->
           let namectxP_pmap = Namectx.Namectx.to_pmap namectx in
           let pn_list = Util.Pmap.select_im ty namectxP_pmap in
@@ -99,18 +104,18 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
             return @@ Util.Debug.print_debug @@ "Reusing the pname "
             ^ Names.string_of_name pn ^ " from the namectx "
             ^ Namectx.Namectx.to_string namectx in
-          return (Name pn, lnamectx)
+          return (Name pn, res)
       | TName _ as ty ->
           let nty = Types.force_negative_type ty in
           let (pn, lnamectx') = Namectx.Namectx.add_fresh lnamectx "" nty in
           Util.Debug.print_debug @@ "Creating a fresh pname "
           ^ Names.string_of_name pn ^ " and putting it in the name context "
           ^ Namectx.Namectx.to_string lnamectx';
-          return (Name pn, lnamectx')
+          return (Name pn, (storectx, lnamectx'))
       | TExn ->
           Util.Debug.print_debug
           @@ "Generating exception abstract values in the store context "
-          ^ Store.Storectx.to_string storectx;
+          ^ Store.Storectx.to_string storectx ;
           let exn_cons_map =
             Util.Pmap.filter_map_im
               (fun ty ->
@@ -120,8 +125,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           begin
             match cons_ty with
             | TArrow (pty, _) ->
-                let* (nup, lnamectx') = aux lnamectx pty in
-                return (Constructor (c, nup), lnamectx')
+                let* (nup, res) = aux res pty in
+                return (Constructor (c, nup), res)
             | _ -> failwith "TODO"
           end
       | ty ->
@@ -129,7 +134,7 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
             ("Error generating a nup on type " ^ Types.string_of_typ ty
            ^ ". Please report") in
     let empty_ctx = Namectx.Namectx.empty in
-    aux empty_ctx ty
+    aux (storectx, empty_ctx) ty
 
   (* namectxO is needed in the following definition to check freshness, while namectxP is needed for checking existence of box names*)
   let type_check_abstract_val _storectx namectx ty (nup, lnamectx) =
@@ -192,6 +197,8 @@ module Make (BranchMonad : Util.Monad.BRANCH) :
           (Name fn, ienv')
         end
       | (Unit, TUnit) | (Bool _, TBool) | (Int _, TInt) -> (value, ienv)
+      (* Symbolic expressions are treated as values *)
+      | (Symbolic _, _) -> (value, ienv)
       | (Pair (value1, value2), TProd (ty1, ty2)) ->
           let (nup1, ienv1) = aux ienv value1 ty1 in
           let (nup2, ienv2) = aux ienv1 value2 ty2 in

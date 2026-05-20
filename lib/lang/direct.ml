@@ -246,7 +246,7 @@ struct
 
              Solution (?): Add symbolic values to the storectx,
              and let fill_abstract_val return a new storectx. *)
-    let* (a_nf_term, lfnamectx) = fill_abstract_val storectx fnamectxP skel in
+    let* (a_nf_term, (storectx, lfnamectx)) = fill_abstract_val storectx fnamectxP skel in
     let* store = OpLang.Store.generate_store storectx in
     let ((), stackctx) = Stackctx.singleton typ in
     Util.Debug.print_debug @@ "Pushing on the stack "
@@ -265,7 +265,7 @@ struct
       (* We could remove the second ty_hole by simplifying generate_nf_term_ret *)
       let inj_ty ty = ty in
       let* (skel, _typ) = OpLang.generate_nf_term_ret inj_ty cnamectx_pmap in
-      let* (a_nf_term, lfnamectx) = fill_abstract_val storectx fnamectxP skel in
+      let* (a_nf_term, (storectx, lfnamectx)) = fill_abstract_val storectx fnamectxP skel in
       let* store = OpLang.Store.generate_store storectx in
       let namectxP' = (fnamectxP, stackctx') in
       Util.Debug.print_debug @@ "We get the following return :"

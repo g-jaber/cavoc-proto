@@ -63,7 +63,7 @@ let rec infer_type type_ctx type_subst expr =
             ("Error: the location " ^ Syntax.string_of_loc l
            ^ " is not defined.")
     end
-  | Symbolic (_, ty) -> (ty, type_subst)
+  | Symbolic _ -> (TBool, type_subst) (* TODO: fix this, Symbolic should not appear here anyway *)
   | Unit -> (TUnit, type_subst)
   | Int _ -> (TInt, type_subst)
   | Bool _ -> (TBool, type_subst)

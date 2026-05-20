@@ -402,24 +402,24 @@ struct
       let open OpLang.AVal.BranchMonad in
       match gtype with
       | GType ty ->
-          let* (aval, lnamectx) =
+          let* (aval, (storectx, lnamectx)) =
             OpLang.AVal.generate_abstract_val storectx namectx ty in
-          return (AVal aval, (lnamectx, CNamectx.empty))
+          return (AVal aval, (storectx, (lnamectx, CNamectx.empty)))
       | GProd (ty, tyhole) ->
-          let* (aval, lnamectx) =
+          let* (aval, (storectx, lnamectx)) =
             OpLang.AVal.generate_abstract_val storectx namectx ty in
           let (cn, cnamectx) = CNamectx.singleton tyhole in
-          return (APair (aval, cn), (lnamectx, cnamectx))
+          return (APair (aval, cn), (storectx, (lnamectx, cnamectx)))
       | GExists (tvar_l, ty, tyhole) ->
           Util.Debug.print_debug
             "Generating an abstract value for an existential type";
           let (tname_l, type_subst) = OpLang.generate_typename_subst tvar_l in
           let ty' = OpLang.apply_type_subst ty type_subst in
           let tyhole' = OpLang.apply_type_subst tyhole type_subst in
-          let* (aval, lnamectx) =
+          let* (aval, (storectx, lnamectx)) =
             OpLang.AVal.generate_abstract_val storectx namectx ty' in
           let (cn, cnamectx) = CNamectx.singleton tyhole' in
-          return (APack (tname_l, aval, cn), (lnamectx, cnamectx))
+          return (APack (tname_l, aval, cn), (storectx, (lnamectx, cnamectx)))
       | _ -> failwith "The glue type is not valid. Please report."
 
     let unify_abstract_val _nspan _aval1 _aval2 =

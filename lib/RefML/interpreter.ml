@@ -121,13 +121,16 @@ let interpreter interpreter expr : value SymbolicEvalState.m =
   | While (guard, body) ->
       let* guard = interpreter guard in
       begin
+        let loop () =
+          let* body = interpreter body in
+          if body = Unit then
+            interpreter expr
+          else
+            return @@ Seq (body, While (guard, body))
+        in
         match guard with
-        | Bool true ->
-            let* body = interpreter body in
-            if body = Unit then
-              interpreter expr
-            else
-              return @@ Seq (body, While (guard, body))
+        | Symbolic k1 -> branch k1 (loop ()) (return Unit)
+        | Bool true -> loop ()
         | Bool false -> return Unit
         | _ ->
             Util.Debug.print_debug "Callback inside a guard !" ;
@@ -185,11 +188,7 @@ let interpreter interpreter expr : value SymbolicEvalState.m =
       let* guard = interpreter guard in
       begin
         match guard with
-        | Symbolic (sym, Types.TBool) ->
-            branch sym (interpreter expr1) (interpreter expr2)
-        | Symbolic _ ->
-            failwith ("Control expression is a symbolic "
-              ^ "value with type other than Bool")
+        | Symbolic k1 -> branch k1 (interpreter expr1) (interpreter expr2)
         | Bool b -> if b then interpreter expr1 else interpreter expr2
         | _ -> return @@ If (guard, expr1, expr2)
       end
@@ -225,22 +224,22 @@ let interpreter interpreter expr : value SymbolicEvalState.m =
               match nf2 with
               | Bool b2 ->
                   return @@ Bool (Syntax.implement_bin_bool_op op b1 b2)
-              | Symbolic (k2, _) ->
-                  return @@ Symbolic (k2, TBool)
+              | Symbolic k2 ->
+                  return @@ Symbolic k2
               | _ -> return @@ BinaryOp (op, nf1, nf2)
             end
-        | (Symbolic (k1, _), _) ->
+        | (Symbolic k1, _) ->
             let* nf2 = interpreter expr2 in
             begin
               match nf2, op with
               | (Bool true, Or) | (Bool false, And) ->
                   return @@ Bool (op = Or)
               | (Bool _, _) ->
-                  return @@ Symbolic (k1, TBool)
-              | (Symbolic (k2, _), _) ->
+                  return @@ Symbolic k1
+              | (Symbolic k2, _) ->
                   let open Symbolic in
                   let k3 = if op = And then Kand (k1, k2) else Kor (k1, k2) in
-                  return @@ Symbolic (k3, TBool)
+                  return @@ Symbolic k3
               | _ -> return @@ BinaryOp (op, nf1, nf2)
             end
         | _ -> return @@ BinaryOp (op, nf1, expr2)
@@ -249,8 +248,8 @@ let interpreter interpreter expr : value SymbolicEvalState.m =
       let* nf = interpreter expr in
       begin
         match nf with
-        | Symbolic (k1, _) ->
-            return @@ Symbolic (Symbolic.neg k1, TBool)
+        | Symbolic k1 ->
+            return @@ Symbolic (Symbolic.neg k1)
         | Bool b -> return @@ Bool (not b)
         | _ -> return @@ UnaryOp (Not, nf)
       end
@@ -279,6 +278,7 @@ let interpreter interpreter expr : value SymbolicEvalState.m =
       let* guard = interpreter guard in
       begin
         match guard with
+        | Symbolic k1 -> branch k1 (return Unit) (return Error)
         | Bool false -> return Error
         | Bool true -> return Unit
         | _ ->

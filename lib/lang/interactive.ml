@@ -291,7 +291,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) : LANG_WITH_INIT = struct
     let* _ = return @@ Util.Debug.print_debug @@ "Generating the skeleton " in
     let* skel = OpLang.generate_nf_term namectxP in
     let* _ = return @@ Util.Debug.print_debug @@ "Filling the skeleton " in
-    let* (a_nf_term, lnamectx) = fill_abstract_val storectx namectxP skel in
+    let* (a_nf_term, (storectx, lnamectx)) = fill_abstract_val storectx namectxP skel in
     let* _ =
       return @@ Util.Debug.print_debug @@ "Once filled we get the new names "
       ^ OpLang.IEnv.Renaming.Namectx.to_string lnamectx in

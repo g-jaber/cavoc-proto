@@ -1,4 +1,11 @@
-type location
+(* This constructor has to be made public, otherwise
+   the location returned by Storectx.add_fresh in
+   generate_abstract_val is not usable. *)
+type location =
+  | Loc of Syntax.loc
+  | Sym of Symbolic.id
+  | Cons of Syntax.constructor [@@deriving to_yojson]
+
 type store =
   { valenv : Syntax.val_env
   ; heap : Heap.heap
@@ -24,7 +31,10 @@ val symbolic_add_constraint : store -> Symbolic.konstraint -> store
 
 val embed_cons_ctx : Type_ctx.cons_ctx -> store
 
-module Storectx : Lang.Typectx.TYPECTX with type t = Type_ctx.loc_ctx * Type_ctx.cons_ctx and type Names.name = location
+module Storectx : Lang.Typectx.TYPECTX
+  with type t = Type_ctx.loc_ctx * Symbolic.branch_ctx * Type_ctx.cons_ctx
+  and type typ = Types.typ
+  and  type Names.name = location
 
 val infer_type_store : store -> Storectx.t
 

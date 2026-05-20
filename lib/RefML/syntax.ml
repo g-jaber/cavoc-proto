@@ -62,7 +62,7 @@ and term =
     (* We should generalize constructors so that it takes a list of arguments *)
   | Name of Names.name
   | Loc of loc
-  | Symbolic of Symbolic.konstraint * Types.typ
+  | Symbolic of Symbolic.konstraint
   | Unit
   | Int of int
   | Bool of bool
@@ -124,7 +124,7 @@ and pp_term fmt = function
   | Constructor (c, e) -> Format.fprintf fmt "%a %a" pp_constructor c pp_term e
   | Name n -> Names.pp_name fmt n
   | Loc l -> pp_loc fmt l
-  | Symbolic (id, _ty) -> Symbolic.pp_constraint fmt id
+  | Symbolic id -> Symbolic.pp_constraint fmt id
   | Unit -> Format.pp_print_string fmt "()"
   | Int n -> Format.pp_print_int fmt n
   | Bool b -> Format.pp_print_bool fmt b

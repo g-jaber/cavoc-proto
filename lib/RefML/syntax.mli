@@ -39,8 +39,8 @@ and term =
   | Constructor of constructor * term
   | Name of Names.name
   | Loc of loc
-  (* TODO: document what this is *)
-  | Symbolic of Symbolic.konstraint * Types.typ
+  (* This constructor embeds a symbolic expression into a RefML expression *)
+  | Symbolic of Symbolic.konstraint
   | Unit
   | Int of int
   | Bool of bool

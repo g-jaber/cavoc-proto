@@ -35,8 +35,8 @@ module MakeStore (BranchMonad : Util.Monad.BRANCH) :
      and type Storectx.t = Store.Storectx.t
      and type location = Store.location
      and module BranchMonad = BranchMonad = struct
-  include Store_gen.Make (BranchMonad)
-end
+      include Store_gen.Make (BranchMonad)
+    end
 
 let parse_and_handle_error parser_entry lexbuf =
   let format_msg msg =
