@@ -30,9 +30,7 @@ type branch =
   ; pathcond : konstraint list
   }
 
-let formula_of_konstraint branch =
-  (* TODO: handle types *)
-  let vmap = List.map (fun (id, _) -> (id, E.fresh ())) branch.pathdecl in
+let formula_of_konstraint vmap =
   let rec aux = function
     | Kvar s ->
         let id =
@@ -66,8 +64,10 @@ let formula_of_konstraint branch =
 let check_sat branch =
   let solver = Sat.create () in
 
+  let vmap = List.map (fun (id, _) -> (id, E.fresh ())) branch.pathdecl in
+
   List.iter (fun k ->
-    let cnf = F.make_cnf (formula_of_konstraint branch k) in
+    let cnf = F.make_cnf (formula_of_konstraint vmap k) in
     Sat.assume solver cnf ()) branch.pathcond ;
 
   match Sat.solve solver with Sat.Sat _ -> true | _ -> false
