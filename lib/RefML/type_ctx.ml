@@ -89,3 +89,16 @@ let build_type_ctx () =
     type_env= Types.empty_type_env;
     field_ctx = empty_field_ctx;
   }
+
+let free_vars_of_ctx { var_ctx ; loc_ctx ; name_ctx ; cons_ctx ; _ }  =
+  let open Types in
+
+  let free_vars = ref TVarSet.empty in
+  let add ty = free_vars := TVarSet.union !free_vars (free_vars_of_type ty) in
+
+  Util.Pmap.iter (fun (_, ty) -> add ty) var_ctx ;
+  Util.Pmap.iter (fun (_, ty) -> add ty) loc_ctx ;
+  Util.Pmap.iter (fun (_, ty) -> add ty) cons_ctx ;
+  (* Namectx does not have an iter function *)
+  let _ = Namectx.Namectx.map (fun ty -> add ty ; ty) name_ctx in
+  !free_vars

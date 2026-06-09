@@ -34,3 +34,6 @@ val extend_var_ctx : type_ctx -> Syntax.id -> Types.typ -> type_ctx
 val apply_type_subst : type_ctx -> Types.type_subst -> type_ctx
 
 val build_type_ctx : unit -> type_ctx
+
+(** Returns the set of free variables of a given type context *)
+val free_vars_of_ctx : type_ctx -> Types.TVarSet.t
