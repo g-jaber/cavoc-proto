@@ -44,6 +44,9 @@ module SymbolicEvalState = struct
     let store () =
       fun store -> [ store, store ]
 
+    let set_store store =
+      fun _ -> [ (), store ]
+
     let para_pair ma mb =
       fun store -> ma store @ mb store
 
@@ -53,13 +56,19 @@ module SymbolicEvalState = struct
     let fail () =
       fun _ -> []
 
+    let nondet = function
+      | Types.TBool ->
+          let* store = store () in
+          let sym, store = Store.symbolic_add store in
+          let* _ = set_store store in
+          return @@ Symbolic (Symbolic.Kvar sym)
+      | ty -> failwith ("symbolic variables of type " ^ Types.string_of_typ ty ^ " not supported")
+
     (**
       select computation t and/or f depending on the satisfiability of
       k/not k.
      *)
     let branch k t f : 'a m =
-      let set_store store = fun _ -> [ (), store ] in
-
       let branch_with m b =
         let k = if b then k else Symbolic.neg k in
         let* store = store () in
@@ -89,6 +98,7 @@ let interpreter interpreter expr : value SymbolicEvalState.m =
   match expr with
   | value when isval value -> return value
   | Var var -> lookup var
+  | Nondet ty -> nondet ty
   | Constructor (cons, expr) -> 
       let* expr = interpreter expr in
       return @@ Constructor (cons, expr)
