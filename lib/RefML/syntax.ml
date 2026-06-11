@@ -161,7 +161,7 @@ and pp_term fmt = function
       let pp_sep fmt () = Format.pp_print_string fmt "|" in
       let pp_handler_l = Format.pp_print_list ~pp_sep pp_handler in
       Format.fprintf fmt "try %a with %a" pp_term e pp_handler_l handler_l
-  | Nondet ty -> Format.fprintf fmt "nondet %a" Types.pp_typ ty
+  | Nondet ty -> Format.fprintf fmt "nondet (%a)" Types.pp_typ ty
   | Hole -> Format.pp_print_string fmt "∙"
   | Error -> Format.pp_print_string fmt "error"
   | Record elt -> (

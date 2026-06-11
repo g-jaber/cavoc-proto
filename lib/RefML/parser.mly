@@ -152,7 +152,7 @@ proj_expr:
 simple_expr:
   | v=VAR             { Var v }
   | c=CONSTRUCTOR p=simple_expr    { Constructor (c, p)}
-  | NONDET t=ty { Nondet t }
+  | NONDET LPAR t=ty RPAR { Nondet t }
   | UNIT            { Unit }
   | n=INT             { Int n }
   | TRUE            { Bool true }
