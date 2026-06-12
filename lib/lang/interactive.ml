@@ -280,7 +280,7 @@ module Make (OpLang : Language.WITHAVAL_NEG) :
         let lnamectx = IEnv.dom ienv in
         return
           (((a_nf_term, discl_store), lnamectx, storectx_discl), ienv, store')
-    | None -> fail ()
+    | None -> stop ()
 
   include OpLang.AVal.BranchMonad
 

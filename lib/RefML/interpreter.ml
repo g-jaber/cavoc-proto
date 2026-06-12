@@ -350,7 +350,7 @@ let normalize_opconf_fix expr =
   in
   let add (expr, _ as opconf) =
     match expr with
-    | While _ | Fix _ -> seen := opconf :: !seen
+    | While _ | App (Fix _, _) -> seen := opconf :: !seen
     | _ -> ()
   in
 

@@ -49,7 +49,7 @@ module Make (IntLts : Strategy.LTS_WITH_INIT) :
         ^ IntLts.TypingLTS.Moves.string_of_pol_move move1
         ^ " and "
         ^ IntLts.TypingLTS.Moves.string_of_pol_move move2;
-        EvalMonad.fail ()
+        EvalMonad.stop ()
     | Some span' -> return (move1, (pas_conf1, pas_conf2, span'))
 
   let o_trans (pas_conf1, pas_conf2, span) in_move =

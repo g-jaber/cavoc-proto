@@ -14,7 +14,7 @@ module type IBUILD = sig
     number of moves *)
     get_move:(int -> int M.m) ->
     conf ->
-    unit M.m
+    string M.m
 end
 
 module type RUN_LTS = sig
@@ -38,8 +38,9 @@ module Make (M : Util.Monad.MONAD) (IntLTS : RUN_LTS with module M = M) = struct
         let* res = IntLTS.choose (IntLTS.p_trans act_conf) in
         match res with
         | IntLTS.EvalMonad.PropStop ->
-            print_endline "Proponent has quitted the game.";
-            return ()
+            return "Proponent has quitted the game.";
+        | IntLTS.EvalMonad.PropDiverges ->
+            return "The program diverges.";
         | IntLTS.EvalMonad.Continue (output_move, pas_conf) ->
             let move_string =
               IntLTS.TypingLTS.Moves.string_of_pol_move output_move in

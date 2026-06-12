@@ -23,6 +23,8 @@ module type IBUILD = sig
     @param show_moves_list display the list of possibles moves when it's the user's
     turn.
     @param get_move returns the move choosen by the user
+
+    @returns The reason why the interaction stopped
    *)
   val interactive_build :
     show_move:(string -> unit) ->
@@ -32,7 +34,7 @@ module type IBUILD = sig
     number of moves *)
     get_move:(int -> int M.m) ->
     conf ->
-    unit M.m
+    string M.m
 end
 
 (**
