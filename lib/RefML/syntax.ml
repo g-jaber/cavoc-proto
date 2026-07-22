@@ -36,7 +36,7 @@ let fresh_evar () =
 
 (* Syntax of Expressions *)
 
-type pattern = PatCons of constructor * id | PatVar of id
+type pattern = PatCons of constructor * id option | PatVar of id
 
 type binary_op =
   | Plus
@@ -58,7 +58,7 @@ type handler = Handler of (pattern * term)
 
 and term =
   | Var of id
-  | Constructor of constructor * term
+  | Constructor of constructor * term option
     (* We should generalize constructors so that it takes a list of arguments *)
   | Name of Names.name
   | Loc of loc
@@ -85,11 +85,13 @@ and term =
   | Assert of term
   | Raise of term
   | TryWith of (term * handler list)
+  | Match of (term * handler list)
   | Hole
   | Error
 
 let pp_pattern fmt = function
-  | PatCons (c, id) -> Format.fprintf fmt "%s %s" c id
+  | PatCons (c, Some id) -> Format.fprintf fmt "%s %s" c id
+  | PatCons (c, None) -> Format.fprintf fmt "%s" c 
   | PatVar id -> Format.pp_print_string fmt id
 
 let pp_typed_var fmt = function
@@ -123,7 +125,8 @@ let rec pp_par_term fmt = function
 
 and pp_term fmt = function
   | Var x -> pp_id fmt x
-  | Constructor (c, e) -> Format.fprintf fmt "%a %a" pp_constructor c pp_term e
+  | Constructor (c, Some e) -> Format.fprintf fmt "%a %a" pp_constructor c pp_term e
+  | Constructor (c, None) -> Format.fprintf fmt "%a" pp_constructor c
   | Name n -> Names.pp_name fmt n
   | Loc l -> pp_loc fmt l
   | Symbolic id -> Symbolic.pp_constraint fmt id
@@ -160,6 +163,10 @@ and pp_term fmt = function
       let pp_sep fmt () = Format.pp_print_string fmt "|" in
       let pp_handler_l = Format.pp_print_list ~pp_sep pp_handler in
       Format.fprintf fmt "try %a with %a" pp_term e pp_handler_l handler_l
+  | Match (e, handler_l) -> 
+      let pp_sep fmt () = Format.pp_print_string fmt "|" in
+      let pp_handler_l = Format.pp_print_list ~pp_sep pp_handler in
+      Format.fprintf fmt "match %a with %a" pp_term e pp_handler_l handler_l
   | Hole -> Format.pp_print_string fmt "∙"
   | Error -> Format.pp_print_string fmt "error"
   | Record elt -> (
@@ -185,7 +192,7 @@ let rec get_new_names lnames = function
   | Name nn -> if List.mem nn lnames then lnames else nn :: lnames
   | Var _ | Loc _ | Unit | Symbolic _ | Int _ | Bool _ | Hole | Error -> lnames
   | Projection (e, _)
-  | Constructor (_, e)
+  | Constructor (_, Some e)
   | UnaryOp (_, e)
   | Fun (_, e)
   | Fix (_, _, e)
@@ -216,6 +223,8 @@ let rec get_new_names lnames = function
   | Record fields -> 
     let aux current_lnames (_, e) = get_new_names current_lnames e in
     Util.Pmap.fold aux lnames fields
+  | Constructor (_, None) -> failwith "Empty constructor not implemented yet (get_new_names)"
+  | Match _ -> failwith "Match expression are not yet supported (get_new_names)"
 
 let get_names = get_new_names empty_name_set
 
@@ -259,6 +268,7 @@ let rec get_new_labels label_l = function
   | Record fields -> 
     let aux current_label_l (_, e) = get_new_labels current_label_l e in
     Util.Pmap.fold aux label_l fields
+  | Match _ -> failwith "Match expression are not yet supported (get_new_labels)"
 
 let get_labels = get_new_labels empty_label_set
 
@@ -271,7 +281,8 @@ let value_to_yojson v = `String (string_of_value v)
 
 let rec isval = function
   (*| Var _ -> true*)
-  | Constructor (_, e) -> isval e
+  | Constructor (_, Some e) -> isval e
+  | Constructor (_, None) -> failwith "Empty constructor not implemented yet (isval)"
   | Name _ -> true
   | Loc _ -> true
   | Symbolic _ -> true
@@ -297,7 +308,8 @@ let rec subst expr value value' =
   | Loc _ when expr = value -> value'
   | Hole when expr = value -> value'
   | Var _ | Name _ | Symbolic _ | Loc _ | Hole | Unit | Int _ | Bool _ | Error -> expr
-  | Constructor (cons, expr') -> Constructor (cons, subst expr' value value')
+  | Constructor (cons, Some expr') -> Constructor (cons, Some (subst expr' value value'))
+  | Constructor (_, None) -> failwith "Empty constructor not implemented yet (subst)"
   | BinaryOp (op, expr1, expr2) ->
       BinaryOp (op, subst expr1 value value', subst expr2 value value')
   | UnaryOp (op, expr) -> UnaryOp (op, subst expr value value')
@@ -350,6 +362,7 @@ let rec subst expr value value' =
     in Record (Util.Pmap.fold reconstruct_fields Util.Pmap.empty fields)
   )
   | Projection (expr, id) -> Projection (subst expr value value', id)
+  | Match _ -> failwith "Match expression are not yet supported (subst)"
 
 let subst_var expr id = subst expr (Var id)
 
@@ -361,7 +374,8 @@ let rec rename expr renam =
     | exception Not_found -> expr
   end
   | Var _ | Loc _ | Symbolic _ | Hole | Unit | Int _ | Bool _ | Error -> expr
-  | Constructor (cons, expr') -> Constructor (cons, rename expr' renam)
+  | Constructor (cons, Some expr') -> Constructor (cons, Some (rename expr' renam))
+  | Constructor (_, None) -> failwith "Empty constructor not implemented yet (rename)"
   | BinaryOp (op, expr1, expr2) ->
       BinaryOp (op, rename expr1 renam, rename expr2 renam)
   | UnaryOp (op, expr) -> UnaryOp (op, rename expr renam)
@@ -396,6 +410,7 @@ let rec rename expr renam =
     in Record (Util.Pmap.fold reconstruct_fields Util.Pmap.empty fields)
   )
   | Projection (expr, id) -> Projection (rename expr renam, id)
+  | Match _ -> failwith "Match expression are not yet supported (rename)"
 (* Auxiliary functions *)
 
 let implement_arith_op = function
@@ -495,8 +510,9 @@ let rec extract_ctx expr =
   | While (expr1, expr2) -> extract_ctx_un (fun x -> While (x, expr2)) expr1
   | Assert expr' -> extract_ctx_un (fun x -> Assert x) expr'
   | Raise expr' -> extract_ctx_un (fun x -> Raise x) expr'
-  | Constructor (cons, expr') ->
-      extract_ctx_un (fun x -> Constructor (cons, x)) expr'
+  | Constructor (cons, Some expr') ->
+      extract_ctx_un (fun x -> Constructor (cons, Some x)) expr'
+  | Constructor (_, None) -> failwith "Empty constructor not implemented yet (extract_ctx)"
   | TryWith (expr', handler_l) ->
       extract_ctx_un (fun x -> TryWith (x, handler_l)) expr'
   | Var _ | Hole ->
@@ -520,6 +536,7 @@ let rec extract_ctx expr =
         let updated_fields = Util.Pmap.modadd (field_name, ctx) fields in
         (res, Record updated_fields)
   )
+  | Match _ -> failwith "Match expression are not yet supported (extract_ctx)"
 
 and extract_ctx_bin cons_op expr1 expr2 =
   match (isval expr1, isval expr2) with

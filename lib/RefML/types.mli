@@ -9,6 +9,7 @@ type typ =
   | TProd of typ * typ
   | TSum of typ * typ
   | TRecord of (id, typ) Util.Pmap.pmap
+  | TAlgebraic of (id, typ option) Util.Pmap.pmap
   | TRef of typ
   | TExn
   | TVar of typevar

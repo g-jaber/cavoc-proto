@@ -162,7 +162,7 @@ module Make (BranchMonad : Util.Monad.BRANCH)
             match cons_ty with
             | TArrow (pty, _) ->
                 let* (nup, res) = aux res pty in
-                return (Constructor (c, nup), res)
+                return (Constructor (c, Some nup), res)
             | _ -> failwith "TODO"
           end
       | TRecord fields -> (
@@ -232,6 +232,7 @@ module Make (BranchMonad : Util.Monad.BRANCH)
       | (TUndef, _) | (TRef _, _) | (TSum _, _) | (TExn, _) ->
           failwith @@ "Error: type-checking a nup of type "
           ^ Types.string_of_typ ty ^ " is not yet supported."
+      | (TAlgebraic _, _) -> failwith "Algebraic type are not yet supported (type_check_abstract_val)"
     in
     match aux ty (nup, lnamectx) with
     | None -> false

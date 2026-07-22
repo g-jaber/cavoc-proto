@@ -89,9 +89,10 @@ let interpreter interpreter expr : value SymbolicEvalState.m =
   match expr with
   | value when isval value -> return value
   | Var var -> lookup var
-  | Constructor (cons, expr) -> 
+  | Constructor (cons, Some expr) -> 
       let* expr = interpreter expr in
-      return @@ Constructor (cons, expr)
+      return @@ Constructor (cons, Some expr)
+  | Constructor (_cons, None) -> failwith "Empty constructor not implemented yet (interpreter)"
   | App (expr1, expr2) ->
       let* expr1 = interpreter expr1 in
       begin
@@ -298,13 +299,14 @@ let interpreter interpreter expr : value SymbolicEvalState.m =
         return nf
       else begin
         match nf with
-        | Raise (Constructor (c, nf) as cons) ->
+        | Raise (Constructor (c, Some nf) as cons) ->
             let rec aux = function
               | Handler (pat, expr_pat) :: rest ->
                   begin
                     match pat with
-                    | PatCons (c', id) when c = c' ->
+                    | PatCons (c', Some id) when c = c' ->
                         interpreter (subst_var expr_pat id nf)
+                    | PatCons (_, None) -> failwith "empty PatCons not implemented yet"
                     | PatCons _ ->
                         aux rest
                     | PatVar id ->
@@ -313,6 +315,7 @@ let interpreter interpreter expr : value SymbolicEvalState.m =
               | [] -> return @@ Raise cons
             in
             aux handler_l
+        | Raise (Constructor (_, None)) -> failwith "Empty constructor not implemented yet (interpreter, TryWith)"
         | _ -> return @@ TryWith (nf, handler_l)
       end
   | Record fields -> (

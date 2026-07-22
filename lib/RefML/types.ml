@@ -10,6 +10,7 @@ type typ =
   | TProd of typ * typ
   | TSum of typ * typ
   | TRecord of (id, typ) Util.Pmap.pmap
+  | TAlgebraic of (id, typ option) Util.Pmap.pmap
   | TRef of typ
   | TExn
   | TVar of typevar
@@ -49,6 +50,12 @@ let rec pp_typ fmt = function
     Util.Pmap.iter (fun (id, ty) -> Format.fprintf fmt "%s : %a; " id pp_par_typ ty) ty;
     Format.pp_print_string fmt "}"
   )
+  | TAlgebraic cons_list ->
+      let pp_typ_option fmt ty = match ty with 
+        | None -> Format.fprintf fmt ""
+        | Some ty -> Format.fprintf fmt "of %a" pp_par_typ ty
+      in 
+      Util.Pmap.iter (fun (cons, ty) -> Format.fprintf fmt "| %s %a" cons pp_typ_option ty) cons_list
 
 and pp_par_typ fmt = function
   | TArrow (ty1, ty2) ->
@@ -104,6 +111,7 @@ let rec get_new_free_tvars tvar_set = function
   | TForall (tvars, ty) ->
       let tvar_set' = List.fold_left (Fun.flip TVarSet.remove) tvar_set tvars in
       get_new_free_tvars tvar_set' ty
+  | TAlgebraic _ -> failwith "Algebraic type are not yet supported (get_new_free_tvars)"
 
 let get_free_tvars ty = TVarSet.elements @@ get_new_free_tvars TVarSet.empty ty
 
@@ -142,6 +150,7 @@ let rec apply_type_subst ty subst =
       @@ "Error applying type substitution on universally quantified type "
       ^ string_of_typ ty
   | TUndef -> failwith "Error: undefined type, please report."
+  | TAlgebraic _ -> failwith "Algebraic type are not yet supported (apply_type_subst)"
 
 
 let rec subst_type tvar sty ty =
@@ -162,6 +171,7 @@ let rec subst_type tvar sty ty =
       TForall (tvars, subst_type tvar sty ty')
   | TForall _ -> ty
   | TUndef -> failwith "Error: undefined type, please report."
+  | TAlgebraic _ -> failwith "Algebraic type are not yet supported (subst_type)"
 
 
 let subst_in_tsubst tsubst tvar ty =
@@ -196,6 +206,7 @@ let rec apply_type_env ty type_env =
     end
   | TForall (tvar_l, ty') -> TForall (tvar_l, apply_type_env ty' type_env)
   | TUndef -> failwith "Error: undefined type, please report."
+  | TAlgebraic _ -> failwith "Algebraic type are not yet supported (apply_type_env)"
 
 
 let mgu_type tenv (ty1, ty2) =
