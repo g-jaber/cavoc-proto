@@ -27,6 +27,19 @@
     min-width: 300px;
 }
 
+.win-modal-content h1, .win-modal-content h2 {
+  color: #a6e22e;
+  border-bottom: 1px solid #3e3d32;
+  padding-bottom: 5px;
+}
+
+.win-modal-content code {
+  background-color: #3e3d32;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-family: "Courier New", Courier, monospace;
+}
+
 .win-title {
     color: #a6e22e;
     margin-top: 0;

@@ -105,10 +105,28 @@
               <input type="checkbox" id="visibility-check">
               <label for="visibility-check">Visibility</label>
             </div>
+            <hr style="border: 0; border-top: 1px solid #555; margin: 5px 0;">
+            <div class="option-item">
+              <input type="checkbox" id="symbolic-check" checked="false">
+              <label for="symbolic-check">Symbolic</label>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #555; margin: 5px 0;">
+            <div class="option-item">
+              <input type="checkbox" id="debug-log-check" checked="false">
+              <label for="debug-log-check">Debug Log</label>
+            </div>
           </div>
         </div>
 
         <button id="submit">Evaluate</button>
+        <div style="display: flex; flex-direction: column">
+            <span>Configurations: </span>
+            <div>
+                <button id="conf-prev">Previous</button>
+                <button id="conf-next">Next</button>
+                <button id="conf-accept">Accept</button>
+            </div>
+        </div>
       </div>
     </div>
     <script src="../_build/default/bin/explore_web.bc.js"></script>
@@ -165,6 +183,11 @@
         openModal(successModal);
         // no-op outside of the tutorial
     }
+
+    const debugLogCheck = document.getElementById('debug-log-check');
+    debugLogCheck.addEventListener('change', (e) => {
+        cavocToggleDebug(e.target.checked);
+    });
 
     window.onload = async function () {
       // --- LOGIQUE DE JEU (DOSSIER TEST) ---

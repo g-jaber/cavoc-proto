@@ -48,6 +48,11 @@
        <input type="checkbox" id="direct-style-check">
        <input type="checkbox" id="wellbracketing-check">
        <input type="checkbox" id="visibility-check">
+       <input type="checkbox" id="debug-log-check">
+       <input type="checkbox" id="symbolic-check">
+       <button id="conf-prev"></button>
+       <button id="conf-next"></button>
+       <button id="conf-accept"></button>
        <button id="load-btn"></button> 
        <div id="file-select-dropdown"></div> 
     </div>
@@ -186,6 +191,7 @@
         const jsonFileName = `tuto${level}.json`;
         const mlFileName = `tuto${level}.ml`;
         const mliFileName = `tuto${level}.mli`;
+        const hintFileName = `tuto${level}.md`;
         
         // Définition du nom de fichier exposé au lexer OCaml
         window.loadedFile = `tudo${level}`;
@@ -209,6 +215,7 @@
             document.getElementById('direct-style-check').checked = config.directStyle || false;
             document.getElementById('wellbracketing-check').checked = config.wellBracketing || false;
             document.getElementById('visibility-check').checked = config.visibility || false;
+            document.getElementById('symbolic-check').checked = config.symbolic || false;
 
         } catch (error) {
             console.error("Erreur lors de la lecture du JSON de config :", error);
@@ -216,6 +223,7 @@
             document.getElementById('direct-style-check').checked = false;
             document.getElementById('wellbracketing-check').checked = false;
             document.getElementById('visibility-check').checked = false;
+            document.getElementById('symbolic-check').checked = false;
         }
 
         // ---------------------------------------------------------
@@ -241,6 +249,20 @@
           })
           .then((mliContent) => {
               signatureEditor.session.setValue(mliContent);
+              document.getElementById('submit').click();
+                        return fetch(`../tuto/${hintFileName}`)
+          })
+          .then((hintResp) => {
+            if (hintResp.ok) return hintResp.text();
+            return "";
+          })
+          .then((hintText) => {
+            if (hintText != "") {
+              let text = marked.parse(hintText);
+              let modal = createModal(mlFileName, true);
+              setModalMessage(modal, text);
+              openModal(modal);
+            }
           })
           .catch((error) => {
              if (error.message === "Fini") {
