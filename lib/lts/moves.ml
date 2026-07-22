@@ -108,8 +108,10 @@ struct
   type move = Renaming.Namectx.Names.name * copattern
   type direction = Input | Output [@@deriving to_yojson]
 
-  let move_to_yojson ((_, (a_nf, _)) : move) : Yojson.Safe.t =
-    A_nf.abstract_normal_form_to_yojson a_nf
+  (* Like pp_move below, we serialize moves with their fresh names reindexed
+     into the merged context; the move itself keeps the 0-based fresh names. *)
+  let move_to_yojson ((_, (a_nf, renaming)) : move) : Yojson.Safe.t =
+    A_nf.abstract_normal_form_to_yojson (A_nf.renaming_a_nf renaming a_nf)
 
   let string_of_direction = function Input -> "?" | Output -> "!"
   let switch = function Input -> Output | Output -> Input
