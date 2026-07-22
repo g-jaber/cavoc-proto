@@ -20,7 +20,7 @@
 %token FUN FIX ARROW
 %token IF THEN ELSE
 %token UNIT
-%token REF ASSIGN DEREF
+%token REF ASSIGN DEREF NONDET
 %token WHILE DO DONE
 %token WITH
 %token ASSERT
@@ -152,6 +152,7 @@ proj_expr:
 simple_expr:
   | v=VAR             { Var v }
   | c=CONSTRUCTOR p=simple_expr    { Constructor (c, p)}
+  | NONDET LPAR t=ty RPAR { Nondet t }
   | UNIT            { Unit }
   | n=INT             { Int n }
   | TRUE            { Bool true }

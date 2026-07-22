@@ -63,6 +63,9 @@ and term =
   | Assert of term
   | Raise of term
   | TryWith of (term * handler list)
+  (** This expression introduces non-determinism, i.e. some value of a
+      certain type *)
+  | Nondet of Types.typ
   | Hole
   | Error
 

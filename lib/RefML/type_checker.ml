@@ -67,10 +67,11 @@ let rec infer_type type_ctx type_subst expr =
             ("Error: the location " ^ Syntax.string_of_loc l
            ^ " is not defined.")
     end
-  | Symbolic _ -> (TBool, type_subst) (* TODO: fix this, Symbolic should not appear here anyway *)
+  | Symbolic _ -> failwith "constructor Symbolic should not appear during type checking"
   | Unit -> (TUnit, type_subst)
   | Int _ -> (TInt, type_subst)
   | Bool _ -> (TBool, type_subst)
+  | Nondet ty -> (ty, type_subst)
   | Record fields ->
       let inference_step (type_subst, acc) (id, term) = 
         let (ty, type_subst') = infer_type type_ctx type_subst term in 
