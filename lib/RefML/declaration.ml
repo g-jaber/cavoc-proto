@@ -224,7 +224,7 @@ let get_typed_val_env var_val_env sign_decl_l =
     | [] -> acc
     | (var, ty) :: tl -> begin
         let value = Util.Pmap.lookup_exn var var_val_env in
-        let ty' = Types.generalize_type @@ Types.apply_type_env ty type_env in
+        let ty' = Types.generalize_type (Types.TVarSet.empty) @@ Types.apply_type_env ty type_env in
         (* We might have to switch this generalization with the match below*)
         match ty' with
         | Types.TArrow _ | Types.TForall _ ->

@@ -90,26 +90,33 @@ module TVarSet = Set.Make (struct
   let compare = String.compare
 end)
 
-let rec get_new_free_tvars tvar_set = function
-  | TUnit | TInt | TBool | TExn | TId _ | TName _ | TUndef -> tvar_set
+let rec free_vars_of_type ty =
+  let rec aux acc = function
+  | TUnit | TInt | TBool | TExn | TId _ | TName _ | TUndef -> acc
   | TArrow (ty1, ty2) | TProd (ty1, ty2) | TSum (ty1, ty2) ->
-      let tvar_set' = get_new_free_tvars tvar_set ty1 in
-      get_new_free_tvars tvar_set' ty2
-  | TRecord fields -> (
-    let aux current_tvar_set (_id, typ) = get_new_free_tvars current_tvar_set typ in
-    Util.Pmap.fold aux tvar_set fields
-  )
-  | TRef ty -> get_new_free_tvars tvar_set ty
-  | TVar typevar -> TVarSet.add typevar tvar_set
+      let acc' = aux acc ty1 in
+      aux acc' ty2
+  | TRecord fields ->
+      let aux' acc (_, ty) = aux acc ty in
+      Util.Pmap.fold aux' acc fields
+  | TRef ty ->
+      aux acc ty
+  | TVar typevar ->
+      TVarSet.add typevar acc
   | TForall (tvars, ty) ->
-      let tvar_set' = List.fold_left (Fun.flip TVarSet.remove) tvar_set tvars in
-      get_new_free_tvars tvar_set' ty
+      let remove set id = TVarSet.remove id set in
+      let vars = free_vars_of_type ty in
+      let free_vars = List.fold_left remove vars tvars in
+      TVarSet.union acc free_vars
+  in
+  aux TVarSet.empty ty
 
-let get_free_tvars ty = TVarSet.elements @@ get_new_free_tvars TVarSet.empty ty
-
-let generalize_type ty =
-  let tvar_l = get_free_tvars ty in
-  match tvar_l with [] -> ty | _ -> TForall (tvar_l, ty)
+let generalize_type free_vars_of_env ty =
+  let fvars = free_vars_of_type ty in
+  let tvars = TVarSet.diff fvars free_vars_of_env in
+  match TVarSet.elements tvars with
+  | [] -> ty
+  | tvars -> TForall (tvars, ty)
 
 (* Type substitutions are maps from type variables to types *)
 

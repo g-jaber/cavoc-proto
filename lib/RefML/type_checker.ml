@@ -226,7 +226,7 @@ let rec infer_type type_ctx type_subst expr =
   | Let (var, e1, e2) ->
       let (ty, type_subst') = infer_type type_ctx type_subst e1 in
       let ty' = Types.apply_type_subst ty type_subst' in
-      let ty_gen = Types.generalize_type ty' in
+      let ty_gen = Types.generalize_type (Type_ctx.free_vars_of_ctx type_ctx) ty' in
       Util.Debug.print_debug
         ("We have " ^ Syntax.string_of_term e1 ^ " of type "
        ^ Types.string_of_typ ty
@@ -371,13 +371,13 @@ and check_type_bin type_ctx type_subst com_ty expr1 expr2 =
 let typing_expr type_ctx expr =
   let (ty, tsubst) = infer_type type_ctx Types.empty_type_subst expr in
   let ty' = Types.apply_type_subst ty tsubst in
-  let ty_gen = Types.generalize_type ty' in
+  let ty_gen = Types.generalize_type (Type_ctx.free_vars_of_ctx type_ctx) ty' in
   let type_ctx' = Type_ctx.apply_type_subst type_ctx tsubst in
   (type_ctx', ty_gen)
 
 let checking_expr type_ctx expr ty =
   let tsubst = check_type type_ctx Types.empty_type_subst expr ty in
   let ty' = Types.apply_type_subst ty tsubst in
-  let ty_gen = Types.generalize_type ty' in
+  let ty_gen = Types.generalize_type (Type_ctx.free_vars_of_ctx type_ctx) ty' in
   let type_ctx' = Type_ctx.apply_type_subst type_ctx tsubst in
   (type_ctx', ty_gen)

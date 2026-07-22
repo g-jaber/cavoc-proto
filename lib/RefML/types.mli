@@ -1,6 +1,8 @@
 type typevar = string [@@deriving to_yojson]
 type id = string
 
+module TVarSet : Set.S with type elt = id
+
 type typ =
   | TUnit
   | TInt
@@ -23,10 +25,13 @@ val string_of_typ : typ -> string
 val pp_typ : Format.formatter -> typ -> unit
 val fresh_typevar : unit -> typ
 val fresh_typename : unit -> id
-val get_free_tvars : typ -> typevar list
+val free_vars_of_type : typ -> TVarSet.t
 val pp_tvar_l : Format.formatter -> typevar list -> unit
 val subst_type : typevar -> typ -> typ -> typ
-val generalize_type : typ -> typ
+(**
+  Generalizes a type
+ *)
+val generalize_type : TVarSet.t -> typ -> typ
 
 type type_subst = (typevar, typ) Util.Pmap.pmap
 
