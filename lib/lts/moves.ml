@@ -8,6 +8,21 @@ module type MOVES = sig
 
   val pp_move : Format.formatter -> move -> unit
   val string_of_move : move -> string
+
+  (* The _in variants display the names of the ambient context with the
+     provided show_name, typically Namectx.show_name_in of that context. *)
+  val pp_move_in :
+    show_name:(Renaming.Namectx.Names.name -> string) ->
+    Format.formatter ->
+    move ->
+    unit
+
+  val string_of_move_in :
+    show_name:(Renaming.Namectx.Names.name -> string) -> move -> string
+
+  val move_to_yojson_in :
+    show_name:(Renaming.Namectx.Names.name -> string) -> move -> Yojson.Safe.t
+
   val get_subject_name : move -> Renaming.Namectx.Names.name
   val get_namectx : move -> Renaming.Namectx.t
 
@@ -27,6 +42,21 @@ module type POLMOVES = sig
   val yojson_of_move : move -> Yojson.Safe.t
   val pp_pol_move : Format.formatter -> pol_move -> unit
   val string_of_pol_move : pol_move -> string
+
+  val pp_pol_move_in :
+    show_name:(Renaming.Namectx.Names.name -> string) ->
+    Format.formatter ->
+    pol_move ->
+    unit
+
+  val string_of_pol_move_in :
+    show_name:(Renaming.Namectx.Names.name -> string) -> pol_move -> string
+
+  val pol_move_to_yojson_in :
+    show_name:(Renaming.Namectx.Names.name -> string) ->
+    pol_move ->
+    Yojson.Safe.t
+
   val switch_direction : pol_move -> pol_move
 
   val unify_pol_move :
@@ -85,6 +115,16 @@ module type A_NF = sig
     abstract_normal_form ->
     unit
 
+  val pp_a_nf_in :
+    pp_dir:(Format.formatter -> unit) ->
+    pp_head_name:
+      (Format.formatter -> IEnv.Renaming.Namectx.Names.name -> unit) ->
+    pp_aval_name:
+      (Format.formatter -> IEnv.Renaming.Namectx.Names.name -> unit) ->
+    Format.formatter ->
+    abstract_normal_form ->
+    unit
+
   val string_of_a_nf : string -> abstract_normal_form -> string
 
   val get_subject_name :
@@ -108,32 +148,65 @@ struct
   type move = Renaming.Namectx.Names.name * copattern
   type direction = Input | Output [@@deriving to_yojson]
 
-  (* Like pp_move below, we serialize moves with their fresh names reindexed
-     into the merged context; the move itself keeps the 0-based fresh names. *)
-  let move_to_yojson ((_, (a_nf, renaming)) : move) : Yojson.Safe.t =
-    A_nf.abstract_normal_form_to_yojson (A_nf.renaming_a_nf renaming a_nf)
-
   let string_of_direction = function Input -> "?" | Output -> "!"
   let switch = function Input -> Output | Output -> Input
 
   type pol_move = direction * move
 
-  let pol_move_to_yojson (_, move) = move_to_yojson move
+  (* Moves are displayed with the names they introduce reindexed into the
+     ambient context (through the renaming they carry), and the other names
+     resolved by show_name. Head names are never in the domain of the
+     renaming; the names introduced by the move only appear inside its
+     abstract values. *)
+  let pp_names_of ~show_name renaming =
+    let pp_head_name fmt nn = Format.pp_print_string fmt (show_name nn) in
+    let pp_aval_name fmt nn =
+      if Renaming.is_in_dom renaming nn then
+        Renaming.Namectx.Names.pp_name fmt (Renaming.lookup renaming nn)
+      else pp_head_name fmt nn in
+    (pp_head_name, pp_aval_name)
 
-  (* We always rename moves *)
-  let pp_move fmt (_, (a_nf, renaming)) =
-    let a_nf' = A_nf.renaming_a_nf renaming a_nf in
+  let pp_move_gen ~show_name ~pp_dir fmt (_, (a_nf, renaming)) =
+    let (pp_head_name, pp_aval_name) = pp_names_of ~show_name renaming in
+    A_nf.pp_a_nf_in ~pp_dir ~pp_head_name ~pp_aval_name fmt a_nf
+
+  let default_show = Renaming.Namectx.Names.string_of_name
+
+  let pp_move_in ~show_name fmt move =
     let pp_dir fmt = Format.pp_print_string fmt "" in
-    A_nf.pp_a_nf ~pp_dir fmt a_nf'
+    pp_move_gen ~show_name ~pp_dir fmt move
 
-  let pp_pol_move fmt (dir, (_, (a_nf, renaming))) =
-    let a_nf' = A_nf.renaming_a_nf renaming a_nf in
+  let pp_move = pp_move_in ~show_name:default_show
+
+  let string_of_move_in ~show_name =
+    Format.asprintf "%a" (pp_move_in ~show_name)
+
+  let string_of_move = string_of_move_in ~show_name:default_show
+
+  let pp_pol_move_in ~show_name fmt (dir, move) =
     let pp_dir fmt = Format.pp_print_string fmt (string_of_direction dir) in
-    Format.fprintf fmt "%a" (A_nf.pp_a_nf ~pp_dir) a_nf'
-  (* (was %a) (A_nf.pp_a_nf ~pp_dir) move*)
+    pp_move_gen ~show_name ~pp_dir fmt move
 
-  let string_of_move move = Format.asprintf "%a" pp_move move
-  let string_of_pol_move polmove = Format.asprintf "%a" pp_pol_move polmove
+  let pp_pol_move = pp_pol_move_in ~show_name:default_show
+
+  let string_of_pol_move_in ~show_name =
+    Format.asprintf "%a" (pp_pol_move_in ~show_name)
+
+  let string_of_pol_move = string_of_pol_move_in ~show_name:default_show
+
+  let move_to_yojson_in ~show_name ((_, (a_nf, _)) as move : move) =
+    `Assoc
+      [
+        ("subjectName", `String (show_name (A_nf.get_subject_name a_nf)));
+        ("string", `String (string_of_move_in ~show_name move));
+      ]
+
+  let move_to_yojson = move_to_yojson_in ~show_name:default_show
+
+  let pol_move_to_yojson_in ~show_name (_, move) =
+    move_to_yojson_in ~show_name move
+
+  let pol_move_to_yojson (_, move) = move_to_yojson move
 
   let yojson_of_move (m : move) : Yojson.Safe.t =
     `Assoc [ ("label", `String (string_of_move m)) ]

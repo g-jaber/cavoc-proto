@@ -48,6 +48,8 @@ module Make
 
   let string_of_active_conf = Format.asprintf "%a" pp_active_conf
   let string_of_passive_conf = Format.asprintf "%a" pp_passive_conf
+  let get_active_pos (act_conf : active_conf) = act_conf.pos
+  let get_passive_pos (pas_conf : passive_conf) = pas_conf.pos
 
   let p_trans (act_conf : active_conf) =
     let open EvalMonad in

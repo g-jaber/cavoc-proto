@@ -7,8 +7,11 @@ module type NAMES = sig
   val is_cname : name -> bool
 end
 
+(* Names whose identity is a De Bruijn level: the position of the name in
+   its typing context. The display string associated to a name is stored in
+   the context (see Typectx.TYPECTX_LIST), not in the name itself. *)
 module type NAMES_INT = sig
-  include NAMES with type name = int * string
+  include NAMES with type name = int
 end
 
 module type NAMES_GEN = sig
@@ -54,17 +57,12 @@ module MakeGen (Mode : MODE) (Prefix : PREFIX) () : NAMES_GEN = struct
     (nn, str)
 end
 
-(* A generative functor to create a new NAMES module based on de Bruijn indices *)
+(* A generative functor to create a new NAMES module based on de Bruijn levels *)
 module MakeInt (Mode : MODE) (Prefix : PREFIX) () : NAMES_INT = struct
-  type name = int * string
+  type name = int
 
-  let string_of_name (i, s) =
-    if s = "" then Prefix.prefix ^ string_of_int i else s
-
-  let pp_name fmt (i, s) =
-    if s = "" then Format.fprintf fmt "%s%i" Prefix.prefix i
-    else Format.fprintf fmt "%s" s
-
+  let string_of_name i = Prefix.prefix ^ string_of_int i
+  let pp_name fmt i = Format.fprintf fmt "%s%i" Prefix.prefix i
   let name_to_yojson nn = `String (string_of_name nn)
   let is_callable _ = Mode.is_callable
   let is_cname _ = Mode.is_cname

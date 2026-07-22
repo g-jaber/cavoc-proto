@@ -22,6 +22,7 @@ module Make
 
   let string_of_position = Format.asprintf "%a" pp_position
   let get_namectxO (pos, _) = TypingLTS.get_namectxO pos
+  let get_namectxP (pos, _) = TypingLTS.get_namectxP pos
   let get_storectx (pos, _) = TypingLTS.get_storectx pos
 
   let generate_moves (pos, hconf) =

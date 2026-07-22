@@ -18,6 +18,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
   }
 
   let get_namectxO pos = pos.namectxO
+  let get_namectxP pos = pos.namectxP
   let get_storectx pos = pos.storectx
 
   let position_to_yojson pos =

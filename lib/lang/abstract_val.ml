@@ -23,6 +23,14 @@ module type AVAL = sig
   type abstract_val [@@deriving to_yojson]
 
   val pp_abstract_val : Format.formatter -> abstract_val -> unit
+
+  (* Like pp_abstract_val, with names displayed by the provided printer. *)
+  val pp_abstract_val_in :
+    (Format.formatter -> name -> unit) ->
+    Format.formatter ->
+    abstract_val ->
+    unit
+
   val string_of_abstract_val : abstract_val -> string
   val names_of_abstract_val : abstract_val -> name list
   val labels_of_abstract_val : abstract_val -> label list

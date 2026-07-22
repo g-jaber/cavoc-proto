@@ -48,7 +48,7 @@ end
 
 module MakeLang
     (MoveTree :
-      MOVETREE with type Moves.Renaming.Namectx.Names.name = int * string) :
+      MOVETREE with type Moves.Renaming.Namectx.Names.name = int) :
   Lang.Interactive.LANG = struct
   module Namectx = MoveTree.Moves.Renaming.Namectx
   module Names = Namectx.Names
@@ -110,6 +110,8 @@ module MakeLang
   let[@warning "-27"] pp_a_nf ~pp_dir fmt =
     MoveTree.Moves.pp_move
       fmt (*MoveTree.Moves.pp_move - Need to handle pp_dir *)
+
+  let pp_a_nf_in ~pp_dir ~pp_head_name:_ ~pp_aval_name:_ = pp_a_nf ~pp_dir
 
   let string_of_a_nf dir =
     let pp_dir fmt = Format.fprintf fmt "%s" dir in

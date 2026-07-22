@@ -115,17 +115,23 @@ let string_of_unary_op = function Not -> "not"
 let pp_binary_op fmt op = Format.pp_print_string fmt (string_of_binary_op op)
 let pp_unary_op fmt op = Format.pp_print_string fmt (string_of_unary_op op)
 
-let rec pp_par_term fmt = function
+(* The printers are parametrized by the way names are displayed,
+   so that names can be resolved through a typing context. *)
+let rec pp_par_term_in pp_name fmt = function
   | Var x -> pp_id fmt x
   | Loc l -> pp_loc fmt l
   | Unit -> Format.pp_print_string fmt "()"
   | Int n -> Format.pp_print_int fmt n
-  | e -> Format.fprintf fmt "(%a)" pp_term e
+  | e -> Format.fprintf fmt "(%a)" (pp_term_in pp_name) e
 
-and pp_term fmt = function
+and pp_term_in pp_name fmt term =
+  let pp_term = pp_term_in pp_name in
+  let pp_par_term = pp_par_term_in pp_name in
+  let pp_handler = pp_handler_in pp_name in
+  match term with
   | Var x -> pp_id fmt x
   | Constructor (c, e) -> Format.fprintf fmt "%a %a" pp_constructor c pp_term e
-  | Name n -> Names.pp_name fmt n
+  | Name n -> pp_name fmt n
   | Loc l -> pp_loc fmt l
   | Symbolic id -> Symbolic.pp_constraint fmt id
   | Unit -> Format.pp_print_string fmt "()"
@@ -171,9 +177,10 @@ and pp_term fmt = function
   )
   | Projection (e, v) -> Format.fprintf fmt "%a.%s" pp_par_term e v
 
-and pp_handler fmt (Handler (pat, expr)) =
-  Format.fprintf fmt "%a -> %a" pp_pattern pat pp_term expr
+and pp_handler_in pp_name fmt (Handler (pat, expr)) =
+  Format.fprintf fmt "%a -> %a" pp_pattern pat (pp_term_in pp_name) expr
 
+let pp_term = pp_term_in Names.pp_name
 let string_of_term = Format.asprintf "%a" pp_term
 let term_to_yojson term = `String (string_of_term term)
 

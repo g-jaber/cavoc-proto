@@ -88,16 +88,23 @@ module Make (OpLang : Language.WITHAVAL_INOUT) :
     | Some res -> res
     | None -> inj_cname ()
 
-  let pp_a_nf ~pp_dir fmt (a_nf_term, store) =
+  let pp_a_nf_in ~pp_dir ~pp_head_name ~pp_aval_name fmt (a_nf_term, store) =
     let pp_ectx fmt () = Format.pp_print_string fmt "" in
     let pp_cn fmt () = Format.pp_print_string fmt "ret" in
+    let pp_fn fmt fn = pp_head_name fmt (inj_name fn) in
+    let pp_aval =
+      OpLang.AVal.pp_abstract_val_in (fun fmt nn ->
+          pp_aval_name fmt (inj_name nn)) in
     let pp_a_nf_term =
-      OpLang.Nf.pp_nf_term ~pp_dir OpLang.AVal.pp_abstract_val pp_ectx
-        OpLang.Names.pp_name pp_cn in
+      OpLang.Nf.pp_nf_term ~pp_dir pp_aval pp_ectx pp_fn pp_cn in
     if store = OpLang.Store.empty_store then pp_a_nf_term fmt a_nf_term
     else
       Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term OpLang.Store.pp_store
         store
+
+  let pp_a_nf ~pp_dir =
+    let pp_name = IEnv.Renaming.Namectx.Names.pp_name in
+    pp_a_nf_in ~pp_dir ~pp_head_name:pp_name ~pp_aval_name:pp_name
 
   let string_of_a_nf dir =
     let pp_dir fmt = Format.pp_print_string fmt dir in

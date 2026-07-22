@@ -27,7 +27,7 @@ module type RENAMING = sig
 end
 
 module type RENAMING_LIST = sig
-  include RENAMING with type Namectx.Names.name = int * string
+  include RENAMING with type Namectx.Names.name = int
 end
 
 module MakePmap (Namectx : Typectx.TYPECTX) :
@@ -161,8 +161,7 @@ module Make (Namectx : Typectx.TYPECTX_LIST) :
     ^ string_of_int offset ^ " on the context "
     ^ Namectx.to_string namectx_l;
     let map =
-      Util.Pmap.list_to_pmap
-      @@ List.map (fun ((i, str) as nn) -> (nn, (i + offset, str))) names_l
+      Util.Pmap.list_to_pmap @@ List.map (fun i -> (i, i + offset)) names_l
     in
     { map; dom= namectx_l; im= Namectx.concat namectx_r namectx_l }
 

@@ -11,9 +11,9 @@ type outcome =
   | User_quit
 
 let string_of_outcome = function
-  | Prop_stopped -> "Proponent has quitted the game."
+  | Prop_stopped -> "Proponent has quit the game."
   | Prop_diverges -> "The program diverges."
-  | User_quit -> "You have quitted the game."
+  | User_quit -> "You have quit the game."
 
 module type IBUILD = sig
   (* To be instanciated *)
@@ -50,6 +50,12 @@ module Make (M : Util.Monad.MONAD) (IntLTS : RUN_LTS with module M = M) = struct
 
   open M
 
+  (* The names of a move that come from the ambient context are resolved
+     through the context they live in: the Opponent's moves are supported by
+     the Proponent name context, and conversely. *)
+  let show_name_at pos =
+    IntLTS.TypingLTS.Moves.Renaming.Namectx.show_name_in pos
+
   let rec interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
       conf =
     match conf with
@@ -60,8 +66,13 @@ module Make (M : Util.Monad.MONAD) (IntLTS : RUN_LTS with module M = M) = struct
         | Chose IntLTS.EvalMonad.PropStop -> return Prop_stopped
         | Chose IntLTS.EvalMonad.PropDiverges -> return Prop_diverges
         | Chose (IntLTS.EvalMonad.Continue (output_move, pas_conf)) ->
+            let show_name =
+              show_name_at
+                (IntLTS.TypingLTS.get_namectxO
+                   (IntLTS.get_active_pos act_conf)) in
             let move_string =
-              IntLTS.TypingLTS.Moves.string_of_pol_move output_move in
+              IntLTS.TypingLTS.Moves.string_of_pol_move_in ~show_name
+                output_move in
             show_move move_string;
             interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
               (IntLTS.Passive pas_conf)
@@ -69,13 +80,19 @@ module Make (M : Util.Monad.MONAD) (IntLTS : RUN_LTS with module M = M) = struct
     | IntLTS.Passive pas_conf ->
         let conf_json = IntLTS.passive_conf_to_yojson pas_conf in
         show_conf conf_json;
+        let show_name =
+          show_name_at
+            (IntLTS.TypingLTS.get_namectxP (IntLTS.get_passive_pos pas_conf))
+        in
         let results_list =
           IntLTS.TypingLTS.BranchMonad.run (IntLTS.o_trans_gen pas_conf) in
         let moves_list = List.map (fun (x, _) -> x) results_list in
 
         (* JSON pour le front : id + label (+ payload local optionnel) *)
         let json_list =
-          List.map IntLTS.TypingLTS.Moves.pol_move_to_yojson moves_list in
+          List.map
+            (IntLTS.TypingLTS.Moves.pol_move_to_yojson_in ~show_name)
+            moves_list in
 
         show_moves_list json_list;
         let* chosen = get_move (List.length json_list - 1) in
@@ -84,7 +101,8 @@ module Make (M : Util.Monad.MONAD) (IntLTS : RUN_LTS with module M = M) = struct
         | Chose chosen_index ->
             let (input_move, act_conf) = List.nth results_list chosen_index in
             let move_string =
-              IntLTS.TypingLTS.Moves.string_of_pol_move input_move in
+              IntLTS.TypingLTS.Moves.string_of_pol_move_in ~show_name
+                input_move in
             let () = show_move move_string in
             interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
               (IntLTS.Active act_conf)

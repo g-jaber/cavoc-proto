@@ -3,7 +3,7 @@
    - Polymorphic names
 *)
 
-module FNames : Lang.Names.NAMES with type name = int * string =
+module FNames : Lang.Names.NAMES with type name = int =
   Lang.Names.MakeInt (struct
       let is_callable = true let is_cname = false
     end)

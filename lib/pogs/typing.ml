@@ -58,6 +58,11 @@ module Make (IntLang : Lang.Interactive.LANG) :
     | Active pos -> pos.namectxO
     | Passive pos -> pos.namectxO
 
+  (* Active positions do not track the Proponent name context. *)
+  let get_namectxP = function
+    | Active _ -> IntLang.IEnv.Renaming.Namectx.empty
+    | Passive pos -> pos.namectxP
+
   let get_storectx = function
     | Active pos -> pos.storectx
     | Passive pos -> pos.storectx

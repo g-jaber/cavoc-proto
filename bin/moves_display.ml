@@ -34,7 +34,7 @@ let highlight_subject (move_json_str : string) : unit =
     match json with
     | `Assoc fields ->
         (match List.assoc_opt "subjectName" fields with
-        | Some (`String name) -> set_target_highlighted name
+        | Some (`String name) when name <> "" -> set_target_highlighted name
         (* No subject name: Direct style, this move is a "return" and there is
            at least one context so active-ctx exists *)
         | _ -> set_target_highlighted "active-ctx")

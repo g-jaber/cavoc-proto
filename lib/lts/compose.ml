@@ -39,6 +39,8 @@ struct
     failwith "TODO"
 
   let equiv_act_conf : active_conf -> active_conf -> bool = failwith "TODO"
+  let get_active_pos _ = failwith "TODO"
+  let get_passive_pos _ = failwith "TODO"
 
   let rec p_trans :
       active_conf -> (TypingLTS.Moves.pol_move * passive_conf) EvalMonad.m =
