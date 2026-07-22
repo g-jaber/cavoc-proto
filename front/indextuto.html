@@ -58,42 +58,44 @@
     </div>
 
     <div id="output-container">
-      <div id="select-move">
-        <div id="moves-list"></div>
+      <div style="flex: 2">
+        <div id="buttons-container">
+          <button id="select-btn">Select</button>
+          <button id="stop-btn">Stop</button>
+        </div>
+        <div id="select-move">
+          <div id="moves-list"></div>
+        </div>
       </div>
-      <div id="histo-config-container">
-        <div class="tabs">
-          <div class="tab-nav">
-            <button class="tab-link" onclick="openTab(event, 'config')">Configuration</button>
-            <button class="tab-link active" onclick="openTab(event, 'ienv')">ienv</button>
-            <button class="tab-link" onclick="openTab(event, 'store')">Store</button>
-            <button class="tab-link" onclick="openTab(event, 'histo')">History</button>
-            <button class="tab-link" onclick="openTab(event, 'console')">Console</button>
-          </div>
+      <div style="margin-left: 1%; flex: 7;">
+        <div id="center-controls">
+          <button id="submit">Evaluate</button>
+        </div>
+        <div id="histo-config-container">
+          <div class="tabs">
+            <div class="tab-nav">
+              <button class="tab-link" onclick="openTab(event, 'config')">Configuration</button>
+              <button class="tab-link active" onclick="openTab(event, 'ienv')">ienv</button>
+              <button class="tab-link" onclick="openTab(event, 'store')">Store</button>
+              <button class="tab-link" onclick="openTab(event, 'histo')">History</button>
+              <button class="tab-link" onclick="openTab(event, 'console')">Console</button>
+            </div>
 
-          <div id="config" class="tab-content"></div>
-          <div id="ienv" class="tab-content active">
-            <div id="ienv-div" class="tab-content active"></div>
-            <div id="stack-container" class="tab-content active"></div>
+            <div id="config" class="tab-content"></div>
+            <div id="ienv" class="tab-content active">
+              <div id="ienv-div" class="tab-content active"></div>
+              <div id="stack-container" class="tab-content active"></div>
+            </div>
+            <div id="store" class="tab-content"></div>
+            <div id="histo" class="tab-content">
+              <div id="history"></div>
+            </div>
+            <div id="console" class="tab-content"></div>
           </div>
-          <div id="store" class="tab-content"></div>
-          <div id="histo" class="tab-content">
-            <div id="history"></div>
-          </div>
-          <div id="console" class="tab-content"></div>
         </div>
       </div>
     </div>
 
-    <div id="buttons-container">
-      <button id="select-btn">Select</button>
-      <button id="stop-btn">Stop</button>
-      
-      <div id="center-controls">
-        <button id="submit">Evaluate</button>
-      </div>
-    </div>
-    
     <script src="../_build/default/bin/explore_web.bc.js"></script>
   </body>
 
