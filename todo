@@ -14,6 +14,10 @@ The modification will be done in lib/RefML/lexer.mll, and possibly in the functi
   - [ ] Remove the Evaluate button and always trigger it once we start a new level
   - [x] store in a session (using a cookie ?) the current level of the tutorial reached by the user, in order to restore it
 
+* [ ] Improve the HTML/CSS code
+  - Switch from distinct ids on every element to a more unified design using a
+    small set of style classes (especially for buttons)
+
 * [x] Improve handling of errors when reading the integer in get_move in the CLI binary
 
 * [x] Focus on ienv window when loading the page
