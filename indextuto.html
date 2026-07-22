@@ -144,7 +144,6 @@
     const successModal = createModal('success', false);
     const tutoEndModal = createModal('tutoEnd', false);
 
-    // Fonction appelée par OCaml (explore_web.ml) lors du succès
     function nextLevel() {
         currentLevel++;
         localStorage.setItem(cavocCurrentLevelName, currentLevel);
@@ -153,12 +152,12 @@
     }
 
     // Called by OCaml (see evaluate_code.ml) after a success
-    function onSuccess() {
+    function onSuccess(message) {
+        setModalMessage(successModal, "Game stopped: " + message);
         openModal(successModal);
     }
 
     setModalTitle(successModal, "🏆 SUCCÈS !");
-    setModalMessage(successModal, "Vous avez déclenché un failwith. Félicitations ! Prêt pour la suite ?");
     addModalButton(successModal, "Niveau suivant >>", _ => {
         nextLevel();
         closeModal(successModal);
