@@ -360,11 +360,10 @@ let subst_var expr id = subst expr (Var id)
 
 let rec rename expr renam =
   match expr with
-  | Name nn -> 
-    begin match Renaming.Renaming.lookup renam nn with
-    | mn -> Name mn
-    | exception Not_found -> expr
-  end
+  | Name nn ->
+      if Renaming.Renaming.is_in_dom renam nn then
+        Name (Renaming.Renaming.lookup renam nn)
+      else expr
   | Var _
   | Nondet _ | Loc _ | Symbolic _ | Hole | Unit | Int _ | Bool _ | Error -> expr
   | Constructor (cons, expr') -> Constructor (cons, rename expr' renam)

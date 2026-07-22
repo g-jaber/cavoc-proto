@@ -19,6 +19,8 @@ module type RENAMING = sig
 
   (* sym Δ Γ : Δ + Γ → Γ + Δ*)
   val sym : Namectx.t -> Namectx.t -> t
+
+  val is_in_dom : t -> Namectx.Names.name -> bool
   val lookup : t -> Namectx.Names.name -> Namectx.Names.name
   val add_fresh : t -> string -> Namectx.typ -> Namectx.Names.name * t
   (* The second argument is used to associate a string to the fresh variable *)
@@ -85,6 +87,7 @@ module MakePmap (Namectx : Typectx.TYPECTX) :
     { renam with im= Namectx.concat namectx_r namectx_l }
 
   let sym _namectx_l _namectx_r = failwith "TODO"
+  let is_in_dom renam nn = Util.Pmap.mem nn renam.map
   let lookup renam nn = Util.Pmap.lookup_exn nn renam.map
 
   let add_fresh (renam : t) (_str : string) (typ : Namectx.typ) :
@@ -164,6 +167,7 @@ module Make (Namectx : Typectx.TYPECTX_LIST) :
     { map; dom= namectx_l; im= Namectx.concat namectx_r namectx_l }
 
   let sym _namectx_l _namectx_r = failwith "TODO"
+  let is_in_dom renam nn = Util.Pmap.mem nn renam.map
 
   let lookup renam nn =
     try Util.Pmap.lookup_exn nn renam.map
@@ -225,7 +229,7 @@ module MakeNoName (Namectx : Typectx.TYPECTX with type Names.name = unit) :
     { dom= namectx_l; im= Namectx.concat namectx_l namectx_r } (* Same here *)
 
   let sym _namectx_l _namectx_r = failwith "TODO"
-
+  let is_in_dom renam () = not (Namectx.is_empty renam.dom)
   let lookup _renam () = ()
 
   let add_fresh (renam : t) (_str : string) (typ : Namectx.typ) :
@@ -314,6 +318,10 @@ module MakeAggregate (* Not used so far *)
 
   let sym _namectx_l _namectx_r = failwith "TODO"
 
+  let is_in_dom renam = function
+    | Either.Left nn' -> Util.Pmap.mem nn' renam.map_l
+    | Either.Right nn' -> Util.Pmap.mem nn' renam.map_r
+
   let lookup renam nn =
     try
       match nn with
@@ -390,6 +398,10 @@ struct
     (map1, map2)
 
   let sym _namectx_l _namectx_r = failwith "TODO"
+
+  let is_in_dom (renam1, renam2) = function
+    | Either.Left nn' -> Renam1.is_in_dom renam1 nn'
+    | Either.Right nn' -> Renam2.is_in_dom renam2 nn'
 
   let lookup (renam1, renam2) nn =
     match nn with
