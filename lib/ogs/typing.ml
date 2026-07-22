@@ -71,7 +71,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
         ^ " and "
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxP;
         return
-          ( (Moves.Input, (nn, (a_nf, renaming))),
+          ( (Moves.Output, (nn, (a_nf, renaming))),
             { status= Passive; storectx; namectxO; namectxP } )
 
   let check_move pos (dir, (_nn, (a_nf, renaming))) =
