@@ -176,12 +176,12 @@
     const successModal = createModal('success', true);
 
     setModalTitle(successModal, "🏆 SUCCÈS");
-    setModalMessage(successModal, "Vous avez déclenché un failwith. Félicitations !");
     addModalButton(successModal, "Ok", (_) => closeModal(successModal));
 
-    function onSuccess() {
+    function onSuccess(message) {
+        console.log(message);
+        setModalMessage(successModal, "Game stopped: " + message);
         openModal(successModal);
-        // no-op outside of the tutorial
     }
 
     const debugLogCheck = document.getElementById('debug-log-check');

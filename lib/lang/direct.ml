@@ -208,7 +208,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) :
         let lnamectx = IEnv.dom ienv in
         return
           (((a_nf_term, discl_store), lnamectx, storectx_discl), ienv, store')
-    | None -> fail ()
+    | None -> stop ()
 
   let fill_abstract_val storectx fnamectxP nf_skeleton =
     let gen_val in_ty =

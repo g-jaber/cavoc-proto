@@ -22,7 +22,7 @@ The modification will be done in lib/RefML/lexer.mll, and possibly in the functi
 
 * [x] Merge the interface of interactive_build.mli (used by the web interface), graph.mli and generate_trace.mli (used by the CLI executable) into a single one, with two implementations
 
-* [ ] Distinguish divergence and failwith in the return of interactive_build in both front-ends.
+* [*] Distinguish divergence and failwith in the return of interactive_build in both front-ends.
   - We should instantiate IBUILD with a monad that provides various results
   - or we would allow interactive_build to return a type result M.m rather than unit M.m
  
@@ -33,6 +33,17 @@ The modification will be done in lib/RefML/lexer.mll, and possibly in the functi
 * [ ] Design a type for the return type of get_move representing the action performed by the user
   - the int type used currently is too simple
   - we could also encapsulate the return type of get_move in the monad M
+
+* [ ] Refactor the way stopping the game is implemented
+  - As of now, quitting the game (when the user clicks "stop" or "load"...) is
+    implemented by  '''throwing''' (using Lwt.fail) an exception and handling
+    it in bin/page_init.ml. interactive_build (in lib/lts...) has no concept of
+    a user quitting the game: its return value describes the reason why the
+    proponent stopped playing.
+  - It would be nice to handle the user quitting the game by extending monad M
+    (the "user-interaction monad" in RUN_LTS) with the concept of stopping
+    the game. This is probably linked to the previous point (design a return type
+    for get_move)
 
 * Provide a way to backtrack an action during the interaction
   - [ ] Generalize the get_move callback found in both Generate_trace.generate and Interactive_build.interactive_build functions to handle a backtrack event

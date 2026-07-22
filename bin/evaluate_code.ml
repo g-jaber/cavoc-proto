@@ -113,6 +113,7 @@ module RunMultiLts (MultiLts : Lts_kind.MULTI_RESULT_LTS_WITH_INIT) = struct
     let res = EvalMonad.run m in
     let res_to_json = function
       | EvalMonad.PropStop -> None
+      | EvalMonad.PropDiverges -> None
       | EvalMonad.Continue (_, pas_conf) ->
           let conf_json = passive_conf_to_yojson pas_conf in
           Some conf_json
@@ -156,8 +157,9 @@ let evaluate_code () =
         IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
           init_conf
       with (* Should we deal with failure encapsulated in the Lwt monad ?*)
-      | () -> let () = Js.Unsafe.global##onSuccess [||] in
-                          Lwt.return 1
+      | reason ->
+          let () = Js.Unsafe.global##onSuccess (Js.Unsafe.inject reason) in
+          Lwt.return 1
   else
     let (module OGS_LTS) = Lts_kind.build_concrete_lts kind_lts in
     let module RunLts = RunSingleLts (OGS_LTS) in
@@ -171,5 +173,6 @@ let evaluate_code () =
         IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
           init_conf
       with (* Should we deal with failure encapsulated in the Lwt monad ?*)
-      | () -> let () = Js.Unsafe.global##onSuccess [||] in
-                          Lwt.return 1
+      | reason ->
+          let () = Js.Unsafe.global##onSuccess (Js.Unsafe.inject reason) in
+          Lwt.return 1

@@ -27,6 +27,7 @@ module type RUNNABLE = sig
    *)
   type 'a result = 
     | PropStop (** This means that the proponent (i.e. the module) has stopped playing. *)
+    | PropDiverges
     | Continue of 'a (** The interpreter successfuly returned some configuration(s). *)
 
   (**
@@ -40,7 +41,7 @@ module type RUNNABLE = sig
   type 'a r
 
   val run : 'a m -> 'a result r
-  val fail : unit -> 'a m
+  val stop : unit -> 'a m
 end
 
 (**
@@ -51,6 +52,7 @@ end
 module Result = struct
   type 'a result = 
     | PropStop
+    | PropDiverges
     | Continue of 'a
   type 'a m = 'a result list
 
@@ -61,12 +63,16 @@ module Result = struct
 
   let ( let* ) (a : 'a m) (f : 'a -> 'b m) : 'b m  =
     let bs = List.map
-      (function PropStop -> [ PropStop ] | Continue x -> f x) a in
+      (function
+        | Continue x -> f x
+        | PropStop -> [ PropStop ]
+        | PropDiverges -> [ PropDiverges ]) a
+    in
     List.concat bs
 
   let run x = x
 
-  let fail () : 'a m =
+  let stop () =
     [ PropStop ]
 end
 
@@ -79,6 +85,7 @@ end
 module SingleResult = struct
   type 'a result =
     | PropStop
+    | PropDiverges
     | Continue of 'a
   type 'a m = 'a result
   type 'a r = 'a
@@ -87,12 +94,15 @@ module SingleResult = struct
     Continue x
 
   let ( let* ) (a : 'a m) (f : 'a -> 'b m) : 'b m =
-    (function PropStop -> PropStop | Continue x -> f x) a
+    (function
+      | Continue x -> f x
+      | PropStop -> PropStop
+      | PropDiverges -> PropDiverges) a
 
   let run a : 'a r =
     a
-  
-  let fail () : 'a m =
+
+  let stop () =
     PropStop
 end
 

@@ -131,7 +131,7 @@ module MakeCompSymbolic (BranchMonad : Util.Monad.BRANCH) :
     match
     Interpreter.normalize_opconf opconf with
     | _ :: _ as res -> List.map (fun x -> Continue x) res
-    | [] -> fail ()
+    | [] -> [ PropDiverges ]
 end
 
 module MakeCompConcrete (BranchMonad : Util.Monad.BRANCH) :
@@ -158,7 +158,7 @@ module MakeCompConcrete (BranchMonad : Util.Monad.BRANCH) :
     match
     Interpreter.normalize_opconf opconf with
     | res :: [] -> Continue res
-    | [] -> fail ()
+    | [] -> PropDiverges
     | _ -> failwith "Non-determinism in concrete interpreter"
 end
 
