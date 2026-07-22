@@ -19,11 +19,6 @@ body {
   right: 0;
 }
 
-.container.signature {
-  position: relative;
-  left: 1%;
-}
-
 /* Header Styles - For all h2 elements */
 h2 {
   margin-top: 0;
@@ -41,11 +36,6 @@ h2 {
 }
 
 #center-controls {
-  position: fixed;
-  bottom: 40%;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
   display: flex;       /* Met les éléments côte à côte */
   gap: 10px;           /* Espace entre les deux boutons */
   align-items: center; /* Aligne verticalement */
@@ -92,11 +82,12 @@ h2 {
 #output-container {
   display: flex;
   height: 40%;
-  width: 98%;
-  position: fixed;
-  margin-left: 0%;
-  bottom: 0%;
+  width: 100%;
+  position: absolute;
+  left: 0;
+  bottom: 0;
   font-family: "Courier New", Courier, monospace;
+  justify-content: space-between;
 }
 
 /* Container for buttons side by side */
@@ -109,8 +100,6 @@ h2 {
 
 /* Select Button */
 #select-btn {
-
-  position: fixed;
   background-color: #2ecc71;
   height: 50px;
   border-radius: 5px;
@@ -118,9 +107,6 @@ h2 {
   font-family: "Courier New", Courier, monospace;
   font-size: larger;
   border: solid 2px black;
-  bottom: 40%;
-  left: 10%;
-  transform: translate(-50%);
   z-index: 10;
   cursor: pointer;
   padding: 12px 25px;
@@ -170,8 +156,6 @@ h2 {
 
 /* Stop Button */
 #stop-btn {
-
-  position: fixed;
   background-color: #2ecc71;
   height: 50px;
   border-radius: 5px;
@@ -179,9 +163,6 @@ h2 {
   font-family: "Courier New", Courier, monospace;
   font-size: larger;
   border: solid 2px black;
-  bottom: 40%;
-  left: 18%;
-  transform: translate(-50%);
   z-index: 10;
   cursor: pointer;
   padding: 12px 25px;
@@ -193,7 +174,6 @@ h2 {
 
 /* Actions List and Select Action Styles - All relating to the action list container */
 #select-move {
-  width: 40%;
   height: 99%;
   overflow-y: scroll; 
   border-radius: 8px;
@@ -281,9 +261,7 @@ input[type="radio"] {
 }
 
 #histo-config-container {
-  width: 60%;
   margin-top: -2%;
-  padding-left: 1%;
   color: #f8f8f2;
   font-family: monospace;
   position: relative;
