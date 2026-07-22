@@ -98,6 +98,26 @@ h2 {
   margin-bottom: 15px;
 }
 
+/* Shown in the Store and IEnv panes in place of a configuration whose branch
+   has no continuation: Proponent stopped playing, or the program diverges.
+   Applied from OCaml by Display_config.display_terminal_conf. */
+.conf-notice {
+  padding: 20px;
+  height: 100%;
+  background: #272822;
+  color: #e6db74;
+  font-family: monospace;
+  font-style: italic;
+}
+
+/* Disabled Buttons - Applied from OCaml by Ui_helpers.set_button_enabled.
+   !important is needed while the individual button rules below are keyed on
+   ids, which outrank a class. */
+.btn-disabled {
+  background-color: grey !important;
+  cursor: not-allowed !important;
+}
+
 /* Select Button */
 #select-btn {
   background-color: #2ecc71;

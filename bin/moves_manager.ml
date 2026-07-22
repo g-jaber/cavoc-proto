@@ -10,15 +10,18 @@
 
 open Js_of_ocaml
 
+(* Kept in reverse chronological order, so that recording a move stays O(1). *)
 let previous_moves : string list ref = ref []
 
 let display_previous_moves () : unit =
-  let moves_string = String.concat " ; " !previous_moves in
-  let move_display = Dom_html.getElementById "history" in
-  Js.Unsafe.set move_display "textContent" (Js.string moves_string)
+  let moves_string = String.concat " ; " (List.rev !previous_moves) in
+  match Dom_html.getElementById_opt "history" with
+  | None -> ()
+  | Some move_display ->
+      move_display##.textContent := Js.some (Js.string moves_string)
 
 let add_move move =
-  previous_moves := !previous_moves @ [ move ];
+  previous_moves := move :: !previous_moves;
   display_previous_moves ()
 
 let flush_moves () =

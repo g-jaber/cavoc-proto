@@ -118,6 +118,15 @@ let run_interaction (type a) (module IBuild : Lts.Interactive_build.IBUILD with 
     | line ->
         let askagain = fun () -> ask rangestr f in
         f askagain line in
+  (* Like [ask], but reports the user leaving instead of terminating the
+     process, so that get_move can answer Quit. *)
+  let rec ask_or_quit rangestr f =
+    Printf.printf "(%s/exit) %!" rangestr;
+    match String.trim (read_line ()) with
+    | (exception End_of_file) | "exit" -> None
+    | line ->
+        let askagain = fun () -> ask_or_quit rangestr f in
+        f askagain line in
   let show_move move = print_endline move in
   let show_conf conf_json =
     print_endline "Do you want to print the Proponent configuration?";
@@ -151,16 +160,19 @@ let run_interaction (type a) (module IBuild : Lts.Interactive_build.IBUILD with 
       ("Choose an integer between 1 and " ^ string_of_int n
      ^ " to decide what to do, or type 'exit' to stop.");
     let aux askagain line =
-      let i =
-        try int_of_string line
-        with Failure _ ->
+      match int_of_string_opt line with
+      | None ->
           if line <> "" then print_endline "invalid integer";
-          askagain () in
-      if i > 0 && i <= n then i - 1
-      else (
-        print_endline "choice out of range";
-        askagain ()) in
-    IBuild.M.return  @@ ask (Printf.sprintf "1..%d" n) aux in
+          askagain ()
+      | Some i ->
+          if i > 0 && i <= n then Some (i - 1)
+          else (
+            print_endline "choice out of range";
+            askagain ()) in
+    IBuild.M.return
+      (match ask_or_quit (Printf.sprintf "1..%d" n) aux with
+      | None -> Lts.Interactive_build.Quit
+      | Some i -> Lts.Interactive_build.Chose i) in
 
   let _result =
     IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
@@ -185,7 +197,7 @@ let build_strategy (module LTS : Lts_kind.SINGLE_RESULT_LTS_WITH_INIT) =
       module M = Output
 
       let choose m =
-        M.return (EvalMonad.run m)
+        M.return (Lts.Interactive_build.Chose (EvalMonad.run m))
     end
   in
 
@@ -200,7 +212,7 @@ let build_strategy (module LTS : Lts_kind.SINGLE_RESULT_LTS_WITH_INIT) =
           module M = Output
 
           let choose m =
-            M.return (EvalMonad.run m)
+            M.return (Lts.Interactive_build.Chose (EvalMonad.run m))
         end 
       in
       let init_conf =

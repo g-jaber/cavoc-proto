@@ -1,3 +1,20 @@
+(* The user may always leave the game rather than answer, so every callback
+   consulting them returns a user_action. Quitting is thus part of the
+   interface of the loop. *)
+type 'a user_action =
+  | Chose of 'a
+  | Quit
+
+type outcome =
+  | Prop_stopped
+  | Prop_diverges
+  | User_quit
+
+let string_of_outcome = function
+  | Prop_stopped -> "Proponent has quitted the game."
+  | Prop_diverges -> "The program diverges."
+  | User_quit -> "You have quitted the game."
+
 module type IBUILD = sig
   (* To be instanciated *)
   module M : Util.Monad.MONAD
@@ -10,11 +27,11 @@ module type IBUILD = sig
     show_move:(string -> unit) ->
     show_conf:(Yojson.Safe.t -> unit) ->
     show_moves_list:(Yojson.Safe.t list -> unit) ->
-    (* the argument of get_move is the 
+    (* the argument of get_move is the
     number of moves *)
-    get_move:(int -> int M.m) ->
+    get_move:(int -> int user_action M.m) ->
     conf ->
-    string M.m
+    outcome M.m
 end
 
 module type RUN_LTS = sig
@@ -22,7 +39,9 @@ module type RUN_LTS = sig
 
   module M : Util.Monad.MONAD
 
-  val choose : (TypingLTS.Moves.pol_move * passive_conf) EvalMonad.m -> (TypingLTS.Moves.pol_move * passive_conf) EvalMonad.result M.m
+  val choose :
+    (TypingLTS.Moves.pol_move * passive_conf) EvalMonad.m ->
+    (TypingLTS.Moves.pol_move * passive_conf) EvalMonad.result user_action M.m
 end
 
 module Make (M : Util.Monad.MONAD) (IntLTS : RUN_LTS with module M = M) = struct
@@ -37,11 +56,10 @@ module Make (M : Util.Monad.MONAD) (IntLTS : RUN_LTS with module M = M) = struct
     | IntLTS.Active act_conf -> begin
         let* res = IntLTS.choose (IntLTS.p_trans act_conf) in
         match res with
-        | IntLTS.EvalMonad.PropStop ->
-            return "Proponent has quitted the game.";
-        | IntLTS.EvalMonad.PropDiverges ->
-            return "The program diverges.";
-        | IntLTS.EvalMonad.Continue (output_move, pas_conf) ->
+        | Quit -> return User_quit
+        | Chose IntLTS.EvalMonad.PropStop -> return Prop_stopped
+        | Chose IntLTS.EvalMonad.PropDiverges -> return Prop_diverges
+        | Chose (IntLTS.EvalMonad.Continue (output_move, pas_conf)) ->
             let move_string =
               IntLTS.TypingLTS.Moves.string_of_pol_move output_move in
             show_move move_string;
@@ -60,11 +78,14 @@ module Make (M : Util.Monad.MONAD) (IntLTS : RUN_LTS with module M = M) = struct
           List.map IntLTS.TypingLTS.Moves.pol_move_to_yojson moves_list in
 
         show_moves_list json_list;
-        let* chosen_index = get_move (List.length json_list - 1) in
-
-        let (input_move, act_conf) = List.nth results_list chosen_index in
-        let move_string = IntLTS.TypingLTS.Moves.string_of_pol_move input_move in
-        let () = show_move move_string in
-        interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
-          (IntLTS.Active act_conf)
+        let* chosen = get_move (List.length json_list - 1) in
+        match chosen with
+        | Quit -> return User_quit
+        | Chose chosen_index ->
+            let (input_move, act_conf) = List.nth results_list chosen_index in
+            let move_string =
+              IntLTS.TypingLTS.Moves.string_of_pol_move input_move in
+            let () = show_move move_string in
+            interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
+              (IntLTS.Active act_conf)
 end

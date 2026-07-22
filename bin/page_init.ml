@@ -11,90 +11,71 @@
 *)
 
 open Js_of_ocaml
-open Js_of_ocaml_lwt
-open Lwt.Infix
+
+let evaluating_title = "You must be evaluating code to do that"
+let idle_title = "Stop evaluation to evaluate new code"
+
+(* The buttons that only make sense while an interaction is running. *)
+let interaction_buttons = [ "select-btn"; "stop-btn" ]
+
+(* The buttons used to navigate between the configurations of a symbolic LTS. *)
+let configuration_buttons = [ "conf-prev"; "conf-next"; "conf-accept" ]
+
+let set_all_enabled ?title ids state =
+  List.iter (fun id -> Ui_helpers.set_button_enabled ?title id state) ids
+
+(* Outside of an interaction the user may only start one; while one is running
+   the reverse holds. *)
+let set_interaction_running running =
+  set_all_enabled ~title:evaluating_title interaction_buttons running;
+  Ui_helpers.set_button_enabled ~title:idle_title "submit" (not running)
+
+let init_shutdown_button () =
+  match Dom_html.getElementById_opt "shutdown-btn" with
+  | None -> ()
+  | Some shut_button ->
+      shut_button##.onclick :=
+        Dom_html.handler (fun _ ->
+            Lwt.async (fun () ->
+                let%lwt _ = Js_of_ocaml_lwt.XmlHttpRequest.get "../stop" in
+                Lwt.return_unit);
+            Js._true)
+
+let init_debug_checkbox () =
+  match Dom_html.getElementById_opt "debug-log-check" with
+  | None -> ()
+  | Some debug_btn ->
+      Js.Opt.iter (Dom_html.CoerceTo.input debug_btn) (fun input ->
+          input##.checked := Js.bool !Util.Debug.debug_mode)
 
 let rec init_page () =
   Help_modal.init_help_events ();
   Printexc.record_backtrace true;
-  let button = Dom_html.getElementById "submit" in
-  let select_button = Dom_html.getElementById "select-btn" in
-  let stop_button = Dom_html.getElementById "stop-btn" in
-  let debug_btn = Dom_html.getElementById "debug-log-check" in
-  Js.Unsafe.set debug_btn "checked" (Js.bool !Util.Debug.debug_mode) ;
+  init_shutdown_button ();
+  init_debug_checkbox ();
 
-  let shut_button = Dom_html.getElementById "shutdown-btn" in
-  shut_button##.onclick := Dom_html.handler ( fun _ -> 
-    Lwt.async (fun () -> let%lwt _ = Js_of_ocaml_lwt.XmlHttpRequest.get "../stop" in Lwt.return ());
-    Js._true
-  );
+  set_all_enabled configuration_buttons false;
+  set_interaction_running false;
 
-  Ui_helpers.set_button_enabled "conf-prev" false ;
-  Ui_helpers.set_button_enabled "conf-next" false ;
-  Ui_helpers.set_button_enabled "conf-accept" false ;
+  match Dom_html.getElementById_opt "submit" with
+  | None -> ()
+  | Some submit_button ->
+      Js_of_ocaml_lwt.Lwt_js_events.async (fun () ->
+          let%lwt _ = Js_of_ocaml_lwt.Lwt_js_events.click submit_button in
+          set_interaction_running true;
 
-  Js.Unsafe.set select_button "disabled" Js._true;
-  Js.Unsafe.set select_button "style"
-    (Js.string "background-color: grey; cursor: not-allowed;");
-  Js.Unsafe.set select_button "title"
-    (Js.string "You must be evaluating code to select an move");
-  
-  Js.Unsafe.set stop_button "disabled" Js._true;
-  Js.Unsafe.set stop_button "style"
-    (Js.string "background-color: grey; cursor: not-allowed;");
-  Js.Unsafe.set stop_button "title"
-    (Js.string "You must be evaluating code to select an move");
-  
-  Js.Unsafe.set button "disabled" Js._false;
-  Js.Unsafe.set button "style"
-    (Js.string "background-color: ''; cursor: pointer;");
-  Js.Unsafe.set button "title"
-    (Js.string "Stop evaluation to evaluate new code");
-  
-  Js_of_ocaml_lwt.Lwt_js_events.async (fun () ->
-      let%lwt _ = Js_of_ocaml_lwt.Lwt_js_events.click button in
-      
-      Js.Unsafe.set button "disabled" Js._true;
-      Js.Unsafe.set button "style"
-        (Js.string "background-color: grey; cursor: not-allowed;");
-      Js.Unsafe.set button "title"
-        (Js.string "Stop evaluation to evaluate new code");
+          (* The interaction reports why it stopped, including the user leaving
+             the game, so there is nothing to catch here beyond genuine
+             failures. Either way the page returns to its idle state and waits
+             for the next evaluation. *)
+          let%lwt () =
+            Lwt.catch
+              (fun () -> Evaluate_code.evaluate_code ())
+              (fun exn ->
+                Ui_helpers.print_to_output
+                  ("Unhandled exception: " ^ Printexc.to_string exn);
+                Lwt.return_unit) in
 
-      Js.Unsafe.set select_button "disabled" Js._false;
-      Js.Unsafe.set select_button "style"
-        (Js.string "background-color: ''; cursor: pointer;");
-      Js.Unsafe.set select_button "title"
-        (Js.string "You must be evaluating code to select an move");
-
-      Js.Unsafe.set stop_button "disabled" Js._false;
-      Js.Unsafe.set stop_button "style"
-        (Js.string "background-color: ''; cursor: pointer;");
-      Js.Unsafe.set stop_button "title"
-        (Js.string "You must be evaluating code to select an move");
-      
-      Lwt.catch
-        (fun () ->
-        let%lwt result = Evaluate_code.evaluate_code () in match result with
-          | 0 -> Lwt.fail (Failure "Stop")
-          | 1 -> Lwt.fail (Failure "Stop")
-          | _ -> Lwt.return_unit)
-        (function
-          | Failure msg when msg = "Stop" ->
-              Js.Unsafe.set select_button "disabled" Js._true;
-              Js.Unsafe.set select_button "style"
-                (Js.string "background-color: grey; cursor: not-allowed;");
-              Js.Unsafe.set select_button "title"
-                (Js.string "You must be evaluating code to select an move");
-
-              Js.Unsafe.set stop_button "disabled" Js._true;
-              Js.Unsafe.set stop_button "style"
-                (Js.string "background-color: grey; cursor: not-allowed;");
-              Js.Unsafe.set stop_button "title"
-                (Js.string "You must be evaluating code to select an move");
-
-              init_page ();
-              Lwt.return_unit
-          | exn ->
-              init_page ();
-              Ui_helpers.print_to_output ("Unhandled exception: " ^ Printexc.to_string exn);
-              Lwt.return_unit))
+          set_interaction_running false;
+          init_page ();
+          Lwt.return_unit)

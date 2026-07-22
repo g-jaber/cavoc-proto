@@ -122,15 +122,27 @@ let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
         \ </div>"
         (Yojson.Safe.pretty_to_string ienv_obj)
 
-let display_conf conf_json : unit =
-  let conf_str = Yojson.Safe.pretty_to_string conf_json in
+(* The Configuration tab is an ACE editor, reached through the instance the
+   page stored on the window object (see cavocInitAce in front/common.js). *)
+let set_config_editor_text (text : string) : unit =
   let config_editor = Js.Unsafe.get Js.Unsafe.global "configEditor_instance" in
   let session = Js.Unsafe.get config_editor "session" in
-  Js.Unsafe.meth_call session
-    "setValue"
-    [| Js.Unsafe.inject (Js.string conf_str) |]
+  Js.Unsafe.meth_call session "setValue" [| Js.Unsafe.inject (Js.string text) |]
   |> ignore;
-  Js.Unsafe.meth_call config_editor "clearSelection" [||] |> ignore;
+  Js.Unsafe.meth_call config_editor "clearSelection" [||] |> ignore
+
+(* Shown in place of a configuration whose branch has no continuation, i.e. one
+   where Proponent stopped playing or the program diverges. *)
+let display_terminal_conf (reason : string) : unit =
+  set_config_editor_text reason;
+  let notice =
+    Printf.sprintf "<div class=\"conf-notice\">%s</div>"
+      (Ui_helpers.html_escape reason) in
+  Ui_helpers.update_container "store" notice;
+  Ui_helpers.update_container "ienv" notice
+
+let display_conf conf_json : unit =
+  set_config_editor_text (Yojson.Safe.pretty_to_string conf_json);
 
   match conf_json with
   | `Assoc fields -> (
