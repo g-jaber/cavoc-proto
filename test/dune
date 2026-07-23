@@ -5,3 +5,10 @@
   7-no_visible.ml
   7-no_visible.mli
   while.ml))
+
+(cram
+ (applies_to interaction)
+ (deps
+  %{bin:cavoc-explore_cli}
+  private_counter.ml
+  private_counter.mli))
