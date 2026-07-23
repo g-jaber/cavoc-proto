@@ -44,7 +44,8 @@ let generate_store_html_from_json (store_json : Yojson.Safe.t) (ienv_json : Yojs
       in
 
       if filtered_pairs = [] then
-        "<div style='padding: 10px; color: #75715e; font-style: italic;'>Store is empty or all variables are hidden by ienv.</div>"
+        "<div class=\"store-empty\">The store is empty, or all its variables \
+         are hidden by the IEnv.</div>"
       else
         filtered_pairs
         |> List.map (fun (k, v) ->
@@ -54,15 +55,17 @@ let generate_store_html_from_json (store_json : Yojson.Safe.t) (ienv_json : Yojs
               | _ -> Yojson.Safe.to_string v
             in
             Printf.sprintf
-              "<div class=\"stack-item\" style='display: flex; flex-direction: row; align-items: baseline; padding: 8px; margin-bottom: 5px;'>\n\
-               <span style='color:#fd971f; font-weight: bold; min-width: 50px; margin-right: 10px;'>%s</span>\n\
-               <span style='color:#e6db74; font-family: monospace; white-space: pre-wrap; word-break: break-all;'>%s</span>\n\
+              "<div class=\"stack-item store-row\">\n\
+               <span class=\"store-key\">%s</span>\n\
+               <span class=\"store-val\">%s</span>\n\
                </div>"
               (Ui_helpers.html_escape k) (Ui_helpers.html_escape v_str))
         |> String.concat "\n"
-        |> Printf.sprintf "<div style='padding: 10px; display: flex; flex-direction: column;'>%s</div>"
+        |> Printf.sprintf "<div class=\"store-list\">%s</div>"
 
-  | _ -> "<div style='padding: 10px; color: #f92672;'>Invalid store format (expected List of Objects)</div>"
+  | _ ->
+      "<div class=\"store-invalid\">Invalid store format (expected List of \
+       Objects)</div>"
 
 let normalize_ienv = function
   (* CPS: continuations are values (named). *)
@@ -93,30 +96,26 @@ let generate_ienv_html (ienv_obj : Yojson.Safe.t) : string =
               | `String s -> s
               | _ -> Yojson.Safe.to_string v in
             Printf.sprintf
-              "<div id='ienv-item-%s' class=\"stack-item\" style='position: relative; height: auto;'>\n\
-               <span class='ienv-id' style='color:#75715e; margin-right: 10px;'>%s</span>\n\
+              "<div id='ienv-item-%s' class=\"stack-item ienv-item\">\n\
+               <span class='ienv-id'>%s</span>\n\
                <pre id='ienv-content-%s-%i' class='ienv-code'>%s</pre>\n\
             \ </div>"
               id id id i (Ui_helpers.html_escape v_str))
         |> String.concat "\n" in
       Printf.sprintf
-        "<div style='padding: 20px; height: 100%%; overflow-y: auto; \
-         background:#272822; font-family:monospace;'>\n\
-         <h3 style='color: #a6e22e; margin-top: 0; margin-bottom: 20px;'>\n\
-        \    Interactive Environment\n\
-        \  </h3>\n\
-        \  <div id='ienv-list' style='display: flex; flex-direction: column; gap: 8px;'>\n\
+        "<div class=\"ienv-panel\">\n\
+        \  <h3 class=\"ienv-title\">Interactive Environment</h3>\n\
+        \  <div id='ienv-list'>\n\
         \    %s\n\
         \  </div>\n\
         \ </div>"
         items_html
   | _ ->
       Printf.sprintf
-        "<div style='padding: 20px; color: #e74c3c; background:#272822; font-family:monospace;'>\n\
-        \  <h3 style='color: #e74c3c; margin-top: 0;'>✗ Format invalide</h3>\n\
+        "<div class=\"ienv-panel ienv-panel-error\">\n\
+        \  <h3 class=\"ienv-title\">✗ Invalid format</h3>\n\
         \  <p>Expected a JSON object (Assoc), but received something else.</p>\n\
-        \  <div style='background: #2d2e27; padding: 15px; border-radius: 5px; \
-         margin-top: 15px; overflow-x: auto; color:#f8f8f2;'>\n\
+        \  <div class=\"ienv-error-box\">\n\
         \    <code>%s</code>\n\
         \  </div>\n\
         \ </div>"
@@ -131,9 +130,20 @@ let set_config_editor_text (text : string) : unit =
   |> ignore;
   Js.Unsafe.meth_call config_editor "clearSelection" [||] |> ignore
 
+(* The ACE editors created for the entries of the IEnv panel. A fresh set is
+   built on every configuration, so the previous ones are destroyed first:
+   otherwise each still holds its listeners and detached DOM, and they pile up
+   over a long interaction. *)
+let ienv_editors : Js.Unsafe.any list ref = ref []
+
+let destroy_ienv_editors () =
+  List.iter (fun ed -> ignore (Js.Unsafe.meth_call ed "destroy" [||])) !ienv_editors;
+  ienv_editors := []
+
 (* Shown in place of a configuration whose branch has no continuation, i.e. one
    where Proponent stopped playing or the program diverges. *)
 let display_terminal_conf (reason : string) : unit =
+  destroy_ienv_editors ();
   set_config_editor_text reason;
   let notice =
     Printf.sprintf "<div class=\"conf-notice\">%s</div>"
@@ -142,6 +152,7 @@ let display_terminal_conf (reason : string) : unit =
   Ui_helpers.update_container "ienv" notice
 
 let display_conf conf_json : unit =
+  destroy_ienv_editors ();
   set_config_editor_text (Yojson.Safe.pretty_to_string conf_json);
 
   match conf_json with
@@ -187,8 +198,9 @@ let display_conf conf_json : unit =
             
             element##.innerHTML := Js.string "";
 
-            let editor = Js.Unsafe.meth_call ace "edit" [|
+            let editor : Js.Unsafe.any = Js.Unsafe.meth_call ace "edit" [|
                 Js.Unsafe.inject (Js.string id) |] in
+            ienv_editors := editor :: !ienv_editors;
             let session = Js.Unsafe.get editor "session" in
             let renderer = Js.Unsafe.get editor "renderer" in
 

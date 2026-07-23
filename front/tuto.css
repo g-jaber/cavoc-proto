@@ -3,7 +3,7 @@
     top: 10px;
     left: 10px;
     z-index: 2000;
-    /* Au-dessus de tout */
+    /* Above everything else */
     background: rgba(39, 40, 34, 0.8);
     /* Fond sombre semi-transparent */
     padding: 8px 12px;
@@ -37,7 +37,7 @@
     text-transform: uppercase;
     transition: background 0.3s;
     display: none;
-    /* Caché par défaut */
+    /* Hidden by default */
 }
 
 #end-tuto-btn:hover {

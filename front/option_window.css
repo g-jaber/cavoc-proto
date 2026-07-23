@@ -1,15 +1,15 @@
 /* Conteneur du dropdown */
 .options-dropdown-container {
   position: relative;
-  display: block; /* S'assure qu'il prend la place nécessaire */
+  display: block; /* Take up the space it needs */
 }
 
-/* Bouton Options - Style ajusté pour matcher Evaluate */
+/* Options button - styled to match the Evaluate button */
 .options-btn {
-  height: 50px;        /* Même hauteur que Evaluate */
+  height: 50px;        /* Same height as Evaluate */
   background-color: #272822; 
   color: #f8f8f2;
-  border: 2px solid #000000; /* Bordure noire identique à Evaluate */
+  border: 2px solid #000000; /* Same black border as Evaluate */
   border-radius: 5px;
   padding: 0 15px;
   cursor: pointer;
@@ -19,7 +19,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0;           /* On enlève le margin-left car le gap du parent gère l'espace */
+  margin: 0;           /* No margin-left: the parent's gap provides the spacing */
 }
 
 .options-btn:hover {
@@ -27,15 +27,15 @@
   color: #a6e22e;
 }
 
-/* Le menu déroulant (fenêtre) */
+/* The dropdown menu */
 .options-menu-content {
   display: none; 
   position: absolute;
   
-  /* Changement ici : on ouvre vers le HAUT car le bouton est en bas de page */
+  /* Opens upwards, because the button sits at the bottom of the page */
   bottom: 100%;       
   top: auto;          
-  margin-bottom: 10px; /* Petit espace entre le bouton et le menu */
+  margin-bottom: 10px; /* A small gap between the button and the menu */
   
   left: 0;
   background-color: #272822;
@@ -48,7 +48,7 @@
   text-align: left;
 }
 
-/* Les items dans le menu */
+/* The items inside the menu */
 .option-item {
   margin: 8px 0;
   color: #f8f8f2;
@@ -61,7 +61,7 @@
 .option-item input {
   margin-right: 10px;
   cursor: pointer;
-  transform: scale(1.2); /* Checkbox un peu plus grandes */
+  transform: scale(1.2); /* Slightly larger checkboxes */
 }
 
 .option-item label {

@@ -9,6 +9,15 @@ body {
   padding-right: 1%;
   padding-top: 1%;
   /* overflow: hidden; */
+}
+
+/* Text in the Store / IEnv / History / Console panels should be selectable so
+   it can be copied. Selection is only disabled on the click-target chrome, to
+   avoid stray highlights when clicking buttons or tabs. */
+button,
+.tab-link,
+.tuto-title,
+#level-indicator {
   user-select: none;
 }
 
@@ -36,18 +45,18 @@ h2 {
 }
 
 #center-controls {
-  display: flex;       /* Met les éléments côte à côte */
-  gap: 10px;           /* Espace entre les deux boutons */
-  align-items: center; /* Aligne verticalement */
+  display: flex;       /* Lay the items out side by side */
+  gap: 10px;           /* Space between the two buttons */
+  align-items: center; /* Align them vertically */
 }
 
-/* On enlève position: fixed, left, bottom, transform car c'est le parent qui gère ça */
+/* No position: fixed, left, bottom or transform here: the parent handles placement */
 #submit {
-  position: static; /* Annule le fixed */
-  transform: none;  /* Annule le translate */
+  position: static; /* Cancels the fixed positioning */
+  transform: none;  /* Cancels the translate */
   margin: 0;
   
-  /* On garde le style visuel */
+  /* Keep the visual style */
   background-color: #2ecc71;
   height: 50px;
   border-radius: 5px;
@@ -59,12 +68,12 @@ h2 {
   padding: 0 20px;
 }
 
-/* On doit aussi corriger le hover pour qu'il ne repasse pas en fixed */
+/* The hover state must not reintroduce position: fixed either */
 #submit:hover {
   position: static;
   transform: none;
   background-color: #32b568;
-  /* On répète les propriétés visuelles importantes pour éviter des bugs d'affichage */
+  /* The important visual properties are repeated, to avoid display glitches */
   height: 50px;
   color: #000000;
   border: solid 2px black;
@@ -110,6 +119,23 @@ h2 {
   font-style: italic;
 }
 
+/* Full-page notice shown by Page_init.show_server_stopped after the server has
+   been shut down. */
+#server-stopped {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+  background: rgba(20, 20, 18, 0.92);
+  color: #f8f8f2;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 1.2rem;
+}
+
 /* Disabled Buttons - Applied from OCaml by Ui_helpers.set_button_enabled.
    !important is needed while the individual button rules below are keyed on
    ids, which outrank a class. */
@@ -137,6 +163,31 @@ h2 {
   flex-direction: column;
   align-items: center;
   row-gap: 8px;
+}
+
+/* Editor collapse toggle (front/common.js cavocToggleEditors). Without the
+   .editors-collapsed class the layout is exactly as before; the class hides the
+   two editors and lets the interaction area grow into the freed space. */
+.toggle-editors {
+  background-color: #000000;
+  color: #ffffff;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 14px;
+  font-weight: bold;
+  border: solid 1px black;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 10px 15px;
+}
+.toggle-editors:hover {
+  background-color: #32b568;
+}
+body.editors-collapsed .code-section,
+body.editors-collapsed .container.signature {
+  display: none;
+}
+body.editors-collapsed #output-container {
+  height: 75%;
 }
 
 /* Help Button */
@@ -281,7 +332,7 @@ input[type="radio"] {
 }
 
 #histo-config-container {
-  margin-top: -2%;
+  margin-top: 8px;
   color: #f8f8f2;
   font-family: monospace;
   position: relative;
@@ -308,7 +359,7 @@ input[type="radio"] {
   height: 48%;
 }
 .tab-nav {
-  justify-content: right;
+  justify-content: flex-start;
   display: flex;
 }
 
@@ -386,6 +437,85 @@ input[type="radio"] {
   /* Light text color for action items */
 }
 
+/* Store panel - built by Display_config.generate_store_html_from_json. The
+   div-level rules are scoped under #store so they outrank the blanket
+   "#store div" rule above (which still styles the plain-string store display). */
+#store .store-list {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+}
+#store .store-row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  padding: 8px;
+  margin-bottom: 5px;
+}
+.store-key {
+  color: #fd971f;
+  font-weight: bold;
+  min-width: 50px;
+  margin-right: 10px;
+}
+.store-val {
+  color: #e6db74;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+#store .store-empty {
+  padding: 10px;
+  color: #75715e;
+  font-style: italic;
+}
+#store .store-invalid {
+  padding: 10px;
+  color: #f92672;
+}
+
+/* IEnv panel - built by Display_config.generate_ienv_html. */
+.ienv-panel {
+  padding: 20px;
+  height: 100%;
+  overflow-y: auto;
+  background: #272822;
+  font-family: monospace;
+}
+.ienv-panel.ienv-panel-error {
+  color: #e74c3c;
+}
+.ienv-title {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #a6e22e;
+}
+.ienv-panel-error .ienv-title {
+  margin-bottom: 0.5em;
+  color: #e74c3c;
+}
+#ienv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ienv-item {
+  position: relative;
+  height: auto;
+}
+.ienv-id {
+  color: #75715e;
+  margin-right: 10px;
+}
+.ienv-error-box {
+  margin-top: 15px;
+  padding: 15px;
+  border-radius: 5px;
+  overflow-x: auto;
+  background: #2d2e27;
+  color: #f8f8f2;
+}
+
 
 #file-selection{
   position: absolute;
@@ -441,7 +571,7 @@ input[type="radio"] {
   line-height: 1.6;
 }
 
-/* Style du bouton de fermeture (X) */
+/* The close button (X) */
 .close-btn {
   color: #aaa;
   float: right;
@@ -457,7 +587,7 @@ input[type="radio"] {
   cursor: pointer;
 }
 
-/* Style spécifique pour le contenu Markdown */
+/* Markdown content */
 #markdown-content h1, #markdown-content h2 {
   color: #a6e22e;
   border-bottom: 1px solid #3e3d32;
@@ -471,19 +601,18 @@ input[type="radio"] {
   font-family: "Courier New", Courier, monospace;
 }
 
-/* Ajoutez ceci à la fin de votre style.css */
 
-/* Cible spécifiquement les balises <pre> générées par OCaml dans la console */
+/* The <pre> tags the OCaml side appends to the console */
 #console pre {
-  white-space: pre-wrap;       /* Conserve le formatage mais force le retour à la ligne */
-  word-wrap: break-word;       /* Coupe les mots s'ils sont plus longs que la ligne */
-  overflow-wrap: break-word;   /* Standard moderne pour couper les mots */
-  margin: 0;                   /* Enlève les marges par défaut qui prennent de la place */
-  max-width: 100%;             /* S'assure que le texte ne dépasse pas le conteneur */
+  white-space: pre-wrap;       /* Keep the formatting, but still wrap long lines */
+  word-wrap: break-word;       /* Break words that are longer than the line */
+  overflow-wrap: break-word;   /* The modern property for breaking words */
+  margin: 0;                   /* Drop the default margins, which waste space */
+  max-width: 100%;             /* Keep the text inside its container */
 }
 
-/* S'assure que l'onglet console lui-même ne déborde pas */
+/* Keep the console tab itself from overflowing */
 #console {
-  overflow-x: hidden;          /* Empêche l'apparition d'une barre de scroll horizontale parasite */
-  width: 100%;                 /* Force la largeur à rester celle du parent */
+  overflow-x: hidden;          /* Avoid a stray horizontal scroll bar */
+  width: 100%;                 /* Keep the width of the parent */
 }

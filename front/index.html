@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -22,7 +22,7 @@
         </script>
 
         <div id="file-selection" class="file-selection-container">
-            <label for="file-select">Select a file:</label>
+            <label for="file-select-dropdown">Select a file:</label>
             <select id="file-select-dropdown" class="file-select">
             </select>
             <button id="load-btn" class="load-btn">Load</button>
@@ -39,12 +39,12 @@
     <script>
         const successModal = createModal('success', true);
 
-        setModalTitle(successModal, "🏆 SUCCÈS");
+        setModalTitle(successModal, "Interaction ended");
         addModalButton(successModal, "Ok", (_) => closeModal(successModal));
 
+        // Called by OCaml (see evaluate_code.ml) once the interaction is over
         function onSuccess(message) {
-            console.log(message);
-            setModalMessage(successModal, "Game stopped: " + message);
+            setModalMessage(successModal, message);
             openModal(successModal);
         }
 
@@ -54,16 +54,16 @@
         });
 
         window.onload = async function () {
-            // --- LOGIQUE DE JEU (DOSSIER TEST) ---
+            // --- The modules offered in the dropdown come from test/ ---
 
             let filesList = [];
             try {
-                // On demande au serveur de lister les fichiers du dossier TEST
+                // Ask the server to list the files of the test directory
                 const response = await fetch('http://localhost:8000/list_files?dir=test');
                 filesList = await response.json();
             }
             catch(e){
-                console.log("Erreur lors du chargement de la liste des fichiers:", e);
+                console.log("Error loading the file list:", e);
             }
 
             // Filter the list to get only the .ml files
@@ -120,14 +120,14 @@
             }
         };
 
-        // Gestion du menu Options
+        // Options menu
         document.getElementById('options-btn').addEventListener('click', function(e) {
             e.stopPropagation();
             const menu = document.getElementById('options-menu');
             menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
         });
 
-        // Fermer le menu si on clique ailleurs
+        // Close the menu when clicking anywhere else
         document.addEventListener('click', function(e) {
             const menu = document.getElementById('options-menu');
             const btn = document.getElementById('options-btn');
@@ -136,19 +136,17 @@
             }
         });
 
-        // Interaction automatique : Direct Style active WellBracketing
+        // Direct Style implies WellBracketing
         const directStyleCheck = document.getElementById('direct-style-check');
         const wellBracketingCheck = document.getElementById('wellbracketing-check');
 
         directStyleCheck.addEventListener('change', function() {
             if (this.checked) {
-                // 1. On force WellBracketing à être coché
+                // Force WellBracketing on, and lock it so it cannot be unticked
                 wellBracketingCheck.checked = true;
-                // 2. On verrouille (grise) la case pour empêcher l'utilisateur de la décocher
-                wellBracketingCheck.disabled = true; 
+                wellBracketingCheck.disabled = true;
             } else {
-                // Si on décoche Direct Style, on déverrouille WellBracketing
-                // (L'utilisateur peut maintenant choisir de le laisser ou l'enlever)
+                // Unlock it again: the user is free to keep it or not
                 wellBracketingCheck.disabled = false;
             }
         });

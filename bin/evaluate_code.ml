@@ -55,7 +55,7 @@ let get_move n =
   let%lwt choice = Moves_display.get_chosen_move () in
   match choice with
   | Chosen i when i >= 0 && i < nb_moves ->
-      Ui_helpers.print_to_output ("Chosen move index: " ^ string_of_int i);
+      Ui_helpers.print_to_output ("Selected move: " ^ string_of_int i);
       Lwt.return (Lts.Interactive_build.Chose i)
   | Chosen i ->
       Ui_helpers.print_to_output

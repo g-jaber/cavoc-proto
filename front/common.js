@@ -34,14 +34,15 @@ function cavocEditorsMarkup({ codeTitle, signatureTitle }) {
         <button id="help-btn" class="help-btn">Help</button>
       </div>
       <div id="shutdown" class="shutdown">
-        <button id="shutdown-btn" class="shutdown-btn">shutdown</button>
+        <button id="shutdown-btn" class="shutdown-btn">Shutdown</button>
       </div>
+      <button id="toggle-editors" class="toggle-editors" onclick="cavocToggleEditors(this)">Hide editors</button>
     </div>
 
     <div id="help-modal" class="modal">
       <div class="modal-content">
         <span class="close-btn">&times;</span>
-        <div id="markdown-content">Chargement...</div>
+        <div id="markdown-content">Loading…</div>
       </div>
     </div>`;
 }
@@ -67,12 +68,12 @@ const CAVOC_OPTIONS_MENU_MARKUP = `
               </div>
               <hr style="border: 0; border-top: 1px solid #555; margin: 5px 0;">
               <div class="option-item">
-                <input type="checkbox" id="symbolic-check" checked="false">
+                <input type="checkbox" id="symbolic-check">
                 <label for="symbolic-check">Symbolic</label>
               </div>
               <hr style="border: 0; border-top: 1px solid #555; margin: 5px 0;">
               <div class="option-item">
-                <input type="checkbox" id="debug-log-check" checked="false">
+                <input type="checkbox" id="debug-log-check">
                 <label for="debug-log-check">Debug Log</label>
               </div>
             </div>
@@ -110,11 +111,11 @@ function cavocWorkspaceMarkup({ optionsMenu = false, configNav = false } = {}) {
         <div id="histo-config-container">
           <div class="tabs">
             <div class="tab-nav">
-              <button class="tab-link" onclick="openTab(event, 'config')">Configuration</button>
-              <button class="tab-link active" onclick="openTab(event, 'ienv')">IEnv</button>
-              <button class="tab-link" onclick="openTab(event, 'store')">Store</button>
-              <button class="tab-link" onclick="openTab(event, 'histo')">History</button>
-              <button class="tab-link" onclick="openTab(event, 'console')">Console</button>
+              <button class="tab-link" data-tab="config" onclick="openTab(event, 'config')">Configuration</button>
+              <button class="tab-link active" data-tab="ienv" onclick="openTab(event, 'ienv')">IEnv</button>
+              <button class="tab-link" data-tab="store" onclick="openTab(event, 'store')">Store</button>
+              <button class="tab-link" data-tab="histo" onclick="openTab(event, 'histo')">History</button>
+              <button class="tab-link" data-tab="console" onclick="openTab(event, 'console')">Console</button>
             </div>
 
             <div id="config" class="tab-content"></div>
@@ -131,6 +132,20 @@ function cavocWorkspaceMarkup({ optionsMenu = false, configNav = false } = {}) {
         </div>
       </div>
     </div>`;
+}
+
+/* Collapses the two code editors to give the interaction area more room. The
+   collapsed state is a single class on <body>, so the default layout is exactly
+   what it was before this toggle existed. */
+function cavocToggleEditors(btn) {
+    const collapsed = document.body.classList.toggle('editors-collapsed');
+    btn.textContent = collapsed ? 'Show editors' : 'Hide editors';
+    if (!collapsed) {
+        // ACE renders at zero size while its container is hidden, so it must be
+        // resized once the editors are shown again.
+        if (window.editor_instance) window.editor_instance.resize();
+        if (window.signatureEditor_instance) window.signatureEditor_instance.resize();
+    }
 }
 
 function openTab(event, tabId) {

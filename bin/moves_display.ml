@@ -41,9 +41,23 @@ let highlight_subject (move_json_str : string) : unit =
     | _ -> ()
   with _ -> ()
 
+let click_button id =
+  match Dom_html.getElementById_opt id with
+  | None -> ()
+  | Some el -> ignore (Js.Unsafe.meth_call el "click" [||])
+
 let generate_clickables moves =
   let moves_list = Dom_html.getElementById "moves-list" in
   moves_list##.innerHTML := Js.string "";
+  (* Keyboard control while focus is inside the moves list: the radios already
+     move with the arrow keys natively; Enter selects and Escape stops. Scoped
+     to the list so it never interferes with typing in the editors. *)
+  moves_list##.onkeydown := Dom_html.handler (fun e ->
+    match e##.keyCode with
+    | 13 -> click_button "select-btn"; Js._false
+    | 27 -> click_button "stop-btn"; Js._false
+    | _ -> Js._true);
+  let first_radio = ref None in
   List.iteri
     (fun index (id, move) ->
       let checkbox_div = Dom_html.createDiv Dom_html.document in
@@ -66,6 +80,11 @@ let generate_clickables moves =
           Dom_html.document in
       radio##.id := Js.string (Printf.sprintf "move_%d" id);
       radio##.checked := Js.bool (index = 0);
+      if index = 0 then first_radio := Some radio;
+      (* Keep the highlight in step with arrow-key navigation, which fires
+         [change] rather than the div's [click]. *)
+      radio##.onchange := Dom_html.handler (fun _ ->
+        highlight_subject move; Js._true);
 
       let label = Dom_html.createLabel Dom_html.document in
       label##setAttribute (Js.string "for") (Js.string (Printf.sprintf "move_%d" id));
@@ -87,6 +106,10 @@ let generate_clickables moves =
       );
       Dom.appendChild moves_list checkbox_div)
     moves;
+  (* Focus the first move so the arrow keys drive the list straight away. *)
+  (match !first_radio with
+   | Some radio -> ignore (Js.Unsafe.meth_call radio "focus" [||])
+   | None -> ());
   match moves with
     | (_, first_move_json) :: _ ->
         highlight_subject first_move_json
