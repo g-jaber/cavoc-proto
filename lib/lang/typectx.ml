@@ -210,7 +210,7 @@ end) : TYPECTX with type typ = Types.t and type Names.name = unit = struct
           fmt name_ctx
 
   let to_string = Format.asprintf "[%a]" pp
-  let get_names _ = [ () ]
+  let get_names = List.map (fun _ -> ())
   let to_yojson nctx = `List (List.map Types.to_yojson nctx)
 
   let lookup_exn nctx () =

@@ -1,0 +1,7 @@
+(cram
+ (applies_to visibility)
+ (deps
+  %{bin:cavoc-explore_cli}
+  7-no_visible.ml
+  7-no_visible.mli
+  while.ml))
