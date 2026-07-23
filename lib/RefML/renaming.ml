@@ -1,12 +1,12 @@
-module FRenaming : Lang.Renaming.RENAMING with module Namectx = Namectx.FNamectx =
-  Lang.Renaming.Make (Namectx.FNamectx)
+module FRenaming : Lang.Renaming.WEAKENING with module Namectx = Namectx.FNamectx =
+  Lang.Renaming.MakeWeak (Namectx.FNamectx)
 
-module PRenamingP : Lang.Renaming.RENAMING with module Namectx = Namectx.PNamectxP =
-  Lang.Renaming.Make (Namectx.PNamectxP)
+module PRenamingP : Lang.Renaming.WEAKENING with module Namectx = Namectx.PNamectxP =
+  Lang.Renaming.MakeWeak (Namectx.PNamectxP)
 
-module PRenamingO : Lang.Renaming.RENAMING with module Namectx = Namectx.PNamectxO =
-  Lang.Renaming.Make (Namectx.PNamectxO)
+module PRenamingO : Lang.Renaming.WEAKENING with module Namectx = Namectx.PNamectxO =
+  Lang.Renaming.MakeWeak (Namectx.PNamectxO)
 
-module PRenaming = Lang.Renaming.Aggregate (PRenamingP) (PRenamingO) (Namectx.PNamectx)
+module PRenaming = Lang.Renaming.AggregateWeak (PRenamingP) (PRenamingO) (Namectx.PNamectx)
 
-module Renaming = Lang.Renaming.Aggregate (FRenaming) (PRenaming) (Namectx.Namectx)
+module Renaming = Lang.Renaming.AggregateWeak (FRenaming) (PRenaming) (Namectx.Namectx)

@@ -23,8 +23,21 @@ module MyLwt = struct
   let ( let* ) = Lwt.bind
 end
 
-let show_move move = Moves_manager.add_move move
+let show_move player move = Moves_manager.add_move player move
 let show_conf conf : unit = Display_config.display_conf conf
+
+(* Reports why the interaction stopped. Leaving the game is the user's own
+   doing, so it is only logged; the other outcomes are worth a modal. *)
+let report_interaction_end (outcome : Lts.Interactive_build.outcome) =
+  let open Lts.Interactive_build in
+  match outcome with
+  | User_quit ->
+      Ui_helpers.print_to_output (string_of_outcome outcome);
+      Lwt.return_unit
+  | Prop_stopped | Prop_diverges ->
+      let message = Js.string (string_of_outcome outcome) in
+      let () = Js.Unsafe.global##onSuccess (Js.Unsafe.inject message) in
+      Lwt.return_unit
 
 let show_moves_list (json_list : Yojson.Safe.t list) =
   let display_of (v : Yojson.Safe.t) = Yojson.Safe.pretty_to_string v in
@@ -37,30 +50,59 @@ let show_moves_list (json_list : Yojson.Safe.t list) =
   Moves_display.generate_clickables moves
 
 let get_move n =
-  let n = n + 1 in
-  let%lwt i = Moves_display.get_chosen_move n in
-  Ui_helpers.print_to_output ("Chosen move index: " ^ string_of_int i);
-  match i with
-  | i when i >= 0 && i < n -> Lwt.return i
-  | -1 ->
+  let open Interaction_signals in
+  let nb_moves = n + 1 in
+  let%lwt choice = Moves_display.get_chosen_move () in
+  match choice with
+  | Chosen i when i >= 0 && i < nb_moves ->
+      Ui_helpers.print_to_output ("Selected move: " ^ string_of_int i);
+      Lwt.return (Lts.Interactive_build.Chose i)
+  | Chosen i ->
+      Ui_helpers.print_to_output
+        (Printf.sprintf "Move index %d out of range (0..%d)" i (nb_moves - 1));
+      Lwt.fail (Failure "Move index out of range")
+  | Interrupted ->
       Moves_manager.clear_list ();
-      Lwt.fail (Failure "Stop")
-  | -2 -> Lwt.fail (Failure "No button")
-  | _ ->
-      Ui_helpers.print_to_output "error : unknown";
-      Lwt.fail (Failure "Unknown error")
+      Lwt.return Lts.Interactive_build.Quit
+  | (No_selection | Missing_buttons) as choice ->
+      let msg = string_of_move_choice choice in
+      Ui_helpers.print_to_output ("Error: " ^ msg);
+      Lwt.fail (Failure msg)
+
+(* A click on one of these buttons abandons the current interaction. They are
+   optional: a page need not offer every way of leaving the game. *)
+let interrupt_buttons () =
+  List.filter_map Dom_html.getElementById_opt [ "load-btn"; "stop-btn" ]
+
+(* What to show for one of the configurations the user is browsing. Terminal
+   branches carry their own explanation, so that Proponent stopping and the
+   program diverging stay distinguishable. *)
+type conf_preview =
+  | Runnable of Yojson.Safe.t  (** the passive configuration to display *)
+  | Terminal of string  (** why this branch has no continuation *)
 
 let choose_conf confs =
+  let open Lts.Interactive_build in
   let nconf = List.length confs in
 
   (* avoid prompting the user everytime the LTS stops *)
-  if nconf = 1 then Lwt.return 0 else
+  if nconf = 1 then Lwt.return (Chose 0) else
 
-  let load_btn   = Dom_html.getElementById "load-btn" in
-  let stop_btn   = Dom_html.getElementById "stop-btn" in
-  let accept_btn = Dom_html.getElementById "conf-accept" in
-  let prev_btn   = Dom_html.getElementById "conf-prev" in
-  let next_btn   = Dom_html.getElementById "conf-next" in
+  match
+    ( Dom_html.getElementById_opt "conf-accept",
+      Dom_html.getElementById_opt "conf-prev",
+      Dom_html.getElementById_opt "conf-next" )
+  with
+  | None, _, _ | _, None, _ | _, _, None ->
+      (* This page offers no way to navigate between configurations, so waiting
+         for a click that cannot happen would hang the interaction. *)
+      Ui_helpers.print_to_output
+        (Printf.sprintf
+           "No configuration navigation on this page: selecting the first of \
+            %d configurations."
+           nconf);
+      Lwt.return (Chose 0)
+  | Some accept_btn, Some prev_btn, Some next_btn ->
 
   Ui_helpers.set_button_enabled "select-btn" false ;
   show_moves_list [] ;
@@ -75,10 +117,8 @@ let choose_conf confs =
     Ui_helpers.set_button_enabled "conf-accept" true ;
 
     match List.nth confs !cur with
-    | Some conf -> show_conf conf
-    | None ->
-        Js.Unsafe.meth_call Js.Unsafe.global "alert"
-          [| Js.Unsafe.inject @@ Js.string "This configuration causes the opponent to quit the game" |]
+    | Runnable conf -> show_conf conf
+    | Terminal reason -> Display_config.display_terminal_conf reason
   in
 
   update () ;
@@ -97,11 +137,13 @@ let choose_conf confs =
     Lwt.return x
   in
 
-  Lwt.pick [
-    (Lwt_js_events.click accept_btn >>= disable >>= fun _ -> Lwt.return !cur) ;
-    (Lwt_js_events.click load_btn >>= disable >>= fun _ -> Lwt.fail (Failure "Stop")) ;
-    (Lwt_js_events.click stop_btn >>= disable >>= fun _ -> Lwt.fail (Failure "Stop")) ;
-  ]
+  Lwt.pick
+    ((Lwt_js_events.click accept_btn >>= disable >>= fun _ ->
+      Lwt.return (Chose !cur))
+     :: List.map
+          (fun btn ->
+            Lwt_js_events.click btn >>= disable >>= fun _ -> Lwt.return Quit)
+          (interrupt_buttons ()))
 
 module RunMultiLts (MultiLts : Lts_kind.MULTI_RESULT_LTS_WITH_INIT) = struct
   include MultiLts
@@ -110,16 +152,20 @@ module RunMultiLts (MultiLts : Lts_kind.MULTI_RESULT_LTS_WITH_INIT) = struct
 
   let choose m =
     let open M in
+    let open Lts.Interactive_build in
     let res = EvalMonad.run m in
-    let res_to_json = function
-      | EvalMonad.PropStop -> None
-      | EvalMonad.PropDiverges -> None
+    let res_to_preview = function
+      | EvalMonad.PropStop ->
+          Terminal "Proponent stops playing in this configuration."
+      | EvalMonad.PropDiverges ->
+          Terminal "The program diverges in this configuration."
       | EvalMonad.Continue (_, pas_conf) ->
-          let conf_json = passive_conf_to_yojson pas_conf in
-          Some conf_json
+          Runnable (passive_conf_to_yojson pas_conf)
     in
-    let* choosen_conf = choose_conf (List.map res_to_json res) in
-    return @@ List.nth res choosen_conf
+    let* choosen_conf = choose_conf (List.map res_to_preview res) in
+    match choosen_conf with
+    | Quit -> return Quit
+    | Chose i -> return (Chose (List.nth res i))
 
   let _ = choose
 end
@@ -129,7 +175,9 @@ module RunSingleLts (SingleLts : Lts_kind.SINGLE_RESULT_LTS_WITH_INIT) = struct
 
   module M = MyLwt
 
-  let choose m = M.return (EvalMonad.run m)
+  let choose m =
+    let open Lts.Interactive_build in
+    M.return (Chose (EvalMonad.run m))
 end
 
 let evaluate_code () =
@@ -153,13 +201,10 @@ let evaluate_code () =
       OGS_LTS.Passive (OGS_LTS.lexing_init_pconf lexBuffer_code lexBuffer_sig)
     in
 
-    match%lwt
-        IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
-          init_conf
-      with (* Should we deal with failure encapsulated in the Lwt monad ?*)
-      | reason ->
-          let () = Js.Unsafe.global##onSuccess (Js.Unsafe.inject reason) in
-          Lwt.return 1
+    let%lwt outcome =
+      IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
+        init_conf in
+    report_interaction_end outcome
   else
     let (module OGS_LTS) = Lts_kind.build_concrete_lts kind_lts in
     let module RunLts = RunSingleLts (OGS_LTS) in
@@ -169,10 +214,7 @@ let evaluate_code () =
       OGS_LTS.Passive (OGS_LTS.lexing_init_pconf lexBuffer_code lexBuffer_sig)
     in
 
-    match%lwt
-        IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
-          init_conf
-      with (* Should we deal with failure encapsulated in the Lwt monad ?*)
-      | reason ->
-          let () = Js.Unsafe.global##onSuccess (Js.Unsafe.inject reason) in
-          Lwt.return 1
+    let%lwt outcome =
+      IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
+        init_conf in
+    report_interaction_end outcome

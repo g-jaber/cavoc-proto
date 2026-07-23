@@ -1,3 +1,3 @@
-# Bienvenue dans le niveau 2 !
+# Welcome to level 2
 
-Description du niveau 2
+TODO: describe level 2.

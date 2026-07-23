@@ -39,6 +39,9 @@ module Make (IntLts : Strategy.LTS_WITH_INIT) :
     IntLts.equiv_act_conf act_conf1a act_conf1b
     && IntLts.equiv_act_conf act_conf2a act_conf2b
 
+  let get_active_pos (act_conf1, _, _) = IntLts.get_active_pos act_conf1
+  let get_passive_pos (pas_conf1, _, _) = IntLts.get_passive_pos pas_conf1
+
   let p_trans (act_conf1, act_conf2, span) =
     let open EvalMonad in
     let* (move1, pas_conf1) = IntLts.p_trans act_conf1 in

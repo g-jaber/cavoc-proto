@@ -1,12 +1,23 @@
-# How to play to CAVOC ?
+# How to play CAVOC
 
-**YOUR GOAL** : Trigger a `failwith` event or error.
+You play the role of a client of the module shown on screen. The module and its
+signature are fixed; you choose how to interact with it.
+
+**Your goal:** trigger a `failwith` or an assertion failure.
 
 ## Rules
-1. **Analyse** : Two panels : code and signature.
-2. **Evaluate** : Click on the "Evaluate" button.
-3. **Play :D** : Select a move available in the list.
 
-## Tips
-* Try to check out the Store window to see the memory.
-* **ienv** windows could show some interesting things :DD.
+1. **Read** the two panels: the module code, and the signature it exposes.
+2. **Evaluate**: click the "Evaluate" button to start the interaction.
+3. **Play**: select one of the available moves, then click "Select".
+
+Repeat step 3 until the module fails, or click "Stop" to leave the game.
+
+## Panels
+
+* **Configuration** shows the current state of the interaction.
+* **IEnv** shows the values the module has handed to you so far, which are the
+  ones you may use in your next move.
+* **Store** shows the contents of the memory.
+* **History** shows the moves played so far.
+* **Console** shows messages from the evaluator.

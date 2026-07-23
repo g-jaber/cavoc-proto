@@ -70,6 +70,14 @@ and term =
   | Error
 
 val pp_term : Format.formatter -> term -> unit
+
+(** Like [pp_term], with names displayed by the provided printer. *)
+val pp_term_in :
+  (Format.formatter -> Names.name -> unit) ->
+  Format.formatter ->
+  term ->
+  unit
+
 val string_of_term : term -> string
 
 type name_set = Names.name list

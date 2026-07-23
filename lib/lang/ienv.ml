@@ -1,5 +1,5 @@
 module type IENV = sig
-  module Renaming : Renaming.RENAMING
+  module Renaming : Renaming.WEAKENING
 
   type value
 
@@ -47,7 +47,7 @@ module type IENV_ORDERED = sig
 end
 
 module Make_PMAP
-    (Renaming : Renaming.RENAMING)
+    (Renaming : Renaming.WEAKENING)
     (Value : sig
       type t [@@deriving to_yojson]
 
@@ -113,15 +113,16 @@ struct
     let pp_sep fmt () = Format.fprintf fmt ", " in
     let pp_empty fmt () = Format.fprintf fmt "⋅" in
     let pp_pair fmt (n, value) =
-      Format.fprintf fmt "%a ↦ %a" Renaming.Namectx.Names.pp_name n Value.pp
-        value in
+      Format.fprintf fmt "%s ↦ %a"
+        (Renaming.Namectx.show_name_in ienv.dom n)
+        Value.pp value in
     Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt ienv.map
 
   let to_string = Format.asprintf "%a" pp
 
   let to_yojson ienv =
     let to_string (nn, value) =
-      (Renaming.Namectx.Names.string_of_name nn, Value.to_yojson value) in
+      (Renaming.Namectx.show_name_in ienv.dom nn, Value.to_yojson value) in
     `Assoc (Util.Pmap.to_list @@ Util.Pmap.map to_string ienv.map)
 
   let lookup_exn ienv nn = Util.Pmap.lookup_exn nn ienv.map
@@ -140,7 +141,7 @@ struct
 end
 
 module Make_List
-    (Renaming : Renaming.RENAMING_LIST)
+    (Renaming : Renaming.WEAKENING_LIST)
     (Value : sig
       type t [@@deriving to_yojson]
 
@@ -161,14 +162,17 @@ struct
     im: Renaming.Namectx.t;
   }
 
+  let show_entry i str =
+    if str = "" then Renaming.Namectx.Names.string_of_name i else str
+
   let pp fmt ienv =
     match ienv.map with
     | [] -> Format.fprintf fmt "⋅"
     | map' ->
-        let map'' = List.mapi (fun i (str,v) -> ((i,str),v)) map' in 
+        let map'' = List.mapi (fun i (str, v) -> (show_entry i str, v)) map' in
         let pp_sep fmt () = Format.fprintf fmt ", " in
         Format.pp_print_list ~pp_sep
-          (fun fmt (nn, v) -> Format.fprintf fmt "%a:%a" Renaming.Namectx.Names.pp_name  nn Value.pp v)
+          (fun fmt (str, v) -> Format.fprintf fmt "%s:%a" str Value.pp v)
           fmt map''
 
   let to_string = Format.asprintf "%a" pp
@@ -176,9 +180,7 @@ struct
   let to_yojson ienv =
     `Assoc
       (List.mapi
-         (fun i (str, v) ->
-           let str = Format.asprintf "%a" Renaming.Namectx.Names.pp_name (i, str) in
-           (str, Value.to_yojson v))
+         (fun i (str, v) -> (show_entry i str, Value.to_yojson v))
          ienv.map)
 
   let empty im = { map= []; dom= Renaming.Namectx.empty; im }
@@ -191,7 +193,9 @@ struct
     let names_l = Renaming.Namectx.get_names dom in
     let map =
       List.map
-        (fun ((_i, str) as nn) -> (str, embed_name @@ Renaming.lookup renam nn))
+        (fun nn ->
+          ( Renaming.Namectx.show_name_in dom nn,
+            embed_name @@ Renaming.lookup renam nn ))
         names_l in
     (* This rely on the fact that names_l is in the right order *)
     { map; dom; im }
@@ -236,7 +240,7 @@ struct
     let ienv2' = weaken_l ienv2 (im ienv1) in
     copairing ienv1' ienv2'
 
-  let lookup_exn ienv (i, _) = snd @@ List.nth ienv.map i
+  let lookup_exn ienv i = snd @@ List.nth ienv.map i
 
   let add_fresh ienv str ty value =
     let (nn, dom) = Renaming.Namectx.add_fresh ienv.dom str ty in
@@ -249,11 +253,11 @@ struct
 
   let fold (f : 'a -> Renaming.Namectx.Names.name * value -> 'a) (v : 'a)
       (ienv : t) =
-    List.fold_left f v (List.mapi (fun i (str, v) -> ((i, str), v)) ienv.map)
+    List.fold_left f v (List.mapi (fun i (_str, v) -> (i, v)) ienv.map)
 end
 
 module Make_Stack
-    (Renaming : Renaming.RENAMING with type Namectx.Names.name = unit)
+    (Renaming : Renaming.WEAKENING with type Namectx.Names.name = unit)
     (Value : sig
       type t [@@deriving to_yojson]
 
@@ -348,7 +352,7 @@ module Aggregate
     (IEnv1 : IENV)
     (IEnv2 : IENV)
     (Renaming :
-      Renaming.RENAMING
+      Renaming.WEAKENING
         with type Namectx.Names.name =
           ( IEnv1.Renaming.Namectx.Names.name,
             IEnv2.Renaming.Namectx.Names.name )
@@ -458,7 +462,7 @@ module AggregateCommon
         with type Renaming.Namectx.typ = IEnv1.Renaming.Namectx.typ
          and type value = IEnv1.value)
     (Renaming :
-      Renaming.RENAMING
+      Renaming.WEAKENING
         with type Namectx.Names.name =
           ( IEnv1.Renaming.Namectx.Names.name,
             IEnv2.Renaming.Namectx.Names.name )

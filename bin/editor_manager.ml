@@ -16,9 +16,9 @@ let editor_filename = ref ""
 let signature_filename = ref ""
 
 let fetch_editor_content () =
-  let editor = Js.Unsafe.get Js.Unsafe.global "editor_instance" in
+  let editor = Js.Unsafe.get Js.Unsafe.global "editor" in
   let signature_editor =
-    Js.Unsafe.get Js.Unsafe.global "signatureEditor_instance" in
+    Js.Unsafe.get Js.Unsafe.global "signatureEditor" in
 
   editor_content := Js.to_string (Js.Unsafe.meth_call editor "getValue" [||]);
   signature_content :=

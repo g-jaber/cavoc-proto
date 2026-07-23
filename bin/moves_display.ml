@@ -34,21 +34,34 @@ let highlight_subject (move_json_str : string) : unit =
     match json with
     | `Assoc fields ->
         (match List.assoc_opt "subjectName" fields with
-        | Some (`String name) -> set_target_highlighted name
+        | Some (`String name) when name <> "" -> set_target_highlighted name
         (* No subject name: Direct style, this move is a "return" and there is
            at least one context so active-ctx exists *)
         | _ -> set_target_highlighted "active-ctx")
     | _ -> ()
   with _ -> ()
 
+let click_button id =
+  match Dom_html.getElementById_opt id with
+  | None -> ()
+  | Some el -> ignore (Js.Unsafe.meth_call el "click" [||])
+
 let generate_clickables moves =
   let moves_list = Dom_html.getElementById "moves-list" in
   moves_list##.innerHTML := Js.string "";
+  (* Keyboard control while focus is inside the moves list: the radios already
+     move with the arrow keys natively; Enter selects and Escape stops. Scoped
+     to the list so it never interferes with typing in the editors. *)
+  moves_list##.onkeydown := Dom_html.handler (fun e ->
+    match e##.keyCode with
+    | 13 -> click_button "select-btn"; Js._false
+    | 27 -> click_button "stop-btn"; Js._false
+    | _ -> Js._true);
+  let first_radio = ref None in
   List.iteri
     (fun index (id, move) ->
       let checkbox_div = Dom_html.createDiv Dom_html.document in
-      let checked_attr = if index = 0 then " checked" else "" in
-      
+
       let display_label =
         try
           match Yojson.Safe.from_string move with
@@ -60,12 +73,26 @@ let generate_clickables moves =
         with _ -> move
       in
 
-      checkbox_div##.innerHTML :=
-        Js.string
-          (Printf.sprintf
-            "<input type='radio' name='move' id='move_%d'%s> <label \
-              for='move_%d'>%s</label>"
-            id checked_attr id display_label);
+      (* Built from nodes: [display_label] is a pretty-printed move, which may
+         contain '<' and '&'. *)
+      let radio =
+        Dom_html.createInput ~_type:(Js.string "radio") ~name:(Js.string "move")
+          Dom_html.document in
+      radio##.id := Js.string (Printf.sprintf "move_%d" id);
+      radio##.checked := Js.bool (index = 0);
+      if index = 0 then first_radio := Some radio;
+      (* Keep the highlight in step with arrow-key navigation, which fires
+         [change] rather than the div's [click]. *)
+      radio##.onchange := Dom_html.handler (fun _ ->
+        highlight_subject move; Js._true);
+
+      let label = Dom_html.createLabel Dom_html.document in
+      label##setAttribute (Js.string "for") (Js.string (Printf.sprintf "move_%d" id));
+      label##.textContent := Js.some (Js.string display_label);
+
+      Dom.appendChild checkbox_div radio;
+      Dom.appendChild checkbox_div (Dom_html.document##createTextNode (Js.string " "));
+      Dom.appendChild checkbox_div label;
 
       checkbox_div##.onclick := Dom_html.handler (fun _ ->
         highlight_subject move;
@@ -79,61 +106,66 @@ let generate_clickables moves =
       );
       Dom.appendChild moves_list checkbox_div)
     moves;
+  (* Focus the first move so the arrow keys drive the list straight away. *)
+  (match !first_radio with
+   | Some radio -> ignore (Js.Unsafe.meth_call radio "focus" [||])
+   | None -> ());
   match moves with
     | (_, first_move_json) :: _ ->
         highlight_subject first_move_json
     | [] -> ()
 
-let get_chosen_move _ =
-  let select_btn_opt = Dom_html.getElementById_opt "select-btn" in
-  let load_btn_opt = Dom_html.getElementById_opt "load-btn" in
-  let stop_btn_opt = Dom_html.getElementById_opt "stop-btn" in
-  match (select_btn_opt, load_btn_opt, stop_btn_opt) with
-  | (None, _, _) -> Lwt.return (-2)
-  | (_, None, _) -> Lwt.return (-2)
-  | (_, _, None) -> Lwt.return (-2)
-  | (Some select_btn, Some load_btn, Some stop_btn) ->
-      Lwt.choose
-        [
-          ( Lwt_js_events.click select_btn >>= fun _ ->
-            let moves_list_opt = Dom_html.getElementById_opt "moves-list" in
-            match moves_list_opt with
-            | None -> Lwt.return (-2)
-            | Some moves_list ->
-                let children = Dom.list_of_nodeList moves_list##.childNodes in
-                let selected_move =
-                  List.fold_left
-                    (fun acc child ->
-                      match
-                        Js.Opt.to_option (Dom_html.CoerceTo.element child)
-                      with
-                      | None -> acc
-                      | Some element -> (
-                          match
-                            element##querySelector
-                              (Js.string "input[type='radio']")
-                          with
-                          | exception _ -> acc
-                          | input_opt -> (
-                            match Js.Opt.to_option input_opt with
-                              | None -> acc
-                              | Some input -> (
-                                  let input = Dom_html.CoerceTo.input input in
-                                  match Js.Opt.to_option input with
-                                    | None -> acc
-                                  | Some radio_input ->
-                                      if Js.to_bool radio_input##.checked then
-                                        let id_str =
-                                          Js.to_string radio_input##.id in
-                                        match
-                                          String.split_on_char '_' id_str
-                                        with
-                                        | [ _; num_str ] ->
-                                            int_of_string num_str
-                                        | _ -> acc
-                                      else acc))))
-                    (-4) children in
-                Lwt.return selected_move );
-          (Lwt_js_events.click load_btn >>= fun _ -> Lwt.return (-1));
-          (Lwt_js_events.click stop_btn >>= fun _ -> Lwt.return (-1));
-        ]
+(* Index carried by the radio button of a move, encoded in its id as
+   "move_<id>" by [generate_clickables]. *)
+let move_index_of_radio radio_input =
+  match String.split_on_char '_' (Js.to_string radio_input##.id) with
+  | [ _; num_str ] -> int_of_string_opt num_str
+  | _ -> None
+
+(* The index of the move whose radio button is currently checked, if any. *)
+let selected_move_index moves_list =
+  let children = Dom.list_of_nodeList moves_list##.childNodes in
+  List.fold_left
+    (fun acc child ->
+      match acc with
+      | Some _ -> acc
+      | None ->
+          let ( let* ) o f = match o with None -> None | Some x -> f x in
+          let* element = Js.Opt.to_option (Dom_html.CoerceTo.element child) in
+          let* input =
+            match element##querySelector (Js.string "input[type='radio']") with
+            | exception _ -> None
+            | input_opt -> Js.Opt.to_option input_opt in
+          let* radio_input = Js.Opt.to_option (Dom_html.CoerceTo.input input) in
+          if Js.to_bool radio_input##.checked then move_index_of_radio radio_input
+          else None)
+    None children
+
+(* The buttons that abandon the interaction. They are optional: the tutorial
+   page, for instance, offers no way to load another module. *)
+let interrupt_buttons = [ "load-btn"; "stop-btn" ]
+
+let get_chosen_move () =
+  let open Interaction_signals in
+  match Dom_html.getElementById_opt "select-btn" with
+  | None -> Lwt.return Missing_buttons
+  | Some select_btn ->
+      let interrupts =
+        List.filter_map
+          (fun id ->
+            match Dom_html.getElementById_opt id with
+            | None -> None
+            | Some btn ->
+                Some (Lwt_js_events.click btn >>= fun _ -> Lwt.return Interrupted))
+          interrupt_buttons in
+      (* [pick] cancels the losing threads: without that, their click listeners
+         pile up across rounds. *)
+      Lwt.pick
+        (( Lwt_js_events.click select_btn >>= fun _ ->
+           match Dom_html.getElementById_opt "moves-list" with
+           | None -> Lwt.return Missing_buttons
+           | Some moves_list -> (
+               match selected_move_index moves_list with
+               | Some i -> Lwt.return (Chosen i)
+               | None -> Lwt.return No_selection) )
+         :: interrupts)

@@ -10,15 +10,26 @@
 
 open Js_of_ocaml
 
-let previous_moves : string list ref = ref []
+(* Reverse chronological order, so recording a move stays O(1). *)
+let previous_moves : (Lts.Interactive_build.player * string) list ref = ref []
+
+let chip_html (player, move) =
+  let modifier =
+    match player with
+    | Lts.Interactive_build.Opponent -> "trace-o"
+    | Lts.Interactive_build.Proponent -> "trace-p" in
+  Printf.sprintf "<span class=\"trace-move %s\">%s</span>" modifier
+    (Ui_helpers.html_escape move)
 
 let display_previous_moves () : unit =
-  let moves_string = String.concat " ; " !previous_moves in
-  let move_display = Dom_html.getElementById "history" in
-  Js.Unsafe.set move_display "textContent" (Js.string moves_string)
+  let html =
+    !previous_moves |> List.rev |> List.map chip_html |> String.concat "" in
+  match Dom_html.getElementById_opt "history" with
+  | None -> ()
+  | Some move_display -> move_display##.innerHTML := Js.string html
 
-let add_move move =
-  previous_moves := !previous_moves @ [ move ];
+let add_move player move =
+  previous_moves := (player, move) :: !previous_moves;
   display_previous_moves ()
 
 let flush_moves () =

@@ -48,21 +48,26 @@ module Make
 
   let string_of_active_conf = Format.asprintf "%a" pp_active_conf
   let string_of_passive_conf = Format.asprintf "%a" pp_passive_conf
+  let get_active_pos (act_conf : active_conf) = act_conf.pos
+  let get_passive_pos (pas_conf : passive_conf) = pas_conf.pos
 
   let p_trans (act_conf : active_conf) =
     let open EvalMonad in
-    (* TODO: It looks like P and O are swapped. Shouldn't the
-             opponent environment be the domain of the IEnv? *)
-    let namectxP = Lang.IEnv.dom act_conf.ienv in
+    (* γ : Γₚ → Γₒ, substitution convention: dom = the P-names γ defines,
+       im = the O-names its values may mention. *)
     let namectxO = Lang.IEnv.im act_conf.ienv in
     let* ((a_nf, lnamectx, _storectx_discl), ienv, store) =
       Lang.eval (act_conf.opconf, namectxO, TypingLTS.get_storectx act_conf.pos)
     in
-    let renaming = TypingLTS.Moves.Renaming.weak_r lnamectx namectxP in
     let nn = Lang.get_subject_name a_nf in
+    let renaming =
+      TypingLTS.place act_conf.pos TypingLTS.Moves.Output nn lnamectx in
     let move = (TypingLTS.Moves.Output, (nn, (a_nf, renaming))) in
     let pos = TypingLTS.trigger_move act_conf.pos move in
     let ienv = Lang.IEnv.copairing act_conf.ienv ienv in
+    (* The placement policy and the ienv-domain extension performed by
+       copairing must agree. *)
+    assert (TypingLTS.Moves.Renaming.im renaming = Lang.IEnv.dom ienv);
     return (move, { store; ienv; pos })
 
   let o_trans pas_conf ((_, (_, a_nf)) as input_move) =

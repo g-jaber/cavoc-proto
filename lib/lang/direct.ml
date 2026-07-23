@@ -51,7 +51,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) :
   module StackRenaming = Renaming.MakeNoName (Stackctx)
 
   module Renaming =
-    Renaming.Aggregate (OpLang.Renaming) (StackRenaming) (Namectx)
+    Renaming.AggregateWeak (OpLang.Renaming) (StackRenaming) (Namectx)
 
   module StackEnv =
     Ienv.Make_Stack
@@ -88,16 +88,24 @@ module Make (OpLang : Language.WITHAVAL_INOUT) :
     | Some res -> res
     | None -> inj_cname ()
 
-  let pp_a_nf ~pp_dir fmt (a_nf_term, store) =
+  let pp_a_nf_in ~pp_dir ~pp_free_name ~pp_bound_name fmt (a_nf_term, store) =
     let pp_ectx fmt () = Format.pp_print_string fmt "" in
     let pp_cn fmt () = Format.pp_print_string fmt "ret" in
+    let embed pp fmt nn = pp fmt (inj_name nn) in
+    let pp_fn = embed pp_free_name in
+    let pp_aval =
+      OpLang.AVal.pp_abstract_val_in ~pp_free_name:(embed pp_free_name)
+        ~pp_bound_name:(embed pp_bound_name) in
     let pp_a_nf_term =
-      OpLang.Nf.pp_nf_term ~pp_dir OpLang.AVal.pp_abstract_val pp_ectx
-        OpLang.Names.pp_name pp_cn in
+      OpLang.Nf.pp_nf_term ~pp_dir pp_aval pp_ectx pp_fn pp_cn in
     if store = OpLang.Store.empty_store then pp_a_nf_term fmt a_nf_term
     else
       Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term OpLang.Store.pp_store
         store
+
+  let pp_a_nf ~pp_dir =
+    let pp_name = IEnv.Renaming.Namectx.Names.pp_name in
+    pp_a_nf_in ~pp_dir ~pp_free_name:pp_name ~pp_bound_name:pp_name
 
   let string_of_a_nf dir =
     let pp_dir fmt = Format.pp_print_string fmt dir in

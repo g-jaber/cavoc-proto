@@ -14,9 +14,15 @@ The modification will be done in lib/RefML/lexer.mll, and possibly in the functi
   - [ ] Remove the Evaluate button and always trigger it once we start a new level
   - [x] store in a session (using a cookie ?) the current level of the tutorial reached by the user, in order to restore it
 
-* [ ] Improve the HTML/CSS code
+* [*] Improve the HTML/CSS code
   - Switch from distinct ids on every element to a more unified design using a
     small set of style classes (especially for buttons)
+  - [x] The enabled/disabled presentation of a button is the "btn-disabled"
+    class in front/style.css, applied by Ui_helpers.set_button_enabled
+  - [x] The workspace markup shared by index.html and indextuto.html is built
+    by cavocEditorsMarkup/cavocWorkspaceMarkup in front/common.js
+  - [ ] The individual button rules are still keyed on ids, which is why
+    .btn-disabled needs !important
 
 * [x] Improve handling of errors when reading the integer in get_move in the CLI binary
 
@@ -34,20 +40,23 @@ The modification will be done in lib/RefML/lexer.mll, and possibly in the functi
   - Using emit of the Output monad
   - It's difficult to change the type of run_interaction to get a module of the right type...
 
-* [ ] Design a type for the return type of get_move representing the action performed by the user
-  - the int type used currently is too simple
-  - we could also encapsulate the return type of get_move in the monad M
+* [x] Design a type for the return type of get_move representing the action performed by the user
+  - get_move returns [int Interactive_build.user_action], i.e. either [Chose i]
+    or [Quit]
+  - [ ] we could still encapsulate the return type of get_move in the monad M
 
-* [ ] Refactor the way stopping the game is implemented
-  - As of now, quitting the game (when the user clicks "stop" or "load"...) is
-    implemented by  '''throwing''' (using Lwt.fail) an exception and handling
-    it in bin/page_init.ml. interactive_build (in lib/lts...) has no concept of
-    a user quitting the game: its return value describes the reason why the
-    proponent stopped playing.
-  - It would be nice to handle the user quitting the game by extending monad M
-    (the "user-interaction monad" in RUN_LTS) with the concept of stopping
-    the game. This is probably linked to the previous point (design a return type
-    for get_move)
+* [x] Refactor the way stopping the game is implemented
+  - Quitting the game is part of the interface of the interaction loop:
+    * every callback that consults the user returns a [user_action], so both
+      get_move and RUN_LTS.choose (which asks the user to resolve
+      non-determinism) can report [Quit]
+    * interactive_build returns an [outcome], which distinguishes
+      [Prop_stopped], [Prop_diverges] and [User_quit]
+  - We chose this over extending monad M (the "user-interaction monad" in
+    RUN_LTS) with the concept of stopping: widening the callbacks' return types
+    is enough, and it keeps M as a plain MONAD, so Output/Result/SingleResult
+    are untouched. Extending M remains an option if we later want the
+    short-circuiting to be implicit in [let*].
 
 * Provide a way to backtrack an action during the interaction
   - [ ] Generalize the get_move callback found in both Generate_trace.generate and Interactive_build.interactive_build functions to handle a backtrack event
@@ -58,7 +67,7 @@ The modification will be done in lib/RefML/lexer.mll, and possibly in the functi
   - [ ] Introduce a notion of abstract value with typed holes, where the holes have to be completed by the user
   - [ ] Split the get_move callback in two functions: get_partial_move, and get_data
 
-* [ ] Correct printing of moves wrt de Bruijn indices
+* [x] Correct printing of moves wrt de Bruijn indices
 
 - [x] Rename bipartite.ml into strategies.ml
   - [x] Incorporate game-indexing in its signature

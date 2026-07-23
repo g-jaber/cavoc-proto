@@ -70,8 +70,8 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
   let extract_name_ctx (namectx, _) = namectx
   let embed_name_ctx namectx = (namectx, CNamectx.empty)
 
-  module CRenaming = Renaming.Make (CNamectx)
-  module Renaming = Renaming.Aggregate (OpLang.Renaming) (CRenaming) (Namectx)
+  module CRenaming = Renaming.MakeWeak (CNamectx)
+  module Renaming = Renaming.AggregateWeak (OpLang.Renaming) (CRenaming) (Namectx)
 
   type term = NTerm of (CNames.name * OpLang.term)
 
@@ -338,18 +338,25 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
       | APair of OpLang.AVal.abstract_val * CNames.name
       | APack of OpLang.typename list * OpLang.AVal.abstract_val * CNames.name
 
-    let pp_abstract_val fmt = function
-      | AVal aval -> OpLang.AVal.pp_abstract_val fmt aval
-      | APair (aval, cn) ->
-          Format.fprintf fmt "%a,%a" OpLang.AVal.pp_abstract_val aval
-            CNames.pp_name cn
+    let pp_abstract_val_in ~pp_free_name ~pp_bound_name fmt aval =
+      let embed pp fmt nn = pp fmt (inj_name nn) in
+      let pp_aval =
+        OpLang.AVal.pp_abstract_val_in ~pp_free_name:(embed pp_free_name)
+          ~pp_bound_name:(embed pp_bound_name) in
+      (* Continuation names of moves are always bound. *)
+      let pp_cn fmt cn = pp_bound_name fmt (inj_cname cn) in
+      match aval with
+      | AVal aval -> pp_aval fmt aval
+      | APair (aval, cn) -> Format.fprintf fmt "%a,%a" pp_aval aval pp_cn cn
       | APack (tname_l, aval, cn) ->
           let string_l =
             String.concat "," @@ List.map OpLang.string_of_typename tname_l
             (*TODO: introduce a pp_tname_l pretty printer*) in
-          Format.fprintf fmt "%s,%a,%a" string_l OpLang.AVal.pp_abstract_val
-            aval CNames.pp_name cn
+          Format.fprintf fmt "%s,%a,%a" string_l pp_aval aval pp_cn cn
 
+    let pp_abstract_val =
+      pp_abstract_val_in ~pp_free_name:Names.pp_name
+        ~pp_bound_name:Names.pp_name
     let string_of_abstract_val = Format.asprintf "%a" pp_abstract_val
     let abstract_val_to_yojson aval = `String (string_of_abstract_val aval)
 

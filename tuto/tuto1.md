@@ -1,7 +1,8 @@
-# Bienvenue dans le tuto !
+# Welcome to the tutorial
 
-**OBJECTIF :** : Déclencher un évènement `failwith` ou une erreur.
+**Your goal:** trigger a `failwith` or an assertion failure.
 
+## Hint
 
-## Indice :
-Dans ce premier niveau, le failwith se déclenchera tout seul !
+In this first level, the assertion fails on its own: you only have to start the
+interaction and keep playing the move you are offered.

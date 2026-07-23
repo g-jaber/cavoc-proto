@@ -23,6 +23,16 @@ module type AVAL = sig
   type abstract_val [@@deriving to_yojson]
 
   val pp_abstract_val : Format.formatter -> abstract_val -> unit
+
+  (* Like pp_abstract_val, with bound and free names displayed by the
+     provided printers. *)
+  val pp_abstract_val_in :
+    pp_free_name:(Format.formatter -> name -> unit) ->
+    pp_bound_name:(Format.formatter -> name -> unit) ->
+    Format.formatter ->
+    abstract_val ->
+    unit
+
   val string_of_abstract_val : abstract_val -> string
   val names_of_abstract_val : abstract_val -> name list
   val labels_of_abstract_val : abstract_val -> label list
@@ -37,7 +47,8 @@ module type AVAL = sig
 
   val subst_pnames : interactive_env -> abstract_val -> value
 
-  val rename : abstract_val -> renaming -> abstract_val 
+  (* rename A ρ instantiates the bound names of A along ρ : Δ → Γ+Δ. *)
+  val rename : abstract_val -> renaming -> abstract_val
 
   (* The typing judgment of an abstracted value Γ ⊢ A : τ ▷ Δ
      produces the interactive name contexts Δ of fresh names introduced by A.

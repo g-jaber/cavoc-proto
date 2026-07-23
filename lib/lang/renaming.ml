@@ -1,4 +1,6 @@
-module type RENAMING = sig
+(* Weakenings are the single-block inclusions Δ ↪ Γ₁ + Δ + Γ₂,
+   the composites of the coprojections of contexts. *)
+module type WEAKENING = sig
   module Namectx : Typectx.TYPECTX
 
   type t
@@ -9,7 +11,6 @@ module type RENAMING = sig
   val dom : t -> Namectx.t
   val im : t -> Namectx.t
   val compose : t -> t -> t
-  val copairing : t -> t -> t
 
   (* weak_l Δ Γ : Δ → Δ + Γ*)
   val weak_l : Namectx.t -> Namectx.t -> t
@@ -17,17 +18,26 @@ module type RENAMING = sig
   (* weak_r Δ Γ : Δ → Γ + Δ *)
   val weak_r : Namectx.t -> Namectx.t -> t
 
+  val is_in_dom : t -> Namectx.Names.name -> bool
+  val lookup : t -> Namectx.Names.name -> Namectx.Names.name
+end
+
+(* Renamings are general maps between contexts, extending weakenings with
+   the copairing of the coproduct and the symmetry. *)
+module type RENAMING = sig
+  include WEAKENING
+
+  val copairing : t -> t -> t
+
   (* sym Δ Γ : Δ + Γ → Γ + Δ*)
   val sym : Namectx.t -> Namectx.t -> t
 
-  val is_in_dom : t -> Namectx.Names.name -> bool
-  val lookup : t -> Namectx.Names.name -> Namectx.Names.name
   val add_fresh : t -> string -> Namectx.typ -> Namectx.Names.name * t
   (* The second argument is used to associate a string to the fresh variable *)
 end
 
-module type RENAMING_LIST = sig
-  include RENAMING with type Namectx.Names.name = int * string
+module type WEAKENING_LIST = sig
+  include WEAKENING with type Namectx.Names.name = int
 end
 
 module MakePmap (Namectx : Typectx.TYPECTX) :
@@ -86,7 +96,10 @@ module MakePmap (Namectx : Typectx.TYPECTX) :
     let renam = id namectx_l in
     { renam with im= Namectx.concat namectx_r namectx_l }
 
-  let sym _namectx_l _namectx_r = failwith "TODO"
+  let sym namectx_l namectx_r =
+    let renam = id (Namectx.concat namectx_l namectx_r) in
+    { renam with im= Namectx.concat namectx_r namectx_l }
+
   let is_in_dom renam nn = Util.Pmap.mem nn renam.map
   let lookup renam nn = Util.Pmap.lookup_exn nn renam.map
 
@@ -161,12 +174,23 @@ module Make (Namectx : Typectx.TYPECTX_LIST) :
     ^ string_of_int offset ^ " on the context "
     ^ Namectx.to_string namectx_l;
     let map =
-      Util.Pmap.list_to_pmap
-      @@ List.map (fun ((i, str) as nn) -> (nn, (i + offset, str))) names_l
+      Util.Pmap.list_to_pmap @@ List.map (fun i -> (i, i + offset)) names_l
     in
     { map; dom= namectx_l; im= Namectx.concat namectx_r namectx_l }
 
-  let sym _namectx_l _namectx_r = failwith "TODO"
+  let sym namectx_l namectx_r =
+    let size_l = List.length @@ Namectx.get_names namectx_l in
+    let size_r = List.length @@ Namectx.get_names namectx_r in
+    let map =
+      Util.Pmap.list_to_pmap
+      @@ List.init (size_l + size_r) (fun i ->
+             if i < size_l then (i, size_r + i) else (i, i - size_l)) in
+    {
+      map;
+      dom= Namectx.concat namectx_l namectx_r;
+      im= Namectx.concat namectx_r namectx_l;
+    }
+
   let is_in_dom renam nn = Util.Pmap.mem nn renam.map
 
   let lookup renam nn =
@@ -184,6 +208,47 @@ module Make (Namectx : Typectx.TYPECTX_LIST) :
     let renam' = { renam with im= Namectx.concat renam.im lnamectx } in
     let nn' = lookup renam_nn nn in
     (nn', copairing renam' renam_nn)
+end
+
+module MakeWeak (Namectx : Typectx.TYPECTX_LIST) :
+  WEAKENING with module Namectx = Namectx = struct
+  module Namectx = Namectx
+
+  type t = {
+    offset: int;
+    dom: Namectx.t;
+    im: Namectx.t;
+  }
+
+  let pp fmt renam =
+    if Namectx.is_empty renam.dom && Namectx.is_empty renam.im then
+      Format.fprintf fmt ""
+    else
+      Format.fprintf fmt "+%d : [%a] ⇒ [%a]" renam.offset Namectx.pp renam.dom
+        Namectx.pp renam.im
+
+  let to_string = Format.asprintf "%a" pp
+  let id namectx = { offset= 0; dom= namectx; im= namectx }
+  let dom renam = renam.dom
+  let im renam = renam.im
+  let size namectx = List.length @@ Namectx.get_names namectx
+
+  let compose renam1 renam2 =
+    assert (renam1.dom = renam2.im);
+    { offset= renam1.offset + renam2.offset; dom= renam2.dom; im= renam1.im }
+
+  let weak_l namectx_l namectx_r =
+    { offset= 0; dom= namectx_l; im= Namectx.concat namectx_l namectx_r }
+
+  let weak_r namectx_l namectx_r =
+    {
+      offset= size namectx_r;
+      dom= namectx_l;
+      im= Namectx.concat namectx_r namectx_l;
+    }
+
+  let is_in_dom renam i = 0 <= i && i < size renam.dom
+  let lookup renam i = if is_in_dom renam i then i + renam.offset else raise Not_found
 end
 
 module MakeNoName (Namectx : Typectx.TYPECTX with type Names.name = unit) :
@@ -344,6 +409,61 @@ end
 
 
 
+module AggregateWeak
+    (Weak1 : WEAKENING)
+    (Weak2 : WEAKENING)
+    (Namectx :
+      Typectx.TYPECTX
+        with type Names.name =
+          (Weak1.Namectx.Names.name, Weak2.Namectx.Names.name) Either.t
+         and type t = Weak1.Namectx.t * Weak2.Namectx.t) :
+  WEAKENING with module Namectx = Namectx and type t = Weak1.t * Weak2.t =
+struct
+  module Namectx = Namectx
+
+  type t = Weak1.t * Weak2.t
+
+  let pp fmt (renam1, renam2) =
+    Format.fprintf fmt "[%a | %a]" Weak1.pp renam1 Weak2.pp renam2
+
+  let to_string = Format.asprintf "%a" pp
+
+  let id (namectx1, namectx2) =
+    let id1 = Weak1.id namectx1 in
+    let id2 = Weak2.id namectx2 in
+    (id1, id2)
+
+  let dom (renam1, renam2) = (Weak1.dom renam1, Weak2.dom renam2)
+  let im (renam1, renam2) = (Weak1.im renam1, Weak2.im renam2)
+
+  let compose (renam11, renam12) (renam21, renam22) =
+    assert (
+      Weak1.dom renam11 = Weak1.im renam21
+      && Weak2.dom renam12 = Weak2.im renam22);
+    let renam1 = Weak1.compose renam11 renam21 in
+    let renam2 = Weak2.compose renam12 renam22 in
+    (renam1, renam2)
+
+  let weak_l (namectx1_l, namectx2_l) (namectx1_r, namectx2_r) =
+    let map1 = Weak1.weak_l namectx1_l namectx1_r in
+    let map2 = Weak2.weak_l namectx2_l namectx2_r in
+    (map1, map2)
+
+  let weak_r (namectx1_l, namectx2_l) (namectx1_r, namectx2_r) =
+    let map1 = Weak1.weak_r namectx1_l namectx1_r in
+    let map2 = Weak2.weak_r namectx2_l namectx2_r in
+    (map1, map2)
+
+  let is_in_dom (renam1, renam2) = function
+    | Either.Left nn' -> Weak1.is_in_dom renam1 nn'
+    | Either.Right nn' -> Weak2.is_in_dom renam2 nn'
+
+  let lookup (renam1, renam2) nn =
+    match nn with
+    | Either.Left nn' -> Either.Left (Weak1.lookup renam1 nn')
+    | Either.Right nn' -> Either.Right (Weak2.lookup renam2 nn')
+end
+
 module Aggregate
     (Renam1 : RENAMING)
     (Renam2 : RENAMING)
@@ -354,30 +474,7 @@ module Aggregate
          and type t = Renam1.Namectx.t * Renam2.Namectx.t) :
   RENAMING with module Namectx = Namectx and type t = Renam1.t * Renam2.t =
 struct
-  module Namectx = Namectx
-
-  type t = Renam1.t * Renam2.t
-
-  let pp fmt (renam1, renam2) =
-    Format.fprintf fmt "[%a | %a]" Renam1.pp renam1 Renam2.pp renam2
-
-  let to_string = Format.asprintf "%a" pp
-
-  let id (namectx1, namectx2) =
-    let id1 = Renam1.id namectx1 in
-    let id2 = Renam2.id namectx2 in
-    (id1, id2)
-
-  let dom (renam1, renam2) = (Renam1.dom renam1, Renam2.dom renam2)
-  let im (renam1, renam2) = (Renam1.im renam1, Renam2.im renam2)
-
-  let compose (renam11, renam12) (renam21, renam22) =
-    assert (
-      Renam1.dom renam11 = Renam1.im renam21
-      && Renam2.dom renam12 = Renam2.im renam22);
-    let renam1 = Renam1.compose renam11 renam21 in
-    let renam2 = Renam2.compose renam12 renam22 in
-    (renam1, renam2)
+  include AggregateWeak (Renam1) (Renam2) (Namectx)
 
   let copairing (renam11, renam12) (renam21, renam22) =
     assert (
@@ -387,29 +484,11 @@ struct
     let renam2 = Renam2.copairing renam12 renam22 in
     (renam1, renam2)
 
-  let weak_l (namectx1_l, namectx2_l) (namectx1_r, namectx2_r) =
-    let map1 = Renam1.weak_l namectx1_l namectx1_r in
-    let map2 = Renam2.weak_l namectx2_l namectx2_r in
-    (map1, map2)
+  let sym (namectx1_l, namectx2_l) (namectx1_r, namectx2_r) =
+    (Renam1.sym namectx1_l namectx1_r, Renam2.sym namectx2_l namectx2_r)
 
-  let weak_r (namectx1_l, namectx2_l) (namectx1_r, namectx2_r) =
-    let map1 = Renam1.weak_r namectx1_l namectx1_r in
-    let map2 = Renam2.weak_r namectx2_l namectx2_r in
-    (map1, map2)
-
-  let sym _namectx_l _namectx_r = failwith "TODO"
-
-  let is_in_dom (renam1, renam2) = function
-    | Either.Left nn' -> Renam1.is_in_dom renam1 nn'
-    | Either.Right nn' -> Renam2.is_in_dom renam2 nn'
-
-  let lookup (renam1, renam2) nn =
-    match nn with
-    | Either.Left nn' -> Either.Left (Renam1.lookup renam1 nn')
-    | Either.Right nn' -> Either.Right (Renam2.lookup renam2 nn')
-
-      (*(* weaken_r (ρ:Δ → Γ) Θ : Δ → Γ + Θ *) *)
-  let weaken_r (renam:t) (namectx:Namectx.t) : t =
+  (*(* weaken_r (ρ:Δ → Γ) Θ : Δ → Γ + Θ *) *)
+  let weaken_r (renam : t) (namectx : Namectx.t) : t =
     let renam' = weak_l (im renam) namectx in
     compose renam' renam
 

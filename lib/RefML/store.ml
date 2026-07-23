@@ -159,6 +159,8 @@ module Storectx = struct
   let add_fresh _ =
     failwith "add_fresh not relevant for store typing context. Please report."
 
+  let show_name_in _ = Names.string_of_name
+
   let map f (loc_ctx, symbolic_ctx, cons_ctx) =
     let loc_ctx' = Util.Pmap.map_im f loc_ctx in
     let symbolic_ctx' = List.map (fun (id, ty) -> (id, f ty)) symbolic_ctx in

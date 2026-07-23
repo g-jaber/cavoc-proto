@@ -20,6 +20,10 @@ module type TYPECTX = sig
   val add_fresh : t -> string -> typ -> Names.name * t
   (* The second argument is used to associate a string to the fresh variable *)
 
+  (* show_name_in Γ n is the display form of n: the string it was declared
+     with when there is one, its bare printed form otherwise. *)
+  val show_name_in : t -> Names.name -> string
+
   val map : (typ -> typ) -> t -> t
   (*val copairing : t * (t -> 'a) -> t * (t -> 'a) -> t -> 'a*)
   (* we have copairing (f:Γ -> 'a) (g:Δ -> 'a) : ((concat Γ Δ) -> 'a)*)
@@ -36,8 +40,9 @@ module type TYPECTX_PMAP = sig
        and type t = (n, typ) Util.Pmap.pmap
 end
 
+(* Contexts as lists: a name is its position; the string is a display hint. *)
 module type TYPECTX_LIST = sig
-  include TYPECTX with type Names.name = int * string
+  include TYPECTX with type Names.name = int
   (*
   type typ
 
@@ -102,6 +107,7 @@ module Make_PMAP
     let nn = Names.from_string str in
     (nn, Util.Pmap.add (nn, ty) name_ctx)
 
+  let show_name_in _ = Names.string_of_name
   let map = Util.Pmap.map_im
 
   (*let copairing (namectxl, mapl) (namectxr, mapr) nn =
@@ -131,32 +137,38 @@ module Make_List
   let empty = []
   let concat = List.append
 
+  let show_entry i str = if str = "" then Names.string_of_name i else str
+
   let pp fmt = function
     | [] -> Format.fprintf fmt "⋅"
     | name_ctx ->
         let pp_sep fmt () = Format.fprintf fmt "; " in
         Format.pp_print_list ~pp_sep
           (fun fmt (str, typ) -> Format.fprintf fmt "%s:%a" str Types.pp typ)
-          fmt name_ctx
+          fmt
+          (List.mapi (fun i (str, typ) -> (show_entry i str, typ)) name_ctx)
 
   let to_string = Format.asprintf "[%a]" pp
-  let get_names = List.mapi (fun i (str, _typ) -> (i, str))
+  let get_names nctx = List.mapi (fun i (_str, _typ) -> i) nctx
 
   let to_yojson nctx =
     `Assoc
       (List.mapi
-         (fun i (str, typ) ->
-           let str = Names.string_of_name (i, str) in
-           (str, Types.to_yojson typ))
+         (fun i (str, typ) -> (show_entry i str, Types.to_yojson typ))
          nctx)
 
-  let lookup_exn nctx (i, _) = snd @@ List.nth nctx i
+  let show_name_in nctx i =
+    match List.nth_opt nctx i with
+    | Some (str, _) -> show_entry i str
+    | None -> Names.string_of_name i
+
+  let lookup_exn nctx i = snd @@ List.nth nctx i
   let is_empty = function [] -> true | _ -> false
 
-  let is_singleton nctx (nn, _) ty =
+  let is_singleton nctx nn ty =
     match nctx with [ (_, ty') ] when nn = 0 && ty = ty' -> true | _ -> false
 
-  let is_last name_ctx (nn, _) ty =
+  let is_last name_ctx nn ty =
     let rec aux name_ctx i acc =
       match name_ctx with
       | [] -> None
@@ -165,14 +177,13 @@ module Make_List
     aux name_ctx 0 []
 
   let to_pmap name_ctx =
-    Util.Pmap.list_to_pmap
-    @@ List.mapi (fun i (str, ty) -> ((i, str), ty)) name_ctx
+    Util.Pmap.list_to_pmap @@ List.mapi (fun i (_str, ty) -> (i, ty)) name_ctx
 
-  let singleton ty = ((0, ""), [ ("", ty) ])
+  let singleton ty = (0, [ ("", ty) ])
 
   let add_fresh name_ctx str ty =
     let nn = List.length name_ctx in
-    ((nn, str), name_ctx @ [ (str, ty) ])
+    (nn, name_ctx @ [ (str, ty) ])
 
   let map f = List.map (fun (str, ty) -> (str, f ty))
 end
@@ -199,7 +210,7 @@ end) : TYPECTX with type typ = Types.t and type Names.name = unit = struct
           fmt name_ctx
 
   let to_string = Format.asprintf "[%a]" pp
-  let get_names _ = [ () ]
+  let get_names = List.map (fun _ -> ())
   let to_yojson nctx = `List (List.map Types.to_yojson nctx)
 
   let lookup_exn nctx () =
@@ -218,6 +229,7 @@ end) : TYPECTX with type typ = Types.t and type Names.name = unit = struct
   let to_pmap _nctx = Util.Pmap.empty
   let singleton ty = ((), [ ty ])
   let add_fresh nctx _str ty = ((), ty :: nctx)
+  let show_name_in _ = Names.string_of_name
   let map = List.map
 end
 
@@ -314,6 +326,10 @@ module Aggregate
     | Either.Right ty' ->
         let (nn, namectx) = Namectx2.add_fresh namectx2 str ty' in
         (Either.Right nn, (namectx1, namectx))
+
+  let show_name_in (namectx1, namectx2) = function
+    | Either.Left nn -> Namectx1.show_name_in namectx1 nn
+    | Either.Right nn -> Namectx2.show_name_in namectx2 nn
 
   let map f (namectx1, namectx2) =
     let f1 ty =
@@ -430,6 +446,12 @@ module AggregateCommon
     else
       let (nn, namectx) = Namectx2.add_fresh namectx2 str ty in
       (EmbedNames.embed2 nn, (namectx1, namectx))
+
+  let show_name_in (namectx1, namectx2) nn =
+    match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with
+    | (Some nn', None) -> Namectx1.show_name_in namectx1 nn'
+    | (None, Some nn') -> Namectx2.show_name_in namectx2 nn'
+    | _ -> Names.string_of_name nn
 
   let map f (namectx1, namectx2) =
     (Namectx1.map f namectx1, Namectx2.map f namectx2)

@@ -28,7 +28,7 @@ module Make (Moves : Lts.Moves.POLMOVES) :
   let trans_check (status, cstack) (dir, move) =
     match (status, dir) with
     | (Active, Moves.Output) ->
-        let support = Moves.Renaming.Namectx.get_names (Moves.get_namectx move) in
+        let support = Moves.get_fresh_names move in
         let cstack' = List.filter Moves.Renaming.Namectx.Names.is_cname support in
         Some (Passive, cstack' @ cstack)
     | (Passive, Moves.Input) ->

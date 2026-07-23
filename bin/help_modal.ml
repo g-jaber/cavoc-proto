@@ -9,8 +9,6 @@
 *)
 
 open Js_of_ocaml
-open Js_of_ocaml_lwt
-open Lwt.Infix
 
 let parse_markdown (md : string) : string =
   let marked = Js.Unsafe.get Js.Unsafe.global "marked" in

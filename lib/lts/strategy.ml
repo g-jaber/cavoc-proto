@@ -23,6 +23,8 @@ module type LTS = sig
   val pp_active_conf : Format.formatter -> active_conf -> unit
   val pp_passive_conf : Format.formatter -> passive_conf -> unit
   val equiv_act_conf : active_conf -> active_conf -> bool
+  val get_active_pos : active_conf -> TypingLTS.position
+  val get_passive_pos : passive_conf -> TypingLTS.position
 
   (**
     [p_trans] is used to generate the next configuration from a given
