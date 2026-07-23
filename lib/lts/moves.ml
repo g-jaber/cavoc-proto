@@ -1,6 +1,6 @@
 module type MOVES = sig
   (* to be instantiated *)
-  module Renaming : Lang.Renaming.RENAMING
+  module Renaming : Lang.Renaming.WEAKENING
   (* *)
 
   type copattern

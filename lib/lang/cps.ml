@@ -70,8 +70,8 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
   let extract_name_ctx (namectx, _) = namectx
   let embed_name_ctx namectx = (namectx, CNamectx.empty)
 
-  module CRenaming = Renaming.Make (CNamectx)
-  module Renaming = Renaming.Aggregate (OpLang.Renaming) (CRenaming) (Namectx)
+  module CRenaming = Renaming.MakeWeak (CNamectx)
+  module Renaming = Renaming.AggregateWeak (OpLang.Renaming) (CRenaming) (Namectx)
 
   type term = NTerm of (CNames.name * OpLang.term)
 

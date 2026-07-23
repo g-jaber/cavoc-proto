@@ -1,5 +1,5 @@
 module type IENV = sig
-  module Renaming : Renaming.RENAMING
+  module Renaming : Renaming.WEAKENING
 
   type value
 
@@ -47,7 +47,7 @@ module type IENV_ORDERED = sig
 end
 
 module Make_PMAP
-    (Renaming : Renaming.RENAMING)
+    (Renaming : Renaming.WEAKENING)
     (Value : sig
       type t [@@deriving to_yojson]
 
@@ -141,7 +141,7 @@ struct
 end
 
 module Make_List
-    (Renaming : Renaming.RENAMING_LIST)
+    (Renaming : Renaming.WEAKENING_LIST)
     (Value : sig
       type t [@@deriving to_yojson]
 
@@ -257,7 +257,7 @@ struct
 end
 
 module Make_Stack
-    (Renaming : Renaming.RENAMING with type Namectx.Names.name = unit)
+    (Renaming : Renaming.WEAKENING with type Namectx.Names.name = unit)
     (Value : sig
       type t [@@deriving to_yojson]
 
@@ -352,7 +352,7 @@ module Aggregate
     (IEnv1 : IENV)
     (IEnv2 : IENV)
     (Renaming :
-      Renaming.RENAMING
+      Renaming.WEAKENING
         with type Namectx.Names.name =
           ( IEnv1.Renaming.Namectx.Names.name,
             IEnv2.Renaming.Namectx.Names.name )
@@ -462,7 +462,7 @@ module AggregateCommon
         with type Renaming.Namectx.typ = IEnv1.Renaming.Namectx.typ
          and type value = IEnv1.value)
     (Renaming :
-      Renaming.RENAMING
+      Renaming.WEAKENING
         with type Namectx.Names.name =
           ( IEnv1.Renaming.Namectx.Names.name,
             IEnv2.Renaming.Namectx.Names.name )

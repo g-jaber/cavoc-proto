@@ -51,7 +51,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) :
   module StackRenaming = Renaming.MakeNoName (Stackctx)
 
   module Renaming =
-    Renaming.Aggregate (OpLang.Renaming) (StackRenaming) (Namectx)
+    Renaming.AggregateWeak (OpLang.Renaming) (StackRenaming) (Namectx)
 
   module StackEnv =
     Ienv.Make_Stack
