@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CAVOC - Tutoriel</title>
+    <title>CAVOC - Tutorial</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.5/ace.js"></script>
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="win.css" />
@@ -11,131 +11,46 @@
     <link rel="stylesheet" href="tuto.css">
     <link rel="shortcut icon" href="./" type="image/x-icon" />
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="common.js"></script>
   </head>
 
   <body>
     <div id="tuto-badge">
-      <span class="tuto-title">🎓 TUTORIEL</span>
-      <span id="level-indicator" style="font-size: 14px; color: #f8f8f2;">Niveau 1</span>
+      <span class="tuto-title">&#127891; TUTORIAL</span>
+      <span id="level-indicator" style="font-size: 14px; color: #f8f8f2;">Level 1</span>
     </div>
 
-    <div class="container code-section">
-      <h2>Code OCaml</h2>
-      <div id="editor"></div>
-    </div>
+    <script>
+      cavocMount(cavocEditorsMarkup({
+        codeTitle: 'Code OCaml',
+        signatureTitle: 'Signature OCaml',
+      }));
+    </script>
 
-    <div class="container signature">
-      <h2>Signature OCaml</h2>
-      <div id="signatureEditor"></div>
-    </div>
-    
-    <div class="button-column">
-      <div id="help" class="help">
-        <button id="help-btn" class="help-btn">Help</button>
-      </div>
-      <div id="shutdown" class="shutdown">
-        <button id="shutdown-btn" class="shutdown-btn">shutdown</button>
-      </div>
-    </div>
-    <div id="help-modal" class="modal">
-      <div class="modal-content">
-        <span class="close-btn">&times;</span>
-        <div id="markdown-content">Chargement...</div>
-      </div>
-    </div>
-
+    <!-- The tutorial sets these from the level's JSON file rather than from the
+         options menu, so they are present but never shown. -->
     <div style="display: none;">
-       <input type="checkbox" id="direct-style-check">
-       <input type="checkbox" id="wellbracketing-check">
-       <input type="checkbox" id="visibility-check">
-       <input type="checkbox" id="debug-log-check">
-       <input type="checkbox" id="symbolic-check">
-       <button id="conf-prev"></button>
-       <button id="conf-next"></button>
-       <button id="conf-accept"></button>
-       <button id="load-btn"></button> 
-       <div id="file-select-dropdown"></div> 
+      <input type="checkbox" id="direct-style-check">
+      <input type="checkbox" id="wellbracketing-check">
+      <input type="checkbox" id="visibility-check">
+      <input type="checkbox" id="debug-log-check">
+      <input type="checkbox" id="symbolic-check">
     </div>
 
-    <div id="output-container">
-      <div style="flex: 2">
-        <div id="buttons-container">
-          <button id="select-btn">Select</button>
-          <button id="stop-btn">Stop</button>
-        </div>
-        <div id="select-move">
-          <div id="moves-list"></div>
-        </div>
-      </div>
-      <div style="margin-left: 1%; flex: 7;">
-        <div id="center-controls">
-          <button id="submit">Evaluate</button>
-        </div>
-        <div id="histo-config-container">
-          <div class="tabs">
-            <div class="tab-nav">
-              <button class="tab-link" onclick="openTab(event, 'config')">Configuration</button>
-              <button class="tab-link active" onclick="openTab(event, 'ienv')">ienv</button>
-              <button class="tab-link" onclick="openTab(event, 'store')">Store</button>
-              <button class="tab-link" onclick="openTab(event, 'histo')">History</button>
-              <button class="tab-link" onclick="openTab(event, 'console')">Console</button>
-            </div>
-
-            <div id="config" class="tab-content"></div>
-            <div id="ienv" class="tab-content active">
-              <div id="ienv-div" class="tab-content active"></div>
-              <div id="stack-container" class="tab-content active"></div>
-            </div>
-            <div id="store" class="tab-content"></div>
-            <div id="histo" class="tab-content">
-              <div id="history"></div>
-            </div>
-            <div id="console" class="tab-content"></div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <script>
+      cavocMount(cavocWorkspaceMarkup({ optionsMenu: false, configNav: false }));
+      cavocInitAce();
+    </script>
 
     <script src="../_build/default/bin/explore_web.bc.js"></script>
   </body>
 
   <script>
-    // Initialisation ACE Editor
-    var editor = ace.edit("editor");
-    editor.setTheme("ace/theme/monokai");
-    editor.session.setMode("ace/mode/ocaml");
-    var signatureEditor = ace.edit("signatureEditor");
-    signatureEditor.setTheme("ace/theme/monokai");
-    signatureEditor.session.setMode("ace/mode/ocaml");
-    
-    window.editor_instance = editor;
-    window.signatureEditor_instance = signatureEditor;
-
-    var configEditor = ace.edit("config");
-    configEditor.setTheme("ace/theme/monokai");
-    configEditor.session.setMode("ace/mode/ocaml");
-    configEditor.setReadOnly(true);
-    configEditor.renderer.$cursorLayer.element.style.display = "none";
-    window.configEditor_instance = configEditor;
-
-    function openTab(event, tabId) {
-      const contents = document.querySelectorAll(".tab-content");
-      contents.forEach((content) => content.classList.remove("active"));
-      const links = document.querySelectorAll(".tab-link");
-      links.forEach((link) => link.classList.remove("active"));
-      document.getElementById(tabId).classList.add("active");
-      event.currentTarget.classList.add("active");
-    }
-  </script>
-
-  <script src="common.js"></script>
-  
-  <script>
     /* === Global declarations === */
     const cavocCurrentLevelName = 'cavoc-current-level';
     let   currentLevel = localStorage.getItem(cavocCurrentLevelName);
 
-    // Valeurs par défaut si le fichier JSON est manquant ou incomplet
+    // Default settings, used when the level's JSON file is missing or incomplete
     const DEFAULT_CONFIG = { 
         directStyle: false, 
         wellBracketing: false, 
@@ -153,27 +68,27 @@
         loadLevel(currentLevel);
     }
 
-    // Called by OCaml (see evaluate_code.ml) after a success
+    // Called by OCaml (see evaluate_code.ml) once the interaction is over
     function onSuccess(message) {
-        setModalMessage(successModal, "Game stopped: " + message);
+        setModalMessage(successModal, message);
         openModal(successModal);
     }
 
-    setModalTitle(successModal, "🏆 SUCCÈS !");
-    addModalButton(successModal, "Niveau suivant >>", _ => {
+    setModalTitle(successModal, "🏆 SUCCESS");
+    addModalButton(successModal, "Next level >>", _ => {
         nextLevel();
         closeModal(successModal);
     });
 
-    setModalTitle(tutoEndModal, "🏆 SUCCÈS !");
-    setModalMessage(tutoEndModal, "Vous avez terminé le tutoriel. Félicitations !");
-    addModalButton(tutoEndModal, "Réinitialiser le tutoriel", _ => {
+    setModalTitle(tutoEndModal, "🏆 SUCCESS");
+    setModalMessage(tutoEndModal, "You have completed the tutorial. Congratulations!");
+    addModalButton(tutoEndModal, "Restart the tutorial", _ => {
         currentLevel = 0;
 
         nextLevel();
         closeModal(tutoEndModal);
     });
-    addModalButton(tutoEndModal, "Passer à la suite", _ => {
+    addModalButton(tutoEndModal, "Continue to free play", _ => {
         window.location.href = "index.html";
     });
 
@@ -181,24 +96,24 @@
         currentLevel = 1;
     }
 
-    // Fonction principale pour charger un niveau
+    // Loads a level: its settings, its code, and its hint.
     async function loadLevel(level) {
-        console.log(`Chargement du niveau ${level}...`);
-        
-        // 1. Mise à jour visuelle du badge
-        document.getElementById("level-indicator").innerText = "Niveau " + level;
+        console.log(`Loading level ${level}...`);
 
-        // Définition des noms de fichiers
+        // 1. Update the badge
+        document.getElementById("level-indicator").innerText = "Level " + level;
+
+        // The files making up a level
         const jsonFileName = `tuto${level}.json`;
         const mlFileName = `tuto${level}.ml`;
         const mliFileName = `tuto${level}.mli`;
         const hintFileName = `tuto${level}.md`;
         
-        // Définition du nom de fichier exposé au lexer OCaml
-        window.loadedFile = `tudo${level}`;
+        // The file name reported by the OCaml lexer in its error messages
+        window.loadedFile = `tuto${level}`;
 
         // ---------------------------------------------------------
-        // ETAPE A : CHARGEMENT DE LA CONFIGURATION (JSON)
+        // STEP A: LOAD THE SETTINGS (JSON)
         // ---------------------------------------------------------
         try {
             const response = await fetch(`../tuto/${jsonFileName}`);
@@ -208,19 +123,19 @@
             if (response.ok) {
                 config = await response.json();
             } else {
-                console.warn(`Fichier ${jsonFileName} introuvable, utilisation des paramètres par défaut.`);
+                console.warn(`${jsonFileName} not found, using the default settings.`);
             }
 
-            // Application des options aux cases à cocher cachées
-            // L'opérateur '||' assure une valeur par défaut si une clé manque dans le JSON
+            // Apply the settings to the hidden checkboxes. The '||' operator
+            // supplies a default when a key is missing from the JSON.
             document.getElementById('direct-style-check').checked = config.directStyle || false;
             document.getElementById('wellbracketing-check').checked = config.wellBracketing || false;
             document.getElementById('visibility-check').checked = config.visibility || false;
             document.getElementById('symbolic-check').checked = config.symbolic || false;
 
         } catch (error) {
-            console.error("Erreur lors de la lecture du JSON de config :", error);
-            // En cas d'erreur technique, on applique les défauts pour ne pas bloquer
+            console.error("Error reading the level configuration:", error);
+            // Fall back to the defaults, so that a broken file does not block the level
             document.getElementById('direct-style-check').checked = false;
             document.getElementById('wellbracketing-check').checked = false;
             document.getElementById('visibility-check').checked = false;
@@ -228,25 +143,25 @@
         }
 
         // ---------------------------------------------------------
-        // ETAPE B : CHARGEMENT DU CODE OCAML (.ml et .mli)
+        // STEP B: LOAD THE OCAML CODE (.ml and .mli)
         // ---------------------------------------------------------
-        
-        // On charge le .ml
+
+        // Load the .ml
         fetch(`../tuto/${mlFileName}`)
           .then((response) => {
-              if (!response.ok) throw new Error("Fini"); // Si le .ml n'existe pas, c'est la fin du jeu
+              // No .ml for this level means the tutorial is over
+              if (!response.ok) throw new Error("TutorialComplete");
               return response.text();
           })
           .then((mlContent) => {
-            // Mise à jour de l'éditeur principal
             editor.session.setValue(mlContent);
-            
-            // On charge le .mli (optionnel)
+
+            // Load the .mli, which is optional
             return fetch(`../tuto/${mliFileName}`);
           })
           .then((response) => {
               if (response.ok) return response.text();
-              return ""; // Si pas de .mli, on renvoie vide
+              return ""; // No .mli: leave the signature editor empty
           })
           .then((mliContent) => {
               signatureEditor.session.setValue(mliContent);
@@ -266,16 +181,15 @@
             }
           })
           .catch((error) => {
-             if (error.message === "Fini") {
-                 // Gestion de la fin du tutoriel
+             if (error.message === "TutorialComplete") {
                  openModal(tutoEndModal);
              } else {
-                 console.error("Erreur chargement code :", error);
+                 console.error("Error loading the level code:", error);
              }
           });
     }
 
-    // Démarrage au chargement de la page
+    // Start the tutorial when the page loads
     window.onload = function () {
       loadLevel(currentLevel);
     };

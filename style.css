@@ -1,22 +1,69 @@
 /* General Body Styles */
+/* The page is a grid: the two editors (with the button column beside them) sit
+   above the interaction area, separated by a draggable splitter. --editor-h is
+   the height of the editors row and is what the splitter drags. */
 body {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  grid-template-rows: auto var(--editor-h, 46vh) 10px minmax(0, 1fr);
+  grid-template-areas:
+    "toolbar toolbar toolbar"
+    "code    sig     buttons"
+    "split   split   split"
+    "interact interact interact";
+  gap: 6px 12px;
   font-family: Arial, sans-serif;
   height: 100vh;
   margin: 0;
+  padding: 1%;
+  box-sizing: border-box;
   background-color: #dfefec;
-  padding-left: 1%;
-  padding-right: 1%;
-  padding-top: 1%;
-  /* overflow: hidden; */
+}
+
+.code-section { grid-area: code; }
+.signature { grid-area: sig; }
+.button-column { grid-area: buttons; }
+#splitter { grid-area: split; }
+#output-container { grid-area: interact; }
+
+.panel-empty {
+  padding: 16px;
+  color: #75715e;
+  font-family: "Courier New", Courier, monospace;
+  font-style: italic;
+}
+
+/* Splitter handle between the editors and the interaction area. */
+#splitter {
+  cursor: row-resize;
+  background: #b8ccc6;
+  border-radius: 3px;
+}
+#splitter:hover {
+  background: #12857a;
+}
+body.resizing {
+  cursor: row-resize;
+  user-select: none;
+}
+
+/* Text in the Store / IEnv / History / Console panels should be selectable so
+   it can be copied. Selection is only disabled on the click-target chrome, to
+   avoid stray highlights when clicking buttons or tabs. */
+button,
+.tab-link,
+.tuto-title,
+#level-indicator {
   user-select: none;
 }
 
 /* Container Styles - General layout for sections */
 .container {
-  width: 50%;
   box-sizing: border-box;
-  right: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
 }
 
 /* Header Styles - For all h2 elements */
@@ -29,25 +76,26 @@ h2 {
 /* Editor Styles - All relating to the OCaml code editor */
 #editor,
 #signatureEditor {
-  height: 45%;
-  width: 98%;
-  margin-top: 20px;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  margin-top: 8px;
   border-radius: 7px;
 }
 
 #center-controls {
-  display: flex;       /* Met les éléments côte à côte */
-  gap: 10px;           /* Espace entre les deux boutons */
-  align-items: center; /* Aligne verticalement */
+  display: flex;       /* Lay the items out side by side */
+  gap: 10px;           /* Space between the two buttons */
+  align-items: center; /* Align them vertically */
 }
 
-/* On enlève position: fixed, left, bottom, transform car c'est le parent qui gère ça */
+/* No position: fixed, left, bottom or transform here: the parent handles placement */
 #submit {
-  position: static; /* Annule le fixed */
-  transform: none;  /* Annule le translate */
+  position: static; /* Cancels the fixed positioning */
+  transform: none;  /* Cancels the translate */
   margin: 0;
   
-  /* On garde le style visuel */
+  /* Keep the visual style */
   background-color: #2ecc71;
   height: 50px;
   border-radius: 5px;
@@ -59,12 +107,12 @@ h2 {
   padding: 0 20px;
 }
 
-/* On doit aussi corriger le hover pour qu'il ne repasse pas en fixed */
+/* The hover state must not reintroduce position: fixed either */
 #submit:hover {
   position: static;
   transform: none;
   background-color: #32b568;
-  /* On répète les propriétés visuelles importantes pour éviter des bugs d'affichage */
+  /* The important visual properties are repeated, to avoid display glitches */
   height: 50px;
   color: #000000;
   border: solid 2px black;
@@ -81,11 +129,8 @@ h2 {
 /* Output Container - For displaying the output section at the bottom of the page */
 #output-container {
   display: flex;
-  height: 40%;
+  min-height: 0;
   width: 100%;
-  position: absolute;
-  left: 0;
-  bottom: 0;
   font-family: "Courier New", Courier, monospace;
   justify-content: space-between;
 }
@@ -96,6 +141,43 @@ h2 {
   justify-content: center;
   gap: 10px;
   margin-bottom: 15px;
+}
+
+/* Shown in the Store and IEnv panes in place of a configuration whose branch
+   has no continuation: Proponent stopped playing, or the program diverges.
+   Applied from OCaml by Display_config.display_terminal_conf. */
+.conf-notice {
+  padding: 20px;
+  height: 100%;
+  background: #272822;
+  color: #e6db74;
+  font-family: monospace;
+  font-style: italic;
+}
+
+/* Full-page notice shown by Page_init.show_server_stopped after the server has
+   been shut down. */
+#server-stopped {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+  background: rgba(20, 20, 18, 0.92);
+  color: #f8f8f2;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 1.2rem;
+}
+
+/* Disabled Buttons - Applied from OCaml by Ui_helpers.set_button_enabled.
+   !important is needed while the individual button rules below are keyed on
+   ids, which outrank a class. */
+.btn-disabled {
+  background-color: grey !important;
+  cursor: not-allowed !important;
 }
 
 /* Select Button */
@@ -117,6 +199,35 @@ h2 {
   flex-direction: column;
   align-items: center;
   row-gap: 8px;
+}
+
+/* Editor collapse toggle (front/common.js cavocToggleEditors). Without the
+   .editors-collapsed class the layout is exactly as before; the class hides the
+   two editors and lets the interaction area grow into the freed space. */
+.toggle-editors {
+  background-color: #000000;
+  color: #ffffff;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 14px;
+  font-weight: bold;
+  border: solid 1px black;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 10px 15px;
+}
+.toggle-editors:hover {
+  background-color: #32b568;
+}
+body.editors-collapsed {
+  /* editors row auto-sizes to the button column, keeping it visible */
+  grid-template-rows: auto auto 0 minmax(0, 1fr);
+}
+body.editors-collapsed .code-section,
+body.editors-collapsed .container.signature {
+  display: none;
+}
+body.editors-collapsed #splitter {
+  display: none;
 }
 
 /* Help Button */
@@ -207,61 +318,8 @@ input[type="radio"] {
 }
 
 /* Button inside the action list - Positioning and styling for buttons inside actions list */
-#select-action button {
-  position: relative;
-  /* Use absolute positioning to place the button outside the list */
-  left: 50%;
-  bottom: -30px;
-  /* Moves the button outside the action list */
-  transform: translateX(-50%);
-  /* Centers the button horizontally */
-  background-color: #2ecc71;
-  /* Light color for button background */
-  color: #272822;
-  /* Dark color for text to match Monokai contrast */
-  font-family: "Courier New", Courier, monospace;
-  font-size: larger;
-  border: solid 2px black;
-  border-radius: 5px;
-  cursor: pointer;
-  padding: 10px 15px;
-  /* Adds padding to the button */
-}
-
-#select-action button:hover {
-  position: relative;
-  /* Use absolute positioning to place the button outside the list */
-  left: 50%;
-  bottom: -30px;
-  /* Moves the button outside the action list */
-  transform: translateX(-50%);
-  /* Centers the button horizontally */
-  background-color: #32b568;
-  /* Light color for button background */
-  color: #272822;
-  /* Dark color for text to match Monokai contrast */
-  font-family: "Courier New", Courier, monospace;
-  font-size: larger;
-  border: solid 2px black;
-  border-radius: 5px;
-  cursor: pointer;
-  padding: 10px 15px;
-  /* Adds padding to the button */
-}
-
-/* Individual Action Item Styles - Styles for each action list item */
-#actions-list div {
-  border: 1px solid rgb(152, 152, 152);
-  border-radius: 5px;
-  padding: 1px;
-  background-color: #272822;
-  /* Monokai background color for each action item */
-  color: #f8f8f2;
-  /* Light text color for action items */
-}
-
 #histo-config-container {
-  margin-top: -2%;
+  margin-top: 8px;
   color: #f8f8f2;
   font-family: monospace;
   position: relative;
@@ -275,7 +333,29 @@ input[type="radio"] {
 }
 
 #history {
-  padding: 5%;
+  padding: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: flex-start;
+}
+
+/* Move history chips (Moves_manager.chip_html): Opponent blue, Proponent orange. */
+.trace-move {
+  font-family: "Courier New", Courier, monospace;
+  padding: 3px 9px;
+  border-radius: 5px;
+  white-space: pre;
+}
+.trace-o {
+  background: #1d2a30;
+  color: #66d9ef;
+  border: 1px solid #66d9ef;
+}
+.trace-p {
+  background: #2e2517;
+  color: #fd971f;
+  border: 1px solid #fd971f;
 }
 
 /*styles for config tabs*/
@@ -288,30 +368,31 @@ input[type="radio"] {
   height: 48%;
 }
 .tab-nav {
-  justify-content: right;
+  justify-content: flex-start;
   display: flex;
 }
 
 .tab-link {
   font-family: "Courier New", Courier, monospace;
-  background: #381414;
-  color: #f8f8f2;
+  background: #2d2e27;
+  color: #a6a69c;
   padding: 6px 20px;
   cursor: pointer;
   font-size: 16px;
-  border: 1px solid black;
+  border: 1px solid #1d1e19;
 }
 
 .tab-link.active {
   border-top-right-radius: 10px;
   border-top-left-radius: 10px;
-  border-top: solid #32b568 5px;
-  color: #32b568;
+  border-top: solid #a6e22e 4px;
+  background: #272822;
+  color: #a6e22e;
 }
 
 .tab-link:hover {
   color: #000000;
-  background: #2b9b59;
+  background: #a6e22e;
 }
 
 /* Style for tab content */
@@ -366,31 +447,94 @@ input[type="radio"] {
   /* Light text color for action items */
 }
 
-
-#file-selection{
-  position: absolute;
-  margin-left: 50%;
-  margin-top: 1%;
-  transform: translate(-50%, -50%);
-  z-index: -1px;
+/* Store panel - built by Display_config.generate_store_html_from_json. The
+   div-level rules are scoped under #store so they outrank the blanket
+   "#store div" rule above (which still styles the plain-string store display). */
+#store .store-list {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
 }
-
-.style-toggle {
-  margin-left: 15px;
-  font-family: "Courier New", Courier, monospace;
+#store .store-row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  padding: 8px;
+  margin-bottom: 5px;
+}
+.store-key {
+  color: #fd971f;
   font-weight: bold;
-  vertical-align: middle;
+  min-width: 50px;
+  margin-right: 10px;
+}
+.store-val {
+  color: #e6db74;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+#store .store-empty {
+  padding: 10px;
+  color: #75715e;
+  font-style: italic;
+}
+#store .store-invalid {
+  padding: 10px;
+  color: #f92672;
 }
 
-.style-toggle input {
-  vertical-align: middle;
-  cursor: pointer;
+/* IEnv panel - built by Display_config.generate_ienv_html. */
+.ienv-panel {
+  padding: 20px;
+  height: 100%;
+  overflow-y: auto;
+  background: #272822;
+  font-family: monospace;
+}
+.ienv-panel.ienv-panel-error {
+  color: #e74c3c;
+}
+.ienv-title {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #a6e22e;
+}
+.ienv-panel-error .ienv-title {
+  margin-bottom: 0.5em;
+  color: #e74c3c;
+}
+#ienv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ienv-item {
+  position: relative;
+  height: auto;
+}
+.ienv-id {
+  color: #75715e;
+  margin-right: 10px;
+}
+.ienv-error-box {
+  margin-top: 15px;
+  padding: 15px;
+  border-radius: 5px;
+  overflow-x: auto;
+  background: #2d2e27;
+  color: #f8f8f2;
 }
 
-.style-toggle label {
-  vertical-align: middle;
-  cursor: pointer;
-  font-size: 14px;
+
+#file-selection {
+  grid-area: toolbar;
+  justify-self: start;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
 }
 
 /* Style for Help button */
@@ -421,7 +565,7 @@ input[type="radio"] {
   line-height: 1.6;
 }
 
-/* Style du bouton de fermeture (X) */
+/* The close button (X) */
 .close-btn {
   color: #aaa;
   float: right;
@@ -437,7 +581,7 @@ input[type="radio"] {
   cursor: pointer;
 }
 
-/* Style spécifique pour le contenu Markdown */
+/* Markdown content */
 #markdown-content h1, #markdown-content h2 {
   color: #a6e22e;
   border-bottom: 1px solid #3e3d32;
@@ -451,19 +595,18 @@ input[type="radio"] {
   font-family: "Courier New", Courier, monospace;
 }
 
-/* Ajoutez ceci à la fin de votre style.css */
 
-/* Cible spécifiquement les balises <pre> générées par OCaml dans la console */
+/* The <pre> tags the OCaml side appends to the console */
 #console pre {
-  white-space: pre-wrap;       /* Conserve le formatage mais force le retour à la ligne */
-  word-wrap: break-word;       /* Coupe les mots s'ils sont plus longs que la ligne */
-  overflow-wrap: break-word;   /* Standard moderne pour couper les mots */
-  margin: 0;                   /* Enlève les marges par défaut qui prennent de la place */
-  max-width: 100%;             /* S'assure que le texte ne dépasse pas le conteneur */
+  white-space: pre-wrap;       /* Keep the formatting, but still wrap long lines */
+  word-wrap: break-word;       /* Break words that are longer than the line */
+  overflow-wrap: break-word;   /* The modern property for breaking words */
+  margin: 0;                   /* Drop the default margins, which waste space */
+  max-width: 100%;             /* Keep the text inside its container */
 }
 
-/* S'assure que l'onglet console lui-même ne déborde pas */
+/* Keep the console tab itself from overflowing */
 #console {
-  overflow-x: hidden;          /* Empêche l'apparition d'une barre de scroll horizontale parasite */
-  width: 100%;                 /* Force la largeur à rester celle du parent */
+  overflow-x: hidden;          /* Avoid a stray horizontal scroll bar */
+  width: 100%;                 /* Keep the width of the parent */
 }
