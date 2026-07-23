@@ -8,7 +8,6 @@
           interaction_signals)
  (preprocess
   (pps js_of_ocaml-ppx lwt_ppx ppx_deriving_yojson))
- (flags (:standard -w -33))
  (libraries
   refml
   lang

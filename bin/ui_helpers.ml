@@ -33,25 +33,14 @@ let set_button_enabled ?(title = default_disabled_title) id state =
       end
 
 (* Switches the visible configuration tab to the one whose content div has id
-   [name] (config / ienv / store / histo / console). The OCaml counterpart of
-   the openTab function in front/common.js, so that the OCaml side can bring a
-   tab forward - e.g. the Console when something is written there. *)
+   [name] (config / ienv / store / histo / console). Delegates to cavocShowTab
+   in front/common.js, the single implementation the tab buttons also use, so
+   the OCaml side can bring a tab forward - e.g. the Console when something is
+   written there. *)
 let show_tab (name : string) : unit =
-  let deactivate selector =
-    Dom_html.document##querySelectorAll (Js.string selector)
-    |> Dom.list_of_nodeList
-    |> List.iter (fun node ->
-           Js.Opt.iter (Dom_html.CoerceTo.element node) (fun el ->
-               el##.classList##remove (Js.string "active"))) in
-  deactivate ".tab-content";
-  deactivate ".tab-link";
-  (match Dom_html.getElementById_opt name with
-   | None -> ()
-   | Some el -> el##.classList##add (Js.string "active"));
-  Js.Opt.iter
-    (Dom_html.document##querySelector
-       (Js.string (".tab-link[data-tab=\"" ^ name ^ "\"]")))
-    (fun el -> el##.classList##add (Js.string "active"))
+  Js.Unsafe.fun_call
+    (Js.Unsafe.get Js.Unsafe.global "cavocShowTab")
+    [| Js.Unsafe.inject (Js.string name) |]
 
 (* Appends a new line to the console as a text node: [str] may carry program
    source, hence '<' and '&'. *)

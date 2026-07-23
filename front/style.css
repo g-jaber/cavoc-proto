@@ -5,10 +5,11 @@
 body {
   display: grid;
   grid-template-columns: 1fr 1fr auto;
-  grid-template-rows: var(--editor-h, 46vh) 10px minmax(0, 1fr);
+  grid-template-rows: auto var(--editor-h, 46vh) 10px minmax(0, 1fr);
   grid-template-areas:
-    "code sig  buttons"
-    "split split split"
+    "toolbar toolbar toolbar"
+    "code    sig     buttons"
+    "split   split   split"
     "interact interact interact";
   gap: 6px 12px;
   font-family: Arial, sans-serif;
@@ -24,6 +25,13 @@ body {
 .button-column { grid-area: buttons; }
 #splitter { grid-area: split; }
 #output-container { grid-area: interact; }
+
+.panel-empty {
+  padding: 16px;
+  color: #75715e;
+  font-family: "Courier New", Courier, monospace;
+  font-style: italic;
+}
 
 /* Splitter handle between the editors and the interaction area. */
 #splitter {
@@ -211,7 +219,8 @@ h2 {
   background-color: #32b568;
 }
 body.editors-collapsed {
-  grid-template-rows: auto 0 minmax(0, 1fr);
+  /* editors row auto-sizes to the button column, keeping it visible */
+  grid-template-rows: auto auto 0 minmax(0, 1fr);
 }
 body.editors-collapsed .code-section,
 body.editors-collapsed .container.signature {
@@ -309,59 +318,6 @@ input[type="radio"] {
 }
 
 /* Button inside the action list - Positioning and styling for buttons inside actions list */
-#select-action button {
-  position: relative;
-  /* Use absolute positioning to place the button outside the list */
-  left: 50%;
-  bottom: -30px;
-  /* Moves the button outside the action list */
-  transform: translateX(-50%);
-  /* Centers the button horizontally */
-  background-color: #2ecc71;
-  /* Light color for button background */
-  color: #272822;
-  /* Dark color for text to match Monokai contrast */
-  font-family: "Courier New", Courier, monospace;
-  font-size: larger;
-  border: solid 2px black;
-  border-radius: 5px;
-  cursor: pointer;
-  padding: 10px 15px;
-  /* Adds padding to the button */
-}
-
-#select-action button:hover {
-  position: relative;
-  /* Use absolute positioning to place the button outside the list */
-  left: 50%;
-  bottom: -30px;
-  /* Moves the button outside the action list */
-  transform: translateX(-50%);
-  /* Centers the button horizontally */
-  background-color: #32b568;
-  /* Light color for button background */
-  color: #272822;
-  /* Dark color for text to match Monokai contrast */
-  font-family: "Courier New", Courier, monospace;
-  font-size: larger;
-  border: solid 2px black;
-  border-radius: 5px;
-  cursor: pointer;
-  padding: 10px 15px;
-  /* Adds padding to the button */
-}
-
-/* Individual Action Item Styles - Styles for each action list item */
-#actions-list div {
-  border: 1px solid rgb(152, 152, 152);
-  border-radius: 5px;
-  padding: 1px;
-  background-color: #272822;
-  /* Monokai background color for each action item */
-  color: #f8f8f2;
-  /* Light text color for action items */
-}
-
 #histo-config-container {
   margin-top: 8px;
   color: #f8f8f2;
@@ -377,7 +333,29 @@ input[type="radio"] {
 }
 
 #history {
-  padding: 5%;
+  padding: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: flex-start;
+}
+
+/* Move history chips (Moves_manager.chip_html): Opponent blue, Proponent orange. */
+.trace-move {
+  font-family: "Courier New", Courier, monospace;
+  padding: 3px 9px;
+  border-radius: 5px;
+  white-space: pre;
+}
+.trace-o {
+  background: #1d2a30;
+  color: #66d9ef;
+  border: 1px solid #66d9ef;
+}
+.trace-p {
+  background: #2e2517;
+  color: #fd971f;
+  border: 1px solid #fd971f;
 }
 
 /*styles for config tabs*/
@@ -396,24 +374,25 @@ input[type="radio"] {
 
 .tab-link {
   font-family: "Courier New", Courier, monospace;
-  background: #381414;
-  color: #f8f8f2;
+  background: #2d2e27;
+  color: #a6a69c;
   padding: 6px 20px;
   cursor: pointer;
   font-size: 16px;
-  border: 1px solid black;
+  border: 1px solid #1d1e19;
 }
 
 .tab-link.active {
   border-top-right-radius: 10px;
   border-top-left-radius: 10px;
-  border-top: solid #32b568 5px;
-  color: #32b568;
+  border-top: solid #a6e22e 4px;
+  background: #272822;
+  color: #a6e22e;
 }
 
 .tab-link:hover {
   color: #000000;
-  background: #2b9b59;
+  background: #a6e22e;
 }
 
 /* Style for tab content */
@@ -548,30 +527,14 @@ input[type="radio"] {
 }
 
 
-#file-selection{
-  position: absolute;
-  margin-left: 50%;
-  margin-top: 1%;
-  transform: translate(-50%, -50%);
-  z-index: -1px;
-}
-
-.style-toggle {
-  margin-left: 15px;
-  font-family: "Courier New", Courier, monospace;
-  font-weight: bold;
-  vertical-align: middle;
-}
-
-.style-toggle input {
-  vertical-align: middle;
-  cursor: pointer;
-}
-
-.style-toggle label {
-  vertical-align: middle;
-  cursor: pointer;
-  font-size: 14px;
+#file-selection {
+  grid-area: toolbar;
+  justify-self: start;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
 }
 
 /* Style for Help button */

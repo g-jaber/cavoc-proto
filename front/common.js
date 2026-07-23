@@ -83,7 +83,7 @@ const CAVOC_OPTIONS_MENU_MARKUP = `
    Evaluate_code.choose_conf falls back to the first configuration when these
    buttons are absent. */
 const CAVOC_CONFIG_NAV_MARKUP = `
-          <div style="display: flex; flex-direction: column">
+          <div id="config-nav" style="display: flex; flex-direction: column">
             <span>Configurations: </span>
             <div>
               <button id="conf-prev">Previous</button>
@@ -96,16 +96,18 @@ function cavocWorkspaceMarkup({ optionsMenu = false, configNav = false } = {}) {
     return `
     <div id="splitter" title="Drag to resize the editors"></div>
     <div id="output-container">
-      <div style="flex: 2">
+      <div style="flex: 3; min-width: 0;">
         <div id="buttons-container">
           <button id="select-btn">Select</button>
           <button id="stop-btn">Stop</button>
         </div>
         <div id="select-move">
-          <div id="moves-list"></div>
+          <div id="moves-list">
+            <div class="panel-empty">Load a module and click Evaluate to see the available moves.</div>
+          </div>
         </div>
       </div>
-      <div style="margin-left: 1%; flex: 7;">
+      <div style="margin-left: 1%; flex: 5; min-width: 0;">
         <div id="center-controls">${optionsMenu ? CAVOC_OPTIONS_MENU_MARKUP : ''}
           <button id="submit">Evaluate</button>${configNav ? CAVOC_CONFIG_NAV_MARKUP : ''}
         </div>
@@ -141,8 +143,8 @@ function cavocInitSplitter() {
     const splitter = document.getElementById('splitter');
     if (!splitter) return;
     const resizeAce = () => {
-        if (window.editor_instance) window.editor_instance.resize();
-        if (window.signatureEditor_instance) window.signatureEditor_instance.resize();
+        if (window.editor) window.editor.resize();
+        if (window.signatureEditor) window.signatureEditor.resize();
     };
     let dragging = false;
     splitter.addEventListener('mousedown', (e) => {
@@ -174,23 +176,27 @@ function cavocToggleEditors(btn) {
     if (!collapsed) {
         // ACE renders at zero size while its container is hidden, so it must be
         // resized once the editors are shown again.
-        if (window.editor_instance) window.editor_instance.resize();
-        if (window.signatureEditor_instance) window.signatureEditor_instance.resize();
+        if (window.editor) window.editor.resize();
+        if (window.signatureEditor) window.signatureEditor.resize();
     }
 }
 
+/* Brings a configuration tab forward, given the id of its content div. The
+   single source of truth for tab switching: openTab (the button onclick) and
+   Ui_helpers.show_tab on the OCaml side both go through it. */
+function cavocShowTab(tabId) {
+    document.querySelectorAll(".tab-content").forEach(
+        (c) => c.classList.remove("active"));
+    document.querySelectorAll(".tab-link").forEach(
+        (l) => l.classList.remove("active"));
+    const content = document.getElementById(tabId);
+    if (content) content.classList.add("active");
+    const link = document.querySelector('.tab-link[data-tab="' + tabId + '"]');
+    if (link) link.classList.add("active");
+}
+
 function openTab(event, tabId) {
-    // Hide all tab contents
-    const contents = document.querySelectorAll(".tab-content");
-    contents.forEach((content) => content.classList.remove("active"));
-
-    // Remove "active" class from all tab links
-    const links = document.querySelectorAll(".tab-link");
-    links.forEach((link) => link.classList.remove("active"));
-
-    // Show the selected tab content, and mark its link as active
-    document.getElementById(tabId).classList.add("active");
-    event.currentTarget.classList.add("active");
+    cavocShowTab(tabId);
 }
 
 /* Must run once the markup above is mounted, and before explore_web.bc.js:
@@ -210,13 +216,10 @@ function cavocInitAce() {
     configEditor.setReadOnly(true);
     configEditor.renderer.$cursorLayer.element.style.display = "none";
 
-    window.editor_instance = editor;
-    window.signatureEditor_instance = signatureEditor;
-    window.configEditor_instance = configEditor;
-
-    // Shorter aliases, used by the page-specific scripts.
+    // Exposed on window so the page scripts and the OCaml side can reach them.
     window.editor = editor;
     window.signatureEditor = signatureEditor;
+    window.configEditor = configEditor;
 
     cavocInitSplitter();
 }

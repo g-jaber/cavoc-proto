@@ -23,7 +23,7 @@ module MyLwt = struct
   let ( let* ) = Lwt.bind
 end
 
-let show_move move = Moves_manager.add_move move
+let show_move player move = Moves_manager.add_move player move
 let show_conf conf : unit = Display_config.display_conf conf
 
 (* Reports why the interaction stopped. Leaving the game is the user's own

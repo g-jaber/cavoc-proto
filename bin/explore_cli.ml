@@ -127,7 +127,12 @@ let run_interaction (type a) (module IBuild : Lts.Interactive_build.IBUILD with 
     | line ->
         let askagain = fun () -> ask_or_quit rangestr f in
         f askagain line in
-  let show_move move = print_endline move in
+  let show_move player move =
+    let tag =
+      match player with
+      | Lts.Interactive_build.Proponent -> "P: "
+      | Lts.Interactive_build.Opponent -> "O: " in
+    print_endline (tag ^ move) in
   let show_conf conf_json =
     print_endline "Do you want to print the Proponent configuration?";
     let aux askagain = function

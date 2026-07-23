@@ -150,5 +150,15 @@
                 wellBracketingCheck.disabled = false;
             }
         });
+
+        // The configuration navigation is only used in symbolic mode, so show it
+        // only when Symbolic is on.
+        const symbolicCheck = document.getElementById('symbolic-check');
+        const configNav = document.getElementById('config-nav');
+        function syncConfigNav() {
+            if (configNav) configNav.style.display = symbolicCheck.checked ? '' : 'none';
+        }
+        symbolicCheck.addEventListener('change', syncConfigNav);
+        syncConfigNav();
     </script>
 </html>

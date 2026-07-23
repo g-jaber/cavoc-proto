@@ -15,6 +15,11 @@ let string_of_outcome = function
   | Prop_diverges -> "The program diverges."
   | User_quit -> "You have quit the game."
 
+(* Which side played a move: the module (Proponent, on an Active configuration)
+   or the user (Opponent, on a Passive one). Passed to show_move so a front-end
+   can distinguish the two, e.g. by colour. *)
+type player = Proponent | Opponent
+
 module type IBUILD = sig
   (* To be instanciated *)
   module M : Util.Monad.MONAD
@@ -24,7 +29,7 @@ module type IBUILD = sig
   (* *)
 
   val interactive_build :
-    show_move:(string -> unit) ->
+    show_move:(player -> string -> unit) ->
     show_conf:(Yojson.Safe.t -> unit) ->
     show_moves_list:(Yojson.Safe.t list -> unit) ->
     (* the argument of get_move is the
@@ -72,7 +77,7 @@ module Make (M : Util.Monad.MONAD) (IntLTS : RUN_LTS with module M = M) = struct
             let move_string =
               IntLTS.TypingLTS.Moves.string_of_pol_move_in ~show_name
                 output_move in
-            show_move move_string;
+            show_move Proponent move_string;
             interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
               (IntLTS.Passive pas_conf)
       end
@@ -102,7 +107,7 @@ module Make (M : Util.Monad.MONAD) (IntLTS : RUN_LTS with module M = M) = struct
             let move_string =
               IntLTS.TypingLTS.Moves.string_of_pol_move_in ~show_name
                 input_move in
-            let () = show_move move_string in
+            let () = show_move Opponent move_string in
             interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
               (IntLTS.Active act_conf)
 end

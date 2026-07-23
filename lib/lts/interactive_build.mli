@@ -23,6 +23,11 @@ type outcome =
 (** A description of [outcome], to be shown to the user. *)
 val string_of_outcome : outcome -> string
 
+(** Which side played a move: the module (Proponent, on an Active configuration)
+    or the user (Opponent, on a Passive one). Passed to [show_move] so a
+    front-end can distinguish the two, e.g. by colour. *)
+type player = Proponent | Opponent
+
 module type IBUILD = sig
   (**
     [M] is the monad used to interact with the user. The backend does not
@@ -38,7 +43,8 @@ module type IBUILD = sig
     expected to provide callbacks to be called at different stages of the
     interaction.
 
-    @param show_move display a textual representation of the move after each turn.
+    @param show_move display a textual representation of the move after each
+    turn, together with the {!type:player} who made it.
     @param show_conf display the current configuration after each turn
     @param show_moves_list display the list of possibles moves when it's the user's
     turn.
@@ -48,7 +54,7 @@ module type IBUILD = sig
     @returns Why the interaction stopped
    *)
   val interactive_build :
-    show_move:(string -> unit) ->
+    show_move:(player -> string -> unit) ->
     show_conf:(Yojson.Safe.t -> unit) ->
     show_moves_list:(Yojson.Safe.t list -> unit) ->
     (* the argument of get_move is the
