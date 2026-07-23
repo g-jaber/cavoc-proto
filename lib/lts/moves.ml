@@ -24,7 +24,15 @@ module type MOVES = sig
     show_name:(Renaming.Namectx.Names.name -> string) -> move -> Yojson.Safe.t
 
   val get_subject_name : move -> Renaming.Namectx.Names.name
+
+  (* The local context typing the names introduced by the move;
+     its names are move-local levels. *)
   val get_namectx : move -> Renaming.Namectx.t
+
+  (* The names introduced by the move, transported through its carried
+     weakening, so that they denote positions in the ambient context the
+     move extends (rather than in its local context). *)
+  val get_fresh_names : move -> Renaming.Namectx.Names.name list
 
   val unify_move :
     Renaming.Namectx.Names.name Util.Namespan.namespan ->
@@ -205,6 +213,11 @@ struct
   let switch_direction (p, d) = (switch p, d)
   let get_subject_name (nn, (_, _)) = nn
   let get_namectx (_, (_, renaming)) = Renaming.dom renaming
+
+  let get_fresh_names (_, (_, renaming)) =
+    List.map
+      (Renaming.lookup renaming)
+      (Renaming.Namectx.get_names (Renaming.dom renaming))
 
   let unify_move span (_, (a_nf1, _)) (_, (a_nf2, _)) =
     A_nf.is_equiv_a_nf span a_nf1 a_nf2

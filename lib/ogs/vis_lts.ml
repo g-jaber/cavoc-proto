@@ -53,28 +53,31 @@ module Make (Moves : Lts.Moves.POLMOVES) :
   let trans_check conf (dir, move) =
     match (conf, dir) with
     | (Active vm, Moves.Output) ->
-        let nn =  Moves.get_subject_name move in
+        let nn = Moves.get_subject_name move in
         let view =
           match Util.Pmap.lookup nn vm with
-          | Some view -> begin
-            let str = Format.asprintf "%a" pp_view (Moves.Renaming.Namectx.get_names (Moves.get_namectx move)) in
-            Util.Debug.print_debug @@ "The new names are " ^ str;
-            view @ Moves.Renaming.Namectx.get_names (Moves.get_namectx move) end
+          | Some view -> view @ Moves.get_fresh_names move
           | None ->
               Util.Error.failwithf
                 "Error: the name %a is not in the view map %a. Please report."
                 Moves.Renaming.Namectx.Names.pp_name nn pp_view_map vm in
         Some (Passive (view, vm))
     | (Passive (view, vm), Moves.Input) ->
-        let nn =  Moves.get_subject_name move in
+        let nn = Moves.get_subject_name move in
         if List.mem nn view then
-          let freshn_l = Moves.Renaming.Namectx.get_names (Moves.get_namectx move) in
+          let freshn_l = Moves.get_fresh_names move in
           let vm_l = List.map (fun nn -> (nn, view)) freshn_l in
           let vm' = Util.Pmap.list_to_pmap vm_l in
           Some (Active (Util.Pmap.concat vm vm'))
         else None
     | _ -> None
 
-  let init_act_conf _ _ = Active Util.Pmap.empty
-  let init_pas_conf nameP _ = Passive (nameP, Util.Pmap.empty)
+  (* Initially, every Opponent name sees all the initial Proponent names. *)
+  let init_view_map namesP namesO =
+    Util.Pmap.list_to_pmap @@ List.map (fun nn -> (nn, namesP)) namesO
+
+  let init_act_conf namesP namesO = Active (init_view_map namesP namesO)
+
+  let init_pas_conf namesP namesO =
+    Passive (namesP, init_view_map namesP namesO)
 end
