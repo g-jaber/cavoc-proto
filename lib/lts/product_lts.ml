@@ -25,6 +25,9 @@ module Make
   let get_namectxP (pos, _) = TypingLTS.get_namectxP pos
   let get_storectx (pos, _) = TypingLTS.get_storectx pos
 
+  (* History LTSs have no placement opinion. *)
+  let place (pos, _) dir nn lnamectx = TypingLTS.place pos dir nn lnamectx
+
   let generate_moves (pos, hconf) =
     let open BranchMonad in
     let* (move, pos') = TypingLTS.generate_moves pos in

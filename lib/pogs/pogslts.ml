@@ -42,8 +42,9 @@ module Make (Lang : Lang.Interactive.LANG_WITH_INIT) :
         ( act_conf.opconf,
           TypingLTS.get_namectxO act_conf.pos,
           TypingLTS.get_storectx act_conf.pos ) in
-    let renaming = TypingLTS.Moves.Renaming.id lnamectx in
     let nn = Lang.get_subject_name a_nf in
+    let renaming =
+      TypingLTS.place act_conf.pos TypingLTS.Moves.Output nn lnamectx in
     let move = (TypingLTS.Moves.Output, (nn, (a_nf, renaming))) in
     let pos = TypingLTS.trigger_move act_conf.pos move in
     return (move, { store; ienv; pos })

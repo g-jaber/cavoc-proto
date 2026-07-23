@@ -42,18 +42,30 @@ module Make (IntLang : Lang.Interactive.LANG) :
   let init_pas_pos storectx namectxP namectxO =
     { status= Passive; storectx; namectxP; namectxO }
 
+  let place pos dir _nn lnamectx =
+    match dir with
+    | Moves.Output -> IntLang.IEnv.Renaming.weak_r lnamectx pos.namectxP
+    | Moves.Input -> IntLang.IEnv.Renaming.weak_r lnamectx pos.namectxO
+
+  let matches_placement renaming expected =
+    Moves.Renaming.im renaming = Moves.Renaming.im expected
+    && List.for_all
+         (fun nn ->
+           Moves.Renaming.lookup renaming nn = Moves.Renaming.lookup expected nn)
+         (Moves.Renaming.Namectx.get_names (Moves.Renaming.dom renaming))
+
   let generate_moves pos =
     Util.Debug.print_debug "Generating moves";
     let open IntLang.BranchMonad in
     match pos with
-    | { status= Passive; storectx; namectxP; namectxO } ->
+    | { status= Passive; storectx; namectxP; _ } ->
         let* (a_nf, lnamectx, namectxP) =
           IntLang.generate_a_nf storectx namectxP in
+        let nn = IntLang.get_subject_name a_nf in
         (* We get renaming : Δ → Γₒ + Δ with Δ=lnamectx and Γₒ=namectxO *)
-        let renaming = IntLang.IEnv.Renaming.weak_r lnamectx namectxO in
+        let renaming = place pos Moves.Input nn lnamectx in
         (* now namectxO = Γₒ + Δ *)
         let namectxO = IntLang.IEnv.Renaming.im renaming in
-        let nn = IntLang.get_subject_name a_nf in
         Util.Debug.print_debug @@ "The new move " ^ (IntLang.string_of_a_nf "?" a_nf) ^ " is producing the new name context :"
         ^ IntLang.IEnv.Renaming.Namectx.to_string lnamectx
         ^ " giving the updated Opponent name context "
@@ -61,12 +73,12 @@ module Make (IntLang : Lang.Interactive.LANG) :
         return
           ( (Moves.Input, (nn, (a_nf, renaming))),
             { status= Active; storectx; namectxO; namectxP } )
-    | { status= Active; storectx; namectxP; namectxO } ->
+    | { status= Active; storectx; namectxO; _ } ->
         let* (a_nf, lnamectx, namectxO) =
           IntLang.generate_a_nf storectx namectxO in
-        let renaming = IntLang.IEnv.Renaming.weak_r lnamectx namectxP in
-        let namectxP = IntLang.IEnv.Renaming.im renaming in
         let nn = IntLang.get_subject_name a_nf in
+        let renaming = place pos Moves.Output nn lnamectx in
+        let namectxP = IntLang.IEnv.Renaming.im renaming in
         Util.Debug.print_debug @@ "New Proponent name context :"
         ^ IntLang.IEnv.Renaming.Namectx.to_string lnamectx
         ^ " and "
@@ -75,8 +87,10 @@ module Make (IntLang : Lang.Interactive.LANG) :
           ( (Moves.Output, (nn, (a_nf, renaming))),
             { status= Passive; storectx; namectxO; namectxP } )
 
-  let check_move pos (dir, (_nn, (a_nf, renaming))) =
+  let check_move pos ((dir, (nn, (a_nf, renaming))) : Moves.pol_move) =
     let lnamectx = Moves.Renaming.dom renaming in
+    if not (matches_placement renaming (place pos dir nn lnamectx)) then None
+    else
     match (dir, pos) with
     | (Moves.Output, { status= Active; storectx; namectxO; _ }) -> begin
         match IntLang.type_check_a_nf storectx namectxO (a_nf, lnamectx) with
@@ -96,18 +110,17 @@ module Make (IntLang : Lang.Interactive.LANG) :
 
   (* Beware that trigger_move does not update correctly the positions when
     some resources are consumed by the move *)
-  let trigger_move pos (dir, move) =
-    let lnamectx = Moves.get_namectx move in
+  let trigger_move pos ((dir, (_nn, (_a_nf, renaming))) : Moves.pol_move) =
     match (dir, pos) with
-    | (Moves.Output, { status= Active; storectx; namectxP; namectxO }) ->
-        let namectxP = IntLang.IEnv.Renaming.Namectx.concat namectxP lnamectx in
+    | (Moves.Output, { status= Active; storectx; namectxO; _ }) ->
+        let namectxP = Moves.Renaming.im renaming in
           Util.Debug.print_debug @@ "After trigger, new Proponent name context :"
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxP
         ^ " and Opponent name context stays "
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO;
         { status= Passive; storectx; namectxP; namectxO }
-    | (Moves.Input, { status= Passive; storectx; namectxP; namectxO }) ->
-        let namectxO = IntLang.IEnv.Renaming.Namectx.concat namectxO lnamectx in
+    | (Moves.Input, { status= Passive; storectx; namectxP; _ }) ->
+        let namectxO = Moves.Renaming.im renaming in
           Util.Debug.print_debug @@ "After trigger, new Opponent name context :"
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO
         ^ " and Proponent name context stays "
