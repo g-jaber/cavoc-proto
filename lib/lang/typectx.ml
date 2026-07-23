@@ -20,9 +20,8 @@ module type TYPECTX = sig
   val add_fresh : t -> string -> typ -> Names.name * t
   (* The second argument is used to associate a string to the fresh variable *)
 
-  (* show_name_in Γ n is the display form of the name n of Γ: the string it
-     was declared with when there is one, its bare printed form otherwise.
-     Only display should depend on it; the identity of n is n itself. *)
+  (* show_name_in Γ n is the display form of n: the string it was declared
+     with when there is one, its bare printed form otherwise. *)
   val show_name_in : t -> Names.name -> string
 
   val map : (typ -> typ) -> t -> t
@@ -41,9 +40,7 @@ module type TYPECTX_PMAP = sig
        and type t = (n, typ) Util.Pmap.pmap
 end
 
-(* Typing contexts as lists, with names being De Bruijn levels: the name of
-   an entry is its position in the list. The string of an entry is only a
-   display hint, resolved through show_name_in. *)
+(* Contexts as lists: a name is its position; the string is a display hint. *)
 module type TYPECTX_LIST = sig
   include TYPECTX with type Names.name = int
   (*
@@ -110,7 +107,6 @@ module Make_PMAP
     let nn = Names.from_string str in
     (nn, Util.Pmap.add (nn, ty) name_ctx)
 
-  (* Gensym'd names carry their own display form. *)
   let show_name_in _ = Names.string_of_name
   let map = Util.Pmap.map_im
 
@@ -141,8 +137,6 @@ module Make_List
   let empty = []
   let concat = List.append
 
-  (* The display form of the name of an entry: its declared string when there
-     is one, its bare printed level otherwise. *)
   let show_entry i str = if str = "" then Names.string_of_name i else str
 
   let pp fmt = function

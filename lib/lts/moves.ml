@@ -117,9 +117,9 @@ module type A_NF = sig
 
   val pp_a_nf_in :
     pp_dir:(Format.formatter -> unit) ->
-    pp_head_name:
+    pp_free_name:
       (Format.formatter -> IEnv.Renaming.Namectx.Names.name -> unit) ->
-    pp_aval_name:
+    pp_bound_name:
       (Format.formatter -> IEnv.Renaming.Namectx.Names.name -> unit) ->
     Format.formatter ->
     abstract_normal_form ->
@@ -153,22 +153,13 @@ struct
 
   type pol_move = direction * move
 
-  (* Moves are displayed with the names they introduce reindexed into the
-     ambient context (through the renaming they carry), and the other names
-     resolved by show_name. Head names are never in the domain of the
-     renaming; the names introduced by the move only appear inside its
-     abstract values. *)
-  let pp_names_of ~show_name renaming =
-    let pp_head_name fmt nn = Format.pp_print_string fmt (show_name nn) in
-    let pp_aval_name fmt nn =
-      if Renaming.is_in_dom renaming nn then
-        Renaming.Namectx.Names.pp_name fmt (Renaming.lookup renaming nn)
-      else pp_head_name fmt nn in
-    (pp_head_name, pp_aval_name)
-
+  (* Bound names are displayed reindexed through the carried renaming;
+     free names are resolved by show_name. *)
   let pp_move_gen ~show_name ~pp_dir fmt (_, (a_nf, renaming)) =
-    let (pp_head_name, pp_aval_name) = pp_names_of ~show_name renaming in
-    A_nf.pp_a_nf_in ~pp_dir ~pp_head_name ~pp_aval_name fmt a_nf
+    let pp_free_name fmt nn = Format.pp_print_string fmt (show_name nn) in
+    let pp_bound_name fmt nn =
+      Renaming.Namectx.Names.pp_name fmt (Renaming.lookup renaming nn) in
+    A_nf.pp_a_nf_in ~pp_dir ~pp_free_name ~pp_bound_name fmt a_nf
 
   let default_show = Renaming.Namectx.Names.string_of_name
 

@@ -111,7 +111,7 @@ module MakeLang
     MoveTree.Moves.pp_move
       fmt (*MoveTree.Moves.pp_move - Need to handle pp_dir *)
 
-  let pp_a_nf_in ~pp_dir ~pp_head_name:_ ~pp_aval_name:_ = pp_a_nf ~pp_dir
+  let pp_a_nf_in ~pp_dir ~pp_free_name:_ ~pp_bound_name:_ = pp_a_nf ~pp_dir
 
   let string_of_a_nf dir =
     let pp_dir fmt = Format.fprintf fmt "%s" dir in

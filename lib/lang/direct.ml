@@ -88,13 +88,14 @@ module Make (OpLang : Language.WITHAVAL_INOUT) :
     | Some res -> res
     | None -> inj_cname ()
 
-  let pp_a_nf_in ~pp_dir ~pp_head_name ~pp_aval_name fmt (a_nf_term, store) =
+  let pp_a_nf_in ~pp_dir ~pp_free_name ~pp_bound_name fmt (a_nf_term, store) =
     let pp_ectx fmt () = Format.pp_print_string fmt "" in
     let pp_cn fmt () = Format.pp_print_string fmt "ret" in
-    let pp_fn fmt fn = pp_head_name fmt (inj_name fn) in
+    let embed pp fmt nn = pp fmt (inj_name nn) in
+    let pp_fn = embed pp_free_name in
     let pp_aval =
-      OpLang.AVal.pp_abstract_val_in (fun fmt nn ->
-          pp_aval_name fmt (inj_name nn)) in
+      OpLang.AVal.pp_abstract_val_in ~pp_free_name:(embed pp_free_name)
+        ~pp_bound_name:(embed pp_bound_name) in
     let pp_a_nf_term =
       OpLang.Nf.pp_nf_term ~pp_dir pp_aval pp_ectx pp_fn pp_cn in
     if store = OpLang.Store.empty_store then pp_a_nf_term fmt a_nf_term
@@ -104,7 +105,7 @@ module Make (OpLang : Language.WITHAVAL_INOUT) :
 
   let pp_a_nf ~pp_dir =
     let pp_name = IEnv.Renaming.Namectx.Names.pp_name in
-    pp_a_nf_in ~pp_dir ~pp_head_name:pp_name ~pp_aval_name:pp_name
+    pp_a_nf_in ~pp_dir ~pp_free_name:pp_name ~pp_bound_name:pp_name
 
   let string_of_a_nf dir =
     let pp_dir fmt = Format.pp_print_string fmt dir in

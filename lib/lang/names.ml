@@ -7,9 +7,8 @@ module type NAMES = sig
   val is_cname : name -> bool
 end
 
-(* Names whose identity is a De Bruijn level: the position of the name in
-   its typing context. The display string associated to a name is stored in
-   the context (see Typectx.TYPECTX_LIST), not in the name itself. *)
+(* Names whose identity is a De Bruijn level: their position in their
+   typing context, which also stores their display string. *)
 module type NAMES_INT = sig
   include NAMES with type name = int
 end

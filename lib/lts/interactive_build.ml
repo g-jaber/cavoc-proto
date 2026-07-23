@@ -50,9 +50,8 @@ module Make (M : Util.Monad.MONAD) (IntLTS : RUN_LTS with module M = M) = struct
 
   open M
 
-  (* The names of a move that come from the ambient context are resolved
-     through the context they live in: the Opponent's moves are supported by
-     the Proponent name context, and conversely. *)
+  (* Opponent moves are supported by the Proponent name context, and
+     conversely. *)
   let show_name_at pos =
     IntLTS.TypingLTS.Moves.Renaming.Namectx.show_name_in pos
 

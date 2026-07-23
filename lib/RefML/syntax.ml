@@ -115,8 +115,6 @@ let string_of_unary_op = function Not -> "not"
 let pp_binary_op fmt op = Format.pp_print_string fmt (string_of_binary_op op)
 let pp_unary_op fmt op = Format.pp_print_string fmt (string_of_unary_op op)
 
-(* The printers are parametrized by the way names are displayed,
-   so that names can be resolved through a typing context. *)
 let rec pp_par_term_in pp_name fmt = function
   | Var x -> pp_id fmt x
   | Loc l -> pp_loc fmt l

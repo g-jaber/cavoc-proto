@@ -55,13 +55,13 @@ module type LANG = sig
     abstract_normal_form ->
     unit
 
-  (* Like pp_a_nf, with head names and names inside abstract values displayed
-     by the two provided printers. *)
+  (* Like pp_a_nf, with bound and free names displayed by the provided
+     printers. Head names are free. *)
   val pp_a_nf_in :
     pp_dir:(Format.formatter -> unit) ->
-    pp_head_name:
+    pp_free_name:
       (Format.formatter -> IEnv.Renaming.Namectx.Names.name -> unit) ->
-    pp_aval_name:
+    pp_bound_name:
       (Format.formatter -> IEnv.Renaming.Namectx.Names.name -> unit) ->
     Format.formatter ->
     abstract_normal_form ->
@@ -151,18 +151,18 @@ module Make (OpLang : Language.WITHAVAL_NEG) :
     OpLang.Nf.nf_term
     * Store.store
 
-  let pp_a_nf_in ~pp_dir ~pp_head_name ~pp_aval_name fmt (a_nf_term, store) =
+  let pp_a_nf_in ~pp_dir ~pp_free_name ~pp_bound_name fmt (a_nf_term, store) =
     let pp_ectx fmt () = Format.pp_print_string fmt "" in
     let pp_a_nf_term =
       OpLang.Nf.pp_nf_term ~pp_dir
-        (OpLang.AVal.pp_abstract_val_in pp_aval_name)
-        pp_ectx pp_head_name pp_head_name in
+        (OpLang.AVal.pp_abstract_val_in ~pp_free_name ~pp_bound_name)
+        pp_ectx pp_free_name pp_free_name in
     if store = Store.empty_store then pp_a_nf_term fmt a_nf_term
     else Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term Store.pp_store store
 
   let pp_a_nf ~pp_dir =
     let pp_name = OpLang.IEnv.Renaming.Namectx.Names.pp_name in
-    pp_a_nf_in ~pp_dir ~pp_head_name:pp_name ~pp_aval_name:pp_name
+    pp_a_nf_in ~pp_dir ~pp_free_name:pp_name ~pp_bound_name:pp_name
 
   let string_of_a_nf dir =
     let pp_dir fmt = Format.pp_print_string fmt dir in

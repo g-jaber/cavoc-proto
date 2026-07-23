@@ -338,24 +338,25 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
       | APair of OpLang.AVal.abstract_val * CNames.name
       | APack of OpLang.typename list * OpLang.AVal.abstract_val * CNames.name
 
-    let pp_abstract_val_in pp_name fmt aval =
-      let pp_opname fmt nn = pp_name fmt (inj_name nn) in
-      let pp_cn fmt cn = pp_name fmt (inj_cname cn) in
+    let pp_abstract_val_in ~pp_free_name ~pp_bound_name fmt aval =
+      let embed pp fmt nn = pp fmt (inj_name nn) in
+      let pp_aval =
+        OpLang.AVal.pp_abstract_val_in ~pp_free_name:(embed pp_free_name)
+          ~pp_bound_name:(embed pp_bound_name) in
+      (* Continuation names of moves are always bound. *)
+      let pp_cn fmt cn = pp_bound_name fmt (inj_cname cn) in
       match aval with
-      | AVal aval -> OpLang.AVal.pp_abstract_val_in pp_opname fmt aval
-      | APair (aval, cn) ->
-          Format.fprintf fmt "%a,%a"
-            (OpLang.AVal.pp_abstract_val_in pp_opname)
-            aval pp_cn cn
+      | AVal aval -> pp_aval fmt aval
+      | APair (aval, cn) -> Format.fprintf fmt "%a,%a" pp_aval aval pp_cn cn
       | APack (tname_l, aval, cn) ->
           let string_l =
             String.concat "," @@ List.map OpLang.string_of_typename tname_l
             (*TODO: introduce a pp_tname_l pretty printer*) in
-          Format.fprintf fmt "%s,%a,%a" string_l
-            (OpLang.AVal.pp_abstract_val_in pp_opname)
-            aval pp_cn cn
+          Format.fprintf fmt "%s,%a,%a" string_l pp_aval aval pp_cn cn
 
-    let pp_abstract_val = pp_abstract_val_in Names.pp_name
+    let pp_abstract_val =
+      pp_abstract_val_in ~pp_free_name:Names.pp_name
+        ~pp_bound_name:Names.pp_name
     let string_of_abstract_val = Format.asprintf "%a" pp_abstract_val
     let abstract_val_to_yojson aval = `String (string_of_abstract_val aval)
 
