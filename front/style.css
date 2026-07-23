@@ -1,14 +1,42 @@
 /* General Body Styles */
+/* The page is a grid: the two editors (with the button column beside them) sit
+   above the interaction area, separated by a draggable splitter. --editor-h is
+   the height of the editors row and is what the splitter drags. */
 body {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  grid-template-rows: var(--editor-h, 46vh) 10px minmax(0, 1fr);
+  grid-template-areas:
+    "code sig  buttons"
+    "split split split"
+    "interact interact interact";
+  gap: 6px 12px;
   font-family: Arial, sans-serif;
   height: 100vh;
   margin: 0;
+  padding: 1%;
+  box-sizing: border-box;
   background-color: #dfefec;
-  padding-left: 1%;
-  padding-right: 1%;
-  padding-top: 1%;
-  /* overflow: hidden; */
+}
+
+.code-section { grid-area: code; }
+.signature { grid-area: sig; }
+.button-column { grid-area: buttons; }
+#splitter { grid-area: split; }
+#output-container { grid-area: interact; }
+
+/* Splitter handle between the editors and the interaction area. */
+#splitter {
+  cursor: row-resize;
+  background: #b8ccc6;
+  border-radius: 3px;
+}
+#splitter:hover {
+  background: #12857a;
+}
+body.resizing {
+  cursor: row-resize;
+  user-select: none;
 }
 
 /* Text in the Store / IEnv / History / Console panels should be selectable so
@@ -23,9 +51,11 @@ button,
 
 /* Container Styles - General layout for sections */
 .container {
-  width: 50%;
   box-sizing: border-box;
-  right: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
 }
 
 /* Header Styles - For all h2 elements */
@@ -38,9 +68,10 @@ h2 {
 /* Editor Styles - All relating to the OCaml code editor */
 #editor,
 #signatureEditor {
-  height: 45%;
-  width: 98%;
-  margin-top: 20px;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  margin-top: 8px;
   border-radius: 7px;
 }
 
@@ -90,11 +121,8 @@ h2 {
 /* Output Container - For displaying the output section at the bottom of the page */
 #output-container {
   display: flex;
-  height: 40%;
+  min-height: 0;
   width: 100%;
-  position: absolute;
-  left: 0;
-  bottom: 0;
   font-family: "Courier New", Courier, monospace;
   justify-content: space-between;
 }
@@ -182,12 +210,15 @@ h2 {
 .toggle-editors:hover {
   background-color: #32b568;
 }
+body.editors-collapsed {
+  grid-template-rows: auto 0 minmax(0, 1fr);
+}
 body.editors-collapsed .code-section,
 body.editors-collapsed .container.signature {
   display: none;
 }
-body.editors-collapsed #output-container {
-  height: 75%;
+body.editors-collapsed #splitter {
+  display: none;
 }
 
 /* Help Button */

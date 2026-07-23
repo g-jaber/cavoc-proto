@@ -94,6 +94,7 @@ const CAVOC_CONFIG_NAV_MARKUP = `
 
 function cavocWorkspaceMarkup({ optionsMenu = false, configNav = false } = {}) {
     return `
+    <div id="splitter" title="Drag to resize the editors"></div>
     <div id="output-container">
       <div style="flex: 2">
         <div id="buttons-container">
@@ -134,9 +135,39 @@ function cavocWorkspaceMarkup({ optionsMenu = false, configNav = false } = {}) {
     </div>`;
 }
 
+/* Lets the splitter between the editors and the interaction area be dragged, by
+   updating the --editor-h grid track. */
+function cavocInitSplitter() {
+    const splitter = document.getElementById('splitter');
+    if (!splitter) return;
+    const resizeAce = () => {
+        if (window.editor_instance) window.editor_instance.resize();
+        if (window.signatureEditor_instance) window.signatureEditor_instance.resize();
+    };
+    let dragging = false;
+    splitter.addEventListener('mousedown', (e) => {
+        dragging = true;
+        document.body.classList.add('resizing');
+        e.preventDefault();
+    });
+    window.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        const style = getComputedStyle(document.body);
+        const contentTop = document.body.getBoundingClientRect().top + parseFloat(style.paddingTop);
+        const h = Math.max(80, Math.min(window.innerHeight * 0.8, e.clientY - contentTop));
+        document.body.style.setProperty('--editor-h', h + 'px');
+        resizeAce();
+    });
+    window.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        document.body.classList.remove('resizing');
+        resizeAce();
+    });
+}
+
 /* Collapses the two code editors to give the interaction area more room. The
-   collapsed state is a single class on <body>, so the default layout is exactly
-   what it was before this toggle existed. */
+   collapsed state is a single class on <body>. */
 function cavocToggleEditors(btn) {
     const collapsed = document.body.classList.toggle('editors-collapsed');
     btn.textContent = collapsed ? 'Show editors' : 'Hide editors';
@@ -186,6 +217,8 @@ function cavocInitAce() {
     // Shorter aliases, used by the page-specific scripts.
     window.editor = editor;
     window.signatureEditor = signatureEditor;
+
+    cavocInitSplitter();
 }
 
 function openModal(modal) {
