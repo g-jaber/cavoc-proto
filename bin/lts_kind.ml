@@ -62,21 +62,28 @@ let build_concrete_lts kind : (module SINGLE_RESULT_LTS_WITH_INIT) =
   let module TypingLTS = Ogs.Typing.Make (IntLang) in
   match
     ( List.mem WellBracketing kind.restrictions,
-      List.mem Visibility kind.restrictions )
+      List.mem Visibility kind.restrictions,
+      kind.control )
   with
-  | (false, false) -> (module Ogs.Ogslts.Make (IntLang) (TypingLTS))
-  | (true, false) ->
+  | (false, false, _) -> (module Ogs.Ogslts.Make (IntLang) (TypingLTS))
+  | (true, false, _) ->
       let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
       let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
       (module Ogs.Ogslts.Make (IntLang) (TypingLTS))
-  | (false, true) ->
+  | (false, true, CPS) ->
       let module VisLTS = Ogs.Vis_lts.Make (TypingLTS.Moves) in
       let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (VisLTS) in
       (module Ogs.Ogslts.Make (IntLang) (TypingLTS))
-  | (true, true) ->
+  | (true, true, CPS) ->
       let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
       let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
       let module VisLTS = Ogs.Vis_lts.Make (TypingLTS.Moves) in
+      let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (VisLTS) in
+      (module Ogs.Ogslts.Make (IntLang) (TypingLTS))
+  (* Direct style is intrinsically well-bracketed, so visibility is enforced
+     by the stack-based LTS alone. *)
+  | (_, true, DirectStyle) ->
+      let module VisLTS = Ogs.Vis_lts.MakeWb (TypingLTS.Moves) in
       let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (VisLTS) in
       (module Ogs.Ogslts.Make (IntLang) (TypingLTS))
 
@@ -86,20 +93,27 @@ let build_symbolic_lts kind : (module MULTI_RESULT_LTS_WITH_INIT) =
   let module TypingLTS = Ogs.Typing.Make (IntLang) in
   match
     ( List.mem WellBracketing kind.restrictions,
-      List.mem Visibility kind.restrictions )
+      List.mem Visibility kind.restrictions,
+      kind.control )
   with
-  | (false, false) -> (module Ogs.Ogslts.Make (IntLang) (TypingLTS))
-  | (true, false) ->
+  | (false, false, _) -> (module Ogs.Ogslts.Make (IntLang) (TypingLTS))
+  | (true, false, _) ->
       let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
       let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
       (module Ogs.Ogslts.Make (IntLang) (TypingLTS))
-  | (false, true) ->
+  | (false, true, CPS) ->
       let module VisLTS = Ogs.Vis_lts.Make (TypingLTS.Moves) in
       let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (VisLTS) in
       (module Ogs.Ogslts.Make (IntLang) (TypingLTS))
-  | (true, true) ->
+  | (true, true, CPS) ->
       let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
       let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
       let module VisLTS = Ogs.Vis_lts.Make (TypingLTS.Moves) in
+      let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (VisLTS) in
+      (module Ogs.Ogslts.Make (IntLang) (TypingLTS))
+  (* Direct style is intrinsically well-bracketed, so visibility is enforced
+     by the stack-based LTS alone. *)
+  | (_, true, DirectStyle) ->
+      let module VisLTS = Ogs.Vis_lts.MakeWb (TypingLTS.Moves) in
       let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (VisLTS) in
       (module Ogs.Ogslts.Make (IntLang) (TypingLTS))
