@@ -37,6 +37,16 @@ module type AVAL = sig
   val names_of_abstract_val : abstract_val -> name list
   val labels_of_abstract_val : abstract_val -> label list
 
+  (* fold_free_names_of_abstract_val f acc A folds f over the free names of A
+     — the names reused from the ambient context — skipping the bound names,
+     which are local to the move introducing A. *)
+  val fold_free_names_of_abstract_val :
+    ('a -> name -> 'a) -> 'a -> abstract_val -> 'a
+
+  (* map_free_names_of_abstract_val f A renames the free names of A along f,
+     leaving its bound names untouched. *)
+  val map_free_names_of_abstract_val : (name -> name) -> abstract_val -> abstract_val
+
   (* The typed focusing process implemented by abstracting_value
      decomposes typed values (V,τ) into:
       - an abstract value A for the observable part,

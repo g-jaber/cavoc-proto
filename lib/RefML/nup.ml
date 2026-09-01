@@ -124,6 +124,30 @@ module Make (BranchMonad : Util.Monad.BRANCH)
 
   let names_of_abstract_val = add_names []
 
+  let rec fold_free_names_of_abstract_val f acc = function
+    | AUnit | AInt _ | ABool _ | ASymb _ | ABound _ -> acc
+    | AFree nn -> f acc nn
+    | APair (nup1, nup2) ->
+        fold_free_names_of_abstract_val f
+          (fold_free_names_of_abstract_val f acc nup1)
+          nup2
+    | ACons (_, nup') -> fold_free_names_of_abstract_val f acc nup'
+    | ARecord fields ->
+        Util.Pmap.fold
+          (fun acc' (_, nup') -> fold_free_names_of_abstract_val f acc' nup')
+          acc fields
+
+  let rec map_free_names_of_abstract_val f = function
+    | (AUnit | AInt _ | ABool _ | ASymb _ | ABound _) as nup -> nup
+    | AFree nn -> AFree (f nn)
+    | APair (nup1, nup2) ->
+        APair
+          ( map_free_names_of_abstract_val f nup1,
+            map_free_names_of_abstract_val f nup2 )
+    | ACons (c, nup') -> ACons (c, map_free_names_of_abstract_val f nup')
+    | ARecord fields ->
+        ARecord (Util.Pmap.map_im (map_free_names_of_abstract_val f) fields)
+
   let rec add_labels label_l = function
     | AUnit | AInt _ | ABool _ | ASymb _ | AFree _ | ABound _ -> label_l
     | ACons (c, _) ->

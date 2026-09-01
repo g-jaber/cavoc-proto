@@ -17,13 +17,35 @@ module type WEAKENING = sig
 
   (* weak_r Δ Γ : Δ → Γ + Δ *)
   val weak_r : Namectx.t -> Namectx.t -> t
-
   val is_in_dom : t -> Namectx.Names.name -> bool
   val lookup : t -> Namectx.Names.name -> Namectx.Names.name
 end
 
+(* Thinnings are the injective, order-preserving maps between contexts.  A
+   thinning maps dense local levels into ambient levels, possibly leaving gaps
+   in the ambient context. *)
+module type THINNING = sig
+  include WEAKENING
+
+  (* [to_ambient thinning local] is the forward application of [thinning].
+     It is the same operation as [lookup], with its direction made explicit. *)
+  val to_ambient : t -> Namectx.Names.name -> Namectx.Names.name
+
+  (* [to_local thinning ambient] is the partial inverse.  It returns [None]
+     exactly when [ambient] is not in the image of [thinning].  Implementations
+     must preserve types and order, and satisfy, for [local] in the domain:
+
+       to_local thinning (to_ambient thinning local) = Some local
+
+     and [to_local thinning ambient = Some local] implies
+     [to_ambient thinning local = ambient]. *)
+  val to_local : t -> Namectx.Names.name -> Namectx.Names.name option
+end
+
 (* Renamings are general maps between contexts, extending weakenings with
-   the copairing of the coproduct and the symmetry. *)
+   the copairing of the coproduct and the symmetry.  This interface is kept
+   separate from [THINNING]: a general renaming may identify two names and
+   therefore need not have a partial inverse. *)
 module type RENAMING = sig
   include WEAKENING
 
@@ -31,14 +53,15 @@ module type RENAMING = sig
 
   (* sym Δ Γ : Δ + Γ → Γ + Δ*)
   val sym : Namectx.t -> Namectx.t -> t
-
   val add_fresh : t -> string -> Namectx.typ -> Namectx.Names.name * t
   (* The second argument is used to associate a string to the fresh variable *)
 end
 
 module type WEAKENING_LIST = sig
-  include WEAKENING with type Namectx.Names.name = int
-end
+  include WEAKENING with type Namectx.Names.name = int end
+
+module type THINNING_LIST = sig
+  include THINNING with type Namectx.Names.name = int end
 
 module MakePmap (Namectx : Typectx.TYPECTX) :
   RENAMING with module Namectx = Namectx = struct
@@ -184,7 +207,7 @@ module Make (Namectx : Typectx.TYPECTX_LIST) :
     let map =
       Util.Pmap.list_to_pmap
       @@ List.init (size_l + size_r) (fun i ->
-             if i < size_l then (i, size_r + i) else (i, i - size_l)) in
+          if i < size_l then (i, size_r + i) else (i, i - size_l)) in
     {
       map;
       dom= Namectx.concat namectx_l namectx_r;
@@ -210,15 +233,104 @@ module Make (Namectx : Typectx.TYPECTX_LIST) :
     (nn', copairing renam' renam_nn)
 end
 
-module MakeWeak (Namectx : Typectx.TYPECTX_LIST) :
-  WEAKENING with module Namectx = Namectx = struct
-  module Namectx = Namectx
+module MakeThin (Weakening : WEAKENING) : sig
+  include THINNING with module Namectx = Weakening.Namectx
+
+  val of_support : Namectx.t -> Namectx.Names.name list -> t
+end = struct
+  module Namectx = Weakening.Namectx
 
   type t = {
-    offset: int;
+    map: (Namectx.Names.name, Namectx.Names.name) Util.Pmap.pmap;
     dom: Namectx.t;
     im: Namectx.t;
   }
+
+  let pp_map fmt map =
+    let pp_sep fmt () = Format.fprintf fmt ", " in
+    let pp_empty fmt () = Format.fprintf fmt "⋅" in
+    let pp_pair fmt (local, ambient) =
+      Format.fprintf fmt "%a ↦ %a" Namectx.Names.pp_name local
+        Namectx.Names.pp_name ambient in
+    Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt map
+
+  let pp fmt thinning =
+    if Namectx.is_empty thinning.dom && Namectx.is_empty thinning.im then
+      Format.fprintf fmt ""
+    else
+      Format.fprintf fmt "%a : [%a] ↪ [%a]" pp_map thinning.map Namectx.pp
+        thinning.dom Namectx.pp thinning.im
+
+  let to_string = Format.asprintf "%a" pp
+
+  let of_weakening weakening =
+    let dom = Weakening.dom weakening in
+    let map =
+      Util.Pmap.list_to_pmap
+      @@ List.map
+           (fun local -> (local, Weakening.lookup weakening local))
+           (Namectx.get_names dom) in
+    { map; dom; im= Weakening.im weakening }
+
+  let id namectx = of_weakening (Weakening.id namectx)
+  let dom thinning = thinning.dom
+  let im thinning = thinning.im
+
+  (* Display hints are not part of a typing context's semantics. *)
+  let equal_context namectx1 namectx2 =
+    Namectx.to_pmap namectx1 = Namectx.to_pmap namectx2
+
+  let is_in_dom thinning name = Util.Pmap.mem name thinning.map
+  let lookup thinning name = Util.Pmap.lookup_exn name thinning.map
+  let to_ambient = lookup
+
+  let to_local thinning ambient =
+    match Util.Pmap.select_im ambient thinning.map with
+    | [] -> None
+    | [ local ] -> Some local
+    | _ -> assert false
+
+  let compose thinning1 thinning2 =
+    assert (equal_context thinning1.dom thinning2.im);
+    let map = Util.Pmap.map_im (to_ambient thinning1) thinning2.map in
+    { map; dom= thinning2.dom; im= thinning1.im }
+
+  let weak_l namectx_l namectx_r =
+    of_weakening (Weakening.weak_l namectx_l namectx_r)
+
+  let weak_r namectx_l namectx_r =
+    of_weakening (Weakening.weak_r namectx_l namectx_r)
+
+  let has_duplicates names =
+    let rec loop = function
+      | [] -> false
+      | name :: names -> List.mem name names || loop names in
+    loop names
+
+  let of_support ambient support =
+    let ambient_names = Namectx.get_names ambient in
+    if
+      has_duplicates support
+      || not (List.for_all (fun name -> List.mem name ambient_names) support)
+    then failwith "Renaming.MakeThin.of_support";
+    let ordered_support =
+      List.filter (fun name -> List.mem name support) ambient_names in
+    let (dom, map_entries) =
+      List.fold_left
+        (fun (local_ctx, map_entries) ambient_name ->
+          let typ = Namectx.lookup_exn ambient ambient_name in
+          let (local_name, local_ctx') = Namectx.add_fresh local_ctx "" typ in
+          (local_ctx', (local_name, ambient_name) :: map_entries))
+        (Namectx.empty, []) ordered_support in
+    let map = Util.Pmap.list_to_pmap (List.rev map_entries) in
+    { map; dom; im= ambient }
+end
+
+module MakeWeak (Namectx : Typectx.TYPECTX_LIST) :
+  THINNING with module Namectx = Namectx = struct
+  module Namectx = Namectx
+
+  type t = { offset: int; dom: Namectx.t; im: Namectx.t }
 
   let pp fmt renam =
     if Namectx.is_empty renam.dom && Namectx.is_empty renam.im then
@@ -232,9 +344,10 @@ module MakeWeak (Namectx : Typectx.TYPECTX_LIST) :
   let dom renam = renam.dom
   let im renam = renam.im
   let size namectx = List.length @@ Namectx.get_names namectx
+  let equal_context ctx1 ctx2 = Namectx.to_pmap ctx1 = Namectx.to_pmap ctx2
 
   let compose renam1 renam2 =
-    assert (renam1.dom = renam2.im);
+    assert (equal_context renam1.dom renam2.im);
     { offset= renam1.offset + renam2.offset; dom= renam2.dom; im= renam1.im }
 
   let weak_l namectx_l namectx_r =
@@ -248,30 +361,31 @@ module MakeWeak (Namectx : Typectx.TYPECTX_LIST) :
     }
 
   let is_in_dom renam i = 0 <= i && i < size renam.dom
-  let lookup renam i = if is_in_dom renam i then i + renam.offset else raise Not_found
+
+  let lookup renam i =
+    if is_in_dom renam i then i + renam.offset else raise Not_found
+
+  let to_ambient = lookup
+
+  let to_local renam i =
+    let local = i - renam.offset in
+    if is_in_dom renam local then Some local else None
 end
 
 module MakeNoName (Namectx : Typectx.TYPECTX with type Names.name = unit) :
   RENAMING with module Namectx = Namectx = struct
   module Namectx = Namectx
 
-  type t = {
-    dom: Namectx.t;
-    im: Namectx.t;
-  }
+  type t = { dom: Namectx.t; im: Namectx.t }
 
   let pp fmt renam =
     if Namectx.is_empty renam.dom && Namectx.is_empty renam.im then
       Format.fprintf fmt ""
     else
-      Format.fprintf fmt "[%a] ⇒ [%a]" Namectx.pp
-        renam.dom Namectx.pp renam.im
+      Format.fprintf fmt "[%a] ⇒ [%a]" Namectx.pp renam.dom Namectx.pp renam.im
 
   let to_string = Format.asprintf "%a" pp
-
-  let id namectx =
-    { dom= namectx; im= namectx }
-
+  let id namectx = { dom= namectx; im= namectx }
   let dom renam = renam.dom
   let im renam = renam.im
 
@@ -287,11 +401,13 @@ module MakeNoName (Namectx : Typectx.TYPECTX with type Names.name = unit) :
     { dom; im= renam1.im }
 
   let weak_l namectx_l namectx_r =
-    { dom = namectx_l;  im= Namectx.concat namectx_r namectx_l } (* We put things in the other way arround*)
+    { dom= namectx_l; im= Namectx.concat namectx_r namectx_l }
+  (* We put things in the other way arround*)
 
   (* weak_r Δ Γ : Δ → Γ + Δ*)
   let weak_r namectx_l namectx_r =
-    { dom= namectx_l; im= Namectx.concat namectx_l namectx_r } (* Same here *)
+    { dom= namectx_l; im= Namectx.concat namectx_l namectx_r }
+  (* Same here *)
 
   let sym _namectx_l _namectx_r = failwith "TODO"
   let is_in_dom renam () = not (Namectx.is_empty renam.dom)
@@ -407,8 +523,6 @@ module MakeAggregate (* Not used so far *)
     (nn', copairing renam' renam_nn)
 end
 
-
-
 module AggregateWeak
     (Weak1 : WEAKENING)
     (Weak2 : WEAKENING)
@@ -462,6 +576,35 @@ struct
     match nn with
     | Either.Left nn' -> Either.Left (Weak1.lookup renam1 nn')
     | Either.Right nn' -> Either.Right (Weak2.lookup renam2 nn')
+end
+
+module AggregateThin
+    (Thin1 : THINNING)
+    (Thin2 : THINNING)
+    (Namectx :
+      Typectx.TYPECTX
+        with type Names.name =
+          (Thin1.Namectx.Names.name, Thin2.Namectx.Names.name) Either.t
+         and type t = Thin1.Namectx.t * Thin2.Namectx.t) :
+  THINNING with module Namectx = Namectx and type t = Thin1.t * Thin2.t = struct
+  include AggregateWeak (Thin1) (Thin2) (Namectx)
+
+  (* The component operations perform the appropriate context compatibility
+     checks; in particular, sparse list thinnings ignore display hints. *)
+  let compose (thin11, thin12) (thin21, thin22) =
+    (Thin1.compose thin11 thin21, Thin2.compose thin12 thin22)
+
+  let to_ambient = lookup
+
+  let to_local (thin1, thin2) = function
+    | Either.Left ambient ->
+        Option.map
+          (fun local -> Either.Left local)
+          (Thin1.to_local thin1 ambient)
+    | Either.Right ambient ->
+        Option.map
+          (fun local -> Either.Right local)
+          (Thin2.to_local thin2 ambient)
 end
 
 module Aggregate
