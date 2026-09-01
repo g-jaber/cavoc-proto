@@ -1,5 +1,4 @@
 (*http://localhost:8000/front/index.html*)
-(*http://localhost:8000/front/indextuto.html*)
 
 open Lwt.Infix
 open Lwt.Syntax
@@ -86,7 +85,6 @@ let start_server () =
   let server = Server.make ~callback:(callback switch) () in
   Lwt.catch
     (fun () ->
-      Printf.printf " Serveur démarré sur le port 8000, site de tuto sur : http://localhost:8000/front/indextuto.html\n%!";
       Printf.printf " Serveur démarré sur http://localhost:8000/front/index.html\n%!";
       Server.create ~stop:stop_thread ~mode server)
     (function

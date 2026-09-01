@@ -1,0 +1,7 @@
+{
+  "title": "simple-bool",
+  "mode": "single",
+  "participants": [ { "name": "simple-bool", "ml": "simple-bool.ml", "mli": "simple-bool.mli" } ],
+  "options": { "directStyle": true, "wellBracketing": true,
+               "visibility": false, "symbolic": false }
+}

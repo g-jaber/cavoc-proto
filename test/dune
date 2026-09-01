@@ -2,13 +2,30 @@
  (applies_to visibility)
  (deps
   %{bin:cavoc-explore_cli}
-  7-no_visible.ml
-  7-no_visible.mli
-  while.ml))
+  no-visible-flag/no-visible-flag.ml
+  no-visible-flag/no-visible-flag.mli
+  while/while.ml))
 
 (cram
  (applies_to interaction)
  (deps
   %{bin:cavoc-explore_cli}
-  private_counter.ml
-  private_counter.mli))
+  private_counter/private_counter.ml
+  private_counter/private_counter.mli))
+
+(cram
+ (applies_to composition)
+ (deps
+  %{bin:cavoc-explore_cli}
+  compose/provider.ml
+  compose/provider.mli
+  compose/client.ml
+  compose/client.mli
+  vending-till/till.ml
+  vending-till/till.mli
+  vending-till/vending.ml
+  vending-till/vending.mli
+  twice-iter2/twice.ml
+  twice-iter2/twice.mli
+  twice-iter2/iter2.ml
+  twice-iter2/iter2.mli))

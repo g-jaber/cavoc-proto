@@ -1,0 +1,7 @@
+{
+  "title": "simple-ho",
+  "mode": "single",
+  "participants": [ { "name": "simple-ho", "ml": "simple-ho.ml", "mli": "simple-ho.mli" } ],
+  "options": { "directStyle": true, "wellBracketing": true,
+               "visibility": false, "symbolic": false }
+}

@@ -1,0 +1,5 @@
+{
+  "title": "factorial",
+  "mode": "single",
+  "participants": [ { "name": "factorial", "ml": "factorial.ml", "mli": "factorial.mli" } ]
+}

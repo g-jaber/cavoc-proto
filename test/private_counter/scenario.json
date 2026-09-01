@@ -1,0 +1,5 @@
+{
+  "title": "private_counter",
+  "mode": "single",
+  "participants": [ { "name": "private_counter", "ml": "private_counter.ml", "mli": "private_counter.mli" } ]
+}

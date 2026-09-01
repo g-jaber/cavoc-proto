@@ -16,24 +16,19 @@ open Js_of_ocaml
    that need the opposite condition use Ui_helpers' default title. *)
 let idle_title = "Stop the current interaction before evaluating new code"
 
-(* The buttons that only make sense while an interaction is running. *)
-let interaction_buttons = [ "select-btn"; "stop-btn" ]
-
-(* The buttons used to navigate between the configurations of a symbolic LTS. *)
-let configuration_buttons = [ "conf-prev"; "conf-next"; "conf-accept" ]
-
-let set_all_enabled ?title ids state =
-  List.iter (fun id -> Ui_helpers.set_button_enabled ?title id state) ids
-
 (* Outside of an interaction the user may only start one; while one is running
-   the reverse holds. *)
+   the reverse holds. Stop doubles as the page's "running" flag: scenario.js
+   reads its disabled state, and routes every run-abandoning action (changing
+   scenario, entering the tutorial) through a click on it. *)
 let set_interaction_running running =
-  set_all_enabled interaction_buttons running;
+  Ui_helpers.set_button_enabled "stop-btn" running;
   Ui_helpers.set_button_enabled ~title:idle_title "submit" (not running);
-  (* The options select which LTS to explore, so they only take effect at the
-     next evaluation. Disable them during a run rather than let the user change
-     them to no visible effect. *)
-  Ui_helpers.set_button_enabled ~title:idle_title "options-btn" (not running)
+  (* The LTS options only take effect at the next evaluation, so grey them out
+     during a run rather than let the user change them to no visible effect.
+     The menu itself stays open: what is left of it acts on the interaction
+     already running — the synchronization pacing, which Compose_driver reads
+     afresh at every exchange, and the debug log. *)
+  Ui_helpers.set_element_locked "options-lts" running
 
 (* Shown once the server has been shut down, since the page can no longer do
    anything useful. *)
@@ -74,12 +69,10 @@ let init_debug_checkbox () =
           input##.checked := Js.bool !Util.Debug.debug_mode)
 
 let rec init_page () =
-  Help_modal.init_help_events ();
   Printexc.record_backtrace true;
   init_shutdown_button ();
   init_debug_checkbox ();
 
-  set_all_enabled configuration_buttons false;
   set_interaction_running false;
 
   match Dom_html.getElementById_opt "submit" with

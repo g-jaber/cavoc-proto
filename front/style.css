@@ -1,343 +1,773 @@
-/* General Body Styles */
-/* The page is a grid: the two editors (with the button column beside them) sit
-   above the interaction area, separated by a draggable splitter. --editor-h is
-   the height of the editors row and is what the splitter drags. */
+/* ==========================================================================
+   The workspace.
+   Chrome (toolbar, cards' headers, choice panel, guide) is sober and light;
+   the code-facing surfaces (the editor panes, the live panels, the trace
+   area) are dark. The page is a row of participant cards with the public
+   gutter at its right edge, then the trace area (doc/web.md, stage 1).
+   ========================================================================== */
+
+/* The page is a grid: the toolbar, the workspace row (cards + gutter), a
+   draggable splitter and the lower row (History window + side tabs).
+   --cards-h is the height of the workspace row and is what the splitter
+   drags. */
 body {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  grid-template-rows: auto var(--editor-h, 46vh) 10px minmax(0, 1fr);
+  grid-template-rows: auto var(--cards-h, 58vh) 8px minmax(0, 1fr);
   grid-template-areas:
-    "toolbar toolbar toolbar"
-    "code    sig     buttons"
-    "split   split   split"
-    "interact interact interact";
-  gap: 6px 12px;
-  font-family: Arial, sans-serif;
+    "toolbar"
+    "cards"
+    "split"
+    "lower";
+  gap: 8px 12px;
+  font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   height: 100vh;
   margin: 0;
-  padding: 1%;
+  padding: 10px;
   box-sizing: border-box;
-  background-color: #dfefec;
-}
-
-.code-section { grid-area: code; }
-.signature { grid-area: sig; }
-.button-column { grid-area: buttons; }
-#splitter { grid-area: split; }
-#output-container { grid-area: interact; }
-
-.panel-empty {
-  padding: 16px;
-  color: #75715e;
-  font-family: "Courier New", Courier, monospace;
-  font-style: italic;
-}
-
-/* Splitter handle between the editors and the interaction area. */
-#splitter {
-  cursor: row-resize;
-  background: #b8ccc6;
-  border-radius: 3px;
-}
-#splitter:hover {
-  background: #12857a;
-}
-body.resizing {
-  cursor: row-resize;
-  user-select: none;
-}
-
-/* Text in the Store / IEnv / History / Console panels should be selectable so
-   it can be copied. Selection is only disabled on the click-target chrome, to
-   avoid stray highlights when clicking buttons or tabs. */
-button,
-.tab-link,
-.tuto-title,
-#level-indicator {
-  user-select: none;
-}
-
-/* Container Styles - General layout for sections */
-.container {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-}
-
-/* Header Styles - For all h2 elements */
-h2 {
-  margin-top: 0;
-  text-align: center;
-  color: #000000;
-}
-
-/* Editor Styles - All relating to the OCaml code editor */
-#editor,
-#signatureEditor {
-  flex: 1;
-  width: 100%;
-  min-height: 0;
-  margin-top: 8px;
-  border-radius: 7px;
-}
-
-#center-controls {
-  display: flex;       /* Lay the items out side by side */
-  gap: 10px;           /* Space between the two buttons */
-  align-items: center; /* Align them vertically */
-}
-
-/* No position: fixed, left, bottom or transform here: the parent handles placement */
-#submit {
-  position: static; /* Cancels the fixed positioning */
-  transform: none;  /* Cancels the translate */
-  margin: 0;
-  
-  /* Keep the visual style */
-  background-color: #2ecc71;
-  height: 50px;
-  border-radius: 5px;
-  color: #000000;
-  font-family: "Courier New", Courier, monospace;
-  font-size: larger;
-  border: solid 2px black;
-  cursor: pointer;
-  padding: 0 20px;
-}
-
-/* The hover state must not reintroduce position: fixed either */
-#submit:hover {
-  position: static;
-  transform: none;
-  background-color: #32b568;
-  /* The important visual properties are repeated, to avoid display glitches */
-  height: 50px;
-  color: #000000;
-  border: solid 2px black;
-}
-
-#store{
-  padding: 20px;
-}
-#store div{
-  padding: 20px;
-  border: solid 1px rgb(152, 152, 152);
-}
-
-/* Output Container - For displaying the output section at the bottom of the page */
-#output-container {
-  display: flex;
-  min-height: 0;
-  width: 100%;
-  font-family: "Courier New", Courier, monospace;
-  justify-content: space-between;
-}
-
-/* Container for buttons side by side */
-#buttons-container {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 15px;
-}
-
-/* Shown in the Store and IEnv panes in place of a configuration whose branch
-   has no continuation: Proponent stopped playing, or the program diverges.
-   Applied from OCaml by Display_config.display_terminal_conf. */
-.conf-notice {
-  padding: 20px;
-  height: 100%;
-  background: #272822;
-  color: #e6db74;
-  font-family: monospace;
-  font-style: italic;
-}
-
-/* Full-page notice shown by Page_init.show_server_stopped after the server has
-   been shut down. */
-#server-stopped {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-  text-align: center;
-  background: rgba(20, 20, 18, 0.92);
-  color: #f8f8f2;
-  font-family: "Courier New", Courier, monospace;
-  font-size: 1.2rem;
-}
-
-/* Disabled Buttons - Applied from OCaml by Ui_helpers.set_button_enabled.
-   !important is needed while the individual button rules below are keyed on
-   ids, which outrank a class. */
-.btn-disabled {
-  background-color: grey !important;
-  cursor: not-allowed !important;
-}
-
-/* Select Button */
-#select-btn {
-  background-color: #2ecc71;
-  height: 50px;
-  border-radius: 5px;
-  color: #000000;
-  font-family: "Courier New", Courier, monospace;
-  font-size: larger;
-  border: solid 2px black;
-  z-index: 10;
-  cursor: pointer;
-  padding: 12px 25px;
-}
-
-.button-column {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  row-gap: 8px;
-}
-
-/* Editor collapse toggle (front/common.js cavocToggleEditors). Without the
-   .editors-collapsed class the layout is exactly as before; the class hides the
-   two editors and lets the interaction area grow into the freed space. */
-.toggle-editors {
-  background-color: #000000;
-  color: #ffffff;
-  font-family: "Courier New", Courier, monospace;
-  font-size: 14px;
-  font-weight: bold;
-  border: solid 1px black;
-  border-radius: 3px;
-  cursor: pointer;
-  padding: 10px 15px;
-}
-.toggle-editors:hover {
-  background-color: #32b568;
-}
-body.editors-collapsed {
-  /* editors row auto-sizes to the button column, keeping it visible */
-  grid-template-rows: auto auto 0 minmax(0, 1fr);
-}
-body.editors-collapsed .code-section,
-body.editors-collapsed .container.signature {
-  display: none;
-}
-body.editors-collapsed #splitter {
-  display: none;
-}
-
-/* Help Button */
-#help-btn {
-  position: static;
-  background-color: #000000;
-  color: #ffffff;
-  font-family: "Courier New", Courier, monospace;
-  font-size: 16px;
-  font-weight: bold;
-  border: solid 1px black;
-  border-radius: 3px;
-  cursor: pointer;
-  padding: 12px 25px;
-}
-
-#select-btn:hover {
-  background-color: #32b568;
-}
-
-#shutdown-btn {
-  position: static;
-  background-color: #000000;
-  color: #ffffff;
-  font-family: "Courier New", Courier, monospace;
-  font-size: 16px;
-  font-weight: bold;
-  border: solid 1px black;
-  border-radius: 3px;
-  cursor: pointer;
-  padding: 12px 25px;
-}
-
-#shutdown-btn:hover {
-  background-color: #32b568;
-}
-
-/* Stop Button */
-#stop-btn {
-  background-color: #2ecc71;
-  height: 50px;
-  border-radius: 5px;
-  color: #000000;
-  font-family: "Courier New", Courier, monospace;
-  font-size: larger;
-  border: solid 2px black;
-  z-index: 10;
-  cursor: pointer;
-  padding: 12px 25px;
-}
-
-#stop-btn:hover {
-  background-color: #32b568;
-}
-
-/* Actions List and Select Action Styles - All relating to the action list container */
-#select-move {
-  height: 99%;
-  overflow-y: scroll; 
-  border-radius: 8px;
-  background: linear-gradient(135deg, #272822 0%, #2d2e27 100%);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-  display: flex;
-  flex-direction: column;
-}
-
-/* Actions List - Styles the list of actions (checkboxes or items inside the action container) */
-#moves-list > div {
-  border: 1px solid #3e3f38;
-  border-radius: 8px;
-  padding: 12px 15px;
-  margin-bottom: 10px;
-  background: linear-gradient(135deg, #34352f 0%, #3a3b35 100%);
-  color: #f8f8f2;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-}
-
-/* Radio Button Styles - Specific to radio buttons in the actions list */
-input[type="radio"] {
-  margin-right: 5px;
-  padding: 1px;
-  /* Adds space between the radio button and the text */
-  color: #f8f8f2;
-  /* White text color for radio button */
-}
-
-/* Button inside the action list - Positioning and styling for buttons inside actions list */
-#histo-config-container {
-  margin-top: 8px;
-  color: #f8f8f2;
-  font-family: monospace;
-  position: relative;
-  width: 100%;
-  height: 100%;
-  border-radius: 5px;
+  background-color: #e7e7e4;
+  color: #222222;
 }
 
 * {
   box-sizing: border-box;
 }
 
+#toolbar { grid-area: toolbar; }
+#workspace-row { grid-area: cards; }
+#splitter { grid-area: split; }
+#lower-row { grid-area: lower; }
+
+/* Text in the live panels / History / Console should be selectable so it can
+   be copied. Selection is only disabled on the click-target chrome, to avoid
+   stray highlights when clicking buttons or tabs. */
+button,
+.tab-link {
+  user-select: none;
+}
+
+/* --------------------------------------------------------------------------
+   Toolbar: the one home for global actions.
+   -------------------------------------------------------------------------- */
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f1f1ef;
+  border: 1px solid #c6c6c2;
+  border-radius: 3px;
+  padding: 6px 12px;
+}
+
+#wordmark {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+#scenario-label {
+  font-size: 13px;
+  color: #55554f;
+}
+
+.toolbar-spacer {
+  flex: 1;
+}
+
+#level-indicator {
+  font-size: 12.5px;
+  color: #55554f;
+  border: 1px solid #c6c6c2;
+  border-radius: 2px;
+  background: #ffffff;
+  padding: 2px 8px;
+}
+
+.tbtn,
+.tsel {
+  background: #ffffff;
+  color: #222222;
+  border: 1px solid #b5b5b0;
+  border-radius: 2px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.tsel {
+  padding: 3px 8px;
+}
+.tbtn:hover {
+  background: #f4f4f0;
+}
+.tbtn:focus-visible,
+.tsel:focus-visible {
+  outline: 2px solid #3b5a7e;
+  outline-offset: 1px;
+}
+.tbtn-start {
+  font-weight: 600;
+}
+
+/* Applied from OCaml by Ui_helpers.set_button_enabled. */
+.btn-disabled {
+  opacity: 0.45;
+  cursor: not-allowed !important;
+}
+
+/* The server badge: the local server is a convenience, so stopping it is a
+   corner control, not a first-class button. */
+.server-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  color: #55554f;
+  border: 1px solid #b5b5b0;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.server-badge:hover {
+  background: #f4f4f0;
+}
+.server-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5b8a5b;
+}
+
+/* --------------------------------------------------------------------------
+   The workspace row: participant cards, public gutter at the right edge.
+   -------------------------------------------------------------------------- */
+#workspace-row {
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+  min-width: 0;
+}
+
+#card-row {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* --------------------------------------------------------------------------
+   A participant card: header, the module and signature editors stacked, the
+   card's live panels (IEnv, Store) at the bottom (bin/display_config.ml
+   feeds them during a run).
+   -------------------------------------------------------------------------- */
+.participant-card {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #f7f7f4;
+  border: 1px solid #c6c6c2;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: #f1f1ef;
+  border-bottom: 1px solid #d8d8d4;
+}
+
+.card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333330;
+}
+
+.role-badge {
+  font-size: 11px;
+  color: #55554f;
+  border: 1px solid #c6c6c2;
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+.card-head-spacer {
+  flex: 1;
+}
+
+.card-file {
+  max-width: 40%;
+}
+/* One example selector at a time: in single mode the toolbar's scenario
+   picker already is it (mode-single is set by cavocBuildCards), and the
+   tutorial levels drive the files themselves (body.tutorial, set by
+   front/scenario.js). The per-card pickers are compose-mode chrome. */
+#card-row.mode-single .card-file,
+body.tutorial .card-file {
+  display: none;
+}
+
+.card-collapse {
+  border: none;
+  background: none;
+  font-size: 13px;
+  color: #55554f;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.card-collapse:hover {
+  color: #222222;
+}
+
+.card-editors {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px;
+}
+.participant-card.collapsed .card-editors {
+  display: none;
+}
+
+.card-pane {
+  flex: 3;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.card-pane-sig {
+  flex: 2;
+}
+
+/* The seam between the module and signature panes, draggable like the main
+   splitter (cavocInitSplitter, front/common.js). */
+.pane-splitter {
+  flex: 0 0 6px;
+  cursor: row-resize;
+  background: #d4d4d0;
+  border-radius: 3px;
+}
+.pane-splitter:hover {
+  background: #b9b9b4;
+}
+
+.pane-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6a6a64;
+  margin-bottom: 2px;
+}
+
+.card-editor {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 1px solid #c6c6c2;
+  border-radius: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   Live panels: summary first. Each panel is a one-line strip; clicking it
+   cycles collapsed -> Δ of the last move -> full state (cavocCyclePanelState,
+   front/common.js). The entries never grow the page: the body is bounded and
+   scrolls. A panel only appears once a run has fed it (has-data, set by
+   bin/display_config.ml).
+   -------------------------------------------------------------------------- */
+.live-panel {
+  display: none;
+  border-top: 1px solid #d8d8d4;
+}
+.live-panel.has-data {
+  display: block;
+}
+
+.live-strip {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  font-size: 12px;
+  color: #444440;
+  background: #efefec;
+  border: none;
+  padding: 4px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.live-strip:hover {
+  background: #e6e6e2;
+}
+/* The strip announces the state it cycles to next. */
+.live-strip::before {
+  content: "▸ ";
+  color: #8a8a86;
+}
+.state-delta .live-strip::before,
+.state-full .live-strip::before {
+  content: "▾ ";
+  color: #8a8a86;
+}
+
+.live-entries {
+  max-height: 180px;
+  overflow-y: auto;
+  background: #272822;
+  font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  font-size: 12px;
+  color: #f8f8f2;
+}
+/* An empty container keeps no height, so a collapsed panel is just its
+   strip. */
+.live-entries:empty {
+  display: none;
+}
+
+/* The three states. Collapsed hides the entries individually, so the entry
+   of the focused move's subject can still peek through
+   (bin/moves_display.ml sets .peek). The Δ state only shows what the last
+   move changed (.fresh, set by bin/display_config.ml). */
+.state-collapsed .live-entry {
+  display: none;
+}
+.state-collapsed .live-entry.peek {
+  display: block;
+}
+.state-delta .live-entry:not(.fresh):not(.peek) {
+  display: none;
+}
+.delta-note {
+  display: none;
+  padding: 4px 10px;
+  color: #75715e;
+  font-style: italic;
+}
+.state-delta .delta-note {
+  display: block;
+}
+
+/* One entry per name / location: a one-line clamped summary, expandable per
+   entry into the full text. */
+.live-entry {
+  border-bottom: 1px solid #3a3b34;
+}
+.live-entry > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 3px 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.live-entry > summary::-webkit-details-marker {
+  display: none;
+}
+/* Open: the name stays as the header, the full text lives in the pre below —
+   the one-line preview would repeat it. */
+.live-entry[open] > summary {
+  background: #2d2e27;
+}
+.live-entry[open] .entry-preview {
+  display: none;
+}
+.live-entry.fresh > summary {
+  border-left: 3px solid #7aa25c;
+  padding-left: 7px;
+}
+
+.entry-code {
+  margin: 0;
+  padding: 4px 10px 6px 18px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #e6db74;
+}
+
+.ienv-id {
+  color: #66d9ef;
+  margin-right: 8px;
+}
+.entry-preview {
+  color: #c8c8c0;
+}
+
+.store-key {
+  color: #fd971f;
+  font-weight: bold;
+  margin-right: 8px;
+}
+.store-val {
+  color: #e6db74;
+}
+
+/* Highlight for the entry addressed by the focused move. */
+.ienv-item-highlighted > summary {
+  background-color: rgba(201, 161, 90, 0.18);
+  box-shadow: inset 3px 0 0 #c9a15a;
+}
+
+/* Shown in the live panels in place of a configuration whose branch has no
+   continuation: Proponent stopped playing, or the program diverges. Applied
+   from OCaml by Display_config.display_terminal_conf. */
+.conf-notice {
+  padding: 6px 10px;
+  color: #e6db74;
+  font-style: italic;
+}
+
+/* --------------------------------------------------------------------------
+   The public gutter: where the Opponent (the user) lives. It hosts the
+   choice panel; its head will carry the outer-position readout once compose
+   mode brings one (doc/web.md, stage 2).
+   -------------------------------------------------------------------------- */
+#public-gutter {
+  flex: 0 0 320px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* The head carries the readouts of the interfaces the composite has: the
+   outer position, then the span of the shared names, one slot each. Both
+   only have data in compose mode (bin/display_config.ml), and both fold, so
+   the head is capped: the choice panel below it is what the gutter is for. */
+#gutter-head {
+  font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  font-size: 12px;
+  color: #444440;
+  background: #efefec;
+  border: 1px solid #c6c6c2;
+  border-radius: 3px;
+  padding: 4px 10px;
+  max-height: 45%;
+  overflow-y: auto;
+}
+
+#gutter-head {
+  display: none;
+}
+body.mode-compose #gutter-head {
+  display: block;
+}
+#gutter-head summary {
+  cursor: pointer;
+}
+#gutter-shared {
+  margin-top: 2px;
+}
+.gutter-block {
+  margin-top: 4px;
+  font-weight: 600;
+  color: #55554f;
+}
+.gutter-entry {
+  padding-left: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The shared interface's span, under the position: one row per shared name,
+   a column per component. */
+.span-row {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 2px 0 2px 8px;
+  border-bottom: 1px dotted #d8d8d4;
+}
+.span-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.span-arrow {
+  color: #8a8a82;
+}
+
+/* The choice panel: the one widget for every choice - moves and symbolic
+   branches alike (bin/moves_display.ml). */
+#choice-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #c6c6c2;
+  border-radius: 3px;
+}
+
+#choice-caption {
+  font-size: 12px;
+  font-weight: 600;
+  color: #55554f;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e2e2de;
+}
+
+/* Only a composite chatters, so its control only shows in compose mode, and
+   the pace slider only in the mode that uses it. Both live inside the
+   Options menu, which is absolutely positioned — nothing here can move the
+   page's own boxes (front/common.js, cavocWireChatterControl). */
+#options-chatter {
+  display: none;
+}
+body.mode-compose #options-chatter {
+  display: block;
+}
+body.chatter-step #chatter-delay {
+  display: none;
+}
+
+#moves-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* One row per alternative; the focused row is the previewed one, so its
+   focus state is semantic and stays visible. */
+.choice-row {
+  text-align: left;
+  font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  font-size: 13px;
+  color: #222222;
+  background: #ffffff;
+  border: 1px solid #c6c6c2;
+  border-radius: 2px;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.choice-row:hover {
+  background: #f7f7f4;
+}
+.choice-row:focus {
+  outline: none;
+  border-color: #55554f;
+  background: #f4f4f0;
+}
+
+.kbd-hint {
+  padding: 6px 10px;
+  border-top: 1px solid #e2e2de;
+  color: #8a8a86;
+  font-size: 11px;
+}
+
+.panel-empty {
+  padding: 12px;
+  color: #75756e;
+  font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  font-style: italic;
+}
+
+/* Splitter handle between the workspace row and the trace area. */
+#splitter {
+  cursor: row-resize;
+  background: #d4d4d0;
+  border-radius: 3px;
+}
+#splitter:hover {
+  background: #b9b9b4;
+}
+body.resizing {
+  cursor: row-resize;
+  user-select: none;
+}
+
+/* --------------------------------------------------------------------------
+   The lower row: the trace always on show in the History window, below the
+   cards; the raw Configuration and the Console in the tab block below the
+   choice panel, aligned with the public gutter.
+   -------------------------------------------------------------------------- */
+#lower-row {
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+  min-width: 0;
+  color: #f8f8f2;
+  font-family: monospace;
+}
+
+#history-window {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #272822;
+  border-radius: 5px;
+}
+
+#history-head {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12px;
+  color: #a6a69c;
+  padding: 6px 14px;
+  border-bottom: 1px solid #3a3b34;
+}
+
+/* The seam between the History window and the side pane, draggable like the
+   other splitters (cavocInitSplitter, front/common.js). A pane folded to
+   its buttons has no width to trade, so the seam hides with it. */
+#lower-splitter {
+  flex: 0 0 6px;
+  cursor: col-resize;
+  background: #d4d4d0;
+  border-radius: 3px;
+}
+#lower-splitter:hover {
+  background: #b9b9b4;
+}
+#lower-row:has(#side-tabs.folded) #lower-splitter {
+  display: none;
+}
+
+#side-tabs {
+  flex: 0 0 var(--side-tabs-w, 320px);
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Folded (the resting state, cavocFoldSideTabs): only the tab buttons show,
+   at their natural width — the History window flexes into the rest. */
+#side-tabs.folded {
+  flex: 0 0 auto;
+}
+#side-tabs.folded .tabs {
+  flex: 0 0 auto;
+}
+
+.tabs {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.tab-nav {
+  justify-content: flex-start;
+  display: flex;
+}
+
+.tab-link {
+  font-family: "Courier New", Courier, monospace;
+  background: #2d2e27;
+  color: #a6a69c;
+  padding: 6px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  border: 1px solid #1d1e19;
+}
+
+.tab-link.active {
+  border-top-right-radius: 6px;
+  border-top-left-radius: 6px;
+  border-top: solid #8a8a86 4px;
+  background: #272822;
+  color: #e8e8e4;
+}
+
+.tab-link:hover {
+  color: #e8e8e4;
+  background: #3e3f38;
+}
+
+.tab-content {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  border-bottom-right-radius: 5px;
+  border-top-left-radius: 5px;
+  border-bottom-left-radius: 5px;
+  background-color: #272822;
+}
+
+.tab-content.active {
+  display: block;
+  overflow-y: auto;
+}
+
+/* One lane per interface: the public lane always, the shared lane once
+   compose mode exists (doc/web.md, stage 2). With a single lane its label
+   is noise, so it degenerates to the flat trace. */
 #history {
-  padding: 20px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.trace-lane {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.trace-lane-label {
+  flex: 0 0 auto;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12px;
+  color: #a6a69c;
+  padding-top: 4px;
+}
+.trace-lane:only-child .trace-lane-label {
+  display: none;
+}
+
+.trace-lane-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  align-content: flex-start;
+}
+
+/* The compose page's trace grid: the one chronology across both
+   interfaces — one row per interface, one column per move — so the τ
+   moves sit between the two external moves they happened between
+   (bin/moves_manager.ml fills it). The flat public lane stands aside
+   while the grid is on show. */
+body.mode-compose .trace-lane {
+  display: none;
+}
+.trace-grid {
+  display: grid;
+  column-gap: 8px;
+  row-gap: 10px;
+  align-items: start;
+  justify-content: start;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.trace-grid-label {
+  grid-column: 1;
+  position: sticky;
+  left: 0;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12px;
+  color: #a6a69c;
+  padding: 4px 8px 0 0;
+  background: #272822;
 }
 
 /* Move history chips (Moves_manager.chip_html): Opponent blue, Proponent orange. */
@@ -357,215 +787,107 @@ input[type="radio"] {
   color: #fd971f;
   border: 1px solid #fd971f;
 }
-
-/*styles for config tabs*/
-
-/* Style for tab navigation */
-
-.tabs {
-  position: relative;
-  display: block;
-  height: 48%;
-}
-.tab-nav {
-  justify-content: flex-start;
-  display: flex;
-}
-
-.tab-link {
-  font-family: "Courier New", Courier, monospace;
-  background: #2d2e27;
-  color: #a6a69c;
-  padding: 6px 20px;
-  cursor: pointer;
-  font-size: 16px;
-  border: 1px solid #1d1e19;
-}
-
-.tab-link.active {
-  border-top-right-radius: 10px;
-  border-top-left-radius: 10px;
-  border-top: solid #a6e22e 4px;
-  background: #272822;
+/* Synchronizations of a composition: τ[…] chips on the shared lane. */
+.trace-tau {
+  background: #20251a;
   color: #a6e22e;
+  border: 1px solid #75715e;
 }
 
-.tab-link:hover {
-  color: #000000;
-  background: #a6e22e;
-}
-
-/* Style for tab content */
-.tab-content {
-  display: none;
-  border-bottom-right-radius: 5px;
-  border-top-left-radius: 5px;
-  border-bottom-left-radius: 5px;
-  background-color: #272822;
-  height: 200%;
-}
-
-.tab-content.active {
-  display: block;
-  overflow-y: scroll;
-  padding: 0.05%;
-}
-
-.ienv-div {
-  padding: 10px;
-  border: 1px solid rgb(152, 152, 152);
-  border-radius: 5px;
-  margin: 3px;
-}
-
-.stack-div {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 10px;
-  border: 1px solid rgb(152, 152, 152);
-  border-radius: 5px;
-  margin: 3px;
-}
-
-/* Highlight class for ienv items when a move is selected */
-.ienv-item-highlighted {
-  border: 3px solid #a6e22e !important;
-  background-color: rgba(166, 226, 46, 0.1) !important;
-  box-shadow: 0 0 10px rgba(166, 226, 46, 0.3) !important;
-  transition: all 0.3s ease;
-}
-
-.stack-item {
-  padding: 8px;
-  border: 1px solid rgb(152, 152, 152);
-  border-radius: 4px;
-  margin: 3px;
-  background-color: hsl(70, 8%, 18%);
-  /* Monokai background color for each action item */
-  color: #f8f8f2;
-  /* Light text color for action items */
-}
-
-/* Store panel - built by Display_config.generate_store_html_from_json. The
-   div-level rules are scoped under #store so they outrank the blanket
-   "#store div" rule above (which still styles the plain-string store display). */
-#store .store-list {
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-}
-#store .store-row {
-  display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  padding: 8px;
-  margin-bottom: 5px;
-}
-.store-key {
-  color: #fd971f;
-  font-weight: bold;
-  min-width: 50px;
-  margin-right: 10px;
-}
-.store-val {
-  color: #e6db74;
-  font-family: monospace;
+/* The <pre> tags the OCaml side appends to the console */
+#console pre {
   white-space: pre-wrap;
-  word-break: break-all;
-}
-#store .store-empty {
-  padding: 10px;
-  color: #75715e;
-  font-style: italic;
-}
-#store .store-invalid {
-  padding: 10px;
-  color: #f92672;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  margin: 0;
+  max-width: 100%;
+  padding: 0 12px;
 }
 
-/* IEnv panel - built by Display_config.generate_ienv_html. */
-.ienv-panel {
-  padding: 20px;
-  height: 100%;
-  overflow-y: auto;
-  background: #272822;
-  font-family: monospace;
+#console {
+  overflow-x: hidden;
+  width: 100%;
 }
-.ienv-panel.ienv-panel-error {
-  color: #e74c3c;
-}
-.ienv-title {
-  margin-top: 0;
-  margin-bottom: 20px;
-  color: #a6e22e;
-}
-.ienv-panel-error .ienv-title {
-  margin-bottom: 0.5em;
-  color: #e74c3c;
-}
-#ienv-list {
+
+/* --------------------------------------------------------------------------
+   Guide panel: a drawer over the right edge; tutorial text and help.md
+   render here (front/scenario.js).
+   -------------------------------------------------------------------------- */
+#guide-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(400px, 90vw);
+  background: #fbfbf9;
+  border-left: 1px solid #c6c6c2;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.08);
+  transform: translateX(102%);
+  transition: transform 0.15s ease-out;
+  z-index: 900;
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
-.ienv-item {
-  position: relative;
-  height: auto;
+#guide-panel.open {
+  transform: translateX(0);
 }
-.ienv-id {
-  color: #75715e;
-  margin-right: 10px;
-}
-.ienv-error-box {
-  margin-top: 15px;
-  padding: 15px;
-  border-radius: 5px;
-  overflow-x: auto;
-  background: #2d2e27;
-  color: #f8f8f2;
+@media (prefers-reduced-motion: reduce) {
+  #guide-panel {
+    transition: none;
+  }
 }
 
-
-#file-selection {
-  grid-area: toolbar;
-  justify-self: start;
-  align-self: center;
+#guide-head {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  padding: 2px 4px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #e2e2de;
+  font-weight: 600;
+  color: #333330;
+}
+#guide-close {
+  border: none;
+  background: none;
+  font-size: 20px;
+  color: #77776f;
+  cursor: pointer;
+  padding: 0 4px;
+}
+#guide-close:hover {
+  color: #222222;
 }
 
-/* Style for Help button */
-.modal {
-  display: none; 
-  position: fixed; 
-  z-index: 1000; 
-  left: 0;
-  top: 0;
-  width: 100%; 
-  height: 100%; 
-  overflow: auto; 
-  background-color: rgba(0,0,0,0.6); 
-  backdrop-filter: blur(2px); 
+#guide-content {
+  padding: 6px 16px 20px;
+  overflow-y: auto;
+  line-height: 1.55;
+  color: #2a2a28;
+  font-size: 14px;
+}
+#guide-content h1,
+#guide-content h2,
+#guide-content h3 {
+  font-size: 15px;
+  color: #222222;
+  border-bottom: 1px solid #e2e2de;
+  padding-bottom: 4px;
+}
+#guide-content code {
+  background-color: #efefeb;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  font-size: 0.9em;
+}
+#guide-content pre {
+  background-color: #efefeb;
+  padding: 8px;
+  border-radius: 3px;
+  overflow-x: auto;
 }
 
-.modal-content {
-  background-color: #272822; 
-  color: #f8f8f2;
-  margin: 10% auto; 
-  padding: 20px;
-  border: 2px solid #a6e22e; 
-  border-radius: 8px;
-  width: 60%; 
-  max-width: 800px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-  font-family: Arial, sans-serif;
-  line-height: 1.6;
-}
-
-/* The close button (X) */
+/* The close button (X) of the outcome modals (front/win.css). */
 .close-btn {
   color: #aaa;
   float: right;
@@ -573,40 +895,26 @@ input[type="radio"] {
   font-weight: bold;
   cursor: pointer;
 }
-
 .close-btn:hover,
 .close-btn:focus {
-  color: #a6e22e;
+  color: #ffffff;
   text-decoration: none;
   cursor: pointer;
 }
 
-/* Markdown content */
-#markdown-content h1, #markdown-content h2 {
-  color: #a6e22e;
-  border-bottom: 1px solid #3e3d32;
-  padding-bottom: 5px;
-}
-
-#markdown-content code {
-  background-color: #3e3d32;
-  padding: 2px 5px;
-  border-radius: 3px;
+/* Full-page notice shown by Page_init.show_server_stopped after the server has
+   been shut down. */
+#server-stopped {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+  background: rgba(20, 20, 18, 0.92);
+  color: #f8f8f2;
   font-family: "Courier New", Courier, monospace;
-}
-
-
-/* The <pre> tags the OCaml side appends to the console */
-#console pre {
-  white-space: pre-wrap;       /* Keep the formatting, but still wrap long lines */
-  word-wrap: break-word;       /* Break words that are longer than the line */
-  overflow-wrap: break-word;   /* The modern property for breaking words */
-  margin: 0;                   /* Drop the default margins, which waste space */
-  max-width: 100%;             /* Keep the text inside its container */
-}
-
-/* Keep the console tab itself from overflowing */
-#console {
-  overflow-x: hidden;          /* Avoid a stray horizontal scroll bar */
-  width: 100%;                 /* Keep the width of the parent */
+  font-size: 1.2rem;
 }

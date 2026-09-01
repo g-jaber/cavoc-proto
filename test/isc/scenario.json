@@ -1,0 +1,5 @@
+{
+  "title": "isc",
+  "mode": "single",
+  "participants": [ { "name": "isc", "ml": "isc.ml", "mli": "isc.mli" } ]
+}

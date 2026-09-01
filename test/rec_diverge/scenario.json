@@ -1,0 +1,5 @@
+{
+  "title": "rec_diverge",
+  "mode": "single",
+  "participants": [ { "name": "rec_diverge", "ml": "rec_diverge.ml", "mli": "rec_diverge.mli" } ]
+}

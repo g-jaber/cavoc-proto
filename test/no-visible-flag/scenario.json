@@ -1,0 +1,5 @@
+{
+  "title": "no-visible-flag",
+  "mode": "single",
+  "participants": [ { "name": "no-visible-flag", "ml": "no-visible-flag.ml", "mli": "no-visible-flag.mli" } ]
+}
