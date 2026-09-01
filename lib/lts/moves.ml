@@ -1,10 +1,19 @@
 module type MOVES = sig
   (* to be instantiated *)
   module Renaming : Lang.Renaming.WEAKENING
+
+  module Thinning : sig
+    include Lang.Renaming.THINNING with module Namectx = Renaming.Namectx
+
+    val of_support : Namectx.t -> Namectx.Names.name list -> t
+  end
   (* *)
 
   type copattern
-  type move = Renaming.Namectx.Names.name * copattern [@@deriving to_yojson]
+
+  (* A move is exactly its copattern; the subject is read from the abstract
+     normal form inside it (get_subject_name), not stored alongside. *)
+  type move = copattern [@@deriving to_yojson]
 
   val pp_move : Format.formatter -> move -> unit
   val string_of_move : move -> string
@@ -30,8 +39,7 @@ module type MOVES = sig
   val get_namectx : move -> Renaming.Namectx.t
 
   (* The names introduced by the move, transported through its carried
-     weakening, so that they denote positions in the ambient context the
-     move extends (rather than in its local context). *)
+     weakening so that they denote names of the extended context. *)
   val get_fresh_names : move -> Renaming.Namectx.Names.name list
 
   val unify_move :
@@ -117,6 +125,17 @@ module type A_NF = sig
   val renaming_a_nf :
     IEnv.Renaming.t -> abstract_normal_form -> abstract_normal_form
 
+  val map_free_names_of_a_nf :
+    (IEnv.Renaming.Namectx.Names.name -> IEnv.Renaming.Namectx.Names.name) ->
+    abstract_normal_form ->
+    abstract_normal_form
+
+  val fold_free_names_of_a_nf :
+    ('a -> IEnv.Renaming.Namectx.Names.name -> 'a) ->
+    'a ->
+    abstract_normal_form ->
+    'a
+
   val pp_a_nf :
     pp_dir:(Format.formatter -> unit) ->
     Format.formatter ->
@@ -125,10 +144,8 @@ module type A_NF = sig
 
   val pp_a_nf_in :
     pp_dir:(Format.formatter -> unit) ->
-    pp_free_name:
-      (Format.formatter -> IEnv.Renaming.Namectx.Names.name -> unit) ->
-    pp_bound_name:
-      (Format.formatter -> IEnv.Renaming.Namectx.Names.name -> unit) ->
+    pp_free_name:(Format.formatter -> IEnv.Renaming.Namectx.Names.name -> unit) ->
+    pp_bound_name:(Format.formatter -> IEnv.Renaming.Namectx.Names.name -> unit) ->
     Format.formatter ->
     abstract_normal_form ->
     unit
@@ -151,9 +168,10 @@ module Make (A_nf : A_NF) :
      and type copattern = A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t =
 struct
   module Renaming = A_nf.IEnv.Renaming
+  module Thinning = Lang.Renaming.MakeThin (Renaming)
 
   type copattern = A_nf.abstract_normal_form * Renaming.t
-  type move = Renaming.Namectx.Names.name * copattern
+  type move = copattern
   type direction = Input | Output [@@deriving to_yojson]
 
   let string_of_direction = function Input -> "?" | Output -> "!"
@@ -163,7 +181,7 @@ struct
 
   (* Bound names are displayed reindexed through the carried renaming;
      free names are resolved by show_name. *)
-  let pp_move_gen ~show_name ~pp_dir fmt (_, (a_nf, renaming)) =
+  let pp_move_gen ~show_name ~pp_dir fmt (a_nf, renaming) =
     let pp_free_name fmt nn = Format.pp_print_string fmt (show_name nn) in
     let pp_bound_name fmt nn =
       Renaming.Namectx.Names.pp_name fmt (Renaming.lookup renaming nn) in
@@ -193,7 +211,7 @@ struct
 
   let string_of_pol_move = string_of_pol_move_in ~show_name:default_show
 
-  let move_to_yojson_in ~show_name ((_, (a_nf, _)) as move : move) =
+  let move_to_yojson_in ~show_name ((a_nf, _) as move : move) =
     `Assoc
       [
         ("subjectName", `String (show_name (A_nf.get_subject_name a_nf)));
@@ -211,17 +229,59 @@ struct
     `Assoc [ ("label", `String (string_of_move m)) ]
 
   let switch_direction (p, d) = (switch p, d)
-  let get_subject_name (nn, (_, _)) = nn
-  let get_namectx (_, (_, renaming)) = Renaming.dom renaming
+  let get_subject_name (a_nf, _) = A_nf.get_subject_name a_nf
+  let get_namectx (_, renaming) = Renaming.dom renaming
 
-  let get_fresh_names (_, (_, renaming)) =
-    List.map
-      (Renaming.lookup renaming)
+  let get_fresh_names (_, renaming) =
+    List.map (Renaming.lookup renaming)
       (Renaming.Namectx.get_names (Renaming.dom renaming))
 
-  let unify_move span (_, (a_nf1, _)) (_, (a_nf2, _)) =
+  let unify_move span (a_nf1, _) (a_nf2, _) =
     A_nf.is_equiv_a_nf span a_nf1 a_nf2
 
   let unify_pol_move span (dir1, move1) (dir2, move2) =
     if dir1 = dir2 then unify_move span move1 move2 else None
+end
+
+(* The view-local form of placed moves, shared by the movetree and the view
+   function: free names read as levels in a view thinning's domain, so that
+   converted moves compare structurally across plays. *)
+module MakeViewLocalForm
+    (A_nf : A_NF)
+    (Thinning :
+      Lang.Renaming.THINNING with module Namectx = A_nf.IEnv.Renaming.Namectx) : sig
+  (* Rebuild a context with empty display strings, types and order
+     preserved. *)
+  (* Structural equality looks up stored moves, so it must not see hints. *)
+  val erase_display_hints :
+    A_nf.IEnv.Renaming.Namectx.t -> A_nf.IEnv.Renaming.Namectx.t
+
+  (* Every free name is required to belong to the thinning's image. *)
+  val convert_move :
+    Thinning.t ->
+    A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t ->
+    A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t
+end = struct
+  module Renaming = A_nf.IEnv.Renaming
+
+  let erase_display_hints context =
+    List.fold_left
+      (fun erased name ->
+        let typ = Renaming.Namectx.lookup_exn context name in
+        snd (Renaming.Namectx.add_fresh erased "" typ))
+      Renaming.Namectx.empty
+      (Renaming.Namectx.get_names context)
+
+  let convert_move thinning (a_nf, renaming) =
+    let convert_name name =
+      match Thinning.lookup_inv thinning name with
+      | Some local_name -> local_name
+      | None ->
+          failwith
+            "Moves.MakeViewLocalForm.convert_move: free name outside the \
+             thinning image" in
+    ( A_nf.map_free_names_of_a_nf convert_name a_nf,
+      Renaming.weak_r
+        (erase_display_hints (Renaming.dom renaming))
+        (erase_display_hints (Thinning.dom thinning)) )
 end

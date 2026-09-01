@@ -61,7 +61,7 @@ let generate_kind_lts () =
   let restrictions =
     if !enable_visibility then Visibility :: restrictions else restrictions
   in
-  { oplang; symbolic = false; control; restrictions }
+  { oplang; symbolic= false; control; restrictions }
 
 let fix_mode () =
   match (!is_compare, !is_compose) with
@@ -112,16 +112,19 @@ let check_number_filenames () =
      ^ "should have been provided. " ^ usage_msg)
 
 module Output = Util.Monad.Output (struct
-    type t = string
+  type t = string
 
-    let show str = str
+  let show str = str
 end)
 
 (* There is a tension between using the trick of
    Lts.Strategy.LTS with type conf = a,
    and the fact that this type Lts.Strategy.LTS.conf is not abstract *)
 
-let run_interaction (type a) (module IBuild : Lts.Interactive_build.IBUILD with type conf = a)
+(** let trace = Graph.UserMonad.get_trace result in let graph_string =
+    Graph.string_of_graph graph in print_string graph_string*)
+let run_interaction (type a)
+    (module IBuild : Lts.Interactive_build.IBUILD with type conf = a)
     (init_conf : a) =
   (* ask a question with a range of possible answers (rangestr).
      f is of type `(unit -> unit) -> string -> unit` and gets passed
@@ -190,17 +193,15 @@ let run_interaction (type a) (module IBuild : Lts.Interactive_build.IBUILD with 
           else (
             print_endline "choice out of range";
             askagain ()) in
-    IBuild.M.return
+    IBuild.UserMonad.return
       (match ask_or_quit (Printf.sprintf "1..%d" n) aux with
       | None -> Lts.Interactive_build.Quit
       | Some i -> Lts.Interactive_build.Chose i) in
 
   let _result =
     IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
-      init_conf in ()
-(**  let trace = Graph.M.get_trace result in
-  let graph_string = Graph.string_of_graph graph in
-  print_string graph_string*) 
+      init_conf in
+  ()
 
 let open_lexbuf filename =
   let inBuffer = open_in filename in
@@ -213,9 +214,10 @@ let open_lexbuf filename =
 module MakeRunLts (LTS : Lts.Strategy.LTS with type 'a EvalMonad.r = 'a) =
 struct
   include LTS
-  module M = Output
+  module UserMonad = Output
 
-  let choose m = M.return (Lts.Interactive_build.Chose (EvalMonad.run m))
+  let choose m =
+    UserMonad.return (Lts.Interactive_build.Chose (EvalMonad.run m))
 end
 
 (* The modes differ only in the LTS they build and in how its initial

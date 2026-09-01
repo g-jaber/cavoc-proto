@@ -21,30 +21,21 @@ module type WEAKENING = sig
   val lookup : t -> Namectx.Names.name -> Namectx.Names.name
 end
 
-(* Thinnings are the injective, order-preserving maps between contexts.  A
-   thinning maps dense local levels into ambient levels, possibly leaving gaps
-   in the ambient context. *)
+(* Thinnings are injective, order-preserving maps between contexts. *)
 module type THINNING = sig
   include WEAKENING
 
-  (* [to_ambient thinning local] is the forward application of [thinning].
-     It is the same operation as [lookup], with its direction made explicit. *)
-  val to_ambient : t -> Namectx.Names.name -> Namectx.Names.name
-
-  (* [to_local thinning ambient] is the partial inverse.  It returns [None]
-     exactly when [ambient] is not in the image of [thinning].  Implementations
-     must preserve types and order, and satisfy, for [local] in the domain:
-
-       to_local thinning (to_ambient thinning local) = Some local
-
-     and [to_local thinning ambient = Some local] implies
-     [to_ambient thinning local = ambient]. *)
-  val to_local : t -> Namectx.Names.name -> Namectx.Names.name option
+  (* [lookup_inv thinning target] is the partial inverse of [lookup].  It
+     returns [None] exactly when [target] is not in the image of [thinning].
+     lookup_inv thinning (lookup thinning source) = Some source
+     and [lookup_inv thinning target = Some source] implies
+     [lookup thinning source = target]. *)
+  val lookup_inv : t -> Namectx.Names.name -> Namectx.Names.name option
 end
 
 (* Renamings are general maps between contexts, extending weakenings with
-   the copairing of the coproduct and the symmetry.  This interface is kept
-   separate from [THINNING]: a general renaming may identify two names and
+   the copairing of the coproduct and the symmetry. 
+   A general renaming may identify two names and
    therefore need not have a partial inverse. *)
 module type RENAMING = sig
   include WEAKENING
@@ -249,9 +240,9 @@ end = struct
   let pp_map fmt map =
     let pp_sep fmt () = Format.fprintf fmt ", " in
     let pp_empty fmt () = Format.fprintf fmt "⋅" in
-    let pp_pair fmt (local, ambient) =
+    let pp_pair fmt (local, context_name) =
       Format.fprintf fmt "%a ↦ %a" Namectx.Names.pp_name local
-        Namectx.Names.pp_name ambient in
+        Namectx.Names.pp_name context_name in
     Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt map
 
   let pp fmt thinning =
@@ -282,17 +273,16 @@ end = struct
 
   let is_in_dom thinning name = Util.Pmap.mem name thinning.map
   let lookup thinning name = Util.Pmap.lookup_exn name thinning.map
-  let to_ambient = lookup
 
-  let to_local thinning ambient =
-    match Util.Pmap.select_im ambient thinning.map with
+  let lookup_inv thinning context_name =
+    match Util.Pmap.select_im context_name thinning.map with
     | [] -> None
     | [ local ] -> Some local
     | _ -> assert false
 
   let compose thinning1 thinning2 =
     assert (equal_context thinning1.dom thinning2.im);
-    let map = Util.Pmap.map_im (to_ambient thinning1) thinning2.map in
+    let map = Util.Pmap.map_im (lookup thinning1) thinning2.map in
     { map; dom= thinning2.dom; im= thinning1.im }
 
   let weak_l namectx_l namectx_r =
@@ -307,23 +297,23 @@ end = struct
       | name :: names -> List.mem name names || loop names in
     loop names
 
-  let of_support ambient support =
-    let ambient_names = Namectx.get_names ambient in
+  let of_support context support =
+    let context_names = Namectx.get_names context in
     if
       has_duplicates support
-      || not (List.for_all (fun name -> List.mem name ambient_names) support)
+      || not (List.for_all (fun name -> List.mem name context_names) support)
     then failwith "Renaming.MakeThin.of_support";
     let ordered_support =
-      List.filter (fun name -> List.mem name support) ambient_names in
+      List.filter (fun name -> List.mem name support) context_names in
     let (dom, map_entries) =
       List.fold_left
-        (fun (local_ctx, map_entries) ambient_name ->
-          let typ = Namectx.lookup_exn ambient ambient_name in
+        (fun (local_ctx, map_entries) context_name ->
+          let typ = Namectx.lookup_exn context context_name in
           let (local_name, local_ctx') = Namectx.add_fresh local_ctx "" typ in
-          (local_ctx', (local_name, ambient_name) :: map_entries))
+          (local_ctx', (local_name, context_name) :: map_entries))
         (Namectx.empty, []) ordered_support in
     let map = Util.Pmap.list_to_pmap (List.rev map_entries) in
-    { map; dom; im= ambient }
+    { map; dom; im= context }
 end
 
 module MakeWeak (Namectx : Typectx.TYPECTX_LIST) :
@@ -365,9 +355,7 @@ module MakeWeak (Namectx : Typectx.TYPECTX_LIST) :
   let lookup renam i =
     if is_in_dom renam i then i + renam.offset else raise Not_found
 
-  let to_ambient = lookup
-
-  let to_local renam i =
+  let lookup_inv renam i =
     let local = i - renam.offset in
     if is_in_dom renam local then Some local else None
 end
@@ -594,17 +582,15 @@ module AggregateThin
   let compose (thin11, thin12) (thin21, thin22) =
     (Thin1.compose thin11 thin21, Thin2.compose thin12 thin22)
 
-  let to_ambient = lookup
-
-  let to_local (thin1, thin2) = function
-    | Either.Left ambient ->
+  let lookup_inv (thin1, thin2) = function
+    | Either.Left context_name ->
         Option.map
           (fun local -> Either.Left local)
-          (Thin1.to_local thin1 ambient)
-    | Either.Right ambient ->
+          (Thin1.lookup_inv thin1 context_name)
+    | Either.Right context_name ->
         Option.map
           (fun local -> Either.Right local)
-          (Thin2.to_local thin2 ambient)
+          (Thin2.lookup_inv thin2 context_name)
 end
 
 module Aggregate

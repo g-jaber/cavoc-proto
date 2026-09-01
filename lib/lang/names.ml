@@ -7,7 +7,7 @@ module type NAMES = sig
   val is_cname : name -> bool
 end
 
-(* Names whose identity is a De Bruijn level: their position in their
+(* Names whose identity is a de Bruijn level: their position in their
    typing context, which also stores their display string. *)
 module type NAMES_INT = sig
   include NAMES with type name = int

@@ -55,12 +55,11 @@ module type LTS_WITH_INIT = sig
     implementation and the signature of a module, and return an initial
     {{!type: Lts.Strategy.LTS.passive_conf}passive configuration}
 
-    [imports], when provided, is the signature of names the module may use but
+    [opponent_signature], when provided, is the signature of names the module may use but
     does not implement: they become Opponent names of the configuration.
-    Omitting it is the standalone case.
    *)
   val lexing_init_pconf :
-    ?imports:Lexing.lexbuf -> Lexing.lexbuf -> Lexing.lexbuf -> passive_conf
+    ?opponent_signature:Lexing.lexbuf -> Lexing.lexbuf -> Lexing.lexbuf -> passive_conf
 end
 
 module type LTS_WITH_INIT_BIN = sig

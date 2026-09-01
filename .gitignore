@@ -19,3 +19,8 @@ _build/
 .vscode
 .DS_Store
 front/server
+site/
+
+# local-only: unit tests and the web driver
+test/unit/
+doc/drive_web.py

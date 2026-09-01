@@ -8,7 +8,7 @@ module type COMPOSITION_WITH_INIT = sig
   include Lts.Strategy.LTS
 
   (* The par layer of the composite, for front ends that show the internal
-     chattering (doc/web.md): p_trans unrolled one exchange at a time,
+     chattering (doc/web.md): p_trans unrolled one move at a time,
      synchronizations surfacing as τ-tagged moves instead of being iterated
      away by the trace operator. Sync moves are not choices: a driver
      auto-plays them, and only consults the user at external moves. *)
@@ -18,12 +18,11 @@ module type COMPOSITION_WITH_INIT = sig
 
   (* The display form of a comp_move played from the given active
      configuration: free names are shown as the sender names them — the
-     active component's context for a sync move, the composite's outer
+     active component's context for a sync move, the composite's own
      context for an external one. A synchronization is an Output of its
      sender and an Input of its receiver at once, so it is displayed
      unpolarized. *)
   val string_of_comp_move_from : active_conf -> comp_move -> string
-
   val par_p_trans : active_conf -> (comp_move * conf) EvalMonad.m
 
   (* [imported_sig] must be a second lexing buffer on the same file as
@@ -52,41 +51,40 @@ module Make
          and type store_ctx = IntLang.Storectx.t) :
   COMPOSITION_WITH_INIT
     with module TypingLTS = TypingLTS
-     and type 'a EvalMonad.r = 'a IntLang.EvalMonad.r =
-struct
+     and type 'a EvalMonad.r = 'a IntLang.EvalMonad.r = struct
   module IntStructure = Lts.Compose.MakeIntStructure (IntLang) (TypingLTS)
-  module Component = Ogslts.Make (IntLang) (TypingLTS)
-  module Composite = Lts.Compose.Make (IntStructure) (Component) (Component)
+  module IntLts = Ogslts.MakeWithInit (IntLang) (TypingLTS)
+  module Composition = Lts.Compose.Make (IntStructure) (IntLts) (IntLts)
   module Namectx = IntLang.IEnv.Renaming.Namectx
-  include Composite.Hide
+  include Composition.Hide
 
-  type comp_move = Composite.Par.comp_move
+  type comp_move = Composition.Par.comp_move
 
   let comp_move_is_sync = function
-    | Composite.Par.SyncMove _ -> true
-    | Composite.Par.ExternalMove _ -> false
+    | Composition.Par.SyncMove _ -> true
+    | Composition.Par.ExternalMove _ -> false
 
-  let string_of_comp_move_from = Composite.Par.string_of_comp_move_from
+  let string_of_comp_move_from = Composition.Par.string_of_comp_move_from
 
   (* Par's own conf sum is mapped onto Hide's: the two layers share their
      configurations, and a front end only ever holds Hide's. *)
   let par_p_trans aconf =
     let open EvalMonad in
-    let* (cm, next) = Composite.Par.p_trans aconf in
+    let* (cm, next) = Composition.Par.p_trans aconf in
     return
       ( cm,
         match next with
-        | Composite.Par.Active aconf -> Active aconf
-        | Composite.Par.Passive pconf -> Passive pconf )
+        | Composition.Par.Active aconf -> Active aconf
+        | Composition.Par.Passive pconf -> Passive pconf )
 
   let lexing_init_pconf ~provider_implem ~provider_sig ~client_implem
       ~client_sig ~imported_sig =
-    let provider = Component.lexing_init_pconf provider_implem provider_sig in
+    let provider = IntLts.lexing_init_pconf provider_implem provider_sig in
     let client =
-      Component.lexing_init_pconf ~imports:imported_sig client_implem
+      IntLts.lexing_init_pconf ~opponent_signature:imported_sig client_implem
         client_sig in
-    let provider_pos = Component.get_passive_pos provider in
-    let client_pos = Component.get_passive_pos client in
+    let provider_pos = IntLts.get_passive_pos provider in
+    let client_pos = IntLts.get_passive_pos client in
     let provider_exports = TypingLTS.get_namectxP provider_pos in
     let client_imports = TypingLTS.get_namectxO client_pos in
     (* Both name sets come from the same signature, and classify its
@@ -110,12 +108,12 @@ struct
         (Namectx.get_names provider_exports) in
     let sharing =
       {
-        IntStructure.left_initial_position= provider_pos;
-        right_initial_position= client_pos;
+        IntStructure.left_init_pos= provider_pos;
+        right_init_pos= client_pos;
         provided_by_left;
         (* Sequential composition: the client provides nothing back. *)
         provided_by_right= [];
         initial_storectx= IntLang.Storectx.empty;
       } in
-    Composite.init_pconf ~sharing provider client
+    Composition.init_pconf sharing provider client
 end

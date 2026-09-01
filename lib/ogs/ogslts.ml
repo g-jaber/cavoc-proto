@@ -1,15 +1,28 @@
+(* The OGS Strategy over an interactive language. 
+  MakeWithInit adds the lexbuf-based
+  initialization for languages that parse their initial configurations. *)
 module Make
-    (Lang : Lang.Interactive.LANG_WITH_INIT)
+    (Lang : Lang.Interactive.LANG)
     (TypingLTS :
       Lts.Typing.LTS
         with module Moves.Renaming = Lang.IEnv.Renaming
          and type Moves.copattern =
           Lang.abstract_normal_form * Lang.IEnv.Renaming.t
-         and type store_ctx = Lang.Storectx.t) :
-  Lts.Strategy.LTS_WITH_INIT
-    with module TypingLTS = TypingLTS
-     and module TypingLTS.Moves.Renaming = Lang.IEnv.Renaming
-     and type 'a EvalMonad.r = 'a Lang.EvalMonad.r = struct
+         and type store_ctx = Lang.Storectx.t) : sig
+  include
+    Lts.Strategy.LTS
+      with module TypingLTS = TypingLTS
+       and module EvalMonad = Lang.EvalMonad
+
+  val init_aconf : Lang.opconf -> Lang.IEnv.Renaming.Namectx.t -> active_conf
+
+  val init_pconf :
+    Lang.store ->
+    Lang.IEnv.t ->
+    Lang.IEnv.Renaming.Namectx.t ->
+    Lang.IEnv.Renaming.Namectx.t ->
+    passive_conf
+end = struct
   module TypingLTS = TypingLTS
   module EvalMonad = Lang.EvalMonad
   module Moves = TypingLTS.Moves
@@ -62,15 +75,18 @@ module Make
     let nn = Lang.get_subject_name a_nf in
     let renaming =
       TypingLTS.place act_conf.pos TypingLTS.Moves.Output nn lnamectx in
-    let move = (TypingLTS.Moves.Output, (nn, (a_nf, renaming))) in
+    let move = (TypingLTS.Moves.Output, (a_nf, renaming)) in
     let pos = TypingLTS.trigger_move act_conf.pos move in
     let ienv = Lang.IEnv.copairing act_conf.ienv ienv in
     (* The placement policy and the ienv-domain extension performed by
-       copairing must agree. *)
-    assert (TypingLTS.Moves.Renaming.im renaming = Lang.IEnv.dom ienv);
+       copairing must agree, up to display hints. *)
+    assert (
+      TypingLTS.Moves.Renaming.Namectx.to_pmap
+        (TypingLTS.Moves.Renaming.im renaming)
+      = TypingLTS.Moves.Renaming.Namectx.to_pmap (Lang.IEnv.dom ienv));
     return (move, { store; ienv; pos })
 
-  let o_trans pas_conf ((_, (_, a_nf)) as input_move) =
+  let o_trans pas_conf ((_, a_nf) as input_move) =
     match TypingLTS.check_move pas_conf.pos input_move with
     | None -> None
     | Some pos ->
@@ -80,7 +96,7 @@ module Make
 
   let o_trans_gen pas_conf =
     let open TypingLTS.BranchMonad in
-    let* (((_, (_, a_nf)) as input_move), pos) =
+    let* (((_, a_nf) as input_move), pos) =
       TypingLTS.generate_moves pas_conf.pos in
     let (opconf, ienv) =
       Lang.concretize_a_nf pas_conf.store pas_conf.ienv a_nf in
@@ -101,13 +117,28 @@ module Make
 
   let equiv_act_conf act_conf act_confb =
     act_conf.opconf = act_confb.opconf (* That's fishy *)
+end
+
+module MakeWithInit
+    (Lang : Lang.Interactive.LANG_WITH_INIT)
+    (TypingLTS :
+      Lts.Typing.LTS
+        with module Moves.Renaming = Lang.IEnv.Renaming
+         and type Moves.copattern =
+          Lang.abstract_normal_form * Lang.IEnv.Renaming.t
+         and type store_ctx = Lang.Storectx.t) :
+  Lts.Strategy.LTS_WITH_INIT
+    with module TypingLTS = TypingLTS
+     and module TypingLTS.Moves.Renaming = Lang.IEnv.Renaming
+     and module EvalMonad = Lang.EvalMonad = struct
+  include Make (Lang) (TypingLTS)
 
   let lexing_init_aconf expr_lexbuffer =
     let (opconf, namectxO) = Lang.get_typed_opconf "first" expr_lexbuffer in
     init_aconf opconf namectxO
 
-  let lexing_init_pconf ?imports decl_lexbuffer signature_lexbuffer =
+  let lexing_init_pconf ?opponent_signature decl_lexbuffer signature_lexbuffer =
     let (interactive_env, store, name_ctxP, name_ctxO) =
-      Lang.get_typed_ienv ?imports decl_lexbuffer signature_lexbuffer in
+      Lang.get_typed_ienv ?opponent_signature decl_lexbuffer signature_lexbuffer in
     init_pconf store interactive_env name_ctxP name_ctxO
 end

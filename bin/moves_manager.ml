@@ -7,12 +7,8 @@
    - flush_moves: Clears all moves for next evaluation
    - display_previous_moves: Updates the UI with move history
 
-   The History window shows the moves by interface (doc/web.md). The
-   single-module page has the one flat public lane. A composition's
-   page shows the one chronology across both interfaces as a two-row
-   grid — one row per interface, one column per move — so the τ moves
-   of the shared interface sit between the two external moves they
-   happened between.
+   The History window shows the moves by interface: one flat public lane on
+   the single-module page, a two-row grid on a composition's (doc/web.md).
 *)
 
 open Js_of_ocaml
@@ -30,12 +26,11 @@ let chip_html chip_class move =
 let flat_public_html () =
   !previous_moves
   |> List.filter_map (fun (lane, chip_class, move) ->
-         if lane = Public then Some (chip_html chip_class move) else None)
+      if lane = Public then Some (chip_html chip_class move) else None)
   |> List.rev |> String.concat ""
 
-(* The trace grid of the compose page: each move takes its own column
-   of the shared chronology, on the row of the interface it crossed;
-   the row labels sit in column 1, the chips from column 2 on. *)
+(* The trace grid of the compose page: each move takes its own column of the
+   shared chronology, on the row of the interface it crossed. *)
 let interleaved_grid_html () =
   let label row text =
     Printf.sprintf
@@ -44,7 +39,8 @@ let interleaved_grid_html () =
   let chip column (lane, chip_class, move) =
     let row = match lane with Public -> 1 | Shared -> 2 in
     Printf.sprintf
-      "<span class=\"trace-move %s\" style=\"grid-row:%d;grid-column:%d\">%s</span>"
+      "<span class=\"trace-move %s\" \
+       style=\"grid-row:%d;grid-column:%d\">%s</span>"
       chip_class row (column + 2)
       (Ui_helpers.html_escape move) in
   label 1 "public" ^ label 2 "shared"
@@ -58,9 +54,8 @@ let display_previous_moves () : unit =
   | None -> ()
   | Some grid ->
       grid##.innerHTML := Js.string (interleaved_grid_html ());
-      (* Keep the newest exchange in view. *)
-      grid##.scrollLeft :=
-        Js.number_of_float (float_of_int grid##.scrollWidth)
+      (* Keep the newest move in view. *)
+      grid##.scrollLeft := Js.number_of_float (float_of_int grid##.scrollWidth)
 
 let add_move player move =
   let chip_class =

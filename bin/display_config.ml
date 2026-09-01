@@ -2,26 +2,14 @@
    DISPLAY_CONFIG: the cards' live panels
    =========================================================
    Renders a passive configuration into the participant card it belongs to:
-   the IEnv and Store live panels — a summary strip over one-line, expandable
-   entries, with the Δ since the previously committed configuration marked —
-   and the raw JSON in the Configuration tab. The panel elements are built by
-   front/common.js, namespaced by card index (card-0-ienv, …); the panel's
-   collapsed/Δ/full state lives on those stable nodes, so only the strip text
-   and the entries are replaced here.
-
-   - display_conf: the main entry point. ?preview renders a configuration the
-     user is only browsing (Evaluate_code.choose_conf): it diffs against the
-     committed baseline without advancing it.
-   - display_terminal_conf: shown in place of a configuration whose branch
-     has no continuation.
-   - reset_move_deltas: forgets the baselines; called at the start of a run.
-*)
+   the IEnv and Store live panels, and the raw JSON in the Configuration
+   tab. *)
+(* The panel elements are built by front/common.js and hold the collapsed/Δ/
+   full state, so only the strip text and the entries are replaced here. *)
 
 open Js_of_ocaml
 
-let json_text = function
-  | `String s -> s
-  | v -> Yojson.Safe.to_string v
+let json_text = function `String s -> s | v -> Yojson.Safe.to_string v
 
 let normalize_ienv = function
   (* CPS: continuations are values (named). *)
@@ -36,7 +24,7 @@ let normalize_ienv = function
           (* Reverse stack order to keep numbers stable *)
           let ctx = List.rev rest in
           let ctx = List.mapi (fun i v -> ("stack" ^ string_of_int i, v)) ctx in
-          `Assoc (active :: fields @ ctx)
+          `Assoc ((active :: fields) @ ctx)
     end
   (* An unexpected shape is returned as None: display_conf then falls through
      to its error panel rather than crashing the interaction. *)
@@ -44,16 +32,14 @@ let normalize_ienv = function
 
 (* The named entries of an ienv, as (name, printed value) pairs; None when the
    JSON has an unexpected shape. *)
-let ienv_entry_pairs (ienv_json : Yojson.Safe.t) :
-    (string * string) list option =
+let ienv_entry_pairs (ienv_json : Yojson.Safe.t) : (string * string) list option
+    =
   match normalize_ienv ienv_json with
   | `Assoc fields -> Some (List.map (fun (id, v) -> (id, json_text v)) fields)
   | _ -> None
 
 (* The cells of the store, as (name, printed value) pairs: the private
-   bindings — valenv entries whose name the ienv does not already show —
-   followed by the heap cells and, when non-empty, the symbolic path
-   (decl/cond). The constructor context is left to the Configuration tab. *)
+   bindings, the heap cells, then the symbolic path when non-empty. *)
 let store_entry_pairs (store_json : Yojson.Safe.t)
     (ienv_json : Yojson.Safe.t option) : (string * string) list =
   let ienv_names =
@@ -77,12 +63,11 @@ let store_entry_pairs (store_json : Yojson.Safe.t)
         (private_bindings @ entries "heap" @ symbolic_path)
   | _ -> []
 
-(* --- the Δ of the last exchange ------------------------------------------
-
-   Contexts only ever grow, so comparing successive committed configurations
-   keeps the increment small even when the total is large: an ienv entry is
-   fresh when its name is new, a store cell when it is new or its value
-   changed. Keyed by card, ready for the composite's two halves. *)
+(* --- the Δ of the last move ------------------------------------------
+   An ienv entry is fresh when its name is new, a store cell when it is new or
+   its value changed, both read off the previously committed configuration. *)
+(* Contexts only ever grow, so the increment stays small even when the total
+   is large. *)
 
 type committed_entries = {
   ienv_pairs: (string * string) list;
@@ -90,7 +75,6 @@ type committed_entries = {
 }
 
 let committed_baselines : (int * committed_entries) list ref = ref []
-
 let reset_move_deltas () = committed_baselines := []
 
 let baseline_of_card card =
@@ -106,18 +90,16 @@ let commit_baseline card entries =
 
 let plural n word = if n = 1 then word else word ^ "s"
 
-(* Prepended to the entries when the last exchange changed nothing, so the Δ
-   state of the panel has something to say (front/style.css shows it only
-   there). *)
+(* Prepended to the entries when the last move changed nothing, so the Δ state
+   of the panel has something to say. *)
 let delta_note_html fresh_count =
   if fresh_count = 0 then
     "<div class=\"delta-note\">no change on the last move</div>"
   else ""
 
-(* One entry: a one-line clamped summary, expandable into the full text.
-   Only the ienv entries are subjects a move can address, so only they carry
-   the ienv-item class that Moves_display.highlight_subject targets through
-   data-name. *)
+(* One entry: a one-line clamped summary, expandable into the full text. *)
+(* Only ienv entries are subjects a move can address, so only they carry the
+   class Moves_display.highlight_subject targets. *)
 let entry_html ~fresh ~name ~item_class ~head_class ~text =
   Printf.sprintf
     "<details class=\"live-entry %s%s\" data-name=\"%s\">\n\
@@ -133,9 +115,8 @@ let entry_html ~fresh ~name ~item_class ~head_class ~text =
     (Ui_helpers.html_escape text)
     (Ui_helpers.html_escape text)
 
-(* Writes one live panel of a card: marks it fed (has-data), updates its
-   summary strip and replaces its entries. The panel node itself — and with
-   it the collapsed/Δ/full state — is left alone. *)
+(* Writes one live panel of a card, leaving the panel node itself — and with
+   it the collapsed/Δ/full state — alone. *)
 let update_live_panel ~card ~kind ~strip_text ~entries_html =
   let element_id suffix = Printf.sprintf "card-%d-%s%s" card kind suffix in
   (match Dom_html.getElementById_opt (element_id "-panel") with
@@ -153,8 +134,7 @@ let display_ienv_panel ~card ~baseline ienv_json =
   | None ->
       update_live_panel ~card ~kind:"ienv"
         ~strip_text:"interactive environment — none"
-        ~entries_html:
-          "<div class=\"conf-notice\">No ienv data available.</div>";
+        ~entries_html:"<div class=\"conf-notice\">No ienv data available.</div>";
       []
   | Some ienv_json -> (
       match ienv_entry_pairs ienv_json with
@@ -177,10 +157,9 @@ let display_ienv_panel ~card ~baseline ienv_json =
             delta_note_html (List.length fresh_names)
             ^ (pairs
               |> List.map (fun (name, text) ->
-                     entry_html
-                       ~fresh:(List.mem_assoc name fresh_names)
-                       ~name ~item_class:"ienv-item" ~head_class:"ienv-id"
-                       ~text)
+                  entry_html
+                    ~fresh:(List.mem_assoc name fresh_names)
+                    ~name ~item_class:"ienv-item" ~head_class:"ienv-id" ~text)
               |> String.concat "\n") in
           let strip_text =
             Printf.sprintf "interactive environment — %d %s · Δ +%d"
@@ -210,10 +189,10 @@ let display_store_panel ~card ~baseline store_json ienv_json =
         delta_note_html (List.length changed_cells)
         ^ (pairs
           |> List.map (fun (location, text) ->
-                 entry_html
-                   ~fresh:(List.mem_assoc location changed_cells)
-                   ~name:location ~item_class:"store-item"
-                   ~head_class:"store-key" ~text)
+              entry_html
+                ~fresh:(List.mem_assoc location changed_cells)
+                ~name:location ~item_class:"store-item" ~head_class:"store-key"
+                ~text)
           |> String.concat "\n") in
       let strip_text =
         Printf.sprintf "store — %d %s · %d changed" (List.length pairs)
@@ -231,17 +210,15 @@ let set_config_editor_text (text : string) : unit =
   |> ignore;
   Js.Unsafe.meth_call config_editor "clearSelection" [||] |> ignore
 
-(* Shown in place of a configuration whose branch has no continuation, i.e.
-   one where Proponent stopped playing or the program diverges. Previews
-   never advance the Δ baselines, and neither does this. *)
+(* Shown in place of a configuration whose branch has no continuation. *)
+(* Previews never advance the Δ baselines, and neither does this. *)
 let display_terminal_conf ?(card = 0) (reason : string) : unit =
   set_config_editor_text reason;
   let notice =
     Printf.sprintf "<div class=\"conf-notice\">%s</div>"
       (Ui_helpers.html_escape reason) in
   update_live_panel ~card ~kind:"ienv"
-    ~strip_text:"interactive environment — no continuation"
-    ~entries_html:notice;
+    ~strip_text:"interactive environment — no continuation" ~entries_html:notice;
   update_live_panel ~card ~kind:"store" ~strip_text:"store — no continuation"
     ~entries_html:notice
 
@@ -264,40 +241,32 @@ let display_conf ?(card = 0) ?(preview = false) conf_json : unit =
   display_conf_panels ~card ~preview conf_json
 
 (* --- the composite: two cards and the gutters ------------------------------
-
    A composite passive configuration serializes as {left, right, pos,
-   syncState} (Lts.Compose): the two halves feed the two cards' live
-   panels, the outer position feeds the public gutter's head, and the
-   shared halves of the synchronization state feed the shared gutter's
-   span table. *)
+   syncState}, whose four fields feed the two cards and the two gutters. *)
 
 let set_inner_html element_id html =
   match Dom_html.getElementById_opt element_id with
   | None -> ()
   | Some element -> element##.innerHTML := Js.string html
 
-(* The name/type entries of a name context's JSON. A context serializes
-   as {name: type} objects, nested in lists by the aggregate structure
-   (function names, polymorphic names, continuations), so the leaves are
-   collected in order. *)
+(* The name/type entries of a name context's JSON, whose {name: type} objects
+   are nested in lists by the aggregate structure. *)
 let rec namectx_json_entries : Yojson.Safe.t -> (string * string) list =
   function
   | `Assoc fields -> List.map (fun (name, ty) -> (name, json_text ty)) fields
   | `List items -> List.concat_map namectx_json_entries items
   | _ -> []
 
-(* The base typing position inside a position's JSON: the enforcement
-   wrappers (wblts, vis_lts through Product_lts) serialize as lists
-   around the {storectx, namectxP, namectxO} object. *)
+(* The base typing position inside a position's JSON, the enforcement wrappers
+   serializing as lists around it. *)
 let rec base_position_json = function
   | `Assoc fields as json when List.mem_assoc "namectxP" fields -> Some json
   | `List items -> List.find_map base_position_json items
   | _ -> None
 
-(* The outer position, in the first slot of the public gutter's head: a
-   P n · O m strip, expandable into the two name lists — the same
-   summary-first treatment as the cards' live panels. *)
-let display_outer_position pos_json =
+(* The composite position, in the first slot of the public gutter's head: a
+   P n · O m strip expandable into the two name lists. *)
+let display_composite_position pos_json =
   match base_position_json pos_json with
   | Some (`Assoc fields) ->
       let entries key =
@@ -308,7 +277,8 @@ let display_outer_position pos_json =
       let entriesO = entries "namectxO" in
       let entry_line (name, ty) =
         Printf.sprintf "<div class=\"gutter-entry\">%s : %s</div>"
-          (Ui_helpers.html_escape name) (Ui_helpers.html_escape ty) in
+          (Ui_helpers.html_escape name)
+          (Ui_helpers.html_escape ty) in
       let name_block label = function
         | [] -> ""
         | entries ->
@@ -322,12 +292,10 @@ let display_outer_position pos_json =
            (name_block "O (you introduced)" entriesO))
   | _ -> ()
 
-(* The shared interface, in the second slot of the public gutter's head: the
-   two shared halves of the synchronization state, each row pairing the names
-   the two components give one shared entity. A column is a component, the
-   left one first: the tables are keyed at the side that plays on the name and
-   valued at the side that introduced it (Lts.Sync_state), and the two halves
-   have opposite introducers, so one of them is read backwards here. *)
+(* The shared interface, in the second slot of the public gutter's head: one
+   row per shared entity, one column per component, the left one first. *)
+(* The two halves of the synchronization state have opposite introducers, so
+   one of them is read backwards here. *)
 let display_shared_spans sync_json =
   match sync_json with
   | `Assoc fields ->
@@ -341,9 +309,8 @@ let display_shared_spans sync_json =
                 | _ -> None)
               rows
         | _ -> [] in
-      (* shared_left: client O-name ↦ provider P-name; shared_right the
-         mirror, which the sequential composition starts empty and fills as
-         soon as the client hands the provider a continuation. *)
+      (* shared_left sends a client O-name to a provider P-name, shared_right
+         being its mirror. *)
       let provided_by_left = table_pairs "sharedLeft" in
       let provided_by_right = table_pairs "sharedRight" in
       let pairs =
@@ -354,7 +321,8 @@ let display_shared_spans sync_json =
       let row_html (provider_name, client_name) =
         Printf.sprintf
           "<div class=\"span-row\"><span class=\"span-name\">%s</span><span \
-           class=\"span-arrow\">↔</span><span class=\"span-name\">%s</span></div>"
+           class=\"span-arrow\">↔</span><span \
+           class=\"span-name\">%s</span></div>"
           (Ui_helpers.html_escape provider_name)
           (Ui_helpers.html_escape client_name) in
       let count = List.length pairs in
@@ -374,7 +342,7 @@ let display_shared_spans sync_json =
 let display_composite_conf ?(preview = false) conf_json : unit =
   set_config_editor_text (Yojson.Safe.pretty_to_string conf_json);
   match conf_json with
-  | `Assoc fields ->
+  | `Assoc fields -> (
       let half key card =
         match List.assoc_opt key fields with
         | Some half_json -> display_conf_panels ~card ~preview half_json
@@ -382,9 +350,9 @@ let display_composite_conf ?(preview = false) conf_json : unit =
       half "left" 0;
       half "right" 1;
       (match List.assoc_opt "pos" fields with
-      | Some pos_json -> display_outer_position pos_json
+      | Some pos_json -> display_composite_position pos_json
       | None -> ());
-      (match List.assoc_opt "syncState" fields with
+      match List.assoc_opt "syncState" fields with
       | Some sync_json -> display_shared_spans sync_json
       | None -> ())
   | _ -> Ui_helpers.print_to_output "Invalid JSON format"

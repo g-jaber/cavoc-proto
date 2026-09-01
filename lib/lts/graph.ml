@@ -1,6 +1,7 @@
 module type GRAPH = sig
   (* To be instanciated *)
-  module M : Util.Monad.MONAD
+  module UserMonad : Util.Monad.MONAD
+
   type conf
 
   (* *)
@@ -10,13 +11,15 @@ module type GRAPH = sig
     show_move:(string -> unit) ->
     show_conf:(Yojson.Safe.t -> unit) ->
     show_moves_list:(Yojson.Safe.t list -> unit) ->
-    get_move:(int -> int M.m) ->
+    get_move:(int -> int UserMonad.m) ->
     conf ->
-    graph M.m
+    graph UserMonad.m
 end
 
-module Make (M : Util.Monad.MONAD) (IntLTS : Strategy.LTS) : GRAPH with module M = M and type conf = IntLTS.conf = struct
-  module M = M
+module Make (UserMonad : Util.Monad.MONAD) (IntLTS : Strategy.LTS) :
+  GRAPH with module UserMonad = UserMonad and type conf = IntLTS.conf = struct
+  module UserMonad = UserMonad
+
   type conf = IntLTS.conf
   type id_state = int
 
@@ -124,8 +127,8 @@ module Make (M : Util.Monad.MONAD) (IntLTS : Strategy.LTS) : GRAPH with module M
     function
     | (IntLTS.Active act_conf, _) as _act_state -> begin
         match IntLTS.EvalMonad.run (IntLTS.p_trans act_conf) with
-        _ -> failwith "TODO"
-(*
+        | _ -> failwith "TODO"
+        (*
         | PropStop -> add_failed_state act_state
         | Continue (pmove, pas_conf) ->
             let* pas_state = add_pas_state pas_conf in
@@ -170,5 +173,5 @@ module Make (M : Util.Monad.MONAD) (IntLTS : Strategy.LTS) : GRAPH with module M
       compute_graph_m ~show_move ~show_conf ~show_moves_list ~get_move init_conf
     in
     let (_, graph) = runState comp empty_graph in
-    M.return graph
+    UserMonad.return graph
 end

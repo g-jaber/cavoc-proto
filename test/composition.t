@@ -12,8 +12,8 @@ offered the client's public name alone, never the provider's f.
   3: g(2,c0)
 
 Calling g runs the client, whose two calls to f are forwarded across the shared
-interface to the provider and answered there. Those exchanges are internal, so
-the composite shows only the external answer: g y = f (f y) = y + 2.
+interface to the provider and answered there. Those synchronizations are
+internal, so the composite shows only the external answer: g y = f (f y) = y + 2.
 
   $ printf 'no\n1\nno\nexit\n' | cavoc-explore_cli -compose compose/provider.ml compose/provider.mli compose/client.ml compose/client.mli | grep -oE '[OP]: .*'
   O: g?(0,c0)

@@ -1,9 +1,0 @@
-(tests
- (names
-  sync_state_test
-  import_test
-  compose_lts_test
-  thinning_test
-  view_test
-  vis_lts_test)
- (libraries lts lang ogs refml util))

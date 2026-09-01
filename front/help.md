@@ -24,11 +24,11 @@ the interaction seen from that module:
 
 * **interactive environment** lists the values the module has handed to you
   so far — the ones you may use in your next move — and counts how many the
-  last exchange added. It starts unfolded on the full list.
+  last move added. It starts unfolded on the full list.
 * **store** counts the module's memory locations, and how many the last
-  exchange changed. It starts folded to its summary strip.
+  move changed. It starts folded to its summary strip.
 
-Click a panel's strip to cycle it: folded strip, what the last exchange
+Click a panel's strip to cycle it: folded strip, what the last move
 changed, the full state. Each entry expands individually from its one-line
 summary to its full text.
 

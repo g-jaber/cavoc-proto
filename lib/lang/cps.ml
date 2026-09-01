@@ -1,10 +1,10 @@
 (* This functor transform a module OpLang of signature Language.WITHAVAL_INOUT
    into a module of signature Language.WITHAVAL_NEG.
    This is done by introducing named terms and named evaluation contexts,
-   and by embedding named evaluation contexts in values. *)
-module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
-  Language.WITHAVAL_NEG
-    with type 'a EvalMonad.r = 'a OpLang.EvalMonad.r = struct
+   and by embedding named evaluation contexts in values.
+   MakeCompBase is left unsealed for Definability.MakeComp to include;
+   MakeComp is its sealed alias. *)
+module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
   module EvalMonad = OpLang.EvalMonad
   open EvalMonad
   (* *)
@@ -71,7 +71,9 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
   let embed_name_ctx namectx = (namectx, CNamectx.empty)
 
   module CRenaming = Renaming.MakeWeak (CNamectx)
-  module Renaming = Renaming.AggregateWeak (OpLang.Renaming) (CRenaming) (Namectx)
+
+  module Renaming =
+    Renaming.AggregateWeak (OpLang.Renaming) (CRenaming) (Namectx)
 
   type term = NTerm of (CNames.name * OpLang.term)
 
@@ -160,17 +162,21 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
     let* (nf_term, store') = OpLang.normalize_opconf (term, store) in
     return (NTerm (cn, nf_term), store')
 
-  let get_typed_opconf nbprog inBuffer =
+  let get_typed_opconf ?opponent_signature nbprog inBuffer =
     let ((term, store), typ, namectxO) =
-      OpLang.get_typed_opconf nbprog inBuffer in
+      OpLang.get_typed_opconf ?opponent_signature nbprog inBuffer in
     let (cn, cnamectx) = CNamectx.singleton typ in
     let nterm = NTerm (cn, term) in
     let namectxO' = (namectxO, cnamectx) in
     ((nterm, store), GEmpty, namectxO')
 
-  let get_typed_ienv ?imports lexBuffer_implem lexBuffer_signature =
+  let get_typed_namectx lexBuffer_signature =
+    embed_name_ctx (OpLang.get_typed_namectx lexBuffer_signature)
+
+  let get_typed_ienv ?opponent_signature lexBuffer_implem lexBuffer_signature =
     let (int_env, store, namectxP, namectxO) =
-      OpLang.get_typed_ienv ?imports lexBuffer_implem lexBuffer_signature in
+      OpLang.get_typed_ienv ?opponent_signature lexBuffer_implem
+        lexBuffer_signature in
     ( embed_value_env int_env CIEnv.Renaming.Namectx.empty,
       store,
       embed_name_ctx @@ namectxP,
@@ -234,10 +240,9 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
           ("Negating the type " ^ OpLang.string_of_negative_type ty);
         let (tvar_l, inp_ty) = OpLang.get_input_type ty in
         let out_ty = OpLang.get_output_type ty in
-        begin
-          match tvar_l with
-          | [] -> GProd (inp_ty, out_ty)
-          | _ -> GExists (tvar_l, inp_ty, out_ty)
+        begin match tvar_l with
+        | [] -> GProd (inp_ty, out_ty)
+        | _ -> GExists (tvar_l, inp_ty, out_ty)
         end
     | Either.Right ty -> GType ty
 
@@ -302,10 +307,16 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
           "Error: two continuation names can be extracted during the cps. \
            Please report"
 
+  type abstract_val =
+    | AVal of OpLang.AVal.abstract_val
+    | APair of OpLang.AVal.abstract_val * CNames.name
+    | APack of OpLang.typename list * OpLang.AVal.abstract_val * CNames.name
+
   type negative_type_temp = negative_type
   type value_temp = value
   type typ_temp = typ
   type negative_val_temp = negative_val
+  type abstract_val_temp = abstract_val
 
   module AVal :
     Abstract_val.AVAL
@@ -319,6 +330,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
        and type name_ctx = Namectx.t
        and type interactive_env = IEnv.t
        and type renaming = Renaming.t
+       and type abstract_val = abstract_val_temp
        and module BranchMonad = Store.BranchMonad = struct
     type name = Names.name
     type renaming = Renaming.t
@@ -332,11 +344,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
     (*    type negative_type = OpLang.negative_type*)
     type name_ctx = Namectx.t
     type interactive_env = IEnv.t
-
-    type abstract_val =
-      | AVal of OpLang.AVal.abstract_val
-      | APair of OpLang.AVal.abstract_val * CNames.name
-      | APack of OpLang.typename list * OpLang.AVal.abstract_val * CNames.name
+    type abstract_val = abstract_val_temp
 
     let pp_abstract_val_in ~pp_free_name ~pp_bound_name fmt aval =
       let embed pp fmt nn = pp fmt (inj_name nn) in
@@ -357,6 +365,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
     let pp_abstract_val =
       pp_abstract_val_in ~pp_free_name:Names.pp_name
         ~pp_bound_name:Names.pp_name
+
     let string_of_abstract_val = Format.asprintf "%a" pp_abstract_val
     let abstract_val_to_yojson aval = `String (string_of_abstract_val aval)
 
@@ -397,7 +406,9 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
           APair (OpLang.AVal.map_free_names_of_abstract_val f_oplang aval, cn)
       | APack (tname_l, aval, cn) ->
           APack
-            (tname_l, OpLang.AVal.map_free_names_of_abstract_val f_oplang aval, cn)
+            ( tname_l,
+              OpLang.AVal.map_free_names_of_abstract_val f_oplang aval,
+              cn )
 
     let type_check_abstract_val storectx namectx gty
         (aval, (lfnamectx, lcnamectx)) =
@@ -492,3 +503,7 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
               CRenaming.lookup crenaming cn )
   end
 end
+
+module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
+  Language.WITHAVAL_NEG with module EvalMonad = OpLang.EvalMonad =
+  MakeCompBase (OpLang) ()

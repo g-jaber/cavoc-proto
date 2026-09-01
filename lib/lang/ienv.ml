@@ -86,8 +86,12 @@ struct
 
   let copairing ienv1 ienv2 =
     assert (ienv1.im = ienv2.im);
+    (* The second map's de Bruijn levels shift along Γ₂ ↪ Γ₁ + Γ₂. *)
+    let coproj_r = Renaming.weak_r ienv2.dom ienv1.dom in
     {
-      map= Util.Pmap.concat ienv1.map ienv2.map;
+      map=
+        Util.Pmap.concat ienv1.map
+          (Util.Pmap.map_dom (Renaming.lookup coproj_r) ienv2.map);
       dom= Renaming.Namectx.concat ienv1.dom ienv2.dom;
       im= ienv1.im;
     }
@@ -342,10 +346,11 @@ module Make_Stack
   let get_last ienv =
     match ienv.stack with
     | [] -> None
-    | v :: stack -> 
-      let ty = Renaming.Namectx.lookup_exn ienv.dom () in
-      let[@warning "-8"] (Some dom) = Renaming.Namectx.is_last ienv.dom () ty in
-      Some (v, { ienv with stack; dom })
+    | v :: stack ->
+        let ty = Renaming.Namectx.lookup_exn ienv.dom () in
+        let[@warning "-8"] (Some dom) =
+          Renaming.Namectx.is_last ienv.dom () ty in
+        Some (v, { ienv with stack; dom })
 end
 
 module Aggregate
@@ -384,7 +389,7 @@ module Aggregate
   let to_yojson (ienv1, ienv2) =
     match (IEnv1.to_yojson ienv1, IEnv2.to_yojson ienv2) with
     | (`Assoc ienv1_l, `Assoc ienv2_l) -> `Assoc (ienv1_l @ ienv2_l)
-    | (ienv1_yojson,ienv2_yojson) -> `List [ienv1_yojson; ienv2_yojson]
+    | (ienv1_yojson, ienv2_yojson) -> `List [ ienv1_yojson; ienv2_yojson ]
 
   let empty (im1, im2) = (IEnv1.empty im1, IEnv2.empty im2)
   let dom (ienv1, ienv2) = (IEnv1.dom ienv1, IEnv2.dom ienv2)
@@ -484,9 +489,7 @@ module AggregateCommon
       val extract2 :
         Renaming.Namectx.Names.name -> IEnv2.Renaming.Namectx.Names.name option
     end)
-    (ClassifyTyp : sig
-      val classify : IEnv1.Renaming.Namectx.typ -> bool
-    end) :
+    (ClassifyTyp : sig val classify : IEnv1.Renaming.Namectx.typ -> bool end) :
   IENV
     with module Renaming = Renaming
      and type value = IEnv1.value
@@ -539,7 +542,7 @@ module AggregateCommon
   let to_yojson (ienv1, ienv2) =
     match (IEnv1.to_yojson ienv1, IEnv2.to_yojson ienv2) with
     | (`Assoc ienv1_l, `Assoc ienv2_l) -> `Assoc (ienv1_l @ ienv2_l)
-    | (ienv1_yojson,ienv2_yojson) -> `List [ienv1_yojson; ienv2_yojson]
+    | (ienv1_yojson, ienv2_yojson) -> `List [ ienv1_yojson; ienv2_yojson ]
 
   let lookup_exn (ienv1, ienv2) nn =
     match (EmbedNames.extract1 nn, EmbedNames.extract2 nn) with

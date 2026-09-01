@@ -27,7 +27,7 @@ function cavocMount(html) {
    The menu holds two kinds of setting, and the split is #options-lts: those
    inside it select which LTS the next evaluation explores, so bin/page_init.ml
    greys the section out while one runs; those outside act on the interaction
-   already running — the synchronization pacing, read afresh at every exchange
+   already running — the synchronization pacing, read afresh at every step
    by bin/compose_driver.ml, and the debug log. */
 function cavocToolbarMarkup() {
     return `
@@ -218,7 +218,7 @@ function cavocMountCardEditor(id) {
    at page init (front/scenario.js) rather than per card build.
    -------------------------------------------------------------------------- */
 
-/* bin/compose_driver.ml reads this afresh at every exchange: auto plays the
+/* bin/compose_driver.ml reads this afresh at every step: auto plays the
    synchronizations at delayMs pace, step waits for the next button. This
    object is the state of record; the widgets are only its UI. */
 window.cavocChattering = { mode: 'auto', delayMs: 400 };

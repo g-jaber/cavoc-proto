@@ -137,10 +137,10 @@ let choose_conf confs =
 module RunMultiLts (MultiLts : Lts_kind.MULTI_RESULT_LTS_WITH_INIT) = struct
   include MultiLts
 
-  module M = MyLwt
+  module UserMonad = MyLwt
 
   let choose m =
-    let open M in
+    let open UserMonad in
     let open Lts.Interactive_build in
     let res = EvalMonad.run m in
     let res_to_preview = function
@@ -162,11 +162,11 @@ end
 module RunSingleLts (SingleLts : Lts_kind.SINGLE_RESULT_LTS_WITH_INIT) = struct
   include SingleLts
 
-  module M = MyLwt
+  module UserMonad = MyLwt
 
   let choose m =
     let open Lts.Interactive_build in
-    M.return (Chose (EvalMonad.run m))
+    UserMonad.return (Chose (EvalMonad.run m))
 end
 
 (* A lexing buffer on a card's editor content, named so the lexer reports

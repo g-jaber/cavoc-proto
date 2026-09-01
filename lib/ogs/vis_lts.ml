@@ -1,48 +1,21 @@
-(* Updating a view after a move requires the target
-   Proponent name context.  The two functors below therefore extend a typing
-   LTS directly, rather than implementing the context-free [HISLTS]
-   interface. *)
-
 module MakeNameIndexed (TypingLTS : Lts.Typing.LTS) :
   Lts.Typing.LTS
     with module Moves = TypingLTS.Moves
      and type store_ctx = TypingLTS.store_ctx = struct
   module Moves = TypingLTS.Moves
   module BranchMonad = TypingLTS.BranchMonad
-  module View = Lts.View.Make (Moves.Renaming)
+  module View = Lts.View.Make (Moves.Thinning)
 
   type store_ctx = TypingLTS.store_ctx
-  type name = Moves.Renaming.Namectx.Names.name
-  type view = View.t
-
-  let view_to_yojson = View.to_yojson
-
-  (* Every Opponent name remembers the Proponent view that was current when
-     the name was introduced. *)
-  type view_map = (name, view) Util.Pmap.pmap
-
-  let view_map_to_yojson view_map =
-    let to_entry (name, view) =
-      (Moves.Renaming.Namectx.Names.string_of_name name, View.to_yojson view)
-    in
-    `Assoc (List.map to_entry (Util.Pmap.to_list view_map))
-
-  let pp_view_map fmt view_map =
-    let pp_empty fmt () = Format.pp_print_char fmt '.' in
-    let pp_pair fmt (name, view) =
-      Format.fprintf fmt "%a ↦ %a" Moves.Renaming.Namectx.Names.pp_name name
-        View.pp view in
-    Util.Pmap.pp_pmap ~pp_empty pp_pair fmt view_map
-
-  type active_conf = view_map [@@deriving to_yojson]
-  type passive_conf = view * view_map [@@deriving to_yojson]
+  type active_conf = View.view_map [@@deriving to_yojson]
+  type passive_conf = View.t * View.view_map [@@deriving to_yojson]
 
   let pp_active_conf fmt view_map =
-    Format.fprintf fmt "View map: %a" pp_view_map view_map
+    Format.fprintf fmt "View map: %a" View.pp_view_map view_map
 
   let pp_passive_conf fmt (view, view_map) =
-    Format.fprintf fmt "@[⟨View: %a |@, View map: %a⟩@]" View.pp view
-      pp_view_map view_map
+    Format.fprintf fmt "@[⟨View: %a |@, View map: %a⟩@]" Moves.Thinning.pp view
+      View.pp_view_map view_map
 
   type conf = Active of active_conf | Passive of passive_conf
   [@@deriving to_yojson]
@@ -52,46 +25,32 @@ module MakeNameIndexed (TypingLTS : Lts.Typing.LTS) :
     | Passive passive_conf -> pp_passive_conf fmt passive_conf
 
   let init_view_map view namectxO =
-    Util.Pmap.list_to_pmap
-    @@ List.map
-         (fun name -> (name, view))
-         (Moves.Renaming.Namectx.get_names namectxO)
+    View.init_view_map view (Moves.Renaming.Namectx.get_names namectxO)
 
   let init_active_conf namectxP namectxO =
-    let view = View.full namectxP in
+    let view = Moves.Thinning.id namectxP in
     Active (init_view_map view namectxO)
 
   let init_passive_conf namectxP namectxO =
-    let view = View.full namectxP in
+    let view = Moves.Thinning.id namectxP in
     Passive (view, init_view_map view namectxO)
 
   let check_visibility ~target_namectxP conf (direction, move) =
     match (conf, direction) with
     | (Active view_map, Moves.Output) ->
-        let subject = Moves.get_subject_name move in
         let view =
-          match Util.Pmap.lookup subject view_map with
-          | Some saved_view ->
-              saved_view
-              |> View.change_context ~context:target_namectxP
-              |> View.extend_visible_support ~fresh:(Moves.get_fresh_names move)
-          | None ->
-              Util.Error.failwithf
-                "Error: the name %a is not in the view map %a. Please report."
-                Moves.Renaming.Namectx.Names.pp_name subject pp_view_map
-                view_map in
+          View.restore_view_at_subject view_map
+            (Moves.get_subject_name move)
+            ~context:target_namectxP
+            ~fresh:(Moves.get_fresh_names move) in
         Some (Passive (view, view_map))
     | (Passive (view, view_map), Moves.Input) ->
-        let view = View.change_context ~context:target_namectxP view in
-        let subject = Moves.get_subject_name move in
-        if View.contains view subject then
-          let fresh_bindings =
-            List.map (fun name -> (name, view)) (Moves.get_fresh_names move)
-          in
-          let view_map' =
-            Util.Pmap.concat view_map (Util.Pmap.list_to_pmap fresh_bindings)
-          in
-          Some (Active view_map')
+        let view = View.transport_to_context ~context:target_namectxP view in
+        if View.contains view (Moves.get_subject_name move) then
+          Some
+            (Active
+               (View.record_view_at_introduction view_map view
+                  (Moves.get_fresh_names move)))
         else None
     | _ -> None
 
@@ -147,52 +106,35 @@ module MakeNameIndexed (TypingLTS : Lts.Typing.LTS) :
     (position, init_passive_conf namectxP namectxO)
 end
 
-(* In direct style, questions push the    current view on a stack and answers pop it. *)
+(* In direct style, questions push the current view on a stack and answers pop it. *)
 module MakeStackBased (TypingLTS : Lts.Typing.LTS) :
   Lts.Typing.LTS
     with module Moves = TypingLTS.Moves
      and type store_ctx = TypingLTS.store_ctx = struct
   module Moves = TypingLTS.Moves
   module BranchMonad = TypingLTS.BranchMonad
-  module View = Lts.View.Make (Moves.Renaming)
+  module View = Lts.View.Make (Moves.Thinning)
 
   type store_ctx = TypingLTS.store_ctx
-  type name = Moves.Renaming.Namectx.Names.name
-  type view = View.t
-
-  let view_to_yojson = View.to_yojson
-
-  type view_map = (name, view) Util.Pmap.pmap
-
-  let view_map_to_yojson view_map =
-    let to_entry (name, view) =
-      (Moves.Renaming.Namectx.Names.string_of_name name, View.to_yojson view)
-    in
-    `Assoc (List.map to_entry (Util.Pmap.to_list view_map))
-
-  let pp_view_map fmt view_map =
-    let pp_empty fmt () = Format.pp_print_char fmt '.' in
-    let pp_pair fmt (name, view) =
-      Format.fprintf fmt "%a ↦ %a" Moves.Renaming.Namectx.Names.pp_name name
-        View.pp view in
-    Util.Pmap.pp_pmap ~pp_empty pp_pair fmt view_map
 
   let pp_view_stack fmt = function
     | [] -> Format.pp_print_string fmt "⋅"
     | stack ->
         let pp_sep fmt () = Format.pp_print_string fmt "::" in
-        Format.pp_print_list ~pp_sep View.pp fmt stack
+        Format.pp_print_list ~pp_sep Moves.Thinning.pp fmt stack
 
-  type active_conf = view_map * view list [@@deriving to_yojson]
-  type passive_conf = view * view_map * view list [@@deriving to_yojson]
+  type active_conf = View.view_map * View.t list [@@deriving to_yojson]
+
+  type passive_conf = View.t * View.view_map * View.t list
+  [@@deriving to_yojson]
 
   let pp_active_conf fmt (view_map, stack) =
-    Format.fprintf fmt "@[⟨View map: %a |@, View stack: %a⟩@]" pp_view_map
+    Format.fprintf fmt "@[⟨View map: %a |@, View stack: %a⟩@]" View.pp_view_map
       view_map pp_view_stack stack
 
   let pp_passive_conf fmt (view, view_map, stack) =
     Format.fprintf fmt "@[⟨View: %a |@, View map: %a |@, View stack: %a⟩@]"
-      View.pp view pp_view_map view_map pp_view_stack stack
+      Moves.Thinning.pp view View.pp_view_map view_map pp_view_stack stack
 
   type conf = Active of active_conf | Passive of passive_conf
   [@@deriving to_yojson]
@@ -205,14 +147,12 @@ module MakeStackBased (TypingLTS : Lts.Typing.LTS) :
     List.filter (fun name -> not (Moves.Renaming.Namectx.Names.is_cname name))
 
   let initial_view namectxP =
-    View.of_support namectxP
+    Moves.Thinning.of_support namectxP
       (non_cnames (Moves.Renaming.Namectx.get_names namectxP))
 
   let init_view_map view namectxO =
-    Util.Pmap.list_to_pmap
-    @@ List.map
-         (fun name -> (name, view))
-         (non_cnames (Moves.Renaming.Namectx.get_names namectxO))
+    View.init_view_map view
+      (non_cnames (Moves.Renaming.Namectx.get_names namectxO))
 
   let init_active_conf namectxP namectxO =
     let view = initial_view namectxP in
@@ -222,20 +162,17 @@ module MakeStackBased (TypingLTS : Lts.Typing.LTS) :
     let view = initial_view namectxP in
     Passive (view, init_view_map view namectxO, [])
 
-  let extend_view ~target_namectxP move saved_view =
-    saved_view
-    |> View.change_context ~context:target_namectxP
-    |> View.extend_visible_support
-         ~fresh:(non_cnames (Moves.get_fresh_names move))
-
   let check_visibility ~target_namectxP conf (direction, move) =
     match (conf, direction) with
     | (Active (view_map, stack), Moves.Output) ->
         let subject = Moves.get_subject_name move in
+        let fresh = non_cnames (Moves.get_fresh_names move) in
         if Moves.Renaming.Namectx.Names.is_cname subject then begin
           match stack with
           | saved_view :: stack' ->
-              let view = extend_view ~target_namectxP move saved_view in
+              let view =
+                View.restore_view saved_view ~context:target_namectxP ~fresh
+              in
               Some (Passive (view, view_map, stack'))
           | [] ->
               Util.Error.failwithf
@@ -244,24 +181,15 @@ module MakeStackBased (TypingLTS : Lts.Typing.LTS) :
         end
         else
           let view =
-            match Util.Pmap.lookup subject view_map with
-            | Some saved_view -> extend_view ~target_namectxP move saved_view
-            | None ->
-                Util.Error.failwithf
-                  "Error: the name %a is not in the view map %a. Please report."
-                  Moves.Renaming.Namectx.Names.pp_name subject pp_view_map
-                  view_map in
+            View.restore_view_at_subject view_map subject
+              ~context:target_namectxP ~fresh in
           Some (Passive (view, view_map, stack))
     | (Passive (view, view_map, stack), Moves.Input) ->
-        let view = View.change_context ~context:target_namectxP view in
+        let view = View.transport_to_context ~context:target_namectxP view in
         let subject = Moves.get_subject_name move in
-        let fresh_bindings =
-          List.map
-            (fun name -> (name, view))
-            (non_cnames (Moves.get_fresh_names move)) in
         let view_map' =
-          Util.Pmap.concat view_map (Util.Pmap.list_to_pmap fresh_bindings)
-        in
+          View.record_view_at_introduction view_map view
+            (non_cnames (Moves.get_fresh_names move)) in
         if Moves.Renaming.Namectx.Names.is_cname subject then
           Some (Active (view_map', stack))
         else if View.contains view subject then
