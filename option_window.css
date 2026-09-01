@@ -1,59 +1,30 @@
-/* Conteneur du dropdown */
+/* The Options dropdown of the toolbar. The button itself is a .tbtn
+   (front/style.css); this file styles the menu that opens under it. */
 .options-dropdown-container {
   position: relative;
-  display: block; /* Take up the space it needs */
+  display: block;
 }
 
-/* Options button - styled to match the Evaluate button */
-.options-btn {
-  height: 50px;        /* Same height as Evaluate */
-  background-color: #272822; 
-  color: #f8f8f2;
-  border: 2px solid #000000; /* Same black border as Evaluate */
-  border-radius: 5px;
-  padding: 0 15px;
-  cursor: pointer;
-  font-family: "Courier New", Courier, monospace;
-  font-size: 16px;     /* Taille de police proche de Evaluate */
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;           /* No margin-left: the parent's gap provides the spacing */
-}
-
-.options-btn:hover {
-  background-color: #3e3d32;
-  color: #a6e22e;
-}
-
-/* The dropdown menu */
 .options-menu-content {
-  display: none; 
+  display: none;
   position: absolute;
-  
-  /* Opens upwards, because the button sits at the bottom of the page */
-  bottom: 100%;       
-  top: auto;          
-  margin-bottom: 10px; /* A small gap between the button and the menu */
-  
+  top: 100%;
+  margin-top: 6px;
   left: 0;
-  background-color: #272822;
-  min-width: 180px;
-  box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
+  background-color: #ffffff;
+  min-width: 215px;
+  border: 1px solid #b5b5b0;
+  border-radius: 2px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   padding: 10px;
-  border: 1px solid #a6e22e;
-  border-radius: 4px;
-  z-index: 100;
+  z-index: 950;
   text-align: left;
 }
 
-/* The items inside the menu */
 .option-item {
   margin: 8px 0;
-  color: #f8f8f2;
-  font-family: "Courier New", Courier, monospace;
-  font-size: 14px;
+  color: #222222;
+  font-size: 13px;
   display: flex;
   align-items: center;
 }
@@ -61,9 +32,63 @@
 .option-item input {
   margin-right: 10px;
   cursor: pointer;
-  transform: scale(1.2); /* Slightly larger checkboxes */
 }
 
 .option-item label {
   cursor: pointer;
+}
+
+.option-rule {
+  border: 0;
+  border-top: 1px solid #e2e2de;
+  margin: 6px 0;
+}
+
+/* The options inside #options-lts select which LTS the next evaluation
+   explores, so they are inert while one runs (bin/page_init.ml). The lock is
+   a class and not the disabled attribute, which front/scenario.js's two lock
+   rules already own on these same checkboxes; the menu itself stays open,
+   since what is left of it acts on the running interaction. */
+#options-lts.locked {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.option-section-label {
+  margin: 8px 0 6px;
+  color: #75756e;
+  font-size: 12px;
+}
+
+/* The mode pair is segmented: the active mode is the highlighted one,
+   clicking the other selects it. The pace slider belongs to auto; step's
+   own control is the next button, over in the choice panel. */
+.chatter-modes {
+  display: flex;
+}
+.chatter-modes button {
+  flex: 1;
+  font-size: 12px;
+  padding: 3px 0;
+  background: #ffffff;
+  color: #55554f;
+  border: 1px solid #c6c6c2;
+  cursor: pointer;
+}
+.chatter-modes button:first-child {
+  border-radius: 3px 0 0 3px;
+  border-right: none;
+}
+.chatter-modes button:last-child {
+  border-radius: 0 3px 3px 0;
+}
+.chatter-modes button.active {
+  background: #55554f;
+  color: #ffffff;
+  border-color: #55554f;
+}
+
+#chatter-delay {
+  width: 100%;
+  margin-top: 8px;
 }
