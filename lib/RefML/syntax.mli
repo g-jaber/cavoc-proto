@@ -14,7 +14,7 @@ type label = LocL of loc | ConsL of constructor | SymL of Symbolic.id [@@derivin
 
 val fresh_evar : unit -> id
 
-type pattern = PatCons of constructor * id | PatVar of id
+type pattern = PatCons of constructor * id option | PatVar of id
 
 type binary_op =
   | Plus
@@ -36,7 +36,7 @@ type handler = Handler of (pattern * term)
 
 and term =
   | Var of id
-  | Constructor of constructor * term
+  | Constructor of constructor * term option
   | Name of Names.name
   | Loc of loc
   (** [Symbolic] embeds a symbolic expression into a RefML expression *)
@@ -63,6 +63,7 @@ and term =
   | Assert of term
   | Raise of term
   | TryWith of (term * handler list)
+  | Match of (term * handler list)
   (** This expression introduces non-determinism, i.e. some value of a
       certain type *)
   | Nondet of Types.typ

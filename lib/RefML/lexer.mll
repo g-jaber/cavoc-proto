@@ -87,6 +87,7 @@ rule token = parse
   | "val" { VAL } 
   | "exception" { EXCEPTION }
   | "of" { OF }
+  | "match" { MATCH }
 
   | eof  { EOF }
 

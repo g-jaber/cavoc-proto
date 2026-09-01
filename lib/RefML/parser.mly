@@ -28,7 +28,7 @@
 %token TRY
 %token PIPE
 
-%token TYPE VAL EXCEPTION OF
+%token TYPE VAL EXCEPTION OF MATCH
 
 %token TUNIT
 %token TINT
@@ -49,6 +49,9 @@
 %nonassoc NOT
 %nonassoc EQ NEQ GREAT GREATEQ LESS LESSEQ
 
+%nonassoc CONSTRUCTOR
+%nonassoc VAR UNIT INT TRUE FALSE LPAR DEREF LBRACE
+
 %start prog
 %type <Declaration.implem_decl list> prog
 
@@ -62,7 +65,7 @@
 %%
 
 fullexpr: 
-| e=expr_with_try; EOF  { e }
+| e=expr_with_try_or_match; EOF  { e }
 
 prog: 
 | l=list_implem_decl; EOF  { l }
@@ -79,10 +82,10 @@ signature_decl:
 
 implem_decl:
   | TYPE v=VAR EQ t=ty { TypeDecl (v,t) }
-  | LET v=VAR l=list_ident EQ e=expr_with_try
+  | LET v=VAR l=list_ident EQ e=expr_with_try_or_match
     { ValDecl (v, List.fold_left (fun expr var -> Fun (var,expr)) e l) }
   | LET REC v=VAR t=typed_ident l=list_ident EQ e=expr
-    { ValDecl (v, Fix ((v,TUndef),t, List.fold_left (fun expr_with_try var -> Fun (var,expr_with_try)) e l)) }
+    { ValDecl (v, Fix ((v,TUndef),t, List.fold_left (fun expr_with_try_or_match var -> Fun (var,expr_with_try_or_match)) e l)) }
   | EXCEPTION c=CONSTRUCTOR { ExnDecl (c, None) }
   | EXCEPTION c=CONSTRUCTOR OF t=ty { ExnDecl (c, Some t) }
 
@@ -95,7 +98,8 @@ list_implem_decl:
   | l=list_implem_decl d=implem_decl {d::l}
 
  pattern : 
-   | c=CONSTRUCTOR v=VAR {PatCons (c, v)}
+   | c=CONSTRUCTOR v=VAR {PatCons (c, Some v)}
+   | c=CONSTRUCTOR {PatCons (c, None)}
    | v=VAR {PatVar v}
 
  handler : PIPE p=pattern ARROW e=expr {p,e}
@@ -103,9 +107,10 @@ list_implem_decl:
    | { [] }
    | hl=handler_list h=handler {(Handler h)::hl}
 
-expr_with_try:
+expr_with_try_or_match:
   | e=expr { e }
   | TRY e=expr WITH hl=handler_list { TryWith (e,hl) }
+  | MATCH e=expr WITH hl=handler_list { Match (e, hl) }
 
 
 expr:
@@ -151,7 +156,8 @@ proj_expr:
 
 simple_expr:
   | v=VAR             { Var v }
-  | c=CONSTRUCTOR p=simple_expr    { Constructor (c, p)}
+  | c=CONSTRUCTOR p=simple_expr    { Constructor (c, Some p)}
+  | c=CONSTRUCTOR   { Constructor (c, None)}
   | NONDET LPAR t=ty RPAR { Nondet t }
   | UNIT            { Unit }
   | n=INT             { Int n }
@@ -160,7 +166,7 @@ simple_expr:
   | LPAR e1=expr COMMA e2=expr RPAR   { Pair (e1, e2) }
   | DEREF v=VAR       { Deref (Var v) }
   | LBRACE r=record RBRACE  { Record (Util.Pmap.list_to_pmap r) }
-  | LPAR e=expr_with_try RPAR   { e }
+  | LPAR e=expr_with_try_or_match RPAR   { e }
 
 record:
   | v=VAR EQ e=expr { [(v, e)] }
@@ -175,20 +181,38 @@ list_ident :
   |  { [] }
   | l=list_ident tid=typed_ident {tid::l}
 
-ty:
-  | v=TVAR          { TVar v }
-  | v=VAR          { TId v }
-  | TUNIT        { TUnit }
-  | TBOOL        { TBool }
-  | TINT         { TInt }
-  | REF t=ty      { TRef t }
-  | t1=ty ARROW t2=ty { TArrow (t1, t2) }
-  | t1=ty MULT t2=ty   { TProd (t1, t2) }
-  | LPAR t=ty RPAR { t }
-  | LBRACE r=t_record RBRACE  { TRecord (Util.Pmap.list_to_pmap r) }
-  | TEXN { TExn }
+atomic_ty:
+  | v=TVAR        { TVar v }
+  | v=VAR         { TId v }
+  | TUNIT         { TUnit }
+  | TBOOL         { TBool }
+  | TINT          { TInt }
+  | LPAR t=arrow_ty RPAR { t }
+  | LBRACE r=t_record RBRACE { TRecord (Util.Pmap.list_to_pmap r) }
+  | REF t=atomic_ty { TRef t }
+  | TEXN  { TExn }
 
 t_record:
-  | v=VAR COLON t=ty  { [(v, t)] }
-  | r=t_record SEMICOLON v=VAR COLON t=ty { (v,t)::r }
+  | v=VAR COLON t=arrow_ty  { [(v, t)] }
+  | r=t_record SEMICOLON v=VAR COLON t=arrow_ty { (v,t)::r }
+
+prod_ty:
+  | t=atomic_ty { t }
+  | t1=prod_ty MULT t2=atomic_ty { TProd (t1, t2) }
+
+arrow_ty:
+  | t=prod_ty { t }
+  | t1 = prod_ty ARROW t2=arrow_ty  { TArrow (t1, t2) }
+
+ty:
+  | t=arrow_ty  { t }
+  | a=algebraic_decl  { TAlgebraic (Util.Pmap.list_to_pmap a)}
+
+algebraic_decl:
+  | PIPE c=CONSTRUCTOR { [(c, None)] }
+  | PIPE c=CONSTRUCTOR OF t=arrow_ty { [(c, Some t)] }
+  | e=algebraic_decl PIPE c=CONSTRUCTOR { (c, None)::e }
+  | e=algebraic_decl PIPE c=CONSTRUCTOR OF t=arrow_ty { (c, Some t)::e }
+
+
 %%

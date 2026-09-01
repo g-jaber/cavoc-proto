@@ -188,6 +188,21 @@ let create_field_ctx type_decl_l =
     | elt::l' -> aux l' (update_field_ctx field_ctx elt)
   in aux type_decl_l Type_ctx.empty_field_ctx
 
+let populate_cons_ctx_from_cons_list name_of_base_type cons_list cons_ctx =
+  let aux cons_ctx (cons_name, ty_opt) =
+    match (cons_name, ty_opt) with
+    | (s, None) -> Util.Pmap.add (s, Types.TId name_of_base_type) cons_ctx
+    | (s, Some ty) -> Util.Pmap.add (s, Types.TArrow (ty, Types.TId name_of_base_type)) cons_ctx
+  in Util.Pmap.fold aux cons_ctx cons_list
+
+let populate_cons_ctx_from_type_env cons_ctx type_env =
+  let handle_constructor cons_ctx (s, ty) =
+    match (s, ty) with
+    | (s, Types.TAlgebraic cons_list) -> populate_cons_ctx_from_cons_list s cons_list cons_ctx
+    | (_, _) -> cons_ctx
+  in
+  Util.Pmap.fold handle_constructor cons_ctx type_env
+
 (* An imported signature declares names the module may use but does not
    implement. It is the Opponent mirror of get_typed_val_env below: the same
    "a signature declaration becomes a name" act, but with no implementation
@@ -236,7 +251,8 @@ let get_typed_comp_env ?(import_var_ctx = Type_ctx.empty_var_ctx)
     split_signature_decl_list sign_decl_l in
   let type_env = Util.Pmap.list_to_pmap implem_type_decl_l in
   let field_ctx = create_field_ctx implem_type_decl_l in
-  let cons_ctx = Util.Pmap.list_to_pmap implem_exn_l in
+  let exn_cons_ctx = Util.Pmap.list_to_pmap implem_exn_l in
+  let cons_ctx = populate_cons_ctx_from_type_env exn_cons_ctx type_env in
   var_decl_included comp_decl_l var_decl_l;
   type_priv_included type_env type_priv_decl_l;
   type_decl_coincide type_env type_publ_decl_l;

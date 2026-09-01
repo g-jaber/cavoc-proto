@@ -331,6 +331,7 @@ module Make (BranchMonad : Util.Monad.BRANCH)
       | (TUndef, _) | (TRef _, _) | (TSum _, _) | (TExn, _) ->
           failwith @@ "Error: type-checking a nup of type "
           ^ Types.string_of_typ ty ^ " is not yet supported."
+      | (TAlgebraic _, _) -> failwith "Algebraic type are not yet supported (type_check_abstract_val)"
     in
     match aux ty (nup, lnamectx) with
     | None -> false
@@ -346,7 +347,9 @@ module Make (BranchMonad : Util.Monad.BRANCH)
     | Symbolic sexpr -> ASymb sexpr
     | Pair (value1, value2) ->
         APair (nup_of_ground_value value1, nup_of_ground_value value2)
-    | Constructor (c, value') -> ACons (c, nup_of_ground_value value')
+    | Constructor (c, Some value') -> ACons (c, nup_of_ground_value value')
+    | Constructor (_, None) ->
+        failwith "Empty constructor not implemented yet (nup_of_ground_value)"
     | Record fields -> ARecord (Util.Pmap.map_im nup_of_ground_value fields)
     | _ ->
         failwith
@@ -384,7 +387,8 @@ module Make (BranchMonad : Util.Monad.BRANCH)
           (ABound pn, ienv')
         end
       | (Name nn, TName _) -> (AFree nn, ienv)
-      | (Constructor (c, value'), TExn) -> (ACons (c, nup_of_ground_value value'), ienv)
+      | (Constructor (c, Some value'), TExn) ->
+          (ACons (c, nup_of_ground_value value'), ienv)
       | (Record val_fields, TRecord ty_fields) ->
           let abstracting_field (new_fields, current_ienv) (field_name, expr) =
             let associated_ty = Util.Pmap.lookup_exn field_name ty_fields in
@@ -406,7 +410,7 @@ module Make (BranchMonad : Util.Monad.BRANCH)
     | ABool b -> Bool b
     | ASymb sexpr -> Symbolic sexpr
     | APair (nup1, nup2) -> Pair (to_value nup1, to_value nup2)
-    | ACons (c, nup') -> Constructor (c, to_value nup')
+    | ACons (c, nup') -> Constructor (c, Some (to_value nup'))
     | ARecord fields -> Record (Util.Pmap.map_im to_value fields)
     | AFree nn -> Name nn
     | ABound nn ->
