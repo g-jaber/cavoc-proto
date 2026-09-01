@@ -27,6 +27,7 @@
 %token RAISE
 %token TRY
 %token PIPE
+%token UNDERSCORE
 
 %token TYPE VAL EXCEPTION OF MATCH
 
@@ -97,15 +98,22 @@ list_implem_decl:
   |  { [] }
   | l=list_implem_decl d=implem_decl {d::l}
 
- pattern : 
+ pattern :
    | c=CONSTRUCTOR v=VAR {PatCons (c, Some v)}
    | c=CONSTRUCTOR {PatCons (c, None)}
    | v=VAR {PatVar v}
+   | UNIT { PatUnit }
+   | n=INT { PatInt n }
+   | MINUS n=INT { PatInt (-n) }
+   | TRUE { PatBool true }
+   | FALSE { PatBool false }
+   | UNDERSCORE { PatWildcard }
+   | LPAR p1=pattern COMMA p2=pattern RPAR { PatPair (p1, p2) }
 
  handler : PIPE p=pattern ARROW e=expr {p,e}
- handler_list : 
+ handler_list :
    | { [] }
-   | hl=handler_list h=handler {(Handler h)::hl}
+   | h=handler hl=handler_list {Handler h :: hl}
 
 expr_with_try_or_match:
   | e=expr { e }

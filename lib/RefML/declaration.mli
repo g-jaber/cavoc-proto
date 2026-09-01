@@ -1,4 +1,4 @@
-(* This file contain the simple modules that we consider for this language, with their signatures *)
+(* This file handles the various declarations found in modules, programmes and signatures. *)
 
 type signature_decl =
   | PrivateTypeDecl of Types.id
@@ -20,10 +20,7 @@ val extract_type_subst : implem_decl list -> Types.type_subst
 
 type comp_env = (Syntax.id * Syntax.term) list
 
-(* get_imported_name_env turns a signature of *imported* declarations into the
-   seeds a module needs to refer to them: a val_env binding each identifier to
-   an Opponent name, and the matching variable and name contexts.
-   The empty signature yields empty seeds, which is the standalone case. *)
+(* get_imported_name_env works on signature of *imported* declarations *)
 val get_imported_name_env :
   signature_decl list ->
   Syntax.val_env * Type_ctx.var_ctx * Namectx.Namectx.t
@@ -33,9 +30,8 @@ val get_typed_comp_env :
   ?import_name_ctx:Namectx.Namectx.t ->
   implem_decl list -> signature_decl list -> comp_env * Namectx.Namectx.t * Type_ctx.cons_ctx
 
-(* get_typed_val_env  takes a map from variables to values (i.e. evaluated computations) and a signature,
-and return an interactive env, together with the typing contexts of these Proponent names.
-The Proponent names are taken in correspondance to the variables that are declared in the given signature. *)
+(* The interactive environment made of one Proponent name per declaration of the
+   signature, bound to the value the given environment gives its identifier. *)
 val get_typed_val_env :
   ?namectxO:Namectx.Namectx.t ->
   Syntax.val_env ->

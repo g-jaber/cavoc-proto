@@ -10,11 +10,25 @@ val string_of_constructor : constructor -> string
 val string_of_loc : loc -> string
 val fresh_loc : unit -> loc
 
-type label = LocL of loc | ConsL of constructor | SymL of Symbolic.id [@@deriving to_yojson]
+type label = LocL of loc | ConsL of constructor | SymL of Symbolic.id
+[@@deriving to_yojson]
 
 val fresh_evar : unit -> id
 
-type pattern = PatCons of constructor * id option | PatVar of id
+type pattern =
+  | PatCons of constructor * id option
+  | PatVar of id
+  | PatUnit
+  | PatInt of int
+  | PatBool of bool
+  | PatPair of pattern * pattern
+  | PatWildcard
+
+val pp_pattern : Format.formatter -> pattern -> unit
+val string_of_pattern : pattern -> string
+
+val pattern_bound_ids : pattern -> id list
+(** The variables a pattern binds, left to right. *)
 
 type binary_op =
   | Plus
@@ -39,7 +53,7 @@ and term =
   | Constructor of constructor * term option
   | Name of Names.name
   | Loc of loc
-  (** [Symbolic] embeds a symbolic expression into a RefML expression *)
+      (** [Symbolic] embeds a symbolic expression into a RefML expression *)
   | Symbolic of Symbolic.symbolic_expr
   | Unit
   | Int of int
@@ -64,20 +78,17 @@ and term =
   | Raise of term
   | TryWith of (term * handler list)
   | Match of (term * handler list)
-  (** This expression introduces non-determinism, i.e. some value of a
-      certain type *)
+      (** This expression introduces non-determinism, i.e. some value of a
+          certain type *)
   | Nondet of Types.typ
   | Hole
   | Error
 
 val pp_term : Format.formatter -> term -> unit
 
-(** Like [pp_term], with names displayed by the provided printer. *)
 val pp_term_in :
-  (Format.formatter -> Names.name -> unit) ->
-  Format.formatter ->
-  term ->
-  unit
+  (Format.formatter -> Names.name -> unit) -> Format.formatter -> term -> unit
+(** Like [pp_term], with names displayed by the provided printer. *)
 
 val string_of_term : term -> string
 
@@ -85,9 +96,11 @@ type name_set = Names.name list
 
 val empty_name_set : name_set
 
-(** get_new_name s t collects all the names appearing in the term t, and add them to s.
-It guarantee that each new name is added only once in s, unless it was already in s in which case it is not added.*)
 val get_new_names : name_set -> term -> name_set
+(** get_new_name s t collects all the names appearing in the term t, and add
+    them to s. It guarantee that each new name is added only once in s, unless
+    it was already in s in which case it is not added.*)
+
 val get_names : term -> name_set
 
 type label_set = label list
@@ -102,9 +115,16 @@ val pp_value : Format.formatter -> value -> unit
 val string_of_value : value -> string
 val isval : term -> bool
 
-(** The following function subst expr value value 'can be used to substitue any occurence of
-   value by value' in expr. The second argument value can either be a variable, a Names.name, a location or the Hole.*)
+
+(* Compute the substitution for the pattern-matching problem *)
+val match_pattern_with_value : pattern -> value -> (id * value) list option
+
+(** subst expr value value can be used to substitue any
+    occurence of value by value' in expr. The second argument value can either
+    be a variable, a Names.name, a location or the Hole.*)
 val subst : term -> value -> value -> term
+
+
 val subst_var : term -> id -> value -> term
 val rename : term -> Renaming.Renaming.t -> term
 val implement_arith_op : binary_op -> int -> int -> int
@@ -133,8 +153,6 @@ val filter_negative_val : value -> negative_val option
 val force_negative_val : value -> negative_val
 val embed_negative_val : negative_val -> value
 val rename_negative_val : Renaming.Renaming.t -> negative_val -> negative_val
-
-
 val get_nf_term : term -> (value, eval_context, Names.name, unit) Nf.nf_term
 
 val refold_nf_term :

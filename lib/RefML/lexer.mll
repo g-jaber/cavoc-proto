@@ -66,6 +66,7 @@ rule token = parse
   | "raise" { RAISE }
   | "try" { TRY }
   | "|" { PIPE }
+  | "_" { UNDERSCORE }
 
   | "unit" { TUNIT }
   | "int" { TINT }
