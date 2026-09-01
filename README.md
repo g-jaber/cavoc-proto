@@ -30,9 +30,9 @@ The code is documented using `odoc`. Documentation can be generated using
 ## explore-web
 
 To run it, you first need to run a simple web server via ``dune exec ./bin/server.exe``.
-Then you can use your web browser to go to:
-- http://localhost:8000/front/indextuto.html for a tutorial
-- http://localhost:8000/front/index.html for free use
+Then you can use your web browser to go to
+http://localhost:8000/front/index.html: the page hosts both the sandbox
+and the tutorial (the Tutorial button in the toolbar).
 
 ## explore-cli
 

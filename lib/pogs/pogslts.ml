@@ -45,11 +45,11 @@ module Make (Lang : Lang.Interactive.LANG_WITH_INIT) :
     let nn = Lang.get_subject_name a_nf in
     let renaming =
       TypingLTS.place act_conf.pos TypingLTS.Moves.Output nn lnamectx in
-    let move = (TypingLTS.Moves.Output, (nn, (a_nf, renaming))) in
+    let move = (TypingLTS.Moves.Output, (a_nf, renaming)) in
     let pos = TypingLTS.trigger_move act_conf.pos move in
     return (move, { store; ienv; pos })
 
-  let o_trans pas_conf ((_, (_, a_nf)) as input_move) =
+  let o_trans pas_conf ((_, a_nf) as input_move) =
     match TypingLTS.check_move pas_conf.pos input_move with
     | None -> None
     | Some pos ->
@@ -59,7 +59,7 @@ module Make (Lang : Lang.Interactive.LANG_WITH_INIT) :
 
   let o_trans_gen pas_conf =
     let open TypingLTS.BranchMonad in
-    let* (((_,(_, a_nf)) as input_move), pos) =
+    let* (((_, a_nf) as input_move), pos) =
       TypingLTS.generate_moves pas_conf.pos in
     let (opconf, _) = Lang.concretize_a_nf pas_conf.store pas_conf.ienv a_nf in
     (*we throw away the interactive environment γ from trigger_computation, since we
@@ -84,8 +84,8 @@ module Make (Lang : Lang.Interactive.LANG_WITH_INIT) :
     let (opconf, namectxO) = Lang.get_typed_opconf "first" expr_lexbuffer in
     init_aconf opconf namectxO
 
-  let lexing_init_pconf decl_lexbuffer signature_lexbuffer =
+  let lexing_init_pconf ?opponent_signature decl_lexbuffer signature_lexbuffer =
     let (interactive_env, store, name_ctxP, name_ctxO) =
-      Lang.get_typed_ienv decl_lexbuffer signature_lexbuffer in
+      Lang.get_typed_ienv ?opponent_signature decl_lexbuffer signature_lexbuffer in
     init_pconf store interactive_env name_ctxP name_ctxO
 end

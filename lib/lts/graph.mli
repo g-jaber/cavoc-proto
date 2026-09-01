@@ -1,6 +1,6 @@
 module type GRAPH = sig
   (* To be instanciated *)
-  module M : Util.Monad.MONAD
+  module UserMonad : Util.Monad.MONAD
 
   type conf
 
@@ -13,10 +13,10 @@ module type GRAPH = sig
     show_moves_list:(Yojson.Safe.t list -> unit) ->
     (* the argument of get_move is the 
     number of moves *)
-    get_move:(int -> int M.m) ->
+    get_move:(int -> int UserMonad.m) ->
     conf ->
-    graph M.m
+    graph UserMonad.m
 end
 
-module Make : functor (M : Util.Monad.MONAD) (IntLTS : Strategy.LTS) ->
-  GRAPH with module M = M and type conf = IntLTS.conf
+module Make : functor (UserMonad : Util.Monad.MONAD) (IntLTS : Strategy.LTS) ->
+  GRAPH with module UserMonad = UserMonad and type conf = IntLTS.conf

@@ -4,9 +4,13 @@ open Type_ctx
 
 exception TypingError of string
 
-let rec get_type_from_tid ty type_ctx = match ty with 
-        | TId id -> get_type_from_tid (Util.Pmap.lookup_exn id (Type_ctx.get_type_env type_ctx)) type_ctx
-        | ty -> ty
+let rec get_type_from_tid ty type_ctx =
+  match ty with
+  | TId id ->
+      get_type_from_tid
+        (Util.Pmap.lookup_exn id (Type_ctx.get_type_env type_ctx))
+        type_ctx
+  | ty -> ty
 
 let rec infer_type type_ctx type_subst expr =
   match expr with
@@ -22,7 +26,7 @@ let rec infer_type type_ctx type_subst expr =
             ^ Type_ctx.string_of_var_ctx type_ctx.var_ctx
             ^ " .")
     end
-  | Constructor (cons, e) -> begin
+  | Constructor (cons, Some e) -> begin
       match Util.Pmap.lookup cons type_ctx.cons_ctx with
       | Some (TArrow (pty, ty)) ->
           let (pty', type_subst') = infer_type type_ctx type_subst e in
@@ -49,6 +53,8 @@ let rec infer_type type_ctx type_subst expr =
             ^ Type_ctx.string_of_cons_ctx type_ctx.cons_ctx
             ^ " .")
     end
+  | Constructor (_cons, None) ->
+      failwith "Empty constructor not implemented yet (infer_type)"
   | Name n -> begin
       match Namectx.Namectx.lookup_exn (Type_ctx.get_name_ctx type_ctx) n with
       | ty -> (ty, type_subst)
@@ -67,60 +73,66 @@ let rec infer_type type_ctx type_subst expr =
             ("Error: the location " ^ Syntax.string_of_loc l
            ^ " is not defined.")
     end
-  | Symbolic _ -> failwith "constructor Symbolic should not appear during type checking"
+  | Symbolic _ ->
+      failwith "constructor Symbolic should not appear during type checking"
   | Unit -> (TUnit, type_subst)
   | Int _ -> (TInt, type_subst)
   | Bool _ -> (TBool, type_subst)
   | Nondet ty -> (ty, type_subst)
   | Record fields ->
-      let inference_step (type_subst, acc) (id, term) = 
-        let (ty, type_subst') = infer_type type_ctx type_subst term in 
-        (type_subst', Util.Pmap.add (id, ty) acc)
-      in
-      let (final_subst, inferred_fields) = 
-        Util.Pmap.fold inference_step (type_subst, Util.Pmap.empty ) fields
-      in (TRecord inferred_fields, final_subst)
+      let inference_step (type_subst, acc) (id, term) =
+        let (ty, type_subst') = infer_type type_ctx type_subst term in
+        (type_subst', Util.Pmap.add (id, ty) acc) in
+      let (final_subst, inferred_fields) =
+        Util.Pmap.fold inference_step (type_subst, Util.Pmap.empty) fields in
+      (TRecord inferred_fields, final_subst)
   | Projection (term, field_name) -> (
-      let get_tid_from_field field = (
+      let get_tid_from_field field =
         let id_ref = Util.Pmap.lookup field (Type_ctx.get_field_ctx type_ctx) in
-        match id_ref with 
+        match id_ref with
         | Some type_id -> Types.TId type_id
-        | None -> Util.Error.fail_error (
-            "Error typing " ^ Syntax.string_of_term (Projection (term, field_name)) ^ " : "
-            ^ "Unbound record field " ^ Syntax.string_of_id field
-        )
-      ) in
-      let get_associated_tid term id = (
-        let rty, type_subst' = infer_type type_ctx type_subst term in 
-        let rty' = Types.apply_type_subst rty type_subst' in 
+        | None ->
+            Util.Error.fail_error
+              ("Error typing "
+              ^ Syntax.string_of_term (Projection (term, field_name))
+              ^ " : " ^ "Unbound record field " ^ Syntax.string_of_id field)
+      in
+      let get_associated_tid term id =
+        let (rty, type_subst') = infer_type type_ctx type_subst term in
+        let rty' = Types.apply_type_subst rty type_subst' in
         let associated_tid = get_tid_from_field id in
         (* Ensure that the infered field type correspond to the declared type in signature *)
-        begin match mgu_type (Type_ctx.get_type_env type_ctx) (rty', associated_tid) with
-        | Some type_subst'' -> (associated_tid, compose_type_subst type_subst'' type_subst')
-        | None -> Util.Error.fail_error (
-            "Error typing " ^ Syntax.string_of_term (Projection (term, id)) ^ " : "
-            ^ "Unbound record field " ^ Syntax.string_of_id id
-        )
-        end
-      ) in
+        begin match
+          mgu_type (Type_ctx.get_type_env type_ctx) (rty', associated_tid)
+        with
+        | Some type_subst'' ->
+            (associated_tid, compose_type_subst type_subst'' type_subst')
+        | None ->
+            Util.Error.fail_error
+              ("Error typing "
+              ^ Syntax.string_of_term (Projection (term, id))
+              ^ " : " ^ "Unbound record field " ^ Syntax.string_of_id id)
+        end in
       let get_type_from_field_name ty field_name =
         let ty' = get_type_from_tid ty type_ctx in
         match ty' with
         | TRecord fields -> Util.Pmap.lookup field_name fields
-        | _ -> Util.Error.fail_error (
-            "Error typing " ^ Syntax.string_of_term (Projection (term, field_name)) ^ " : "
-            ^ Syntax.string_of_term term ^ " is not a Record type"
-        )
+        | _ ->
+            Util.Error.fail_error
+              ("Error typing "
+              ^ Syntax.string_of_term (Projection (term, field_name))
+              ^ " : " ^ Syntax.string_of_term term ^ " is not a Record type")
       in
-      let associated_tid, type_subst = get_associated_tid term field_name in
+      let (associated_tid, type_subst) = get_associated_tid term field_name in
       let inferred_type = get_type_from_field_name associated_tid field_name in
-      match inferred_type with 
+      match inferred_type with
       | Some ty -> (ty, type_subst)
-      | None -> Util.Error.fail_error (
-            "Error typing " ^ Syntax.string_of_term (Projection (term, field_name)) ^ " : "
-            ^ "Unbound record field " ^ Syntax.string_of_id field_name
-        )
-  )
+      | None ->
+          Util.Error.fail_error
+            ("Error typing "
+            ^ Syntax.string_of_term (Projection (term, field_name))
+            ^ " : " ^ "Unbound record field "
+            ^ Syntax.string_of_id field_name))
   | BinaryOp (Plus, e1, e2)
   | BinaryOp (Minus, e1, e2)
   | BinaryOp (Mult, e1, e2)
@@ -227,7 +239,8 @@ let rec infer_type type_ctx type_subst expr =
   | Let (var, e1, e2) ->
       let (ty, type_subst') = infer_type type_ctx type_subst e1 in
       let ty' = Types.apply_type_subst ty type_subst' in
-      let ty_gen = Types.generalize_type (Type_ctx.free_vars_of_ctx type_ctx) ty' in
+      let ty_gen =
+        Types.generalize_type (Type_ctx.free_vars_of_ctx type_ctx) ty' in
       Util.Debug.print_debug
         ("We have " ^ Syntax.string_of_term e1 ^ " of type "
        ^ Types.string_of_typ ty
@@ -319,6 +332,9 @@ let rec infer_type type_ctx type_subst expr =
           ^ " : " ^ string_of_typ ty1 ^ " is not unifiable with ref "
           ^ string_of_typ ty2
       end
+  (* [assert false] is the surface form of the error term, and inhabits every
+     type as it does. *)
+  | Assert (Bool false) -> (fresh_typevar (), type_subst)
   | Assert e ->
       let type_subst' = check_type type_ctx type_subst e TBool in
       (TUnit, type_subst')
@@ -344,6 +360,11 @@ let rec infer_type type_ctx type_subst expr =
           | PatVar id ->
               let type_ctx' = Type_ctx.extend_var_ctx type_ctx id TExn in
               infer_type type_ctx' type_subst e_handler
+          | _ ->
+              Util.Error.fail_error
+                ("Error typing " ^ Syntax.string_of_term expr
+               ^ " : only exception patterns may appear in a try-with handler."
+                )
           end in
         begin match mgu_type (Type_ctx.get_type_env type_ctx) (ty, ty') with
         | Some type_subst'' -> (ty, compose_type_subst type_subst'' type_subst')
@@ -354,6 +375,83 @@ let rec infer_type type_ctx type_subst expr =
   | Error ->
       let tvar = fresh_typevar () in
       (tvar, type_subst)
+  | Match (e, handler_l) ->
+      let (matched_term_ty, type_subst') = infer_type type_ctx type_subst e in
+      let tenv = Type_ctx.get_type_env type_ctx in
+      let branch (result_ty, type_subst) (Handler (pat, e_branch)) =
+        let (pattern_ty, binder_l) = most_general_pattern_type type_ctx pat in
+        let type_subst' =
+          match
+            mgu_type tenv
+              (Types.apply_type_subst matched_term_ty type_subst, pattern_ty)
+          with
+          | Some ts -> compose_type_subst ts type_subst
+          | None ->
+              Util.Error.fail_error
+                ("Error typing " ^ Syntax.string_of_term expr
+               ^ " : the pattern "
+                ^ Syntax.string_of_pattern pat
+                ^ " does not match the type of the matched term "
+                ^ string_of_typ matched_term_ty ^ ".") in
+        let extend ctx (id, ty) =
+          Type_ctx.extend_var_ctx ctx id (Types.apply_type_subst ty type_subst')
+        in
+        let type_ctx' = List.fold_left extend type_ctx binder_l in
+        let (branch_ty, type_subst'') =
+          infer_type type_ctx' type_subst' e_branch in
+        match result_ty with
+        | None -> (Some branch_ty, type_subst'')
+        | Some ty -> begin
+            match
+              mgu_type tenv (Types.apply_type_subst ty type_subst'', branch_ty)
+            with
+            | Some ts -> (Some ty, compose_type_subst ts type_subst'')
+            | None ->
+                Util.Error.fail_error
+                  ("Error typing " ^ Syntax.string_of_term expr
+                 ^ " : the branches have incompatible types " ^ string_of_typ ty
+                 ^ " and " ^ string_of_typ branch_ty ^ ".")
+          end in
+      begin match List.fold_left branch (None, type_subst') handler_l with
+      | (Some ty, ts) -> (ty, ts)
+      | (None, _) ->
+          Util.Error.fail_error
+            ("Error typing " ^ Syntax.string_of_term expr
+           ^ " : a match expression needs at least one branch.")
+      end
+
+(* The most general type a pattern matches, with fresh type variables at the
+   binders it does not constrain, together with the binders' types. *)
+and most_general_pattern_type type_ctx pat =
+  match pat with
+  | PatWildcard -> (fresh_typevar (), [])
+  | PatVar id ->
+      let tvar = fresh_typevar () in
+      (tvar, [ (id, tvar) ])
+  | PatUnit -> (TUnit, [])
+  | PatInt _ -> (TInt, [])
+  | PatBool _ -> (TBool, [])
+  | PatPair (pattern1, pattern2) ->
+      let (ty1, binder_l1) = most_general_pattern_type type_ctx pattern1 in
+      let (ty2, binder_l2) = most_general_pattern_type type_ctx pattern2 in
+      (TProd (ty1, ty2), binder_l1 @ binder_l2)
+  | PatCons (c, arg) -> begin
+      match (Util.Pmap.lookup c type_ctx.cons_ctx, arg) with
+      | (Some (TArrow (param_ty, result_ty)), Some id) ->
+          (result_ty, [ (id, param_ty) ])
+      | (Some result_ty, None) -> (result_ty, [])
+      | (Some _, _) ->
+          Util.Error.fail_error
+            ("Error: the pattern "
+            ^ Syntax.string_of_pattern pat
+            ^ " does not agree with the arity of the constructor " ^ c ^ ".")
+      | (None, _) ->
+          Util.Error.fail_error
+            ("Error: the constructor " ^ c ^ " used in a pattern is not in "
+            ^ Type_ctx.string_of_cons_ctx type_ctx.cons_ctx
+            ^ " .")
+    end
+
 and check_type type_ctx type_subst expr res_ty =
   let (ty, type_subst') = infer_type type_ctx type_subst expr in
   let ty_inst = Types.apply_type_subst ty type_subst' in

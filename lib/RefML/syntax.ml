@@ -13,7 +13,7 @@ let string_of_constructor cons = cons
 type loc = int [@@deriving to_yojson]
 
 let pp_loc fmt = Format.fprintf fmt "ℓ%d"
-let string_of_loc l = "l" ^ string_of_int l
+let string_of_loc = Format.asprintf "%a" pp_loc
 
 (* we provide a way to generate fresh locations *)
 let count_loc = ref 0
@@ -23,7 +23,8 @@ let fresh_loc () =
   count_loc := !count_loc + 1;
   l
 
-type label = LocL of loc | ConsL of constructor | SymL of Symbolic.id [@@deriving to_yojson]
+type label = LocL of loc | ConsL of constructor | SymL of Symbolic.id
+[@@deriving to_yojson]
 
 (* we also provide fresh generation of variable identifiers,
    that is used in the parser to replace some anonymous construction like () or _ *)
@@ -36,7 +37,14 @@ let fresh_evar () =
 
 (* Syntax of Expressions *)
 
-type pattern = PatCons of constructor * id | PatVar of id
+type pattern =
+  | PatCons of constructor * id option
+  | PatVar of id
+  | PatUnit
+  | PatInt of int
+  | PatBool of bool
+  | PatPair of pattern * pattern
+  | PatWildcard
 
 type binary_op =
   | Plus
@@ -58,7 +66,7 @@ type handler = Handler of (pattern * term)
 
 and term =
   | Var of id
-  | Constructor of constructor * term
+  | Constructor of constructor * term option
     (* We should generalize constructors so that it takes a list of arguments *)
   | Name of Names.name
   | Loc of loc
@@ -85,13 +93,29 @@ and term =
   | Assert of term
   | Raise of term
   | TryWith of (term * handler list)
+  | Match of (term * handler list)
   | Nondet of Types.typ
   | Hole
   | Error
 
-let pp_pattern fmt = function
-  | PatCons (c, id) -> Format.fprintf fmt "%s %s" c id
+let rec pp_pattern fmt = function
+  | PatCons (c, Some id) -> Format.fprintf fmt "%s %s" c id
+  | PatCons (c, None) -> Format.fprintf fmt "%s" c
   | PatVar id -> Format.pp_print_string fmt id
+  | PatUnit -> Format.pp_print_string fmt "()"
+  | PatInt n -> Format.pp_print_int fmt n
+  | PatBool b -> Format.pp_print_bool fmt b
+  | PatPair (pattern1, pattern2) ->
+      Format.fprintf fmt "(%a,%a)" pp_pattern pattern1 pp_pattern pattern2
+  | PatWildcard -> Format.pp_print_string fmt "_"
+
+let string_of_pattern = Format.asprintf "%a" pp_pattern
+
+let rec pattern_bound_ids = function
+  | PatCons (_, Some id) | PatVar id -> [ id ]
+  | PatCons (_, None) | PatUnit | PatInt _ | PatBool _ | PatWildcard -> []
+  | PatPair (pattern1, pattern2) ->
+      pattern_bound_ids pattern1 @ pattern_bound_ids pattern2
 
 let pp_typed_var fmt = function
   | (x, Types.TUndef) -> Format.pp_print_string fmt x
@@ -128,7 +152,9 @@ and pp_term_in pp_name fmt term =
   let pp_handler = pp_handler_in pp_name in
   match term with
   | Var x -> pp_id fmt x
-  | Constructor (c, e) -> Format.fprintf fmt "%a %a" pp_constructor c pp_term e
+  | Constructor (c, Some e) ->
+      Format.fprintf fmt "%a %a" pp_constructor c pp_term e
+  | Constructor (c, None) -> Format.fprintf fmt "%a" pp_constructor c
   | Name n -> pp_name fmt n
   | Loc l -> pp_loc fmt l
   | Symbolic id -> Symbolic.pp_constraint fmt id
@@ -162,21 +188,26 @@ and pp_term_in pp_name fmt term =
   | Assert e -> Format.fprintf fmt "assert %a" pp_term e
   | Raise e -> Format.fprintf fmt "raise %a" pp_term e
   | TryWith (e, handler_l) ->
-      let pp_sep fmt () = Format.pp_print_string fmt "|" in
+      let pp_sep fmt () = Format.pp_print_string fmt " " in
       let pp_handler_l = Format.pp_print_list ~pp_sep pp_handler in
       Format.fprintf fmt "try %a with %a" pp_term e pp_handler_l handler_l
+  | Match (e, handler_l) ->
+      let pp_sep fmt () = Format.pp_print_string fmt " " in
+      let pp_handler_l = Format.pp_print_list ~pp_sep pp_handler in
+      Format.fprintf fmt "match %a with %a" pp_term e pp_handler_l handler_l
   | Nondet ty -> Format.fprintf fmt "nondet (%a)" Types.pp_typ ty
   | Hole -> Format.pp_print_string fmt "∙"
   | Error -> Format.pp_print_string fmt "error"
-  | Record elt -> (
-    Format.pp_print_string fmt "{ ";
-    Util.Pmap.iter (fun (id, term) -> Format.fprintf fmt "%s = %a; " id pp_term term) elt;
-    Format.pp_print_string fmt "}";
-  )
+  | Record elt ->
+      Format.pp_print_string fmt "{ ";
+      Util.Pmap.iter
+        (fun (id, term) -> Format.fprintf fmt "%s = %a; " id pp_term term)
+        elt;
+      Format.pp_print_string fmt "}"
   | Projection (e, v) -> Format.fprintf fmt "%a.%s" pp_par_term e v
 
 and pp_handler_in pp_name fmt (Handler (pat, expr)) =
-  Format.fprintf fmt "%a -> %a" pp_pattern pat (pp_term_in pp_name) expr
+  Format.fprintf fmt "| %a -> %a" pp_pattern pat (pp_term_in pp_name) expr
 
 let pp_term = pp_term_in Names.pp_name
 let string_of_term = Format.asprintf "%a" pp_term
@@ -190,10 +221,11 @@ let empty_name_set = []
 
 let rec get_new_names lnames = function
   | Name nn -> if List.mem nn lnames then lnames else nn :: lnames
-  | Var _
-  | Nondet _ | Loc _ | Unit | Symbolic _ | Int _ | Bool _ | Hole | Error -> lnames
+  | Var _ | Nondet _ | Loc _ | Unit | Symbolic _ | Int _ | Bool _ | Hole | Error
+    ->
+      lnames
   | Projection (e, _)
-  | Constructor (_, e)
+  | Constructor (_, Some e)
   | UnaryOp (_, e)
   | Fun (_, e)
   | Fix (_, _, e)
@@ -221,9 +253,15 @@ let rec get_new_names lnames = function
       List.fold_left
         (fun lnames (Handler (_, expr)) -> get_new_names lnames expr)
         lnames' handler_l
-  | Record fields -> 
-    let aux current_lnames (_, e) = get_new_names current_lnames e in
-    Util.Pmap.fold aux lnames fields
+  | Record fields ->
+      let aux current_lnames (_, e) = get_new_names current_lnames e in
+      Util.Pmap.fold aux lnames fields
+  | Constructor (_, None) -> lnames
+  | Match (e1, handler_l) ->
+      let lnames' = get_new_names lnames e1 in
+      List.fold_left
+        (fun lnames (Handler (_, expr)) -> get_new_names lnames expr)
+        lnames' handler_l
 
 let get_names = get_new_names empty_name_set
 
@@ -235,8 +273,9 @@ let rec get_new_labels label_l = function
   | Loc l -> if List.mem (LocL l) label_l then label_l else LocL l :: label_l
   | Constructor (c, _) ->
       if List.mem (ConsL c) label_l then label_l else ConsL c :: label_l
-  | Name _
-  | Nondet _ | Var _ | Symbolic _ | Unit | Int _ | Bool _ | Hole | Error -> label_l
+  | Name _ | Nondet _ | Var _ | Symbolic _ | Unit | Int _ | Bool _ | Hole
+  | Error ->
+      label_l
   | Projection (e, _)
   | UnaryOp (_, e)
   | Fun (_, e)
@@ -265,9 +304,14 @@ let rec get_new_labels label_l = function
       List.fold_left
         (fun label_l (Handler (_, expr)) -> get_new_labels label_l expr)
         label_l' handler_l
-  | Record fields -> 
-    let aux current_label_l (_, e) = get_new_labels current_label_l e in
-    Util.Pmap.fold aux label_l fields
+  | Record fields ->
+      let aux current_label_l (_, e) = get_new_labels current_label_l e in
+      Util.Pmap.fold aux label_l fields
+  | Match (e1, handler_l) ->
+      let label_l' = get_new_labels label_l e1 in
+      List.fold_left
+        (fun label_l (Handler (_, expr)) -> get_new_labels label_l expr)
+        label_l' handler_l
 
 let get_labels = get_new_labels empty_label_set
 
@@ -275,12 +319,12 @@ type value = term
 
 let pp_value = pp_term
 let string_of_value = string_of_term
-
 let value_to_yojson v = `String (string_of_value v)
 
 let rec isval = function
   (*| Var _ -> true*)
-  | Constructor (_, e) -> isval e
+  | Constructor (_, Some e) -> isval e
+  | Constructor (_, None) -> true
   | Name _ -> true
   | Loc _ -> true
   | Symbolic _ -> true
@@ -290,13 +334,42 @@ let rec isval = function
   | Fix _ -> true
   | Fun _ -> true
   | Pair (e1, e2) -> isval e1 && isval e2
-  | Record fields -> (
-    let aux value (_, expr) = value && (isval expr) in
-    Util.Pmap.fold aux true fields 
-  )
+  | Record fields ->
+      let aux value (_, expr) = value && isval expr in
+      Util.Pmap.fold aux true fields
   | _ -> false
 
 let get_value expr = if isval expr then Some expr else None
+
+(* The substitution witnessing that a value matches a pattern, None on a
+   mismatch of the discriminating leaves; a shape mismatch is an ill-typed
+   program. *)
+let rec match_pattern_with_value pattern value =
+  match (pattern, value) with
+  | (PatWildcard, _) -> Some []
+  | (PatVar id, _) -> Some [ (id, value) ]
+  | (PatUnit, Unit) -> Some []
+  | (PatInt n, Int m) -> if n = m then Some [] else None
+  | (PatBool b, Bool c) -> if b = c then Some [] else None
+  | (PatPair (pattern1, pattern2), Pair (value1, value2)) -> begin
+      match match_pattern_with_value pattern1 value1 with
+      | None -> None
+      | Some substitution1 -> begin
+          match match_pattern_with_value pattern2 value2 with
+          | None -> None
+          | Some substitution2 -> Some (substitution1 @ substitution2)
+        end
+    end
+  | (PatCons (c, None), Constructor (c', None)) ->
+      if c = c' then Some [] else None
+  | (PatCons (c, Some id), Constructor (c', Some value')) ->
+      if c = c' then Some [ (id, value') ] else None
+  | (PatCons _, Constructor _) -> None
+  | _ ->
+      failwith
+        ("Error: the value " ^ string_of_value value
+       ^ " cannot be matched against a pattern of a different shape. Please \
+          report.")
 
 let rec subst expr value value' =
   match expr with
@@ -305,9 +378,12 @@ let rec subst expr value value' =
   | Name _ when expr = value -> value'
   | Loc _ when expr = value -> value'
   | Hole when expr = value -> value'
-  | Var _
-  | Nondet _ | Name _ | Symbolic _ | Loc _ | Hole | Unit | Int _ | Bool _ | Error -> expr
-  | Constructor (cons, expr') -> Constructor (cons, subst expr' value value')
+  | Var _ | Nondet _ | Name _ | Symbolic _ | Loc _ | Hole | Unit | Int _
+  | Bool _ | Error ->
+      expr
+  | Constructor (cons, Some expr') ->
+      Constructor (cons, Some (subst expr' value value'))
+  | Constructor (_, None) -> expr
   | BinaryOp (op, expr1, expr2) ->
       BinaryOp (op, subst expr1 value value', subst expr2 value value')
   | UnaryOp (op, expr) -> UnaryOp (op, subst expr value value')
@@ -347,19 +423,21 @@ let rec subst expr value value' =
   | Raise expr -> Raise (subst expr value value')
   | TryWith (expr, handler_l) ->
       let expr' = subst expr value value' in
-      let aux (Handler (pat, expr_pat)) =
-        match pat with
-        | PatCons _ -> Handler (pat, subst expr_pat value value')
-        | PatVar id when Var id <> value ->
-            Handler (pat, subst expr_pat value value')
-        | PatVar _ -> Handler (pat, expr_pat) in
-      TryWith (expr', List.map aux handler_l)
-  | Record fields -> (
-    let reconstruct_fields reconstructed_fields (id, expr) = 
-      Util.Pmap.add (id, subst expr value value') reconstructed_fields 
-    in Record (Util.Pmap.fold reconstruct_fields Util.Pmap.empty fields)
-  )
+      TryWith (expr', List.map (subst_handler value value') handler_l)
+  | Match (expr, handler_l) ->
+      let expr' = subst expr value value' in
+      Match (expr', List.map (subst_handler value value') handler_l)
+  | Record fields ->
+      let reconstruct_fields reconstructed_fields (id, expr) =
+        Util.Pmap.add (id, subst expr value value') reconstructed_fields in
+      Record (Util.Pmap.fold reconstruct_fields Util.Pmap.empty fields)
   | Projection (expr, id) -> Projection (subst expr value value', id)
+
+(* A pattern binder shadows the substituted variable. *)
+and subst_handler value value' (Handler (pat, expr_pat)) =
+  let shadows id = value = Var id in
+  if List.exists shadows (pattern_bound_ids pat) then Handler (pat, expr_pat)
+  else Handler (pat, subst expr_pat value value')
 
 let subst_var expr id = subst expr (Var id)
 
@@ -369,9 +447,12 @@ let rec rename expr renam =
       if Renaming.Renaming.is_in_dom renam nn then
         Name (Renaming.Renaming.lookup renam nn)
       else expr
-  | Var _
-  | Nondet _ | Loc _ | Symbolic _ | Hole | Unit | Int _ | Bool _ | Error -> expr
-  | Constructor (cons, expr') -> Constructor (cons, rename expr' renam)
+  | Var _ | Nondet _ | Loc _ | Symbolic _ | Hole | Unit | Int _ | Bool _ | Error
+    ->
+      expr
+  | Constructor (cons, Some expr') ->
+      Constructor (cons, Some (rename expr' renam))
+  | Constructor (_, None) -> expr
   | BinaryOp (op, expr1, expr2) ->
       BinaryOp (op, rename expr1 renam, rename expr2 renam)
   | UnaryOp (op, expr) -> UnaryOp (op, rename expr renam)
@@ -395,16 +476,16 @@ let rec rename expr renam =
   | Raise expr -> Raise (rename expr renam)
   | TryWith (expr, handler_l) ->
       let expr' = rename expr renam in
-      let aux (Handler (pat, expr_pat)) =
-        match pat with
-        | PatCons _ -> Handler (pat, rename expr_pat renam)
-        | PatVar _id -> Handler (pat, rename expr_pat renam) in
+      let aux (Handler (pat, expr_pat)) = Handler (pat, rename expr_pat renam) in
       TryWith (expr', List.map aux handler_l)
-  | Record fields -> (
-    let reconstruct_fields reconstructed_fields (field, expr) = 
-      Util.Pmap.add (field, rename expr renam) reconstructed_fields
-    in Record (Util.Pmap.fold reconstruct_fields Util.Pmap.empty fields)
-  )
+  | Match (expr, handler_l) ->
+      let expr' = rename expr renam in
+      let aux (Handler (pat, expr_pat)) = Handler (pat, rename expr_pat renam) in
+      Match (expr', List.map aux handler_l)
+  | Record fields ->
+      let reconstruct_fields reconstructed_fields (field, expr) =
+        Util.Pmap.add (field, rename expr renam) reconstructed_fields in
+      Record (Util.Pmap.fold reconstruct_fields Util.Pmap.empty fields)
   | Projection (expr, id) -> Projection (rename expr renam, id)
 (* Auxiliary functions *)
 
@@ -468,8 +549,9 @@ let empty_val_env = Util.Pmap.empty
 
 let val_env_to_yojson venv =
   let venv_l = Util.Pmap.to_list venv in
-  let venv_l' = List.map (fun (x,v) -> (string_of_id x,value_to_yojson v)) venv_l in
-  `Assoc venv_l' 
+  let venv_l' =
+    List.map (fun (x, v) -> (string_of_id x, value_to_yojson v)) venv_l in
+  `Assoc venv_l'
 
 (* Evaluation Contexts *)
 
@@ -483,7 +565,8 @@ let rename_eval_context renaming ectx = rename ectx renaming
 (* extract_ctx decomposes an expression into its redex and the surrounding evaluation context*)
 let rec extract_ctx expr =
   match expr with
-  | Name _ | Nondet _ | Loc _ | Symbolic _ | Unit | Int _ | Bool _ | Fix _ | Fun _ | Error ->
+  | Name _ | Nondet _ | Loc _ | Symbolic _ | Unit | Int _ | Bool _ | Fix _
+  | Fun _ | Error ->
       (expr, Hole)
   | Projection (term, id) -> extract_ctx_un (fun x -> Projection (x, id)) term
   | BinaryOp (_, expr1, expr2)
@@ -505,8 +588,10 @@ let rec extract_ctx expr =
   | While (expr1, expr2) -> extract_ctx_un (fun x -> While (x, expr2)) expr1
   | Assert expr' -> extract_ctx_un (fun x -> Assert x) expr'
   | Raise expr' -> extract_ctx_un (fun x -> Raise x) expr'
-  | Constructor (cons, expr') ->
-      extract_ctx_un (fun x -> Constructor (cons, x)) expr'
+  | Constructor (cons, Some expr') ->
+      extract_ctx_un (fun x -> Constructor (cons, Some x)) expr'
+  | Constructor (_, None) ->
+      failwith "Empty constructor not implemented yet (extract_ctx)"
   | TryWith (expr', handler_l) ->
       extract_ctx_un (fun x -> TryWith (x, handler_l)) expr'
   | Var _ | Hole ->
@@ -514,22 +599,22 @@ let rec extract_ctx expr =
         ("Error: trying to extract an evaluation context from "
        ^ string_of_term expr ^ ". Please report.")
   | Record fields -> (
-    let find_non_value found_val (field_name, expr) =
-      match found_val with
-      | Some _ -> found_val
-      | None -> 
-          if isval expr then None
-          else 
-            let (res, ctx) = extract_ctx expr in
-            Some (res, field_name, ctx)
-    in
-    let first_non_val = Util.Pmap.fold find_non_value None fields in
-    match first_non_val with 
-    | None -> (Record fields, Hole)
-    | Some (res, field_name, ctx) ->
-        let updated_fields = Util.Pmap.modadd (field_name, ctx) fields in
-        (res, Record updated_fields)
-  )
+      let find_non_value found_val (field_name, expr) =
+        match found_val with
+        | Some _ -> found_val
+        | None ->
+            if isval expr then None
+            else
+              let (res, ctx) = extract_ctx expr in
+              Some (res, field_name, ctx) in
+      let first_non_val = Util.Pmap.fold find_non_value None fields in
+      match first_non_val with
+      | None -> (Record fields, Hole)
+      | Some (res, field_name, ctx) ->
+          let updated_fields = Util.Pmap.modadd (field_name, ctx) fields in
+          (res, Record updated_fields))
+  | Match (expr', handler_l) ->
+      extract_ctx_un (fun x -> Match (x, handler_l)) expr'
 
 and extract_ctx_bin cons_op expr1 expr2 =
   match (isval expr1, isval expr2) with
@@ -569,29 +654,28 @@ let get_nf_term term =
   | Some value -> NFValue ((), value)
   | None ->
       let (term', ectx) = extract_ctx term in
-      begin
-        match term' with
-        | Raise v -> begin
-            match get_value v with
-            | Some value -> NFRaise ((), value)
-            | None ->
-                failwith @@ "The term " ^ string_of_term term'
-                ^ " is not a value. Please report."
-          end
-        | Error -> NFError ()
-        | App (Name fn, v) -> begin
-            match get_value v with
-            | Some value -> NFCallback (fn, value, ectx)
-            | None ->
-                failwith @@ "The term " ^ string_of_term term'
-                ^ " is not a value. Please report."
-          end
-        | _ ->
-            failwith @@ "The term " ^ string_of_term term
-            ^ " is not a valid normal form. Its decomposition is "
-            ^ string_of_term term' ^ " and "
-            ^ string_of_eval_context ectx
-            ^ ". Please report."
+      begin match term' with
+      | Raise v -> begin
+          match get_value v with
+          | Some value -> NFRaise ((), value)
+          | None ->
+              failwith @@ "The term " ^ string_of_term term'
+              ^ " is not a value. Please report."
+        end
+      | Error -> NFError ()
+      | App (Name fn, v) -> begin
+          match get_value v with
+          | Some value -> NFCallback (fn, value, ectx)
+          | None ->
+              failwith @@ "The term " ^ string_of_term term'
+              ^ " is not a value. Please report."
+        end
+      | _ ->
+          failwith @@ "The term " ^ string_of_term term
+          ^ " is not a valid normal form. Its decomposition is "
+          ^ string_of_term term' ^ " and "
+          ^ string_of_eval_context ectx
+          ^ ". Please report."
       end
 
 let refold_nf_term = function

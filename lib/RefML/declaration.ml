@@ -61,12 +61,8 @@ let split_implem_decl_list implem_decl_l =
           implem_decl_l' in
   aux ([], [], []) implem_decl_l
 
-(* split_signature_decl_list return a quadruple formed by
-- a list of public variables with their types
-- a list of abstract type (i.e. type identifiers whose type declaration is not provided)
-- a list of public type declarations
-- a list of exception declarations
-*)
+(* The public variables, the abstract types, the public type declarations and
+   the exception declarations of a signature, in that order. *)
 let split_signature_decl_list signature_decl_l =
   let rec aux (var_decl_l, type_priv_decl_l, type_publ_decl_l, exn_l) = function
     | [] -> (var_decl_l, type_priv_decl_l, type_publ_decl_l, exn_l)
@@ -188,24 +184,71 @@ let create_field_ctx type_decl_l =
     | elt::l' -> aux l' (update_field_ctx field_ctx elt)
   in aux type_decl_l Type_ctx.empty_field_ctx
 
-let get_typed_comp_env implem_decl_l sign_decl_l =
+(* Every constructor of an algebraic type of [type_env], at the type it builds. *)
+let add_algebraic_constructors cons_ctx type_env =
+  let add_constructor type_id cons_ctx = function
+    | (cons, None) -> Util.Pmap.add (cons, Types.TId type_id) cons_ctx
+    | (cons, Some ty) ->
+        Util.Pmap.add (cons, Types.TArrow (ty, Types.TId type_id)) cons_ctx in
+  let add_type cons_ctx = function
+    | (type_id, Types.TAlgebraic cons_list) ->
+        Util.Pmap.fold (add_constructor type_id) cons_ctx cons_list
+    | _ -> cons_ctx in
+  Util.Pmap.fold add_type cons_ctx type_env
+
+(* An imported signature declares names the module may use but does not
+   implement. *)
+let get_imported_name_env import_decl_l =
+  let (var_decl_l, _, type_publ_decl_l, _) =
+    split_signature_decl_list import_decl_l in
+  let type_env = Util.Pmap.list_to_pmap type_publ_decl_l in
+  let rec aux ((val_env, var_ctx, name_ctx) as acc) = function
+    | [] -> acc
+    | (var, ty) :: tl -> begin
+        let ty' =
+          Types.generalize_type Types.TVarSet.empty
+          @@ Types.apply_type_env ty type_env in
+        match ty' with
+        | Types.TArrow _ | Types.TForall _ | Types.TId _ | Types.TName _ ->
+            let (nn, name_ctx') =
+              Namectx.Namectx.add_fresh name_ctx var
+                (Types.force_negative_type ty') in
+            aux
+              ( Util.Pmap.add (var, Syntax.Name nn) val_env,
+                Util.Pmap.add (var, ty') var_ctx,
+                name_ctx' )
+              tl
+        | _ ->
+            Util.Debug.print_debug
+              ("The imported identifier " ^ Syntax.string_of_id var
+             ^ " is ignored because it is of non-negative type "
+             ^ Types.string_of_typ ty');
+            aux acc tl
+      end in
+  aux
+    (Syntax.empty_val_env, Type_ctx.empty_var_ctx, Namectx.Namectx.empty)
+    var_decl_l
+
+let get_typed_comp_env ?(import_var_ctx = Type_ctx.empty_var_ctx)
+    ?(import_name_ctx = Namectx.Namectx.empty) implem_decl_l sign_decl_l =
   let (comp_decl_l, implem_type_decl_l, implem_exn_l) =
     split_implem_decl_list implem_decl_l in
   let (var_decl_l, type_priv_decl_l, type_publ_decl_l, sign_exn_l) =
     split_signature_decl_list sign_decl_l in
   let type_env = Util.Pmap.list_to_pmap implem_type_decl_l in
   let field_ctx = create_field_ctx implem_type_decl_l in
-  let cons_ctx = Util.Pmap.list_to_pmap implem_exn_l in
+  let exn_cons_ctx = Util.Pmap.list_to_pmap implem_exn_l in
+  let cons_ctx = add_algebraic_constructors exn_cons_ctx type_env in
   var_decl_included comp_decl_l var_decl_l;
   type_priv_included type_env type_priv_decl_l;
   type_decl_coincide type_env type_publ_decl_l;
   exn_included cons_ctx sign_exn_l;
-  let name_ctxO = Namectx.Namectx.empty in
+  let name_ctxO = import_name_ctx in
   let var_decls = Util.Pmap.list_to_pmap var_decl_l in
   (* TODO: Should we also put domain of type_env in name_ctx ?*)
   let type_ctx =
     {
-      var_ctx= Type_ctx.empty_var_ctx;
+      var_ctx= import_var_ctx;
       loc_ctx= Type_ctx.empty_loc_ctx;
       name_ctx= name_ctxO;
       cons_ctx;
@@ -215,7 +258,11 @@ let get_typed_comp_env implem_decl_l sign_decl_l =
   let (comp_env, name_ctxO') = typing_decl_l type_ctx var_decls comp_decl_l in
   (comp_env, name_ctxO', cons_ctx)
 
-let get_typed_val_env var_val_env sign_decl_l =
+(* [namectxO] is the Opponent context the values of the interactive environment
+   may mention. Copairing later requires the module's actual one, imports
+   included. *)
+let get_typed_val_env ?(namectxO = Namectx.Namectx.empty) var_val_env
+    sign_decl_l =
   let (var_ctx_l, _, type_publ_decl_l, _) =
     split_signature_decl_list sign_decl_l in
   let type_env = Util.Pmap.list_to_pmap type_publ_decl_l in
@@ -247,5 +294,4 @@ let get_typed_val_env var_val_env sign_decl_l =
                 non-negative type " ^ Types.string_of_typ ty');
             partition_env acc tl
       end in
-  partition_env (Ienv.IEnv.empty Namectx.Namectx.empty, Namectx.Namectx.empty) var_ctx_l
-  (* TODO pass a namectxO to be used as argument of Ienv.IEnv.empty*)
+  partition_env (Ienv.IEnv.empty namectxO, Namectx.Namectx.empty) var_ctx_l

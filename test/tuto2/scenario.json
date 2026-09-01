@@ -1,0 +1,9 @@
+{
+  "title": "tutorial level 2",
+  "mode": "single",
+  "participants": [ { "name": "tuto2", "ml": "tuto2.ml", "mli": "tuto2.mli" } ],
+  "options": { "directStyle": true, "wellBracketing": true,
+               "visibility": false, "symbolic": false },
+  "guide": "guide.md",
+  "locked": true
+}

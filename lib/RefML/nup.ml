@@ -1,13 +1,11 @@
-(**
-  [Nup] contains the infrastructure needed to implement the
-  {!module-type: Lang.Abstract_val.AVAL} signature.
-*)
+(** [Nup] contains the infrastructure needed to implement the
+    {!module-type: Lang.Abstract_val.AVAL} signature. *)
 
 open Syntax
 
-(** Abstract values (nups) are patterns whose leaves are ground values or
-    names: [ABound] names are introduced by the move, at their level in its
-    local typing context Δ; [AFree] names are reused from the ambient one. *)
+(** Abstract values (nups) are patterns whose leaves are ground values or names:
+    [ABound] names are introduced by the move, at their level in its local
+    typing context Δ; [AFree] names are reused from the ambient one. *)
 type nup =
   | AUnit
   | AInt of int
@@ -19,29 +17,27 @@ type nup =
   | AFree of Names.name
   | ABound of Names.name
 
-(**
-  The {!module-type: GENERATE_VALUE} signature is implemented by modules providing a
-  strategy to generate {e RefML} values. Such modules are used to instanciate
-  the {!module: Make} functor.
- *)
+(** The {!module-type: GENERATE_VALUE} signature is implemented by modules
+    providing a strategy to generate {e RefML} values. Such modules are used to
+    instanciate the {!module: Make} functor. *)
 module type GENERATE_VALUE = sig
   module BranchMonad : Util.Monad.BRANCH
 
-  val generate_bool : Store.Storectx.t -> (value * Store.Storectx.t) BranchMonad.m
+  val generate_bool :
+    Store.Storectx.t -> (value * Store.Storectx.t) BranchMonad.m
 end
 
-(**
-  Currently, two strategies are provided:
+(** Currently, two strategies are provided:
     - {!module: MakeGenerateConcreteValue}, which generates concrete values ;
     - {!module: MakeGenerateSymbolicValue}, which generates symbolic variables
-    instead of concrete booleans and adds these variables to the [storectx].
- *)
+      instead of concrete booleans and adds these variables to the [storectx].
+*)
 
 module MakeGenerateSymbolicValue (BranchMonad : Util.Monad.BRANCH) = struct
   module BranchMonad = BranchMonad
 
   let generate_bool (loc_ctx, symbolic_ctx, cons_ctx) =
-    let id, symbolic_ctx' = Symbolic.unconstrained symbolic_ctx in
+    let (id, symbolic_ctx') = Symbolic.unconstrained symbolic_ctx in
     let storectx' = (loc_ctx, symbolic_ctx', cons_ctx) in
     let value = Symbolic (Symbolic.Kvar id) in
     BranchMonad.return (value, storectx')
@@ -51,12 +47,12 @@ module MakeGenerateConcreteValue (BranchMonad : Util.Monad.BRANCH) = struct
   module BranchMonad = BranchMonad
 
   let generate_bool storectx =
-    BranchMonad.para_list [ (Bool true, storectx) ; (Bool false, storectx) ]
+    BranchMonad.para_list [ (Bool true, storectx); (Bool false, storectx) ]
 end
 
-module Make (BranchMonad : Util.Monad.BRANCH)
-            (GenerateValue : GENERATE_VALUE
-              with module BranchMonad = BranchMonad) :
+module Make
+    (BranchMonad : Util.Monad.BRANCH)
+    (GenerateValue : GENERATE_VALUE with module BranchMonad = BranchMonad) :
   Lang.Abstract_val.AVAL
     with type name = Names.name
      and type interactive_env = Ienv.IEnv.t
@@ -68,6 +64,7 @@ module Make (BranchMonad : Util.Monad.BRANCH)
      and type store_ctx = Store.Storectx.t
      and type typ = Types.typ
      and type value = Syntax.value
+     and type abstract_val = nup
      and module BranchMonad = BranchMonad = struct
   (* Instantiation *)
   module BranchMonad = BranchMonad
@@ -81,6 +78,7 @@ module Make (BranchMonad : Util.Monad.BRANCH)
   type negative_type = Types.negative_type
   type store_ctx = Store.Storectx.t
   type name_ctx = Namectx.Namectx.t
+
   (* *)
   open Types
 
@@ -117,12 +115,37 @@ module Make (BranchMonad : Util.Monad.BRANCH)
     | APair (nup1, nup2) -> add_names (add_names lnames nup1) nup2
     | ACons (_, nup') -> add_names lnames nup'
     | ARecord fields ->
-        Util.Pmap.fold (fun lnames' (_, nup') -> add_names lnames' nup') lnames
-          fields
+        Util.Pmap.fold
+          (fun lnames' (_, nup') -> add_names lnames' nup')
+          lnames fields
     | AFree nn | ABound nn ->
         if List.mem nn lnames then lnames else nn :: lnames
 
   let names_of_abstract_val = add_names []
+
+  let rec fold_free_names_of_abstract_val f acc = function
+    | AUnit | AInt _ | ABool _ | ASymb _ | ABound _ -> acc
+    | AFree nn -> f acc nn
+    | APair (nup1, nup2) ->
+        fold_free_names_of_abstract_val f
+          (fold_free_names_of_abstract_val f acc nup1)
+          nup2
+    | ACons (_, nup') -> fold_free_names_of_abstract_val f acc nup'
+    | ARecord fields ->
+        Util.Pmap.fold
+          (fun acc' (_, nup') -> fold_free_names_of_abstract_val f acc' nup')
+          acc fields
+
+  let rec map_free_names_of_abstract_val f = function
+    | (AUnit | AInt _ | ABool _ | ASymb _ | ABound _) as nup -> nup
+    | AFree nn -> AFree (f nn)
+    | APair (nup1, nup2) ->
+        APair
+          ( map_free_names_of_abstract_val f nup1,
+            map_free_names_of_abstract_val f nup2 )
+    | ACons (c, nup') -> ACons (c, map_free_names_of_abstract_val f nup')
+    | ARecord fields ->
+        ARecord (Util.Pmap.map_im (map_free_names_of_abstract_val f) fields)
 
   let rec add_labels label_l = function
     | AUnit | AInt _ | ABool _ | ASymb _ | AFree _ | ABound _ -> label_l
@@ -152,10 +175,9 @@ module Make (BranchMonad : Util.Monad.BRANCH)
     | (AInt n1, AInt n2) -> if n1 = n2 then Some nspan else None
     | (APair (nup11, nup12), APair (nup21, nup22)) ->
         let nspan1_option = unify_abstract_val nspan nup11 nup21 in
-        begin
-          match nspan1_option with
-          | None -> None
-          | Some nspan1 -> unify_abstract_val nspan1 nup12 nup22
+        begin match nspan1_option with
+        | None -> None
+        | Some nspan1 -> unify_abstract_val nspan1 nup12 nup22
         end
     | (AFree n1, AFree n2) | (ABound n1, ABound n2) ->
         Util.Namespan.add_nspan (n1, n2) nspan
@@ -174,9 +196,9 @@ module Make (BranchMonad : Util.Monad.BRANCH)
       - Σ;Γ ⊢ A : τ ▷ Δ (as a nup)
   *)
 
-  let generate_abstract_val (_, _, cons_ctx as storectx) namectx ty =
+  let generate_abstract_val ((_, _, cons_ctx) as storectx) namectx ty =
     let open BranchMonad in
-    let rec aux (storectx, lnamectx as res) = function
+    let rec aux ((storectx, lnamectx) as res) = function
       | TUnit -> return (AUnit, res)
       | TBool ->
           let* (value, storectx') = GenerateValue.generate_bool storectx in
@@ -205,7 +227,7 @@ module Make (BranchMonad : Util.Monad.BRANCH)
     lnup1'@lnup2' *)
       | TArrow _ as ty ->
           let nty = Types.force_negative_type ty in
-          let (fn, (lnamectx')) = Namectx.Namectx.add_fresh lnamectx "" nty in
+          let (fn, lnamectx') = Namectx.Namectx.add_fresh lnamectx "" nty in
           return (ABound fn, (storectx, lnamectx'))
       | TId _ as ty ->
           let namectxP_pmap = Namectx.Namectx.to_pmap namectx in
@@ -226,31 +248,30 @@ module Make (BranchMonad : Util.Monad.BRANCH)
       | TExn ->
           Util.Debug.print_debug
           @@ "Generating exception abstract values in the store context "
-          ^ Store.Storectx.to_string storectx ;
+          ^ Store.Storectx.to_string storectx;
           let exn_cons_map =
             Util.Pmap.filter_map_im
               (fun ty ->
                 match ty with TArrow (_, TExn) -> Some ty | _ -> None)
               cons_ctx in
           let* (c, cons_ty) = para_list @@ Util.Pmap.to_list exn_cons_map in
-          begin
-            match cons_ty with
-            | TArrow (pty, _) ->
-                let* (nup, res) = aux res pty in
-                return (ACons (c, nup), res)
-            | _ -> failwith "TODO"
+          begin match cons_ty with
+          | TArrow (pty, _) ->
+              let* (nup, res) = aux res pty in
+              return (ACons (c, nup), res)
+          | _ -> failwith "TODO"
           end
-      | TRecord fields -> (
-        let instantiate_field m (field_name, ty) =
-          let* (current_fields, current_res) = m in
-          let* (nup, new_res) = aux current_res ty in
-          let new_fields = Util.Pmap.add (field_name, nup) current_fields in
-          return (new_fields, new_res)
-        in
-        let* (instance_fields, new_res) =
-          Util.Pmap.fold instantiate_field (return (Util.Pmap.empty, res)) fields in
-        return (ARecord instance_fields, new_res)
-      )
+      | TRecord fields ->
+          let instantiate_field m (field_name, ty) =
+            let* (current_fields, current_res) = m in
+            let* (nup, new_res) = aux current_res ty in
+            let new_fields = Util.Pmap.add (field_name, nup) current_fields in
+            return (new_fields, new_res) in
+          let* (instance_fields, new_res) =
+            Util.Pmap.fold instantiate_field
+              (return (Util.Pmap.empty, res))
+              fields in
+          return (ARecord instance_fields, new_res)
       | ty ->
           failwith
             ("Error generating a nup on type " ^ Types.string_of_typ ty
@@ -275,12 +296,11 @@ module Make (BranchMonad : Util.Monad.BRANCH)
         end
       | (TProd _, _) -> None
       | (TRecord ty_fields, ARecord val_fields) ->
-        let check_on_field lnamectx_m (field_name, ty) =
-          let* current_lnamectx = lnamectx_m in
-          let associated_val = Util.Pmap.lookup_exn field_name val_fields in
-          aux ty (associated_val, current_lnamectx)
-        in
-        Util.Pmap.fold check_on_field (Some lnamectx) ty_fields
+          let check_on_field lnamectx_m (field_name, ty) =
+            let* current_lnamectx = lnamectx_m in
+            let associated_val = Util.Pmap.lookup_exn field_name val_fields in
+            aux ty (associated_val, current_lnamectx) in
+          Util.Pmap.fold check_on_field (Some lnamectx) ty_fields
       | (TRecord _, _) -> None
       | (TArrow _, ABound nn) | (TForall _, ABound nn) ->
           let nty = Types.force_negative_type ty in
@@ -307,6 +327,9 @@ module Make (BranchMonad : Util.Monad.BRANCH)
       | (TUndef, _) | (TRef _, _) | (TSum _, _) | (TExn, _) ->
           failwith @@ "Error: type-checking a nup of type "
           ^ Types.string_of_typ ty ^ " is not yet supported."
+      | (TAlgebraic _, _) ->
+          failwith
+            "Algebraic type are not yet supported (type_check_abstract_val)"
     in
     match aux ty (nup, lnamectx) with
     | None -> false
@@ -322,7 +345,9 @@ module Make (BranchMonad : Util.Monad.BRANCH)
     | Symbolic sexpr -> ASymb sexpr
     | Pair (value1, value2) ->
         APair (nup_of_ground_value value1, nup_of_ground_value value2)
-    | Constructor (c, value') -> ACons (c, nup_of_ground_value value')
+    | Constructor (c, Some value') -> ACons (c, nup_of_ground_value value')
+    | Constructor (_, None) ->
+        failwith "Empty constructor not implemented yet (nup_of_ground_value)"
     | Record fields -> ARecord (Util.Pmap.map_im nup_of_ground_value fields)
     | _ ->
         failwith
@@ -360,15 +385,16 @@ module Make (BranchMonad : Util.Monad.BRANCH)
           (ABound pn, ienv')
         end
       | (Name nn, TName _) -> (AFree nn, ienv)
-      | (Constructor (c, value'), TExn) -> (ACons (c, nup_of_ground_value value'), ienv)
+      | (Constructor (c, Some value'), TExn) ->
+          (ACons (c, nup_of_ground_value value'), ienv)
       | (Record val_fields, TRecord ty_fields) ->
           let abstracting_field (new_fields, current_ienv) (field_name, expr) =
             let associated_ty = Util.Pmap.lookup_exn field_name ty_fields in
             let (nup, ienv') = aux current_ienv expr associated_ty in
-            (Util.Pmap.add (field_name, nup) new_fields, ienv')
-          in
+            (Util.Pmap.add (field_name, nup) new_fields, ienv') in
           let (new_fields, ienv') =
-            Util.Pmap.fold abstracting_field (Util.Pmap.empty, ienv) val_fields in
+            Util.Pmap.fold abstracting_field (Util.Pmap.empty, ienv) val_fields
+          in
           (ARecord new_fields, ienv')
       | _ ->
           failwith
@@ -382,7 +408,7 @@ module Make (BranchMonad : Util.Monad.BRANCH)
     | ABool b -> Bool b
     | ASymb sexpr -> Symbolic sexpr
     | APair (nup1, nup2) -> Pair (to_value nup1, to_value nup2)
-    | ACons (c, nup') -> Constructor (c, to_value nup')
+    | ACons (c, nup') -> Constructor (c, Some (to_value nup'))
     | ARecord fields -> Record (Util.Pmap.map_im to_value fields)
     | AFree nn -> Name nn
     | ABound nn ->

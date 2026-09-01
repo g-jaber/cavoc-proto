@@ -1,6 +1,6 @@
 module Make (OpLang : Language.WITHAVAL_INOUT) :
-  Interactive.LANG_WITH_INIT
-    with type 'a EvalMonad.r = 'a OpLang.EvalMonad.r = struct
+  Interactive.LANG_WITH_INIT with type 'a EvalMonad.r = 'a OpLang.EvalMonad.r =
+struct
   module EvalMonad = OpLang.EvalMonad
   module BranchMonad = OpLang.AVal.BranchMonad
 
@@ -87,6 +87,35 @@ module Make (OpLang : Language.WITHAVAL_INOUT) :
     match snd @@ OpLang.Nf.map_fn None f_fn a_nf_term with
     | Some res -> res
     | None -> inj_cname ()
+
+  let fold_free_names_of_a_nf f acc ((a_nf_term, _) as a_nf) =
+    let acc' = f acc (get_subject_name a_nf) in
+    OpLang.Nf.apply_val acc'
+      (OpLang.AVal.fold_free_names_of_abstract_val
+         (fun acc'' nn -> f acc'' (inj_name nn))
+         acc')
+      a_nf_term
+
+  let map_free_names_of_a_nf f (a_nf_term, store) =
+    let f_oplang nn =
+      match f (inj_name nn) with
+      | Either.Left nn' -> nn'
+      | Either.Right () ->
+          failwith
+            "Error: mapping a free functional name to a stack frame. Please \
+             report." in
+    let f_cn () =
+      match f (inj_cname ()) with
+      | Either.Right () -> ()
+      | Either.Left _ ->
+          failwith
+            "Error: mapping the return frame to a functional name. Please \
+             report." in
+    let a_nf_term' =
+      OpLang.Nf.map ~f_fn:f_oplang ~f_cn
+        ~f_val:(OpLang.AVal.map_free_names_of_abstract_val f_oplang)
+        ~f_ectx:Fun.id a_nf_term in
+    (a_nf_term', store)
 
   let pp_a_nf_in ~pp_dir ~pp_free_name ~pp_bound_name fmt (a_nf_term, store) =
     let pp_ectx fmt () = Format.pp_print_string fmt "" in
@@ -245,7 +274,8 @@ module Make (OpLang : Language.WITHAVAL_INOUT) :
              subsequent calls to o_trans_gen.
              - generate_abstract_val does not handle ref types, for
              some reason. *)
-    let* (a_nf_term, (storectx, lfnamectx)) = fill_abstract_val storectx fnamectxP skel in
+    let* (a_nf_term, (storectx, lfnamectx)) =
+      fill_abstract_val storectx fnamectxP skel in
     let* store = OpLang.Store.generate_store storectx in
     let ((), stackctx) = Stackctx.singleton typ in
     Util.Debug.print_debug @@ "Pushing on the stack "
@@ -264,7 +294,8 @@ module Make (OpLang : Language.WITHAVAL_INOUT) :
       (* We could remove the second ty_hole by simplifying generate_nf_term_ret *)
       let inj_ty ty = ty in
       let* (skel, _typ) = OpLang.generate_nf_term_ret inj_ty cnamectx_pmap in
-      let* (a_nf_term, (storectx, lfnamectx)) = fill_abstract_val storectx fnamectxP skel in
+      let* (a_nf_term, (storectx, lfnamectx)) =
+        fill_abstract_val storectx fnamectxP skel in
       let* store = OpLang.Store.generate_store storectx in
       let namectxP' = (fnamectxP, stackctx') in
       Util.Debug.print_debug @@ "We get the following return :"
@@ -287,12 +318,11 @@ module Make (OpLang : Language.WITHAVAL_INOUT) :
     let type_check_call aval nty =
       let (_, ty_arg) = OpLang.get_input_type nty in
       (*let ty_out' = OpLang.get_output_type nty in*)
-      begin
-        if
-          OpLang.AVal.type_check_abstract_val storectx fnamectxP ty_arg
-            (aval, lnamectx)
-        then Some namectxP
-        else None
+      begin if
+        OpLang.AVal.type_check_abstract_val storectx fnamectxP ty_arg
+          (aval, lnamectx)
+      then Some namectxP
+      else None
       end in
     let type_check_ret aval ty_hole _ty_out =
       match Stackctx.is_last stackctxP () ty_hole with
@@ -314,16 +344,21 @@ module Make (OpLang : Language.WITHAVAL_INOUT) :
      This is needed for the POGS equivalence. *)
   let is_equiv_a_nf _ (_, _) (_, _) = failwith "Not yet implemented"
 
-  let get_typed_ienv lexBuffer_implem lexBuffer_signature =
+  let get_typed_namectx lexBuffer_signature =
+    (OpLang.get_typed_namectx lexBuffer_signature, Stackctx.empty)
+
+  let get_typed_ienv ?opponent_signature lexBuffer_implem lexBuffer_signature =
     let (ienv, store, namectxP, namectxO) =
-      OpLang.get_typed_ienv lexBuffer_implem lexBuffer_signature in
+      OpLang.get_typed_ienv ?opponent_signature lexBuffer_implem
+        lexBuffer_signature in
     ( (ienv, StackEnv.empty Stackctx.empty),
       store,
       (namectxP, Stackctx.empty),
       (namectxO, Stackctx.empty) )
 
-  let get_typed_opconf nbprog inBuffer =
-    let (opconf, ty, namectxO) = OpLang.get_typed_opconf nbprog inBuffer in
+  let get_typed_opconf ?opponent_signature nbprog inBuffer =
+    let (opconf, ty, namectxO) =
+      OpLang.get_typed_opconf ?opponent_signature nbprog inBuffer in
     let ((), stackctx) = Stackctx.singleton ty in
     (opconf, (namectxO, stackctx))
 end

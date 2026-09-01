@@ -95,39 +95,39 @@ module Make (IntLang : Lang.Interactive.LANG) :
         let nn = IntLang.get_subject_name a_nf in
         let renaming = place pos Moves.Input nn lnamectx in
         let namectxO = IntLang.IEnv.Renaming.im renaming in
-        return
-          ((Moves.Input, (nn, (a_nf, renaming))), Active { storectx; namectxO })
+        return ((Moves.Input, (a_nf, renaming)), Active { storectx; namectxO })
     | Active { storectx; namectxO } ->
         let* (a_nf, namectxP, namectxO) =
           IntLang.generate_a_nf storectx namectxO in
         let nn = IntLang.get_subject_name a_nf in
         let renaming = place pos Moves.Output nn namectxP in
         return
-          ( (Moves.Output, (nn, (a_nf, renaming))),
+          ( (Moves.Output, (a_nf, renaming)),
             Passive { storectx; namectxP; namectxO } )
 
-  let check_move pos ((dir, (nn, (a_nf, renaming))) : Moves.pol_move) =
+  let check_move pos ((dir, (a_nf, renaming)) : Moves.pol_move) =
+    let nn = IntLang.get_subject_name a_nf in
     let lnamectx = Moves.Renaming.dom renaming in
     if not (matches_placement renaming (place pos dir nn lnamectx)) then None
     else
-    match (dir, pos) with
-    | (Moves.Output, Active { storectx; namectxO }) -> begin
-        match IntLang.type_check_a_nf storectx namectxO (a_nf, lnamectx) with
-        | Some namectxO ->
-            let namectxP = Moves.Renaming.im renaming in
-            Some (Passive { storectx; namectxP; namectxO })
-        | None -> None
-      end
-    | (Moves.Input, Passive { storectx; namectxP; _ }) -> begin
-        match IntLang.type_check_a_nf storectx namectxP (a_nf, lnamectx) with
-        | Some _ ->
-            let namectxO = Moves.Renaming.im renaming in
-            Some (Active { storectx; namectxO })
-        | None -> None
-      end
-    | _ -> None
+      match (dir, pos) with
+      | (Moves.Output, Active { storectx; namectxO }) -> begin
+          match IntLang.type_check_a_nf storectx namectxO (a_nf, lnamectx) with
+          | Some namectxO ->
+              let namectxP = Moves.Renaming.im renaming in
+              Some (Passive { storectx; namectxP; namectxO })
+          | None -> None
+        end
+      | (Moves.Input, Passive { storectx; namectxP; _ }) -> begin
+          match IntLang.type_check_a_nf storectx namectxP (a_nf, lnamectx) with
+          | Some _ ->
+              let namectxO = Moves.Renaming.im renaming in
+              Some (Active { storectx; namectxO })
+          | None -> None
+        end
+      | _ -> None
 
-  let trigger_move pos ((dir, (_nn, (_a_nf, renaming))) : Moves.pol_move) =
+  let trigger_move pos ((dir, (_a_nf, renaming)) : Moves.pol_move) =
     match (dir, pos) with
     | (Moves.Output, Active { storectx; namectxO }) ->
         Passive { namectxP= Moves.Renaming.im renaming; storectx; namectxO }

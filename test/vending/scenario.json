@@ -1,0 +1,6 @@
+{
+  "title": "vending",
+  "mode": "single",
+  "participants": [ { "name": "vending", "ml": "vending.ml", "mli": "vending.mli" } ],
+  "options": { "directStyle": true }
+}

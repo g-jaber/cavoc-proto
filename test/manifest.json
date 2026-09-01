@@ -1,0 +1,31 @@
+{
+  "examples": [
+    { "dir": "counter", "title": "counter", "mode": "single" },
+    { "dir": "simple-abstract-type", "title": "simple-abstract-type", "mode": "single" },
+    { "dir": "ho", "title": "reentrant call", "mode": "single" },
+    { "dir": "simple-bool", "title": "simple-bool", "mode": "single" },
+    { "dir": "simple-bool-or", "title": "simple-bool-or", "mode": "single" },
+    { "dir": "simple-ho", "title": "simple-ho", "mode": "single" },
+    { "dir": "vending", "title": "vending", "mode": "single" },
+    { "dir": "no-visible-flag", "title": "no-visible-flag", "mode": "single" },
+    { "dir": "wbsc", "title": "wbsc", "mode": "single" },
+    { "dir": "exception", "title": "exception", "mode": "single" },
+    { "dir": "factorial", "title": "factorial", "mode": "single" },
+    { "dir": "higher_order", "title": "higher_order", "mode": "single" },
+    { "dir": "isc", "title": "isc", "mode": "single" },
+    { "dir": "no_visible", "title": "no_visible", "mode": "single" },
+    { "dir": "polymorphic_identity", "title": "polymorphic_identity", "mode": "single" },
+    { "dir": "private_counter", "title": "private_counter", "mode": "single" },
+    { "dir": "rec_diverge", "title": "rec_diverge", "mode": "single" },
+    { "dir": "symbolic-bool", "title": "symbolic-bool", "mode": "single" },
+    { "dir": "symbolic-bool-ref", "title": "symbolic-bool-ref", "mode": "single" },
+    { "dir": "transmute", "title": "transmute", "mode": "single" },
+    { "dir": "universal_type", "title": "universal_type", "mode": "single" },
+    { "dir": "wbsc_context", "title": "wbsc_context", "mode": "single" },
+    { "dir": "while_diverge", "title": "while_diverge", "mode": "single" },
+    { "dir": "compose", "title": "provider ∘ client", "mode": "compose" },
+    { "dir": "vending-till", "title": "till ∘ vending", "mode": "compose" },
+    { "dir": "twice-iter2", "title": "twice ∘ iter2", "mode": "compose" }
+  ],
+  "tutorial": ["tuto1", "tuto2"]
+}

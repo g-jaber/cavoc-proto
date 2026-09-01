@@ -10,8 +10,8 @@ type ('value, 'ectx, 'fname, 'cname) nf_term =
   | NFCallback of 'fname * 'value * 'ectx
   | NFValue of 'cname * 'value
   | NFError of 'cname
-  | NFRaise of 'cname * 'value 
-  [@@deriving to_yojson]
+  | NFRaise of 'cname * 'value
+[@@deriving to_yojson]
 
 let pp_nf_term ~pp_dir pp_val pp_ectx pp_fn pp_cn fmt = function
   | NFCallback (fn, value, ectx) ->
@@ -35,6 +35,12 @@ let string_of_nf_term dir f_val f_ectx f_fn f_cn = function
   | NFRaise (cn, value) -> f_cn cn ^ dir ^ "(raise" ^ f_val value ^ ")"
 
 let is_error = function NFError _ -> true | _ -> false
+
+let case_nf_term ~on_call ~on_return ~on_raise ~on_error = function
+  | NFCallback (fn, value, ectx) -> on_call fn value ectx
+  | NFValue (cn, value) -> on_return cn value
+  | NFRaise (cn, value) -> on_raise cn value
+  | NFError cn -> on_error cn
 
 let cps_nf_term cn f_val f_valctx = function
   | NFCallback (fn, value, ectx) ->

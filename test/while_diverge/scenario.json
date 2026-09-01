@@ -1,0 +1,5 @@
+{
+  "title": "while_diverge",
+  "mode": "single",
+  "participants": [ { "name": "while_diverge", "ml": "while_diverge.ml", "mli": "while_diverge.mli" } ]
+}

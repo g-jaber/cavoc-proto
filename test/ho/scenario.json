@@ -1,0 +1,7 @@
+{
+  "title": "ho",
+  "mode": "single",
+  "participants": [ { "name": "ho", "ml": "ho.ml", "mli": "ho.mli" } ],
+  "options": { "directStyle": true, "wellBracketing": true,
+               "visibility": false, "symbolic": false }
+}

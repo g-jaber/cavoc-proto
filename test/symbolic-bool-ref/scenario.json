@@ -1,0 +1,5 @@
+{
+  "title": "symbolic-bool-ref",
+  "mode": "single",
+  "participants": [ { "name": "symbolic-bool-ref", "ml": "symbolic-bool-ref.ml", "mli": "symbolic-bool-ref.mli" } ]
+}

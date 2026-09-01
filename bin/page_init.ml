@@ -16,24 +16,18 @@ open Js_of_ocaml
    that need the opposite condition use Ui_helpers' default title. *)
 let idle_title = "Stop the current interaction before evaluating new code"
 
-(* The buttons that only make sense while an interaction is running. *)
-let interaction_buttons = [ "select-btn"; "stop-btn" ]
-
-(* The buttons used to navigate between the configurations of a symbolic LTS. *)
-let configuration_buttons = [ "conf-prev"; "conf-next"; "conf-accept" ]
-
-let set_all_enabled ?title ids state =
-  List.iter (fun id -> Ui_helpers.set_button_enabled ?title id state) ids
-
-(* Outside of an interaction the user may only start one; while one is running
-   the reverse holds. *)
+(* Outside of an interaction the user may only start one, and the reverse
+   while one is running. *)
+(* Stop doubles as the page's "running" flag: scenario.js reads its disabled
+   state and routes every run-abandoning action through a click on it. *)
 let set_interaction_running running =
-  set_all_enabled interaction_buttons running;
+  Ui_helpers.set_button_enabled "stop-btn" running;
   Ui_helpers.set_button_enabled ~title:idle_title "submit" (not running);
-  (* The options select which LTS to explore, so they only take effect at the
-     next evaluation. Disable them during a run rather than let the user change
-     them to no visible effect. *)
-  Ui_helpers.set_button_enabled ~title:idle_title "options-btn" (not running)
+  (* The LTS options only take effect at the next evaluation, so grey them out
+     during a run. *)
+  (* The menu itself stays open: what is left of it — the synchronization
+     pacing and the debug log — acts on the run already going. *)
+  Ui_helpers.set_element_locked "options-lts" running
 
 (* Shown once the server has been shut down, since the page can no longer do
    anything useful. *)
@@ -43,8 +37,8 @@ let show_server_stopped () =
   overlay##.textContent :=
     Js.some
       (Js.string
-         "Server stopped. Close this tab, or restart the server with \
-          \"dune exec ./bin/server.exe\".");
+         "Server stopped. Close this tab, or restart the server with \"dune \
+          exec ./bin/server.exe\".");
   Dom.appendChild Dom_html.document##.body overlay
 
 let init_shutdown_button () =
@@ -74,12 +68,10 @@ let init_debug_checkbox () =
           input##.checked := Js.bool !Util.Debug.debug_mode)
 
 let rec init_page () =
-  Help_modal.init_help_events ();
   Printexc.record_backtrace true;
   init_shutdown_button ();
   init_debug_checkbox ();
 
-  set_all_enabled configuration_buttons false;
   set_interaction_running false;
 
   match Dom_html.getElementById_opt "submit" with
@@ -89,10 +81,8 @@ let rec init_page () =
           let%lwt _ = Js_of_ocaml_lwt.Lwt_js_events.click submit_button in
           set_interaction_running true;
 
-          (* The interaction reports why it stopped, including the user leaving
-             the game, so there is nothing to catch here beyond genuine
-             failures. Either way the page returns to its idle state and waits
-             for the next evaluation. *)
+          (* The interaction reports why it stopped, the user leaving the game
+             included, so only genuine failures are caught here. *)
           let%lwt () =
             Lwt.catch
               (fun () -> Evaluate_code.evaluate_code ())
