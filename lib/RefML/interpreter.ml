@@ -384,7 +384,7 @@ let normalize_opconf_fix expr =
 let normalize_opconf (value, store) =
   run (normalize_opconf_fix value) store
 
-let normalize_term_env cons_ctx comp_list =
+let normalize_term_env ?(val_env = Syntax.empty_val_env) cons_ctx comp_list =
   let rec aux store = function
     | [] -> store
     | (var, comp) :: comp_list' ->
@@ -403,5 +403,6 @@ let normalize_term_env cons_ctx comp_list =
           | _ ->
               failwith "Error: Non determinism in the initial evaluation. Please report."
         end in
-  let store = Store.embed_cons_ctx cons_ctx in
+  let store =
+    Util.Pmap.fold Store.var_add (Store.embed_cons_ctx cons_ctx) val_env in
   aux store comp_list

@@ -15,6 +15,7 @@ let number_filename = ref 0
 let filename1 = ref ""
 let filename2 = ref ""
 let filename3 = ref ""
+let filename4 = ref ""
 let is_program = ref false
 let enable_wb = ref true
 let enable_cps = ref true
@@ -29,6 +30,10 @@ let speclist =
     ("-debug", Arg.Set Util.Debug.debug_mode, "Debug mode");
     ("-generate-tree", Arg.Set generate_tree, "Generate the normal-form tree");
     ("-compare", Arg.Set is_compare, "Compare the two modules or programs");
+    ( "-compose",
+      Arg.Set is_compose,
+      "Compose two modules: the first provides the shared interface, the \
+       second is its client and the only one whose signature is public." );
     ("-program", Arg.Set is_program, "Provide a program rather than a module.");
     ( "-no-wb",
       Arg.Clear enable_wb,
@@ -43,7 +48,10 @@ let speclist =
        composition." );
   ]
 
-let usage_msg = "Usage: explore filename.ml filename.mli [options]"
+let usage_msg =
+  "Usage: explore filename.ml filename.mli [options]\n\
+  \       explore -compose provider.ml provider.mli client.ml client.mli \
+   [options]"
 
 let generate_kind_lts () =
   let open Lts_kind in
@@ -76,6 +84,9 @@ let get_filename str =
   | 2 ->
       filename3 := str;
       number_filename := !number_filename + 1
+  | 3 ->
+      filename4 := str;
+      number_filename := !number_filename + 1
   | _ ->
       Util.Error.fail_error
         ("Error: too many filenames have been provided. \n" ^ usage_msg)
@@ -86,8 +97,13 @@ let get_number_filename () =
   | (Explore, true) -> 1 (* no mli *)
   | (Compare, false) -> 3 (* one common mli for both modules *)
   | (Compare, true) -> 2 (* no mli *)
-  | (Compose, false) -> 3 (* one common mli for both modules *)
-  | (Compose, true) -> 2 (* no mli *)
+  (* Composition links two modules through a signature, so each needs its
+     own: the first's is the shared interface, the second's is public. *)
+  | (Compose, false) -> 4
+  | (Compose, true) ->
+      Util.Error.fail_error
+        "Error: composition applies to modules, not programs: it links them \
+         through the signature of the first, which a program does not have."
 
 let check_number_filenames () =
   if !number_filename != get_number_filename () then
@@ -192,63 +208,66 @@ let open_lexbuf filename =
   Lexing.set_filename exprBuffer filename;
   exprBuffer
 
-let build_strategy (module LTS : Lts_kind.SINGLE_RESULT_LTS_WITH_INIT) =
+(* The interaction loop resolves non-determinism by running the evaluation
+   monad, whatever LTS it is driving. *)
+module MakeRunLts (LTS : Lts.Strategy.LTS with type 'a EvalMonad.r = 'a) =
+struct
+  include LTS
+  module M = Output
+
+  let choose m = M.return (Lts.Interactive_build.Chose (EvalMonad.run m))
+end
+
+(* The modes differ only in the LTS they build and in how its initial
+   configuration is parsed; composition builds a composite rather than a
+   single LTS, which is why the LTS is built per mode. *)
+let build_strategy kind_lts =
   check_number_filenames ();
-
-  let module RunLts =
-    struct
-      include LTS
-
-      module M = Output
-
-      let choose m =
-        M.return (Lts.Interactive_build.Chose (EvalMonad.run m))
-    end
-  in
-
   match !is_mode with
-  | Compare -> begin
-      let exprBuffer1 = open_lexbuf !filename1 in
-      let exprBuffer2 = open_lexbuf !filename2 in
-      let module Synch_LTS =
-        struct
-          include Lts.Synch_lts.Make (LTS)
-
-          module M = Output
-
-          let choose m =
-            M.return (Lts.Interactive_build.Chose (EvalMonad.run m))
-        end 
-      in
-      let init_conf =
-        Synch_LTS.Active (Synch_LTS.lexing_init_aconf exprBuffer1 exprBuffer2)
-      in
-      let module IBuild = Lts.Interactive_build.Make (Output) (Synch_LTS) in
-    run_interaction (module IBuild) init_conf
-    end
   | Explore ->
-      if !is_program then begin
-        Util.Debug.print_debug "Getting the program";
-        let expr_lexbuffer = open_lexbuf !filename1 in
-        let init_conf = LTS.Active (LTS.lexing_init_aconf expr_lexbuffer) in
-        let module IBuild = Lts.Interactive_build.Make (Output) (RunLts) in
-        run_interaction (module IBuild) init_conf
-      end
-      else begin
-        Util.Debug.print_debug "Getting the module declaration";
-        let decl_lexbuffer = open_lexbuf !filename1 in
-        let signature_lexbuffer = open_lexbuf !filename2 in
-        let init_conf =
-          LTS.Passive (LTS.lexing_init_pconf decl_lexbuffer signature_lexbuffer)
-        in
-        let module IBuild = Lts.Interactive_build.Make (Output) (RunLts) in
-        run_interaction (module IBuild) init_conf
-      end
-  | Compose -> failwith "Compose is not yet implemented"
+      let (module LTS) = Lts_kind.build_concrete_lts kind_lts in
+      let module RunLts = MakeRunLts (LTS) in
+      let module IBuild = Lts.Interactive_build.Make (Output) (RunLts) in
+      let init_conf =
+        if !is_program then begin
+          Util.Debug.print_debug "Getting the program";
+          LTS.Active (LTS.lexing_init_aconf (open_lexbuf !filename1))
+        end
+        else begin
+          Util.Debug.print_debug "Getting the module declaration";
+          LTS.Passive
+            (LTS.lexing_init_pconf (open_lexbuf !filename1)
+               (open_lexbuf !filename2))
+        end in
+      run_interaction (module IBuild) init_conf
+  | Compare ->
+      let (module LTS) = Lts_kind.build_concrete_lts kind_lts in
+      let module Synch_LTS = Lts.Synch_lts.Make (LTS) in
+      let module RunLts = MakeRunLts (Synch_LTS) in
+      let module IBuild = Lts.Interactive_build.Make (Output) (RunLts) in
+      let init_conf =
+        Synch_LTS.Active
+          (Synch_LTS.lexing_init_aconf (open_lexbuf !filename1)
+             (open_lexbuf !filename2)) in
+      run_interaction (module IBuild) init_conf
+  | Compose ->
+      let (module Composition) = Lts_kind.build_compose_lts kind_lts in
+      let module RunLts = MakeRunLts (Composition) in
+      let module IBuild = Lts.Interactive_build.Make (Output) (RunLts) in
+      Util.Debug.print_debug "Getting the two module declarations";
+      let init_conf =
+        Composition.Passive
+          (Composition.lexing_init_pconf
+             ~provider_implem:(open_lexbuf !filename1)
+             ~provider_sig:(open_lexbuf !filename2)
+             ~client_implem:(open_lexbuf !filename3)
+             ~client_sig:(open_lexbuf !filename4)
+               (* A second buffer on the provider's signature: see
+                  Ogs.Compose_lts. *)
+             ~imported_sig:(open_lexbuf !filename2)) in
+      run_interaction (module IBuild) init_conf
 
 let () =
   Arg.parse speclist get_filename usage_msg;
   fix_mode ();
-  let kind_lts = generate_kind_lts () in
-  let lts = Lts_kind.build_concrete_lts kind_lts in
-  build_strategy lts
+  build_strategy (generate_kind_lts ())

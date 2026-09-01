@@ -1,0 +1,8 @@
+{
+  "title": "twice ∘ iter2",
+  "mode": "compose",
+  "participants": [
+    { "name": "twice", "ml": "twice.ml", "mli": "twice.mli" },
+    { "name": "iter2", "ml": "iter2.ml", "mli": "iter2.mli" }
+  ]
+}

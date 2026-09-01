@@ -84,8 +84,8 @@ module Make (Lang : Lang.Interactive.LANG_WITH_INIT) :
     let (opconf, namectxO) = Lang.get_typed_opconf "first" expr_lexbuffer in
     init_aconf opconf namectxO
 
-  let lexing_init_pconf decl_lexbuffer signature_lexbuffer =
+  let lexing_init_pconf ?imports decl_lexbuffer signature_lexbuffer =
     let (interactive_env, store, name_ctxP, name_ctxO) =
-      Lang.get_typed_ienv decl_lexbuffer signature_lexbuffer in
+      Lang.get_typed_ienv ?imports decl_lexbuffer signature_lexbuffer in
     init_pconf store interactive_env name_ctxP name_ctxO
 end

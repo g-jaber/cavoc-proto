@@ -4,8 +4,8 @@
  (package cavoc)
  (modes byte js)
  (modules explore_web ui_helpers editor_manager moves_manager display_config
-          moves_display lts_config lts_kind evaluate_code help_modal page_init
-          interaction_signals)
+          moves_display lts_config lts_kind evaluate_code compose_driver
+          page_init interaction_signals)
  (preprocess
   (pps js_of_ocaml-ppx lwt_ppx ppx_deriving_yojson))
  (libraries
@@ -18,11 +18,7 @@
   js_of_ocaml-ppx
   js_of_ocaml-lwt
   lwt
-  cohttp
-  cohttp-lwt-jsoo
-  yojson)
- (js_of_ocaml
-  (flags (--pretty --debug-info))))
+  yojson))
 
 
 (executable

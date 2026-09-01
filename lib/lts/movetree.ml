@@ -91,6 +91,8 @@ module MakeLang
   type abstract_normal_form = MoveTree.Moves.move [@@deriving to_yojson]
 
   let renaming_a_nf _renaming = failwith "TODO"
+  let fold_free_names_of_a_nf _f _acc _a_nf = failwith "TODO"
+  let map_free_names_of_a_nf _f _a_nf = failwith "TODO"
 
 (*
   let eval ((move, movetree), namectx, storectx) :

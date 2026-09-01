@@ -88,6 +88,35 @@ module Make (OpLang : Language.WITHAVAL_INOUT) :
     | Some res -> res
     | None -> inj_cname ()
 
+  let fold_free_names_of_a_nf f acc ((a_nf_term, _) as a_nf) =
+    let acc' = f acc (get_subject_name a_nf) in
+    OpLang.Nf.apply_val acc'
+      (OpLang.AVal.fold_free_names_of_abstract_val
+         (fun acc'' nn -> f acc'' (inj_name nn))
+         acc')
+      a_nf_term
+
+  let map_free_names_of_a_nf f (a_nf_term, store) =
+    let f_oplang nn =
+      match f (inj_name nn) with
+      | Either.Left nn' -> nn'
+      | Either.Right () ->
+          failwith
+            "Error: mapping a free functional name to a stack frame. Please \
+             report." in
+    let f_cn () =
+      match f (inj_cname ()) with
+      | Either.Right () -> ()
+      | Either.Left _ ->
+          failwith
+            "Error: mapping the return frame to a functional name. Please \
+             report." in
+    let a_nf_term' =
+      OpLang.Nf.map ~f_fn:f_oplang ~f_cn
+        ~f_val:(OpLang.AVal.map_free_names_of_abstract_val f_oplang)
+        ~f_ectx:Fun.id a_nf_term in
+    (a_nf_term', store)
+
   let pp_a_nf_in ~pp_dir ~pp_free_name ~pp_bound_name fmt (a_nf_term, store) =
     let pp_ectx fmt () = Format.pp_print_string fmt "" in
     let pp_cn fmt () = Format.pp_print_string fmt "ret" in
@@ -314,9 +343,9 @@ module Make (OpLang : Language.WITHAVAL_INOUT) :
      This is needed for the POGS equivalence. *)
   let is_equiv_a_nf _ (_, _) (_, _) = failwith "Not yet implemented"
 
-  let get_typed_ienv lexBuffer_implem lexBuffer_signature =
+  let get_typed_ienv ?imports lexBuffer_implem lexBuffer_signature =
     let (ienv, store, namectxP, namectxO) =
-      OpLang.get_typed_ienv lexBuffer_implem lexBuffer_signature in
+      OpLang.get_typed_ienv ?imports lexBuffer_implem lexBuffer_signature in
     ( (ienv, StackEnv.empty Stackctx.empty),
       store,
       (namectxP, Stackctx.empty),

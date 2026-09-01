@@ -92,15 +92,26 @@ module MakeCompBase (BranchMonad : Util.Monad.BRANCH) = struct
     | Type_checker.TypingError msg ->
         failwith ("Typing Error in the " ^ nbprog ^ " program:" ^ msg)
 
-  let get_typed_ienv lexBuffer_implem lexBuffer_signature =
+  let get_typed_ienv ?imports lexBuffer_implem lexBuffer_signature =
     try
       let implem_decl_l = parse_and_handle_error Parser.prog lexBuffer_implem in
       let signature_decl_l = parse_and_handle_error Parser.signature lexBuffer_signature in
+      let import_decl_l =
+        match imports with
+        | None -> []
+        | Some lexBuffer_imports ->
+            parse_and_handle_error Parser.signature lexBuffer_imports in
+      let (import_val_env, import_var_ctx, import_name_ctx) =
+        Declaration.get_imported_name_env import_decl_l in
       let (comp_env, namectxO, cons_ctx) =
-        Declaration.get_typed_comp_env implem_decl_l signature_decl_l in
-      let store = Interpreter.normalize_term_env cons_ctx comp_env in
+        Declaration.get_typed_comp_env ~import_var_ctx ~import_name_ctx
+          implem_decl_l signature_decl_l in
+      let store =
+        Interpreter.normalize_term_env ~val_env:import_val_env cons_ctx
+          comp_env in
       let (ienv, namectxP) =
-        Declaration.get_typed_val_env store.valenv signature_decl_l in
+        Declaration.get_typed_val_env ~namectxO store.valenv signature_decl_l
+      in
       (* We should pass namectxO to get_typed_val_env so that ienv get the right image namectx*)
       (ienv, store, namectxP, namectxO)
     with

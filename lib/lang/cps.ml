@@ -168,9 +168,9 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
     let namectxO' = (namectxO, cnamectx) in
     ((nterm, store), GEmpty, namectxO')
 
-  let get_typed_ienv lexBuffer_implem lexBuffer_signature =
+  let get_typed_ienv ?imports lexBuffer_implem lexBuffer_signature =
     let (int_env, store, namectxP, namectxO) =
-      OpLang.get_typed_ienv lexBuffer_implem lexBuffer_signature in
+      OpLang.get_typed_ienv ?imports lexBuffer_implem lexBuffer_signature in
     ( embed_value_env int_env CIEnv.Renaming.Namectx.empty,
       store,
       embed_name_ctx @@ namectxP,
@@ -375,6 +375,29 @@ module MakeComp (OpLang : Language.WITHAVAL_INOUT) () :
     let labels_of_abstract_val = function
       | AVal aval | APair (aval, _) | APack (_, aval, _) ->
           OpLang.AVal.labels_of_abstract_val aval
+
+    let fold_free_names_of_abstract_val f acc = function
+      | AVal aval | APair (aval, _) | APack (_, aval, _) ->
+          OpLang.AVal.fold_free_names_of_abstract_val
+            (fun acc' nn -> f acc' (inj_name nn))
+            acc aval
+
+    let map_free_names_of_abstract_val f =
+      let f_oplang nn =
+        match f (inj_name nn) with
+        | Either.Left nn' -> nn'
+        | Either.Right _ ->
+            failwith
+              "Error: mapping a free functional name to a continuation name. \
+               Please report." in
+      function
+      | AVal aval ->
+          AVal (OpLang.AVal.map_free_names_of_abstract_val f_oplang aval)
+      | APair (aval, cn) ->
+          APair (OpLang.AVal.map_free_names_of_abstract_val f_oplang aval, cn)
+      | APack (tname_l, aval, cn) ->
+          APack
+            (tname_l, OpLang.AVal.map_free_names_of_abstract_val f_oplang aval, cn)
 
     let type_check_abstract_val storectx namectx gty
         (aval, (lfnamectx, lcnamectx)) =

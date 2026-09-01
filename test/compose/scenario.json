@@ -1,0 +1,8 @@
+{
+  "title": "provider ∘ client",
+  "mode": "compose",
+  "participants": [
+    { "name": "provider", "ml": "provider.ml", "mli": "provider.mli" },
+    { "name": "client", "ml": "client.ml", "mli": "client.mli" }
+  ]
+}

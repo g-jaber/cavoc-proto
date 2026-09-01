@@ -188,7 +188,48 @@ let create_field_ctx type_decl_l =
     | elt::l' -> aux l' (update_field_ctx field_ctx elt)
   in aux type_decl_l Type_ctx.empty_field_ctx
 
-let get_typed_comp_env implem_decl_l sign_decl_l =
+(* An imported signature declares names the module may use but does not
+   implement. It is the Opponent mirror of get_typed_val_env below: the same
+   "a signature declaration becomes a name" act, but with no implementation
+   behind the name. The identifier is bound to the name *itself* in the
+   val_env, which is what turns a Var occurrence in the module body into that
+   name -- the interpreter resolves Var by lookup in the val_env, so no pass
+   ever rewrites the module's syntax.
+   Non-negative types are skipped, as in get_typed_val_env: they cannot be
+   names, and Namectx.add_fresh would reject them. *)
+let get_imported_name_env import_decl_l =
+  let (var_decl_l, _, type_publ_decl_l, _) =
+    split_signature_decl_list import_decl_l in
+  let type_env = Util.Pmap.list_to_pmap type_publ_decl_l in
+  let rec aux ((val_env, var_ctx, name_ctx) as acc) = function
+    | [] -> acc
+    | (var, ty) :: tl -> begin
+        let ty' =
+          Types.generalize_type Types.TVarSet.empty
+          @@ Types.apply_type_env ty type_env in
+        match ty' with
+        | Types.TArrow _ | Types.TForall _ | Types.TId _ | Types.TName _ ->
+            let (nn, name_ctx') =
+              Namectx.Namectx.add_fresh name_ctx var
+                (Types.force_negative_type ty') in
+            aux
+              ( Util.Pmap.add (var, Syntax.Name nn) val_env,
+                Util.Pmap.add (var, ty') var_ctx,
+                name_ctx' )
+              tl
+        | _ ->
+            Util.Debug.print_debug
+              ("The imported identifier " ^ Syntax.string_of_id var
+             ^ " is ignored because it is of non-negative type "
+             ^ Types.string_of_typ ty');
+            aux acc tl
+      end in
+  aux
+    (Syntax.empty_val_env, Type_ctx.empty_var_ctx, Namectx.Namectx.empty)
+    var_decl_l
+
+let get_typed_comp_env ?(import_var_ctx = Type_ctx.empty_var_ctx)
+    ?(import_name_ctx = Namectx.Namectx.empty) implem_decl_l sign_decl_l =
   let (comp_decl_l, implem_type_decl_l, implem_exn_l) =
     split_implem_decl_list implem_decl_l in
   let (var_decl_l, type_priv_decl_l, type_publ_decl_l, sign_exn_l) =
@@ -200,12 +241,12 @@ let get_typed_comp_env implem_decl_l sign_decl_l =
   type_priv_included type_env type_priv_decl_l;
   type_decl_coincide type_env type_publ_decl_l;
   exn_included cons_ctx sign_exn_l;
-  let name_ctxO = Namectx.Namectx.empty in
+  let name_ctxO = import_name_ctx in
   let var_decls = Util.Pmap.list_to_pmap var_decl_l in
   (* TODO: Should we also put domain of type_env in name_ctx ?*)
   let type_ctx =
     {
-      var_ctx= Type_ctx.empty_var_ctx;
+      var_ctx= import_var_ctx;
       loc_ctx= Type_ctx.empty_loc_ctx;
       name_ctx= name_ctxO;
       cons_ctx;
@@ -215,7 +256,12 @@ let get_typed_comp_env implem_decl_l sign_decl_l =
   let (comp_env, name_ctxO') = typing_decl_l type_ctx var_decls comp_decl_l in
   (comp_env, name_ctxO', cons_ctx)
 
-let get_typed_val_env var_val_env sign_decl_l =
+(* [namectxO] is the image of the interactive environment being built: the
+   Opponent names its values may mention. It must be the module's actual
+   Opponent context, imports included, since copairing later requires the
+   images to agree. *)
+let get_typed_val_env ?(namectxO = Namectx.Namectx.empty) var_val_env
+    sign_decl_l =
   let (var_ctx_l, _, type_publ_decl_l, _) =
     split_signature_decl_list sign_decl_l in
   let type_env = Util.Pmap.list_to_pmap type_publ_decl_l in
@@ -247,5 +293,4 @@ let get_typed_val_env var_val_env sign_decl_l =
                 non-negative type " ^ Types.string_of_typ ty');
             partition_env acc tl
       end in
-  partition_env (Ienv.IEnv.empty Namectx.Namectx.empty, Namectx.Namectx.empty) var_ctx_l
-  (* TODO pass a namectxO to be used as argument of Ienv.IEnv.empty*)
+  partition_env (Ienv.IEnv.empty namectxO, Namectx.Namectx.empty) var_ctx_l

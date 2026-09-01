@@ -108,8 +108,14 @@ module type COMP = sig
 
      The two lexing buffers should contain respectively the implementation of
      the module and its signature.
+
+     [imports], when provided, is the signature of names the module may use
+     but does not implement: they become Opponent names, and so appear in the
+     returned Opponent name context. Omitting it is the standalone case, and
+     is equivalent to passing an empty signature.
    *)
   val get_typed_ienv :
+    ?imports:Lexing.lexbuf ->
     Lexing.lexbuf ->
     Lexing.lexbuf ->
     IEnv.t * Store.store * Namectx.t * Namectx.t

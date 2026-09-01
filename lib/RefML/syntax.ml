@@ -13,7 +13,7 @@ let string_of_constructor cons = cons
 type loc = int [@@deriving to_yojson]
 
 let pp_loc fmt = Format.fprintf fmt "ℓ%d"
-let string_of_loc l = "l" ^ string_of_int l
+let string_of_loc = Format.asprintf "%a" pp_loc
 
 (* we provide a way to generate fresh locations *)
 let count_loc = ref 0

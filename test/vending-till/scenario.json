@@ -1,0 +1,8 @@
+{
+  "title": "till ∘ vending",
+  "mode": "compose",
+  "participants": [
+    { "name": "till", "ml": "till.ml", "mli": "till.mli" },
+    { "name": "vending", "ml": "vending.ml", "mli": "vending.mli" }
+  ]
+}
