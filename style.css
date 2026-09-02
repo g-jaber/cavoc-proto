@@ -458,7 +458,8 @@ body.tutorial .card-file {
 #gutter-head {
   display: none;
 }
-body.mode-compose #gutter-head {
+body.mode-compose #gutter-head,
+body.mode-synthesis #gutter-head {
   display: block;
 }
 #gutter-head summary {
@@ -807,6 +808,32 @@ body.mode-compose .trace-lane {
 #console {
   overflow-x: hidden;
   width: 100%;
+}
+
+/* The synthesis page: the client card has no signature of its own, and
+   neither card takes an example of its own. */
+#card-row.mode-synthesis #card-1 .card-pane-sig,
+#card-row.mode-synthesis #card-1 .pane-splitter,
+#card-row.mode-synthesis .card-file {
+  display: none;
+}
+
+/* The Client tab (bin/synthesis_display.ml): the synthesized client program,
+   or the reason there is none. */
+#client pre {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  margin: 0;
+  padding: 10px 12px;
+}
+#client .client-note {
+  color: #a6a69c;
+  font-style: italic;
+}
+#client .client-source {
+  color: #e8e8e4;
 }
 
 /* --------------------------------------------------------------------------
