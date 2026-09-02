@@ -1,144 +1,284 @@
 module type MOVETREE = sig
-  module Moves : Moves.GEN_MOVES
+  module TypingLTS : Typing.LTS
+  module Play : module type of Play.Make (TypingLTS)
+  module View : module type of View.Make (TypingLTS.Moves.Renaming)
 
-  type movetree = {
-    root: Moves.Renaming.Namectx.Names.name;
-    namectxP: Moves.Renaming.Namectx.t;
-    namectxO: Moves.Renaming.Namectx.t;
-    map: (Moves.move, Moves.move) Util.Pmap.pmap;
-  }
-  [@@deriving to_yojson]
+  type t = { branches: branch list }
 
-  val pp : Format.formatter -> movetree -> unit
-  val trigger : movetree -> Moves.move -> Moves.move option
-  val update : movetree -> Moves.move * Moves.move -> movetree option
-end
-
-module Make (Moves : Moves.GEN_MOVES) : MOVETREE = struct
-  module Moves = Moves
-
-  type movetree = {
-    root: Moves.Renaming.Namectx.Names.name;
-    namectxP: Moves.Renaming.Namectx.t;
-    namectxO: Moves.Renaming.Namectx.t;
-    map: (Moves.move, Moves.move) Util.Pmap.pmap;
+  and branch = {
+    opponent_move: TypingLTS.Moves.move;
+    player_move: TypingLTS.Moves.move;
+    continuation: t;
   }
 
-  let pp fmt movetree =
-    let pp_sep fmt () = Format.fprintf fmt ", " in
-    let pp_empty fmt () = Format.fprintf fmt "⋅" in
-    let pp_pair fmt (m, m') =
-      Format.fprintf fmt "%a : %a" Moves.pp_move m Moves.pp_move m' in
-    Util.Pmap.pp_pmap ~pp_empty ~pp_sep pp_pair fmt movetree.map
+  (* The bookkeeping of Vis_lts.MakeNameIndexed run on both polarities, so
+     that both moves of an op_move can be converted to view-local levels. *)
+  type full_view = {
+    player_view: TypingLTS.Moves.Renaming.t;
+    player_views_at_opponent_names: View.view_map;
+    opponent_views_at_player_names: View.view_map;
+  }
 
-  let movetree_to_yojson movetree = `String (Format.asprintf "%a" pp movetree)
-  let trigger movetree move = Util.Pmap.lookup move movetree.map
+  val empty : t
+  val pp : Format.formatter -> t -> unit
+  val add_play : t -> Play.t -> t
+  val initial_full_view : TypingLTS.position -> full_view
 
-  let update movetree (moveIn, moveOut) =
-    match Util.Pmap.lookup moveIn movetree.map with
-    | None ->
-        let map = Util.Pmap.add (moveIn, moveOut) movetree.map in
-        Some { movetree with map }
-    | Some moveOut' -> (
-        match Moves.unify_move Util.Namespan.empty_nspan moveOut moveOut' with
-        (* We need unify only if there are some disclosed locations*)
-        | None -> None
-        | Some _ -> Some movetree)
+  (* The move read in the view: its free names at the view's levels, at the
+     empty ambient context; every free name must lie in the view's image. *)
+  val view_local_move :
+    TypingLTS.Moves.Renaming.t -> TypingLTS.Moves.move -> TypingLTS.Moves.move
 end
 
+module Make
+    (A_nf : Lang.Interactive.A_NF)
+    (TypingLTS :
+      Typing.LTS
+        with module Moves.Renaming = A_nf.IEnv.Renaming
+         and type Moves.copattern =
+          A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t) :
+  MOVETREE with module TypingLTS = TypingLTS = struct
+  module TypingLTS = TypingLTS
+  module Moves = TypingLTS.Moves
+  module Play = Play.Make (TypingLTS)
+  module View = View.Make (Moves.Renaming)
+
+  type t = { branches: branch list }
+
+  and branch = {
+    opponent_move: Moves.move;
+    player_move: Moves.move;
+    continuation: t;
+  }
+
+  type full_view = {
+    player_view: Moves.Renaming.t;
+    player_views_at_opponent_names: View.view_map;
+    opponent_views_at_player_names: View.view_map;
+  }
+
+  let empty = { branches= [] }
+
+  let view_local_move view move =
+    let view_level name =
+      match Moves.Renaming.lookup_inv view name with
+      | Some level -> level
+      | None ->
+          Util.Error.failwithf
+            "Movetree: the name %a occurs free outside the view %a"
+            Moves.Renaming.Namectx.Names.pp_name name Moves.Renaming.pp view
+    in
+    Moves.local_form (Moves.map_free_names view_level move)
+
+  let rec pp fmt node =
+    match node.branches with
+    | [] -> ()
+    | branches ->
+        let pp_sep fmt () = Format.fprintf fmt ",@ " in
+        let pp_branch fmt branch =
+          Format.fprintf fmt "%a ↦ %a%a" Moves.pp_move branch.opponent_move
+            Moves.pp_move branch.player_move pp branch.continuation in
+        Format.fprintf fmt "@[{%a}@]"
+          (Format.pp_print_list ~pp_sep pp_branch)
+          branches
+
+  let initial_full_view position =
+    let namectxP = TypingLTS.get_namectxP position in
+    let namectxO = TypingLTS.get_namectxO position in
+    {
+      player_view= Moves.Renaming.id namectxP;
+      player_views_at_opponent_names=
+        View.init_view_map
+          (Moves.Renaming.id namectxP)
+          (Moves.Renaming.Namectx.get_names namectxO);
+      opponent_views_at_player_names=
+        View.init_view_map
+          (Moves.Renaming.id namectxO)
+          (Moves.Renaming.Namectx.get_names namectxP);
+    }
+
+  let advance full_view opponent_move mid_position player_move target_position =
+    let player_view =
+      View.transport_to_context full_view.player_view
+        (TypingLTS.get_namectxP mid_position) in
+    let view_local_opponent_move = view_local_move player_view opponent_move in
+    let fresh_opponent_names = Moves.get_fresh_names opponent_move in
+    let player_move_view =
+      View.restore_view_at_subject full_view.opponent_views_at_player_names
+        (Moves.get_subject_name opponent_move)
+        (TypingLTS.get_namectxO mid_position)
+        fresh_opponent_names in
+    let view_local_player_move = view_local_move player_move_view player_move in
+    let fresh_player_names = Moves.get_fresh_names player_move in
+    let player_views_at_opponent_names =
+      View.record_view_at_introduction full_view.player_views_at_opponent_names
+        player_view fresh_opponent_names in
+    let opponent_views_at_player_names =
+      View.record_view_at_introduction full_view.opponent_views_at_player_names
+        player_move_view fresh_player_names in
+    let player_view =
+      View.restore_view_at_subject player_views_at_opponent_names
+        (Moves.get_subject_name player_move)
+        (TypingLTS.get_namectxP target_position)
+        fresh_player_names in
+    ( view_local_opponent_move,
+      view_local_player_move,
+      {
+        player_view;
+        player_views_at_opponent_names;
+        opponent_views_at_player_names;
+      } )
+
+  let rec insert_op_moves node full_view play =
+    match Play.opponent_step play with
+    | None -> node
+    | Some (opponent_move, mid_position, rest) ->
+        let (player_move, target_position, rest) = Play.player_step rest in
+        let (view_local_opponent_move, player_move, full_view) =
+          advance full_view opponent_move mid_position player_move
+            target_position in
+        {
+          branches=
+            insert_branch view_local_opponent_move player_move full_view rest
+              node.branches;
+        }
+
+  and insert_branch view_local_opponent_move player_move full_view rest =
+    function
+    | [] ->
+        [
+          {
+            opponent_move= view_local_opponent_move;
+            player_move;
+            continuation= insert_op_moves empty full_view rest;
+          };
+        ]
+    | branch :: branches when branch.opponent_move = view_local_opponent_move ->
+        if branch.player_move <> player_move then
+          failwith
+            "Movetree.add_play: conflicting Player moves for an Opponent branch";
+        {
+          branch with
+          continuation= insert_op_moves branch.continuation full_view rest;
+        }
+        :: branches
+    | branch :: branches ->
+        branch
+        :: insert_branch view_local_opponent_move player_move full_view rest
+             branches
+
+  let add_play tree play =
+    insert_op_moves tree (initial_full_view (Play.initial_position play)) play
+end
+
+(* The movetree run as an interactive language: the run state is the
+   remaining tree with its full view, and γ binds Player names to nothing. *)
 module MakeLang
-    (MoveTree :
-      MOVETREE with type Moves.Renaming.Namectx.Names.name = int) :
-  Lang.Interactive.LANG = struct
-  module Namectx = MoveTree.Moves.Renaming.Namectx
-  module Names = Namectx.Names
-  module EvalMonad = Util.Monad.Result
-  module BranchMonad = MoveTree.Moves.BranchMonad
+    (A_nf : Lang.Interactive.TYPED_A_NF)
+    (Movetree :
+      MOVETREE
+        with module TypingLTS.Moves.Renaming = A_nf.IEnv.Renaming
+         and module TypingLTS.BranchMonad = A_nf.BranchMonad
+         and type TypingLTS.Moves.copattern =
+          A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t
+         and type TypingLTS.store_ctx = A_nf.Storectx.t)
+    (EvalMonad : Util.Monad.RUNNABLE) =
+struct
+  module Strategy = struct
+    module TypingLTS = Movetree.TypingLTS
+    module Moves = TypingLTS.Moves
+    module Renaming = Moves.Renaming
 
-  type store = MoveTree.movetree [@@deriving to_yojson]
+    type abstract_normal_form = A_nf.abstract_normal_form
+    type t = { node: Movetree.t; full_view: Movetree.full_view }
 
-  let pp_store = MoveTree.pp
-  let string_of_store = Format.asprintf "%a" pp_store
+    let pp fmt strategy =
+      Format.fprintf fmt "@[⟨%a |@, View: %a⟩@]" Movetree.pp strategy.node
+        Moves.Renaming.pp strategy.full_view.Movetree.player_view
 
-  module Storectx = Namectx
+    type value = unit
 
-  let infer_type_store movetree =
-    let open MoveTree in
-    movetree.namectxP
+    let pp_value fmt () = Format.pp_print_string fmt "⋅"
+    let value_to_yojson () = `Null
 
-  type opconf = MoveTree.Moves.move * store
+    let initial_values _strategy _namectxO local_namectx =
+      List.map (fun _ -> ()) (Renaming.Namectx.get_names local_namectx)
 
-  let pp_opconf fmt (move, movetree) =
-    Format.fprintf fmt "⟨%a | %a ⟩" MoveTree.Moves.pp_move move MoveTree.pp
-      movetree
+    let answer strategy () namectxO incoming_move =
+      let full_view = strategy.full_view in
+      let view_local_opponent_move =
+        Movetree.view_local_move full_view.Movetree.player_view incoming_move
+      in
+      Option.map
+        (fun branch ->
+          let fresh_opponent_names = Moves.get_fresh_names incoming_move in
+          let player_move_view =
+            Movetree.View.restore_view_at_subject
+              full_view.Movetree.opponent_views_at_player_names
+              (Moves.get_subject_name incoming_move)
+              namectxO fresh_opponent_names in
+          let player_views_at_opponent_names =
+            Movetree.View.record_view_at_introduction
+              full_view.Movetree.player_views_at_opponent_names
+              full_view.Movetree.player_view fresh_opponent_names in
+          let namectxP = Moves.Renaming.im full_view.Movetree.player_view in
+          let ((branch_a_nf, branch_renaming) : Moves.move) =
+            branch.Movetree.player_move in
+          let player_move_a_nf =
+            A_nf.map_free_names_of_a_nf
+              (Moves.Renaming.lookup player_move_view)
+              branch_a_nf in
+          let player_move_namectx = Renaming.dom branch_renaming in
+          let fresh_player_names =
+            Moves.get_fresh_names
+              (player_move_a_nf, Renaming.weak_r player_move_namectx namectxP)
+          in
+          let opponent_views_at_player_names =
+            Movetree.View.record_view_at_introduction
+              full_view.Movetree.opponent_views_at_player_names player_move_view
+              fresh_player_names in
+          let player_view =
+            Movetree.View.restore_view_at_subject player_views_at_opponent_names
+              (A_nf.get_subject_name player_move_a_nf)
+              (Renaming.Namectx.concat namectxP player_move_namectx)
+              fresh_player_names in
+          ( player_move_a_nf,
+            player_move_namectx,
+            List.map
+              (fun _ -> ())
+              (Renaming.Namectx.get_names player_move_namectx),
+            {
+              node= branch.Movetree.continuation;
+              full_view=
+                {
+                  Movetree.player_view;
+                  player_views_at_opponent_names;
+                  opponent_views_at_player_names;
+                };
+            } ))
+        (List.find_opt
+           (fun branch ->
+             branch.Movetree.opponent_move = view_local_opponent_move)
+           strategy.node.Movetree.branches)
+  end
 
-  let string_of_opconf = Format.asprintf "%a" pp_opconf
+  include
+    Strategy_language.Make (A_nf) (Movetree.TypingLTS) (Strategy) (EvalMonad)
 
-  module Renaming = MoveTree.Moves.Renaming
-
-  module IEnv =
-    (* We could use explicitely a renaming here *)
-      Lang.Ienv.Make_List
-        (Renaming)
-        (struct
-          type t = Names.name [@@deriving to_yojson]
-
-          let embed_name = Fun.id
-          let renam_act renam1 nn = Renaming.lookup renam1 nn
-          let pp = Names.pp_name
-        end)
-
-  type abstract_normal_form = MoveTree.Moves.move [@@deriving to_yojson]
-
-  let renaming_a_nf _renaming = failwith "TODO"
-  let fold_free_names_of_a_nf _f _acc _a_nf = failwith "TODO"
-  let map_free_names_of_a_nf _f _a_nf = failwith "TODO"
-
-(*
-  let eval ((move, movetree), namectx, storectx) :
-      ((abstract_normal_form * Namectx.t * Storectx.t) * IEnv.t * store)
-      EvalMonad.m =
-    match MoveTree.trigger movetree move with
-    | None -> EvalMonad.fail ()
-    | Some moveOut ->
-        EvalMonad.return
-          ((moveOut, namectx, storectx), IEnv.empty namectx, movetree)
-*)
-  let eval _ = failwith "TODO"
-
-  let get_subject_name : abstract_normal_form -> Names.name =
-    MoveTree.Moves.get_subject_name
-
-  let[@warning "-27"] pp_a_nf ~pp_dir fmt =
-    MoveTree.Moves.pp_move
-      fmt (*MoveTree.Moves.pp_move - Need to handle pp_dir *)
-
-  let pp_a_nf_in ~pp_dir ~pp_free_name:_ ~pp_bound_name:_ = pp_a_nf ~pp_dir
-
-  let string_of_a_nf dir =
-    let pp_dir fmt = Format.fprintf fmt "%s" dir in
-    Format.asprintf "%a" (pp_a_nf ~pp_dir)
-
-  let is_equiv_a_nf :
-      Names.name Util.Namespan.namespan ->
-      abstract_normal_form ->
-      abstract_normal_form ->
-      Names.name Util.Namespan.namespan option =
-    MoveTree.Moves.unify_move
-
-  let generate_a_nf _storectx namectx :
-      (abstract_normal_form * Namectx.t * Namectx.t) BranchMonad.m =
-    let open BranchMonad in
-    let* (move, lnamectx) = MoveTree.Moves.generate_moves namectx in
-    return (move, lnamectx, namectx)
-  (*Need to handle storectx*)
-
-  let type_check_a_nf namectxP _namectxO (a_nf, lnamectx) : Namectx.t option =
-    if MoveTree.Moves.check_type_move namectxP (a_nf, lnamectx) then
-      Some lnamectx
-    else None
-
-  let concretize_a_nf (movetree : store) (renaming : IEnv.t)
-      ((a_nf, _renaming') : abstract_normal_form * Renaming.t) =
-    ((a_nf, movetree), renaming)
+  let initial_store node position =
+    initial_store
+      { Strategy.node; full_view= Movetree.initial_full_view position }
+      position
 end
+
+module _ : functor
+  (A_nf : Lang.Interactive.TYPED_A_NF)
+  (Movetree : MOVETREE
+                with module TypingLTS.Moves.Renaming = A_nf.IEnv.Renaming
+                 and module TypingLTS.BranchMonad = A_nf.BranchMonad
+                 and type TypingLTS.Moves.copattern =
+                  A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t
+                 and type TypingLTS.store_ctx = A_nf.Storectx.t)
+  (EvalMonad : Util.Monad.RUNNABLE)
+  -> Lang.Interactive.LANG =
+  MakeLang
