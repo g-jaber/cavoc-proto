@@ -1,0 +1,4 @@
+(library
+ (public_name cavoc.definability)
+ (name definability)
+ (libraries lang lts util))

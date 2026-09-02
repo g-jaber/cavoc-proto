@@ -9,4 +9,4 @@
   (name refml)
   (preprocess
     (pps ppx_deriving_yojson))
-  (libraries lang util yojson ppx_deriving_yojson.runtime msat msat.sat msat.tseitin))
+  (libraries lang lts util yojson ppx_deriving_yojson.runtime msat msat.sat msat.tseitin))
