@@ -1,0 +1,8 @@
+{
+  "title": "synthesis: add and covers",
+  "mode": "synthesis",
+  "participants": [ { "name": "synthesis-first-order",
+                      "mli": "synthesis-first-order.mli" } ],
+  "options": { "directStyle": false, "wellBracketing": true,
+               "visibility": true, "symbolic": false }
+}

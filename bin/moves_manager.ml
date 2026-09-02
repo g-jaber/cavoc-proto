@@ -7,13 +7,14 @@
    - flush_moves: Clears all moves for next evaluation
    - display_previous_moves: Updates the UI with move history
 
-   The History window shows the moves by interface: one flat public lane on
-   the single-module page, a two-row grid on a composition's (doc/web.md).
+   The History window shows the moves by row: one flat public lane on the
+   single-module page, a public and a shared row on a composition's
+   (doc/web.md).
 *)
 
 open Js_of_ocaml
 
-(* Which interface a move crossed, i.e. which row its chip lands on. *)
+(* Whether a move is public or shared, i.e. which row its chip lands on. *)
 type lane = Public | Shared
 
 (* Reverse chronological order, so recording a move stays O(1). *)
@@ -30,7 +31,7 @@ let flat_public_html () =
   |> List.rev |> String.concat ""
 
 (* The trace grid of the compose page: each move takes its own column of the
-   shared chronology, on the row of the interface it crossed. *)
+   shared chronology, on its row, public or shared. *)
 let interleaved_grid_html () =
   let label row text =
     Printf.sprintf

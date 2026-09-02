@@ -223,7 +223,7 @@ let display_terminal_conf ?(card = 0) (reason : string) : unit =
     ~entries_html:notice
 
 (* The live panels of one card, fed from one component's configuration
-   JSON; the composite routes its two halves here, one card each. *)
+   JSON; the composite routes its two sides here, one card each. *)
 let display_conf_panels ~card ~preview conf_json : unit =
   match conf_json with
   | `Assoc fields ->
@@ -292,9 +292,9 @@ let display_composite_position pos_json =
            (name_block "O (you introduced)" entriesO))
   | _ -> ()
 
-(* The shared interface, in the second slot of the public gutter's head: one
+(* The shared context, in the second slot of the public gutter's head: one
    row per shared entity, one column per component, the left one first. *)
-(* The two halves of the synchronization state have opposite introducers, so
+(* The two sides of the synchronization state have opposite introducers, so
    one of them is read backwards here. *)
 let display_shared_spans sync_json =
   match sync_json with
@@ -333,7 +333,7 @@ let display_shared_spans sync_json =
              pairs in
       set_inner_html "gutter-shared"
         (Printf.sprintf
-           "<details><summary>shared interface — %d %s%s</summary>%s</details>"
+           "<details><summary>shared context — %d %s%s</summary>%s</details>"
            count (plural count "name")
            (if identity then " · identity" else "")
            (String.concat "" (List.map row_html pairs)))
@@ -343,12 +343,12 @@ let display_composite_conf ?(preview = false) conf_json : unit =
   set_config_editor_text (Yojson.Safe.pretty_to_string conf_json);
   match conf_json with
   | `Assoc fields -> (
-      let half key card =
+      let side key card =
         match List.assoc_opt key fields with
         | Some half_json -> display_conf_panels ~card ~preview half_json
         | None -> () in
-      half "left" 0;
-      half "right" 1;
+      side "left" 0;
+      side "right" 1;
       (match List.assoc_opt "pos" fields with
       | Some pos_json -> display_composite_position pos_json
       | None -> ());

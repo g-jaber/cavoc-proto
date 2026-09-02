@@ -25,7 +25,11 @@
     { "dir": "while_diverge", "title": "while_diverge", "mode": "single" },
     { "dir": "compose", "title": "provider ∘ client", "mode": "compose" },
     { "dir": "vending-till", "title": "till ∘ vending", "mode": "compose" },
-    { "dir": "twice-iter2", "title": "twice ∘ iter2", "mode": "compose" }
+    { "dir": "twice-iter2", "title": "twice ∘ iter2", "mode": "compose" },
+    { "dir": "synthesis-first-order", "title": "add and covers",
+      "mode": "synthesis" },
+    { "dir": "synthesis-ho", "title": "(unit -> int) -> int",
+      "mode": "synthesis" }
   ],
   "tutorial": ["tuto1", "tuto2"]
 }

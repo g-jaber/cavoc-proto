@@ -63,6 +63,28 @@ function cavocApplyOptionsToMenu() {
     }
     cavocEnforceDirectStyleLock();
     cavocEnforceComposeLock();
+    cavocEnforceSynthesisLock();
+}
+
+/* The synthesis page synthesizes both participants from the play, so every
+   option is forced: the concrete CPS stack, and the two restrictions that
+   keep the play definable (Lts_kind.build_arena forces them too). */
+function cavocEnforceSynthesisLock() {
+    const forced = { directStyle: false, symbolic: false,
+                     visibility: true, wellBracketing: true };
+    if (window.cavocScenario.mode !== 'synthesis') {
+        /* The other locks own every box but Visibility. */
+        const visibility = document.getElementById(cavocOptionIds.visibility);
+        if (visibility) visibility.disabled = false;
+        return;
+    }
+    for (const key in forced) {
+        window.cavocScenario.options[key] = forced[key];
+        const box = document.getElementById(cavocOptionIds[key]);
+        if (!box) continue;
+        box.checked = forced[key];
+        box.disabled = true;
+    }
 }
 
 /* Two options are greyed out in compose mode: Symbolic, because the
@@ -83,7 +105,7 @@ function cavocEnforceComposeLock() {
         direct.disabled = true;
         /* Dropping Direct Style hands WellBracketing back to the user. */
         cavocEnforceDirectStyleLock();
-    } else {
+    } else if (window.cavocScenario.mode !== 'synthesis') {
         symbolic.disabled = false;
         direct.disabled = false;
     }
@@ -98,7 +120,7 @@ function cavocEnforceDirectStyleLock() {
         window.cavocScenario.options.wellBracketing = true;
         wb.checked = true;
         wb.disabled = true;
-    } else {
+    } else if (window.cavocScenario.mode !== 'synthesis') {
         wb.disabled = false;
     }
 }
@@ -266,18 +288,24 @@ async function cavocScenarioFromDir(dir) {
         console.error(`Error loading the scenario of ${dir}:`, e);
         return null;
     }
+    const mode = described.mode || 'single';
+    const participants = described.participants.map((p) => ({
+        name: p.name,
+        dir,
+        ml: p.ml ? cavocExampleUrl(dir, p.ml) : null,
+        /* The signature is optional: a missing .mli leaves the editor
+           empty. */
+        mli: p.mli ? cavocExampleUrl(dir, p.mli) : null,
+    }));
+    /* The synthesis page's second card is the synthesized client: a
+       participant with no source of its own. */
+    if (mode === 'synthesis')
+        participants.push({ name: 'client', dir, ml: null, mli: null });
     return {
         title: described.title || dir,
         dir,
-        mode: described.mode || 'single',
-        participants: described.participants.map((p) => ({
-            name: p.name,
-            dir,
-            ml: p.ml ? cavocExampleUrl(dir, p.ml) : null,
-            /* The signature is optional: a missing .mli leaves the editor
-               empty. */
-            mli: p.mli ? cavocExampleUrl(dir, p.mli) : null,
-        })),
+        mode,
+        participants,
         /* An example without options of its own leaves the menu's current
            choices in force (cavocEnforceComposeLock still turns Symbolic
            and Direct Style off in compose mode). */
@@ -322,19 +350,21 @@ async function cavocPopulateExamples() {
             option.text = e.title;
             select.appendChild(option);
         });
-    const composites =
-        cavocManifest.examples.filter((e) => e.mode === 'compose');
-    if (composites.length > 0) {
+    const addGroup = (label, mode) => {
+        const examples = cavocManifest.examples.filter((e) => e.mode === mode);
+        if (examples.length === 0) return;
         const group = document.createElement('optgroup');
-        group.label = 'compositions';
-        composites.forEach((e) => {
+        group.label = label;
+        examples.forEach((e) => {
             const option = document.createElement('option');
             option.value = e.dir;
             option.text = e.title;
             group.appendChild(option);
         });
         select.appendChild(group);
-    }
+    };
+    addGroup('compositions', 'compose');
+    addGroup('synthesis', 'synthesis');
 }
 
 /* --- tutorial: a scripted sequence of scenarios --------------------------- */

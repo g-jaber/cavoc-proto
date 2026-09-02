@@ -3,13 +3,26 @@
  (public_name cavoc-explore_web)
  (package cavoc)
  (modes byte js)
- (modules explore_web ui_helpers editor_manager moves_manager display_config
-          moves_display lts_config lts_kind evaluate_code compose_driver
-          page_init interaction_signals)
+ (modules
+  explore_web
+  ui_helpers
+  editor_manager
+  moves_manager
+  display_config
+  moves_display
+  synthesis_display
+  lts_config
+  lts_kind
+  evaluate_code
+  compose_driver
+  synthesis_driver
+  page_init
+  interaction_signals)
  (preprocess
   (pps js_of_ocaml-ppx lwt_ppx ppx_deriving_yojson))
  (libraries
   refml
+  definability
   lang
   lts
   ogs
@@ -20,13 +33,13 @@
   lwt
   yojson))
 
-
 (executable
  (name explore_cli)
  (public_name cavoc-explore_cli)
  (package cavoc)
  (libraries
   refml
+  definability
   lang
   lts
   ogs
@@ -44,6 +57,7 @@
  (package cavoc)
  (libraries
   refml
+  definability
   lang
   lts
   ogs
@@ -53,13 +67,10 @@
   js_of_ocaml-lwt
   lwt
   cohttp
-  cohttp-lwt-unix)
-)
+  cohttp-lwt-unix))
 
 (executable
-  (name refml_eval)
-  (public_name refml-eval)
-  (package cavoc)
-  (libraries
-    refml
-    util))
+ (name refml_eval)
+ (public_name refml-eval)
+ (package cavoc)
+ (libraries refml util))

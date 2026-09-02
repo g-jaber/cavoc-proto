@@ -1,0 +1,7 @@
+{
+  "title": "synthesis: (unit -> int) -> int",
+  "mode": "synthesis",
+  "participants": [ { "name": "synthesis-ho", "mli": "synthesis-ho.mli" } ],
+  "options": { "directStyle": false, "wellBracketing": true,
+               "visibility": true, "symbolic": false }
+}

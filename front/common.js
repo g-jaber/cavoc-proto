@@ -3,7 +3,7 @@
    ==========================================================================
    The workspace of index.html: the toolbar, the row of participant cards
    with the public gutter at its right edge, the splitter, the lower row —
-   the History window under the cards, the Configuration/Console tabs under
+   the History window under the cards, the Configuration/Console/Client tabs under
    the choice panel — and the guide panel. The markup is built here; the
    scenario/tutorial logic driving it lives in front/scenario.js.
 
@@ -92,8 +92,8 @@ function cavocToolbarMarkup() {
 /* The workspace: the card row — one participant card per module, built by
    cavocBuildCards below — with the public gutter at its right edge, then the
    splitter and the lower row: the trace always on show in the History
-   window below the cards, and the Configuration/Console tabs below the
-   choice panel. The public gutter is where the Opponent (the user) lives:
+   window below the cards, and the Configuration/Console/Client tabs below
+   the choice panel. The public gutter is where the Opponent (the user) lives:
    it hosts the choice panel, and its head is the one home for the live
    readouts of the interfaces a composite has — the outer position, and the
    span of the shared names, a slot each for bin/display_config.ml.
@@ -133,9 +133,11 @@ function cavocWorkspaceMarkup() {
           <div class="tab-nav">
             <button class="tab-link" data-tab="config" onclick="openTab(event, 'config')">Configuration</button>
             <button class="tab-link" data-tab="console" onclick="openTab(event, 'console')">Console</button>
+            <button class="tab-link" data-tab="client" onclick="openTab(event, 'client')">Client</button>
           </div>
           <div id="config" class="tab-content"></div>
           <div id="console" class="tab-content"></div>
+          <div id="client" class="tab-content"></div>
         </div>
       </aside>
     </div>
@@ -166,6 +168,8 @@ window.cavocCards = [];
    module's signature is the public interface the user plays on; the modules
    before it (compose mode) share theirs with the next participant. */
 function cavocCardRole(mode, index, count) {
+    if (mode === 'synthesis')
+        return index === 0 ? 'synthesized module' : 'synthesized client';
     if (index === count - 1) return 'public signature';
     return 'shared interface — not public';
 }
@@ -327,11 +331,12 @@ function cavocBuildCards(participants, mode) {
     /* In single mode the toolbar's scenario picker is the one example
        selector, so the card's own picker would be a duplicate: front/style.css
        hides it on this class. Compose scenarios show it, one per card. */
-    row.classList.remove('mode-single', 'mode-compose');
+    row.classList.remove('mode-single', 'mode-compose', 'mode-synthesis');
     row.classList.add('mode-' + mode);
     /* The mode also scopes chrome outside the row: the shared History lane
        and the public gutter's position readout are compose-mode only. */
     document.body.classList.toggle('mode-compose', mode === 'compose');
+    document.body.classList.toggle('mode-synthesis', mode === 'synthesis');
     cavocSetHistoryLanes(mode);
     row.innerHTML = participants
         .map((p, i) =>
@@ -346,6 +351,22 @@ function cavocBuildCards(participants, mode) {
             signatureEditor: cavocMountCardEditor(`card-${i}-sig`),
         };
     });
+    /* On the synthesis page the module panes are outputs: the signature of
+       the first card is the page's one input. */
+    if (mode === 'synthesis') {
+        window.cavocCards.forEach((card, i) => {
+            card.editor.setReadOnly(true);
+            if (i > 0) card.signatureEditor.setReadOnly(true);
+        });
+    }
+}
+
+/* The synthesized program of a card, written by bin/synthesis_display.ml. */
+function cavocSetCardCode(index, text) {
+    const card = window.cavocCards[index];
+    if (!card) return;
+    card.editor.session.setValue(text);
+    card.editor.clearSelection();
 }
 
 function cavocResizeEditors() {
