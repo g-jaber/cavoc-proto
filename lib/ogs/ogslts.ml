@@ -72,17 +72,16 @@ end = struct
     let* ((a_nf, lnamectx, _storectx_discl), ienv, store) =
       Lang.eval (act_conf.opconf, namectxO, TypingLTS.get_storectx act_conf.pos)
     in
-    let nn = Lang.get_subject_name a_nf in
-    let renaming =
-      TypingLTS.place act_conf.pos TypingLTS.Moves.Output nn lnamectx in
-    let move = (TypingLTS.Moves.Output, (a_nf, renaming)) in
+    let move =
+      ( TypingLTS.Moves.Output,
+        TypingLTS.weaken_move act_conf.pos TypingLTS.Moves.Output
+          (a_nf, TypingLTS.Moves.Renaming.id lnamectx) ) in
     let pos = TypingLTS.trigger_move act_conf.pos move in
     let ienv = Lang.IEnv.copairing act_conf.ienv ienv in
-    (* The placement policy and the ienv-domain extension performed by
+    (* The weakening of the move and the ienv-domain extension performed by
        copairing must agree, up to display hints. *)
     assert (
-      TypingLTS.Moves.Renaming.Namectx.to_pmap
-        (TypingLTS.Moves.Renaming.im renaming)
+      TypingLTS.Moves.Renaming.Namectx.to_pmap (TypingLTS.get_namectxP pos)
       = TypingLTS.Moves.Renaming.Namectx.to_pmap (Lang.IEnv.dom ienv));
     return (move, { store; ienv; pos })
 
@@ -139,6 +138,7 @@ module MakeWithInit
 
   let lexing_init_pconf ?opponent_signature decl_lexbuffer signature_lexbuffer =
     let (interactive_env, store, name_ctxP, name_ctxO) =
-      Lang.get_typed_ienv ?opponent_signature decl_lexbuffer signature_lexbuffer in
+      Lang.get_typed_ienv ?opponent_signature decl_lexbuffer signature_lexbuffer
+    in
     init_pconf store interactive_env name_ctxP name_ctxO
 end

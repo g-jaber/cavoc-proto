@@ -1,38 +1,30 @@
 (* Open composition of two components, σ_L ∥ σ_R = trace (σ_L ⊗ σ_R) over
-   dynamic interfaces (design note: doc/compose.md). *)
-(* The scheduler [Make] is written once against [INT_STRUCTURE], which
-   packages everything representation-specific. *)
-(* The Echo of the Int-construction is no operation here: the scheduler's
-   synchronization branch and the synchronization state realize it. *)
+   dynamic name contexts. *)
 
 module type INT_STRUCTURE = sig
   (* Typing LTS of the components, shared by both: in v1, the standard
      instance. *)
   module TypingLTS : Typing.LTS
 
-  (* Typing LTS of the composite, over the external interfaces E_L and E_R,
-     the only ones the composite's Opponent ever sees. *)
+  (* Typing LTS of the composite, over the external contexts E_L and E_R,
+     the only names the composite's Opponent ever sees. *)
   module CompositeTypingLTS :
     Typing.LTS with module BranchMonad = TypingLTS.BranchMonad
 
   type side = Left | Right
 
-  (* The interface of the composite on which a name is used, fixed at its
-     introduction. *)
-  type interface = ExternalInterface | SharedInterface
-
   (* The synchronization state: for each of E_L, Shared_LR and E_R, the span
-     placing that interface context into the contexts of the two participants
-     playing on it. *)
+     embedding that context into the contexts of the two that play on it. *)
   type t
 
   val pp_sync_state : Format.formatter -> t -> unit
   val sync_state_to_yojson : t -> Yojson.Safe.t
 
-  (* The interface a P-move's subject is used on, read off the side's leg of
-     the Shared_LR span. *)
-  val interface_of_subject :
-    t -> side -> TypingLTS.Moves.Renaming.Namectx.Names.name -> interface
+  (* Whether a P-move's subject is shared with the other component, read off
+     the side's leg of the Shared_LR span; a name belongs to one context,
+     fixed at its introduction. *)
+  val is_shared_subject :
+    t -> side -> TypingLTS.Moves.Renaming.Namectx.Names.name -> bool
 
   (* Translate a move of component [side] whose subject is external into the
      corresponding move of the composite, extending the external span. *)
@@ -45,7 +37,7 @@ module type INT_STRUCTURE = sig
 
   (* Inverse translation, for Opponent moves already accepted by
      [CompositeTypingLTS.check_move], selecting the component the move addresses. *)
-  (* Errors on a move outside the disclosure-free fragment, which the
+  (* Errors on a move mentioning a name of another context, which the
      composite typing cannot detect. *)
   val import_move :
     t ->
@@ -54,7 +46,7 @@ module type INT_STRUCTURE = sig
     CompositeTypingLTS.Moves.pol_move ->
     (side * TypingLTS.Moves.pol_move * t, string) result
 
-  (* Forward a move across Shared_LR to the other, passive component, with
+  (* Forward a move through Shared_LR to the other, passive component, with
      the direction switched and both legs of the span extended. *)
   (* The rest of the a_nf travels untouched, its non-subject names being
      move-local. *)
@@ -66,7 +58,7 @@ module type INT_STRUCTURE = sig
     (TypingLTS.Moves.pol_move * t, string) result
 
   (* Which of one component's initial O-names the other provides, the rest
-     going to the external interfaces. *)
+     going to the external contexts. *)
   type initial_sharing
 
   val initialize : initial_sharing -> t * CompositeTypingLTS.position
@@ -152,7 +144,7 @@ struct
     { pasL; pasR; pos; sync_state }
 
   (* The same init with one side already active: a composition with an empty
-     external Opponent interface has no one to open the play. *)
+     external Opponent context has no one to open the play. *)
   let init_aconf (sharing : IntStructure.initial_sharing) (comps : components) :
       active_conf =
     let (sync_state, pos) = IntStructure.initialize sharing in
@@ -212,26 +204,26 @@ struct
           | IntStructure.Right -> "right")
         ^ " component: " ^ msg)
 
-    (* One P-step of the active component, routed on the interface the subject
-       of the produced move is used on. *)
+    (* One P-step of the active component, forwarded or exported according to
+       whether the subject of the produced move is shared. *)
     let p_trans (aconf : active_conf) : (comp_move * conf) EvalMonad.m =
       let open EvalMonad in
       let route_move side m sync_state pos passive_pos emit sync =
         let (_, move) = m in
         let nn = IntStructure.TypingLTS.Moves.get_subject_name move in
-        match IntStructure.interface_of_subject sync_state side nn with
-        | IntStructure.ExternalInterface -> begin
+        match IntStructure.is_shared_subject sync_state side nn with
+        | false -> begin
             match IntStructure.export_move sync_state side pos m with
             | Error msg -> free_name_error side m msg
             | Ok (composite_move, sync_state) ->
-                (* [trigger_move] trusts the placement carried by the move,
+                (* [trigger_move] trusts the weakening carried by the move,
                    which [export_move] has just built. *)
                 let pos =
                   IntStructure.CompositeTypingLTS.trigger_move pos
                     composite_move in
                 return (ExternalMove composite_move, emit sync_state pos)
           end
-        | IntStructure.SharedInterface -> begin
+        | true -> begin
             match IntStructure.forward_move sync_state side passive_pos m with
             | Error msg -> free_name_error side m msg
             | Ok (forwarded_m, sync_state) -> begin
@@ -301,7 +293,7 @@ struct
             end
         end
 
-    (* The Opponent of the composite plays on the external interfaces, which
+    (* The Opponent of the composite plays on the external contexts, which
        its own typing describes, so its moves are generated there and o_trans
        then routes each into the component it addresses. *)
     (* Generating them at the components instead would need the subject
@@ -379,16 +371,13 @@ struct
   module Namectx = IntLang.IEnv.Renaming.Namectx
 
   type side = SyncState.side = Left | Right
-  type interface = ExternalInterface | SharedInterface
   type t = SyncState.t
 
   let pp_sync_state = SyncState.pp
   let sync_state_to_yojson = SyncState.to_yojson
 
-  let interface_of_subject sync_state side nn =
-    match SyncState.lookup_shared sync_state side nn with
-    | Some _ -> SharedInterface
-    | None -> ExternalInterface
+  let is_shared_subject sync_state side nn =
+    Option.is_some (SyncState.lookup_shared sync_state side nn)
 
   (* A transmitted a_nf mentions no free name besides its subject: the
      disclosure-free fragment. *)
@@ -426,18 +415,16 @@ struct
         match SyncState.lookup_shared sync_state side nn with
         | None ->
             failwith
-              "Forwarding a move whose subject is not on the shared interface. \
-               Please report."
+              "Forwarding a move whose subject is not shared. Please report."
         | Some forwarded_subject ->
-            let lnamectx = TypingLTS.Moves.Renaming.dom sender_renaming in
-            let forwarded_renaming =
-              TypingLTS.place passive_pos TypingLTS.Moves.Input
-                forwarded_subject lnamectx in
+            let ((_, forwarded_renaming) as forwarded_move) =
+              TypingLTS.weaken_move passive_pos TypingLTS.Moves.Input
+                (translate_subject a_nf nn forwarded_subject, sender_renaming)
+            in
             let sync_state =
               SyncState.extend_shared sync_state side sender_renaming
                 forwarded_renaming in
-            let a_nf = translate_subject a_nf nn forwarded_subject in
-            Ok ((TypingLTS.Moves.Input, (a_nf, forwarded_renaming)), sync_state)
+            Ok ((TypingLTS.Moves.Input, forwarded_move), sync_state)
       end
 
   let export_move sync_state side composite_pos
@@ -450,20 +437,17 @@ struct
         match SyncState.lookup_externalO sync_state side nn with
         | None ->
             failwith
-              "Exporting a move whose subject is not on the external \
-               interface. Please report."
+              "Exporting a move whose subject is not external. Please report."
         | Some composite_level ->
-            let lnamectx = TypingLTS.Moves.Renaming.dom component_renaming in
-            let composite_renaming =
-              CompositeTypingLTS.place composite_pos
-                CompositeTypingLTS.Moves.Output composite_level lnamectx in
+            let ((_, composite_renaming) as composite_move) =
+              CompositeTypingLTS.weaken_move composite_pos
+                CompositeTypingLTS.Moves.Output
+                (translate_subject a_nf nn composite_level, component_renaming)
+            in
             let sync_state =
               SyncState.extend_externalP sync_state side component_renaming
                 composite_renaming in
-            let a_nf = translate_subject a_nf nn composite_level in
-            Ok
-              ( (CompositeTypingLTS.Moves.Output, (a_nf, composite_renaming)),
-                sync_state )
+            Ok ((CompositeTypingLTS.Moves.Output, composite_move), sync_state)
       end
 
   let import_move sync_state left_pos right_pos
@@ -481,23 +465,18 @@ struct
         | Some (side, component_level) ->
             let component_pos =
               match side with Left -> left_pos | Right -> right_pos in
-            let lnamectx =
-              CompositeTypingLTS.Moves.Renaming.dom composite_renaming in
-            let component_renaming =
-              TypingLTS.place component_pos TypingLTS.Moves.Input
-                component_level lnamectx in
+            let ((_, component_renaming) as component_move) =
+              TypingLTS.weaken_move component_pos TypingLTS.Moves.Input
+                (translate_subject a_nf nn component_level, composite_renaming)
+            in
             let sync_state =
               SyncState.extend_externalO sync_state side composite_renaming
                 component_renaming in
-            let a_nf = translate_subject a_nf nn component_level in
-            Ok
-              ( side,
-                (TypingLTS.Moves.Input, (a_nf, component_renaming)),
-                sync_state )
+            Ok (side, (TypingLTS.Moves.Input, component_move), sync_state)
       end
 
   (* The name pairs initialize Shared_LR, the remaining names going to the external
-     interfaces, the left component's before the right one's. *)
+     contexts, the left component's before the right one's. *)
   type initial_sharing = {
     left_init_pos: TypingLTS.position;
     right_init_pos: TypingLTS.position;

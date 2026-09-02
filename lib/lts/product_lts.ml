@@ -11,9 +11,6 @@ module Make
   module BranchMonad = TypingLTS.BranchMonad
 
   type store_ctx = TypingLTS.store_ctx
-
-  (* *)
-
   type position = TypingLTS.position * HistLts.conf [@@deriving to_yojson]
 
   let pp_position fmt (pos, hconf) =
@@ -25,8 +22,8 @@ module Make
   let get_namectxP (pos, _) = TypingLTS.get_namectxP pos
   let get_storectx (pos, _) = TypingLTS.get_storectx pos
 
-  (* History LTSs have no placement opinion. *)
-  let place (pos, _) dir nn lnamectx = TypingLTS.place pos dir nn lnamectx
+  (* History LTSs leave the weakening to the typing LTS. *)
+  let weaken_move (pos, _) dir move = TypingLTS.weaken_move pos dir move
 
   let generate_moves (pos, hconf) =
     let open BranchMonad in

@@ -1,21 +1,16 @@
-(* Synchronization state of the disclosure-free (v1) open composition
-   (doc/compose.md): the three interface spans E_L, Shared_LR and E_R, each
-   stored as its two polarized correspondence tables. *)
-(* A table sends the name a shared entity has at the participant that plays
-   moves on it to the name it has at the participant that introduced it, so
-   each table is consulted in exactly one direction. *)
+(* Synchronization state of the disclosure-free open composition. *)
 
 module Make (Renaming : Lang.Renaming.WEAKENING) = struct
   type side = Left | Right
   type table = Renaming.Namectx.Names.name Util.Namespan.namespan
 
   type t = {
-    (* The two halves of Shared_LR, by introducing side: a name the left
+    (* The two sides of Shared_LR, by introducing side: a name the left
        component introduces sits in Γ_P^L and in Γ_O^R, and only the right one
        plays it. *)
     shared_left: table; (* Γ_O^R level ↦ Γ_P^L level *)
     shared_right: table; (* Γ_O^L level ↦ Γ_P^R level *)
-    (* The P- and O-halves of E_L and E_R, the composite's position being the
+    (* The P- and O-sides of E_L and E_R, the composite's position being the
        second participant: an exported name is a P-name of both component and
        composite, an Opponent-introduced one an O-name of both. *)
     externalLP: table; (* composite P level ↦ Γ_P^L level *)
@@ -56,7 +51,7 @@ module Make (Renaming : Lang.Renaming.WEAKENING) = struct
       ]
 
   (* The subject of a P-move of component [side] as the other component names
-     it, or None when the subject is not on the shared interface. *)
+     it, or None when the subject is not shared. *)
   let lookup_shared sync_state side nn =
     match side with
     | Left -> Util.Pmap.lookup nn sync_state.shared_right

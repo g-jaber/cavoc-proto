@@ -160,6 +160,7 @@ module Storectx = struct
     failwith "add_fresh not relevant for store typing context. Please report."
 
   let show_name_in _ = Names.string_of_name
+  let erase_display_hints = Fun.id
 
   let map f (loc_ctx, symbolic_ctx, cons_ctx) =
     let loc_ctx' = Util.Pmap.map_im f loc_ctx in

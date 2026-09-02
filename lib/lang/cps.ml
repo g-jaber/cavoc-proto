@@ -70,10 +70,11 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
   let extract_name_ctx (namectx, _) = namectx
   let embed_name_ctx namectx = (namectx, CNamectx.empty)
 
-  module CRenaming = Renaming.MakeWeak (CNamectx)
+  module CRenaming =
+    Renaming.MakeInjectiveRenaming (Renaming.MakeDeBruijnWeakening (CNamectx))
 
   module Renaming =
-    Renaming.AggregateWeak (OpLang.Renaming) (CRenaming) (Namectx)
+    Renaming.AggregateInjectiveRenaming (OpLang.Renaming) (CRenaming) (Namectx)
 
   type term = NTerm of (CNames.name * OpLang.term)
 

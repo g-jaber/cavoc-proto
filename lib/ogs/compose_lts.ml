@@ -1,8 +1,8 @@
-(* The open composition of two OGS components, in its sequential shape
-   (doc/compose.md): the provider implements the shared interface, the client
-   is written against it and is the only one whose signature is public. This
-   module is the source-level front door — it builds the two components and
-   the initial sharing between them; the scheduler itself is Lts.Compose. *)
+(* The open composition of two OGS components, in its sequential shape: the
+   provider implements the shared signature, the client is written against it
+   and is the only one whose signature is public. *)
+(* This module initializes the composition from source, building the two
+   components and their initial sharing; the scheduler itself is Lts.Compose. *)
 
 module type COMPOSITION_WITH_INIT = sig
   include Lts.Strategy.LTS
@@ -103,7 +103,7 @@ module Make
           | Some imported -> (exported, imported)
           | None ->
               failwith
-                ("The shared interface declares " ^ id
+                ("The shared signature declares " ^ id
                ^ ", which the client did not import. Please report."))
         (Namectx.get_names provider_exports) in
     let sharing =

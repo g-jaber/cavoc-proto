@@ -24,6 +24,9 @@ module type TYPECTX = sig
      with when there is one, its bare printed form otherwise. *)
   val show_name_in : t -> Names.name -> string
 
+  (* The same context with empty display strings, types and order preserved. *)
+  val erase_display_hints : t -> t
+
   val map : (typ -> typ) -> t -> t
   (*val copairing : t * (t -> 'a) -> t * (t -> 'a) -> t -> 'a*)
   (* we have copairing (f:Γ -> 'a) (g:Δ -> 'a) : ((concat Γ Δ) -> 'a)*)
@@ -108,6 +111,9 @@ module Make_PMAP
     (nn, Util.Pmap.add (nn, ty) name_ctx)
 
   let show_name_in _ = Names.string_of_name
+
+  (* A name is its own display here, so there is no hint to erase. *)
+  let erase_display_hints = Fun.id
   let map = Util.Pmap.map_im
 
   (*let copairing (namectxl, mapl) (namectxr, mapr) nn =
@@ -185,6 +191,7 @@ module Make_List
     let nn = List.length name_ctx in
     (nn, name_ctx @ [ (str, ty) ])
 
+  let erase_display_hints = List.map (fun (_str, ty) -> ("", ty))
   let map f = List.map (fun (str, ty) -> (str, f ty))
 end
 
@@ -199,7 +206,8 @@ end) : TYPECTX with type typ = Types.t and type Names.name = unit = struct
   type t = Types.t list
 
   let empty = []
-  let concat = List.append
+  (* The top of the stack is the head, so the later context comes first. *)
+  let concat earlier later = List.append later earlier
 
   let pp fmt = function
     | [] -> Format.fprintf fmt "⋅"
@@ -230,6 +238,7 @@ end) : TYPECTX with type typ = Types.t and type Names.name = unit = struct
   let singleton ty = ((), [ ty ])
   let add_fresh nctx _str ty = ((), ty :: nctx)
   let show_name_in _ = Names.string_of_name
+  let erase_display_hints = Fun.id
   let map = List.map
 end
 
@@ -330,6 +339,10 @@ module Aggregate
   let show_name_in (namectx1, namectx2) = function
     | Either.Left nn -> Namectx1.show_name_in namectx1 nn
     | Either.Right nn -> Namectx2.show_name_in namectx2 nn
+
+  let erase_display_hints (namectx1, namectx2) =
+    ( Namectx1.erase_display_hints namectx1,
+      Namectx2.erase_display_hints namectx2 )
 
   let map f (namectx1, namectx2) =
     let f1 ty =
@@ -452,6 +465,10 @@ module AggregateCommon
     | (Some nn', None) -> Namectx1.show_name_in namectx1 nn'
     | (None, Some nn') -> Namectx2.show_name_in namectx2 nn'
     | _ -> Names.string_of_name nn
+
+  let erase_display_hints (namectx1, namectx2) =
+    ( Namectx1.erase_display_hints namectx1,
+      Namectx2.erase_display_hints namectx2 )
 
   let map f (namectx1, namectx2) =
     (Namectx1.map f namectx1, Namectx2.map f namectx2)

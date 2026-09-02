@@ -1,5 +1,5 @@
 module type IENV = sig
-  module Renaming : Renaming.WEAKENING
+  module Renaming : Renaming.INJECTIVE_RENAMING
 
   type value
 
@@ -47,7 +47,7 @@ module type IENV_ORDERED = sig
 end
 
 module Make_PMAP
-    (Renaming : Renaming.WEAKENING)
+    (Renaming : Renaming.INJECTIVE_RENAMING)
     (Value : sig
       type t [@@deriving to_yojson]
 
@@ -145,7 +145,7 @@ struct
 end
 
 module Make_List
-    (Renaming : Renaming.WEAKENING_LIST)
+    (Renaming : Renaming.INJECTIVE_RENAMING with type Namectx.Names.name = int)
     (Value : sig
       type t [@@deriving to_yojson]
 
@@ -261,7 +261,7 @@ struct
 end
 
 module Make_Stack
-    (Renaming : Renaming.WEAKENING with type Namectx.Names.name = unit)
+    (Renaming : Renaming.INJECTIVE_RENAMING with type Namectx.Names.name = unit)
     (Value : sig
       type t [@@deriving to_yojson]
 
@@ -300,12 +300,12 @@ module Make_Stack
   let embed_renaming _renam =
     failwith "Embed renaming is impossible for stacks. Please report."
 
-  (* We put ienv2 on top of ienv1 !*)
+  (* ienv2 goes on top of ienv1. *)
   let copairing ienv1 ienv2 =
     assert (ienv1.im = ienv2.im);
     {
       stack= List.append ienv2.stack ienv1.stack;
-      dom= Renaming.Namectx.concat ienv2.dom ienv1.dom;
+      dom= Renaming.Namectx.concat ienv1.dom ienv2.dom;
       im= ienv1.im;
     }
 
@@ -357,7 +357,7 @@ module Aggregate
     (IEnv1 : IENV)
     (IEnv2 : IENV)
     (Renaming :
-      Renaming.WEAKENING
+      Renaming.INJECTIVE_RENAMING
         with type Namectx.Names.name =
           ( IEnv1.Renaming.Namectx.Names.name,
             IEnv2.Renaming.Namectx.Names.name )
@@ -467,7 +467,7 @@ module AggregateCommon
         with type Renaming.Namectx.typ = IEnv1.Renaming.Namectx.typ
          and type value = IEnv1.value)
     (Renaming :
-      Renaming.WEAKENING
+      Renaming.INJECTIVE_RENAMING
         with type Namectx.Names.name =
           ( IEnv1.Renaming.Namectx.Names.name,
             IEnv2.Renaming.Namectx.Names.name )

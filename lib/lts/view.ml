@@ -3,12 +3,7 @@
 (* Its domain gives the canonical view-local levels, its image their meaning
    in that context. *)
 
-module Make (Thinning : sig
-  include Lang.Renaming.THINNING
-
-  val of_support : Namectx.t -> Namectx.Names.name list -> t
-end) =
-struct
+module Make (Thinning : Lang.Renaming.THINNING) = struct
   module Namectx = Thinning.Namectx
 
   type t = Thinning.t
@@ -31,10 +26,10 @@ struct
      the inclusion of its image into [context]. *)
   (* Its domain is rebuilt from [context], so display hints may differ between
      the two. *)
-  let transport_to_context ~context view =
+  let transport_to_context view context =
     Thinning.of_support context (support view)
 
-  let extend_visible_support ~fresh view =
+  let extend_visible_support view fresh =
     Thinning.of_support (Thinning.im view) (support view @ fresh)
 
   (* The view map records, at each name, the view of the other participant
@@ -59,12 +54,12 @@ struct
   let record_view_at_introduction view_map view fresh =
     Util.Pmap.concat view_map (init_view_map view fresh)
 
-  let restore_view recorded_view ~context ~fresh =
-    extend_visible_support ~fresh (transport_to_context ~context recorded_view)
+  let restore_view recorded_view context fresh =
+    extend_visible_support (transport_to_context recorded_view context) fresh
 
-  let restore_view_at_subject view_map subject ~context ~fresh =
+  let restore_view_at_subject view_map subject context fresh =
     match Util.Pmap.lookup subject view_map with
-    | Some recorded_view -> restore_view recorded_view ~context ~fresh
+    | Some recorded_view -> restore_view recorded_view context fresh
     | None ->
         Util.Error.failwithf
           "Error: the name %a is not in the view map %a. Please report."

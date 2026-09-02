@@ -1,69 +1,37 @@
-module type LANG = sig
-  module EvalMonad : Util.Monad.RUNNABLE
-  module BranchMonad : Util.Monad.BRANCH
-
-  (* Interactive environments γ are partial maps from names to interactive values*)
+(* Abstract normal forms with their interactive environments and the
+   operations on their names. *)
+(* Abstract normal forms can be thought of as named copatterns when the
+   language is of signature Language.WITHAVAL_INOUT. *)
+module type A_NF = sig
+  (* Interactive environments γ are partial maps from names to interactive
+     values. *)
   module IEnv : Ienv.IENV
-
-  type opconf
-
-  val string_of_opconf : opconf -> string
-  val pp_opconf : Format.formatter -> opconf -> unit
-
-  type store [@@deriving to_yojson]
-
-  val string_of_store : store -> string
-  val pp_store : Format.formatter -> store -> unit
-
-  module Storectx : Typectx.TYPECTX
-
-  val infer_type_store : store -> Storectx.t
-
-  (* The typed focusing process implemented by abstracting_nf
-      decomposes a normal form into:
-       - an abstract normal form for the observable part;
-       - a typed interactive environment for the negative part. *)
-
-  (* abstract normal forms can be thought of named copatterns when the language is
-     of signature Language.WITHAVAL_INOUT. *)
 
   type abstract_normal_form [@@deriving to_yojson]
 
   val renaming_a_nf :
     IEnv.Renaming.t -> abstract_normal_form -> abstract_normal_form
 
-  val eval :
-    opconf * IEnv.Renaming.Namectx.t * Storectx.t ->
-    ((abstract_normal_form * IEnv.Renaming.Namectx.t * Storectx.t)
-    * IEnv.t
-    * store)
-    EvalMonad.m
-
-  (* abstracting_nf nf Γₒ Σ returns a triple (anf,γ,Σ')
-      where anf{γ} = nf and Σ;Γₒ ⊢ anf ▷ Δ,Σ' and Σ;Γₒ ⊢ γ:Δ.
-      We should check whether we take into account disclosure of locations currently.*)
-
   val get_subject_name :
     abstract_normal_form -> IEnv.Renaming.Namectx.Names.name
 
-  (* fold_free_names_of_a_nf f acc A folds f over the free names (starting with the subject name) of A:
-     The store part of A is not traversed. *)
+  (* fold_free_names_of_a_nf f acc A folds f over the free names (starting
+     with the subject name) of A; the store part of A is not traversed. *)
   val fold_free_names_of_a_nf :
     ('a -> IEnv.Renaming.Namectx.Names.name -> 'a) ->
     'a ->
     abstract_normal_form ->
     'a
 
-  (* map_free_names_of_a_nf f A renames the free names (including the subject name) of A along f.
-     The store part of A is not traversed. *)
+  (* map_free_names_of_a_nf f A renames the free names (including the
+     subject name) of A along f; the store part of A is not traversed. *)
   val map_free_names_of_a_nf :
     (IEnv.Renaming.Namectx.Names.name -> IEnv.Renaming.Namectx.Names.name) ->
     abstract_normal_form ->
     abstract_normal_form
 
-  (* The first argument is a string inserted between
-     the negative part of the normal form
-     and the abstract values filling the positive parts *)
+  (* The first argument is a string inserted between the negative part of
+     the normal form and the abstract values filling the positive parts. *)
   val pp_a_nf :
     pp_dir:(Format.formatter -> unit) ->
     Format.formatter ->
@@ -71,7 +39,7 @@ module type LANG = sig
     unit
 
   (* Like pp_a_nf, with bound and free names displayed by the provided
-     printers. Head names are free. *)
+     printers; head names are free. *)
   val pp_a_nf_in :
     pp_dir:(Format.formatter -> unit) ->
     pp_free_name:(Format.formatter -> IEnv.Renaming.Namectx.Names.name -> unit) ->
@@ -87,29 +55,61 @@ module type LANG = sig
     abstract_normal_form ->
     abstract_normal_form ->
     IEnv.Renaming.Namectx.Names.name Util.Namespan.namespan option
+end
 
-  (* From the interactive name context Γ_P,
-     we generate all the possible pairs (A,Δ,Γ'_P) formed by an abstracted normal form A such that
-     Γ_P;_ ⊢ A ▷ Δ
-     The names introduced by A are de Bruijn levels of the locally built Δ,
+(* Abstract normal forms with their generation and type checking. *)
+module type TYPED_A_NF = sig
+  include A_NF
+  module BranchMonad : Util.Monad.BRANCH
+  module Storectx : Typectx.TYPECTX
+
+  (* From the interactive name context Γ_P, all the pairs (A,Δ,Γ'_P) formed
+     by an abstracted normal form A such that Γ_P;_ ⊢ A ▷ Δ. *)
+  (* The names introduced by A are de Bruijn levels of the locally built Δ,
      given an ambient identity by the weakening Δ ↪ Γ_O + Δ that the machine
-     computes, so that we do not need to provide Γ_O. *)
+     computes, so that Γ_O is not needed here. *)
   val generate_a_nf :
     Storectx.t ->
     IEnv.Renaming.Namectx.t ->
     (abstract_normal_form * IEnv.Renaming.Namectx.t * IEnv.Renaming.Namectx.t)
     BranchMonad.m
 
-  (* The typing judgment of an abstracted normal form Σ;Γ ⊢ A ▷ Δ
-      takes as arguments (Σ,Γ,A,Δ)
-    and produces the interactive name context Γ' where the linear resources of Γ used by A has been removed.
-     It returns None when the type checking fails. *)
-
+  (* The typing judgment Σ;Γ ⊢ A ▷ Δ, returning the interactive name context
+     Γ' where the linear resources of Γ used by A have been removed; None
+     when the type checking fails. *)
   val type_check_a_nf :
     Storectx.t ->
     IEnv.Renaming.Namectx.t ->
     abstract_normal_form * IEnv.Renaming.Namectx.t ->
     IEnv.Renaming.Namectx.t option
+end
+
+module type LANG = sig
+  include TYPED_A_NF
+  module EvalMonad : Util.Monad.RUNNABLE
+
+  type opconf
+
+  val string_of_opconf : opconf -> string
+  val pp_opconf : Format.formatter -> opconf -> unit
+
+  type store [@@deriving to_yojson]
+
+  val string_of_store : store -> string
+  val pp_store : Format.formatter -> store -> unit
+  val infer_type_store : store -> Storectx.t
+
+  (* The typed focusing process implemented by abstracting_nf decomposes a
+     normal form into an abstract normal form for the observable part and a
+     typed interactive environment for the negative part. *)
+  (* abstracting_nf nf Γₒ Σ returns a triple (anf,γ,Σ') where anf{γ} = nf and
+     Σ;Γₒ ⊢ anf ▷ Δ,Σ' and Σ;Γₒ ⊢ γ:Δ. *)
+  val eval :
+    opconf * IEnv.Renaming.Namectx.t * Storectx.t ->
+    ((abstract_normal_form * IEnv.Renaming.Namectx.t * Storectx.t)
+    * IEnv.t
+    * store)
+    EvalMonad.m
 
   val concretize_a_nf :
     store -> IEnv.t -> abstract_normal_form * IEnv.Renaming.t -> opconf * IEnv.t

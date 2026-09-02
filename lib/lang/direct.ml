@@ -48,10 +48,13 @@ struct
   let inj_cname () = Either.Right ()
 
   module Namectx = Typectx.Aggregate (OpLang.Namectx) (Stackctx) (Names)
-  module StackRenaming = Renaming.MakeNoName (Stackctx)
+
+  module StackRenaming =
+    Renaming.MakeInjectiveRenaming (Renaming.MakeUnitWeakening (Stackctx))
 
   module Renaming =
-    Renaming.AggregateWeak (OpLang.Renaming) (StackRenaming) (Namectx)
+    Renaming.AggregateInjectiveRenaming (OpLang.Renaming) (StackRenaming)
+      (Namectx)
 
   module StackEnv =
     Ienv.Make_Stack

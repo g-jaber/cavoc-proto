@@ -17,7 +17,7 @@ module type TYPED = sig
   module Namectx :
     Typectx.TYPECTX with module Names = Names and type typ = negative_type
 
-  module Renaming : Renaming.WEAKENING with module Namectx = Namectx
+  module Renaming : Renaming.INJECTIVE_RENAMING with module Namectx = Namectx
 end
 
 module type STORE = sig

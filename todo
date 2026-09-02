@@ -134,3 +134,8 @@ The modification will be done in lib/RefML/lexer.mll, and possibly in the functi
 - [ ] opconf should comes with their namectx and storectx typing
 - [ ] add a subject_name function 
 - [ ] Correct treatment of universal quantifiers in direct style
+
+ - [ ] Product_lts.trigger_move raises failwith "TODO" when the history LTS
+    rejects a Proponent move, and Vis_lts.MakeStackBased raises "Proponent
+    answers while no Opponent question is pending".
+- [ ] Asymetric Well-bracketing when Proponent may use call-cc
