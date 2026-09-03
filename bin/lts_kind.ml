@@ -135,16 +135,28 @@ module MakeDefinabilityStack () = struct
   module CpsLang = Lang.Definability.MakeComp (OpLang) ()
   module IntLang = Lang.Interactive.Make (CpsLang)
   module TypingLTS = Ogs.Typing.Make (IntLang)
-
-  (* The higher-order-store memory: Player moves may depend on the clock and
-     on the names received so far, all reified into private cells. *)
-  module Memory = Refml.Definability.HigherOrderStoreMemory (TypingLTS.Moves)
-  module ViewFunction = Lts.View_function.Make (IntLang) (TypingLTS) (Memory)
-
-  module Synthesis =
-    Definability.Synthesis.Make (CpsLang.Definability) (ViewFunction) (Memory)
-
   module Namectx = IntLang.IEnv.Renaming.Namectx
+
+  (* An extra memory over this stack. *)
+  module type MEMORY = sig
+    include
+      Lts.Extra_memory.EXTRA_MEMORY
+        with type move = TypingLTS.Moves.move
+         and type name = Namectx.Names.name
+         and type namectx = Namectx.t
+         and type renaming = TypingLTS.Moves.Renaming.t
+
+    include
+      Definability.Reification.REIFICATION
+        with type move := move
+         and type name := name
+         and type pattern := pattern
+         and type state := state
+         and type oplang_store = Refml.Definability.Ops.store
+         and type oplang_term = Refml.Syntax.term
+         and type oplang_pattern = Refml.Syntax.pattern
+         and type oplang_value = Refml.Syntax.value
+  end
 
   (* The syntheses run over the plain typing LTS whatever restriction the
      interaction runs under, the enriched ones sharing its moves. *)
@@ -167,24 +179,70 @@ module MakeDefinabilityStack () = struct
     | [ ((_, move), _, _) ] -> (continuation_namectx, move)
     | _ -> failwith "Definability: no single answer (). Please report."
 
+  (* The two syntheses over one memory. *)
+  module MakeSyntheses (Memory : MEMORY) = struct
+    module ViewFunction = Lts.View_function.Make (IntLang) (TypingLTS) (Memory)
+
+    module Synthesis =
+      Definability.Synthesis.Make (CpsLang.Definability) (ViewFunction) (Memory)
+
+    let synthesize_client_source ~storectx ~namectxP ~namectxO moves =
+      Option.map Refml.Definability.string_of_source_term
+        (Synthesis.synthesize_client_program_of_play
+           ~final_move:client_final_move
+           (plain_position ~storectx ~namectxP ~namectxO) moves (fun nn ->
+             Refml.Syntax.Var (identifier_of namectxP nn)))
+
+    let synthesize_module_source ~storectx ~namectxP ~namectxO moves =
+      Option.map
+        (fun exports ->
+          Refml.Definability.source_of_definability_implementation
+            ~exports:
+              (List.map
+                 (fun (nn, value) -> (identifier_of namectxP nn, value))
+                 exports)
+            ())
+        (Synthesis.synthesize_module_program_of_play
+           (plain_position ~storectx ~namectxP ~namectxO)
+           moves)
+  end
+
+  module OverInnocent =
+    MakeSyntheses (Refml.Definability.InnocentMemory (TypingLTS.Moves))
+
+  module OverClock =
+    MakeSyntheses (Refml.Definability.ClockMemory (TypingLTS.Moves))
+
+  module OverHigherOrderStore =
+    MakeSyntheses (Refml.Definability.HigherOrderStoreMemory (TypingLTS.Moves))
+
+  (* A play is synthesized over the least memory needed to build its strategy.
+     So an innocent play gives a pure program. *)
+  let over_least_memory ~innocent ~clock ~higher_order_store =
+    try innocent ()
+    with Failure _ -> ( try clock () with Failure _ -> higher_order_store ())
+
   let synthesize_client_source ~storectx ~namectxP ~namectxO moves =
-    Option.map Refml.Definability.string_of_source_term
-      (Synthesis.synthesize_client_program_of_play ~final_move:client_final_move
-         (plain_position ~storectx ~namectxP ~namectxO) moves (fun nn ->
-           Refml.Syntax.Var (identifier_of namectxP nn)))
+    over_least_memory
+      ~innocent:(fun () ->
+        OverInnocent.synthesize_client_source ~storectx ~namectxP ~namectxO
+          moves)
+      ~clock:(fun () ->
+        OverClock.synthesize_client_source ~storectx ~namectxP ~namectxO moves)
+      ~higher_order_store:(fun () ->
+        OverHigherOrderStore.synthesize_client_source ~storectx ~namectxP
+          ~namectxO moves)
 
   let synthesize_module_source ~storectx ~namectxP ~namectxO moves =
-    Option.map
-      (fun exports ->
-        Refml.Definability.source_of_definability_implementation
-          ~exports:
-            (List.map
-               (fun (nn, value) -> (identifier_of namectxP nn, value))
-               exports)
-          ())
-      (Synthesis.synthesize_module_program_of_play
-         (plain_position ~storectx ~namectxP ~namectxO)
-         moves)
+    over_least_memory
+      ~innocent:(fun () ->
+        OverInnocent.synthesize_module_source ~storectx ~namectxP ~namectxO
+          moves)
+      ~clock:(fun () ->
+        OverClock.synthesize_module_source ~storectx ~namectxP ~namectxO moves)
+      ~higher_order_store:(fun () ->
+        OverHigherOrderStore.synthesize_module_source ~storectx ~namectxP
+          ~namectxO moves)
 
   (* The concrete LTS over a typing LTS with the same moves, the client
      synthesized from the plays it records. *)
