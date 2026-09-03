@@ -5,7 +5,7 @@ type control_structure =
   (* with stack of evaluation contexts *)
   | CPS (* with continuation names*)
 
-type restriction = Visibility | WellBracketing
+type restriction = Visibility | WellBracketing | Innocence
 
 type kind_lts = {
   oplang: oplang;

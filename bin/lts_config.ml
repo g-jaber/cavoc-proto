@@ -54,4 +54,7 @@ let generate_kind_lts () =
       let restrictions =
         if get_bool options "visibility" then Visibility :: restrictions
         else restrictions in
+      let restrictions =
+        if get_bool options "innocence" then Innocence :: restrictions
+        else restrictions in
       { oplang; symbolic; control; restrictions }

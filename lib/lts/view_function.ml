@@ -46,16 +46,68 @@ module type VIEWFUNCTION = sig
     guard: ExtraMemory.pattern;
   }
 
+  val pp_argument : Format.formatter -> argument -> unit
+
   (* the abstract type for the view function *)
   type t
 
   val empty : t
   val pp : Format.formatter -> t -> unit
+  val to_yojson : t -> Yojson.Safe.t
 
+  (* From the Opponent context of the moment; the name is its own level. *)
   val initial_pointed_view :
-    TypingLTS.position ->
+    TypingLTS.Moves.Renaming.Namectx.t ->
     TypingLTS.Moves.Renaming.Namectx.Names.name ->
     pointed_view
+
+  (* A recording in progress: the view function so far, the pointed view of
+     each Player name, and the memory. *)
+  type recording = {
+    view_function: t;
+    pointed_views:
+      (TypingLTS.Moves.Renaming.Namectx.Names.name, pointed_view) Util.Pmap.pmap;
+    memory: ExtraMemory.state;
+    initial_namectxP: TypingLTS.Moves.Renaming.Namectx.t;
+  }
+
+  val pp_recording : Format.formatter -> recording -> unit
+  val recording_to_yojson : recording -> Yojson.Safe.t
+
+  (* From the Player context, whose names are their own levels, and the
+     Opponent context. *)
+  val initial_recording :
+    TypingLTS.Moves.Renaming.Namectx.t ->
+    TypingLTS.Moves.Renaming.Namectx.t ->
+    recording
+
+  (* An Opponent move localized at the pointed view of its subject, with the
+     coordinates its Player move is read in: the P-view's O-support restored
+     in the Opponent context after the move, and the provided reading
+     there. *)
+  type localized_opponent_move = {
+    argument: argument;
+    o_support: View.t;
+    provided_reading: TypingLTS.Moves.Renaming.t;
+  }
+
+  (* From the Opponent context after the move and the weakening of its local
+     context; the memory observes the move. *)
+  val localize_opponent_step :
+    recording ->
+    TypingLTS.Moves.Renaming.Namectx.t ->
+    TypingLTS.Moves.Renaming.t ->
+    TypingLTS.Moves.move ->
+    localized_opponent_move * recording
+
+  (* Record the Player move answering it, from the weakening of its local
+     context; None when a different Player move is recorded there. *)
+  val record_player_step :
+    recording ->
+    localized_opponent_move ->
+    TypingLTS.Moves.Renaming.t ->
+    TypingLTS.Moves.move ->
+    recording option
 
   (* Remap the subject to its stored view-local level and take the local
      form; any other free name is a polymorphic name given back, outside the
@@ -217,21 +269,31 @@ module Make
 
   let empty = Util.Pmap.empty
 
+  let pp_argument fmt argument =
+    Format.fprintf fmt "(%a, %a, %a, %a)" pp_view_play argument.view_play
+      Namectx.Names.pp_name argument.subject Moves.pp_move argument.pattern
+      ExtraMemory.pp_pattern argument.guard
+
   let pp fmt strategy =
     let pp_empty fmt () = Format.pp_print_string fmt "⋅" in
     let pp_p_view fmt (argument, player_move) =
-      Format.fprintf fmt "@[(%a, %a, %a, %a) ↦ %a@]" pp_view_play
-        argument.view_play Namectx.Names.pp_name argument.subject Moves.pp_move
-        argument.pattern ExtraMemory.pp_pattern argument.guard Moves.pp_move
+      Format.fprintf fmt "@[%a ↦ %a@]" pp_argument argument Moves.pp_move
         player_move in
     Util.Pmap.pp_pmap ~pp_empty pp_p_view fmt strategy
 
-  let initial_pointed_view position name =
-    {
-      view_play= [];
-      subject= name;
-      o_support= Moves.Renaming.id (TypingLTS.get_namectxO position);
-    }
+  let to_yojson strategy =
+    `List
+      (List.map
+         (fun (argument, player_move) ->
+           `Assoc
+             [
+               ("argument", `String (Format.asprintf "%a" pp_argument argument));
+               ("playerMove", Moves.move_to_yojson player_move);
+             ])
+         (Util.Pmap.to_list strategy))
+
+  let initial_pointed_view namectxO name =
+    { view_play= []; subject= name; o_support= Moves.Renaming.id namectxO }
 
   let localize_incoming_move (pointed_view : pointed_view) (move : Moves.move) :
       Moves.move =
@@ -331,15 +393,19 @@ module Make
               Moves.pp_move pattern)
       (guarded_branches_at strategy view_play subject)
 
-  let add_player_move strategy argument player_move =
+  let try_add_player_move strategy argument player_move =
     match Util.Pmap.lookup argument strategy with
-    | Some recorded ->
-        if recorded = player_move then strategy
-        else
-          failwith
-            "View_function.add_player_move: conflicting Player moves at the \
-             same argument"
-    | None -> Util.Pmap.modadd (argument, player_move) strategy
+    | Some recorded -> if recorded = player_move then Some strategy else None
+    | None -> Some (Util.Pmap.modadd (argument, player_move) strategy)
+
+  let conflict_message =
+    "View_function.add_player_move: conflicting Player moves at the same \
+     argument"
+
+  let add_player_move strategy argument player_move =
+    match try_add_player_move strategy argument player_move with
+    | Some strategy -> strategy
+    | None -> failwith conflict_message
 
   let player_context_of_view initial_namectxP view_play =
     List.fold_left
@@ -359,73 +425,147 @@ module Make
     Renaming.weak_r (Moves.get_namectx move)
       (player_context_of_view initial_namectxP view_play)
 
-  let add_play strategy play =
-    let initial_position = Play.initial_position play in
-    let initial_namectxP = TypingLTS.get_namectxP initial_position in
-    let initial_pointed_views =
-      Util.Pmap.list_to_pmap
-        (List.map
-           (fun name -> (name, initial_pointed_view initial_position name))
-           (Namectx.get_names initial_namectxP)) in
-    let insert_op_move (strategy, pointed_views, memory_state)
-        (opponent_step : Play.step) (player_step : Play.step) =
-      let opponent_move = opponent_step.move in
-      let mid_position = opponent_step.target in
-      let ambient_player_move = player_step.move in
-      let ambient_subject = Moves.get_subject_name opponent_move in
-      let pointed_view =
-        match Util.Pmap.lookup ambient_subject pointed_views with
-        | Some (pointed_view : pointed_view) -> pointed_view
-        | None ->
-            Util.Error.failwithf
-              "View_function.add_play: the name %a has no pointed view. Please \
-               report."
-              Namectx.Names.pp_name ambient_subject in
-      let mid_namectxO = TypingLTS.get_namectxO mid_position in
-      let o_support =
-        View.restore_view pointed_view.o_support mid_namectxO
-          (Moves.fresh_names opponent_step.weakening opponent_move) in
-      let pattern = localize_incoming_move pointed_view opponent_move in
-      let player_move =
-        localize_player_move o_support
-          (ExtraMemory.provided_reading memory_state mid_namectxO)
-          ambient_player_move in
-      let strategy =
-        add_player_move strategy
+  type recording = {
+    view_function: t;
+    pointed_views: (Namectx.Names.name, pointed_view) Util.Pmap.pmap;
+    memory: ExtraMemory.state;
+    initial_namectxP: Namectx.t;
+  }
+
+  let pp_pointed_views fmt pointed_views =
+    let pp_empty fmt () = Format.pp_print_string fmt "⋅" in
+    let pp_binding fmt (name, pointed_view) =
+      Format.fprintf fmt "%a ↦ %a" Namectx.Names.pp_name name pp_pointed_view
+        pointed_view in
+    Util.Pmap.pp_pmap ~pp_empty pp_binding fmt pointed_views
+
+  let pp_recording fmt recording =
+    Format.fprintf fmt "@[⟨%a |@, Pointed views: %a |@, Memory: %a⟩@]" pp
+      recording.view_function pp_pointed_views recording.pointed_views
+      ExtraMemory.pp_state recording.memory
+
+  let recording_to_yojson recording =
+    `Assoc
+      [
+        ("viewFunction", to_yojson recording.view_function);
+        ( "pointedViews",
+          `Assoc
+            (List.map
+               (fun (name, pointed_view) ->
+                 ( Namectx.Names.string_of_name name,
+                   pointed_view_to_yojson pointed_view ))
+               (Util.Pmap.to_list recording.pointed_views)) );
+        ( "memory",
+          `String (Format.asprintf "%a" ExtraMemory.pp_state recording.memory)
+        );
+      ]
+
+  let initial_recording namectxP namectxO =
+    {
+      view_function= empty;
+      pointed_views=
+        Util.Pmap.list_to_pmap
+          (List.map
+             (fun name -> (name, initial_pointed_view namectxO name))
+             (Namectx.get_names namectxP));
+      memory= ExtraMemory.initial_state;
+      initial_namectxP= namectxP;
+    }
+
+  type localized_opponent_move = {
+    argument: argument;
+    o_support: View.t;
+    provided_reading: Moves.Renaming.t;
+  }
+
+  let localize_opponent_step recording mid_namectxO weakening opponent_move =
+    let ambient_subject = Moves.get_subject_name opponent_move in
+    let pointed_view =
+      match Util.Pmap.lookup ambient_subject recording.pointed_views with
+      | Some (pointed_view : pointed_view) -> pointed_view
+      | None ->
+          Util.Error.failwithf
+            "View_function: the name %a has no pointed view. Please report."
+            Namectx.Names.pp_name ambient_subject in
+    let o_support =
+      View.restore_view pointed_view.o_support mid_namectxO
+        (Moves.fresh_names weakening opponent_move) in
+    ( {
+        argument=
           {
             view_play= pointed_view.view_play;
             subject= pointed_view.subject;
-            pattern;
-            guard= ExtraMemory.guard_of_state memory_state;
-          }
-          player_move in
-      let extended_view =
-        pointed_view.view_play @ [ { o= pattern; p= player_move } ] in
-      let fresh_pointed_views =
-        List.map2
-          (fun ambient_name view_level ->
-            ( ambient_name,
-              { view_play= extended_view; subject= view_level; o_support } ))
-          (Moves.fresh_names player_step.weakening ambient_player_move)
-          (Moves.fresh_names
-             (fresh_names_weakening initial_namectxP pointed_view.view_play
-                player_move)
-             player_move) in
-      ( strategy,
-        Util.Pmap.concat pointed_views
-          (Util.Pmap.list_to_pmap fresh_pointed_views),
-        ExtraMemory.advance opponent_step.weakening opponent_move memory_state
-      ) in
-    let rec insert_op_moves ((strategy, _, memory_state) as recording) play =
+            pattern= localize_incoming_move pointed_view opponent_move;
+            guard= ExtraMemory.guard_of_state recording.memory;
+          };
+        o_support;
+        provided_reading=
+          ExtraMemory.provided_reading recording.memory mid_namectxO;
+      },
+      {
+        recording with
+        memory= ExtraMemory.advance weakening opponent_move recording.memory;
+      } )
+
+  let record_player_step recording localized weakening ambient_player_move =
+    let player_move =
+      localize_player_move localized.o_support localized.provided_reading
+        ambient_player_move in
+    Option.map
+      (fun view_function ->
+        let view_play = localized.argument.view_play in
+        let extended_view =
+          view_play @ [ { o= localized.argument.pattern; p= player_move } ]
+        in
+        let fresh_pointed_views =
+          List.map2
+            (fun ambient_name view_level ->
+              ( ambient_name,
+                {
+                  view_play= extended_view;
+                  subject= view_level;
+                  o_support= localized.o_support;
+                } ))
+            (Moves.fresh_names weakening ambient_player_move)
+            (Moves.fresh_names
+               (fresh_names_weakening recording.initial_namectxP view_play
+                  player_move)
+               player_move) in
+        {
+          recording with
+          view_function;
+          pointed_views=
+            Util.Pmap.concat recording.pointed_views
+              (Util.Pmap.list_to_pmap fresh_pointed_views);
+        })
+      (try_add_player_move recording.view_function localized.argument
+         player_move)
+
+  let add_play strategy play =
+    let initial_position = Play.initial_position play in
+    let rec insert_op_moves recording play =
       match Play.opponent_step play with
-      | None -> (strategy, memory_state)
-      | Some (opponent_step, rest) ->
+      | None -> (recording.view_function, recording.memory)
+      | Some (opponent_step, rest) -> (
           let (player_step, rest) = Play.player_step rest in
-          insert_op_moves
-            (insert_op_move recording opponent_step player_step)
-            rest in
+          let (localized, recording) =
+            localize_opponent_step recording
+              (TypingLTS.get_namectxO opponent_step.target)
+              opponent_step.weakening opponent_step.move in
+          match
+            record_player_step recording localized player_step.weakening
+              player_step.move
+          with
+          | Some recording -> insert_op_moves recording rest
+          | None -> failwith conflict_message) in
     insert_op_moves
-      (strategy, initial_pointed_views, ExtraMemory.initial_state)
+      {
+        (initial_recording
+           (TypingLTS.get_namectxP initial_position)
+           (TypingLTS.get_namectxO initial_position))
+        with
+        view_function= strategy;
+      }
       play
 end
 
@@ -470,12 +610,7 @@ struct
        their own levels. *)
     let initial_values _strategy namectxO local_namectx =
       List.map
-        (fun name ->
-          {
-            ViewFunction.view_play= [];
-            subject= name;
-            o_support= Moves.Renaming.id namectxO;
-          })
+        (ViewFunction.initial_pointed_view namectxO)
         (Renaming.Namectx.get_names local_namectx)
 
     let answer strategy subject_view namectxO weakening move =

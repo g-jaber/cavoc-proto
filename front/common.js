@@ -55,6 +55,10 @@ function cavocToolbarMarkup() {
               <input type="checkbox" id="visibility-check">
               <label for="visibility-check">Visibility</label>
             </div>
+            <div class="option-item">
+              <input type="checkbox" id="innocence-check">
+              <label for="innocence-check">Innocence</label>
+            </div>
             <hr class="option-rule">
             <div class="option-item">
               <input type="checkbox" id="symbolic-check">

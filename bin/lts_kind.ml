@@ -11,7 +11,7 @@
 
 type oplang = RefML [@@deriving yojson]
 type control_structure = DirectStyle | CPS [@@deriving yojson]
-type restriction = Visibility | WellBracketing [@@deriving yojson]
+type restriction = Visibility | WellBracketing | Innocence [@@deriving yojson]
 
 type kind_lts = {
   oplang: oplang;
@@ -286,9 +286,16 @@ module MakeDefinabilityStack () = struct
   end
 end
 
+(* Innocence is enforced over the CPS moves only, the view function reading
+   continuations as names. *)
+let check_innocence_in_cps kind =
+  if kind.control = DirectStyle && List.mem Innocence kind.restrictions then
+    failwith "Innocence is only enforced in CPS."
+
 (* Direct style is intrinsically well-bracketed: well-bracketing needs no
    enforcement, and visibility is enforced by the stack-based LTS alone. *)
 let build_direct_style_lts kind : (module SINGLE_RESULT_LTS_WITH_CLIENT) =
+  check_innocence_in_cps kind;
   let module Stack = MakeDefinabilityStack () in
   let module TypingLTS = Stack.DirectTypingLTS in
   if List.mem Visibility kind.restrictions then
@@ -301,21 +308,43 @@ let build_direct_style_lts kind : (module SINGLE_RESULT_LTS_WITH_CLIENT) =
 let build_cps_lts kind : (module SINGLE_RESULT_LTS_WITH_CLIENT) =
   let module Stack = MakeDefinabilityStack () in
   let module TypingLTS = Stack.TypingLTS in
+  let innocence = List.mem Innocence kind.restrictions in
+  (* Innocence is put over the other restrictions: it fails on a move they
+     reject. *)
+  let module WithInnocence
+      (RunTypingLTS :
+        Lts.Typing.LTS
+          with module Moves = TypingLTS.Moves
+           and type store_ctx = TypingLTS.store_ctx) =
+  struct
+    let lts : (module SINGLE_RESULT_LTS_WITH_CLIENT) =
+      if innocence then
+        (module Stack.WithClientSynthesis
+                  (Ogs.Innocence_lts.Make (Stack.IntLang) (RunTypingLTS)))
+      else (module Stack.WithClientSynthesis (RunTypingLTS))
+  end in
   match
     ( List.mem WellBracketing kind.restrictions,
       List.mem Visibility kind.restrictions )
   with
-  | (false, false) -> (module Stack.WithClientSynthesis (TypingLTS))
+  | (false, false) ->
+      let module Restricted = WithInnocence (TypingLTS) in
+      Restricted.lts
   | (true, false) ->
       let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
-      (module Stack.WithClientSynthesis
-                (Lts.Product_lts.Make (TypingLTS) (WBLTS)))
+      let module Restricted =
+        WithInnocence (Lts.Product_lts.Make (TypingLTS) (WBLTS)) in
+      Restricted.lts
   | (false, true) ->
-      (module Stack.WithClientSynthesis (Ogs.Vis_lts.MakeNameIndexed (TypingLTS)))
+      let module Restricted =
+        WithInnocence (Ogs.Vis_lts.MakeNameIndexed (TypingLTS)) in
+      Restricted.lts
   | (true, true) ->
       let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
       let module ProductLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
-      (module Stack.WithClientSynthesis (Ogs.Vis_lts.MakeNameIndexed (ProductLTS)))
+      let module Restricted =
+        WithInnocence (Ogs.Vis_lts.MakeNameIndexed (ProductLTS)) in
+      Restricted.lts
 
 (* An arena over a typing LTS with the syntheses of its plays. *)
 module MakeArena
@@ -409,27 +438,47 @@ let build_concrete_lts kind : (module SINGLE_RESULT_LTS_WITH_CLIENT) =
   | CPS -> build_cps_lts kind
 
 let build_compose_lts kind : (module SINGLE_RESULT_COMPOSITION_WITH_INIT) =
+  check_innocence_in_cps kind;
   let (module OpLang) = build_oplang kind in
   let (module IntLang) = build_intlang kind (module OpLang) in
   let module TypingLTS = Ogs.Typing.Make (IntLang) in
+  let innocence = List.mem Innocence kind.restrictions in
+  let module WithInnocence
+      (RunTypingLTS :
+        Lts.Typing.LTS
+          with module Moves = TypingLTS.Moves
+           and type store_ctx = TypingLTS.store_ctx) =
+  struct
+    let lts : (module SINGLE_RESULT_COMPOSITION_WITH_INIT) =
+      if innocence then
+        (module Ogs.Compose_lts.Make
+                  (IntLang)
+                  (Ogs.Innocence_lts.Make (IntLang) (RunTypingLTS)))
+      else (module Ogs.Compose_lts.Make (IntLang) (RunTypingLTS))
+  end in
   match
     ( List.mem WellBracketing kind.restrictions,
       List.mem Visibility kind.restrictions,
       kind.control )
   with
-  | (false, false, _) -> (module Ogs.Compose_lts.Make (IntLang) (TypingLTS))
+  | (false, false, _) ->
+      let module Restricted = WithInnocence (TypingLTS) in
+      Restricted.lts
   | (true, false, CPS) ->
       let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
-      let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
-      (module Ogs.Compose_lts.Make (IntLang) (TypingLTS))
+      let module Restricted =
+        WithInnocence (Lts.Product_lts.Make (TypingLTS) (WBLTS)) in
+      Restricted.lts
   | (false, true, CPS) ->
-      let module TypingLTS = Ogs.Vis_lts.MakeNameIndexed (TypingLTS) in
-      (module Ogs.Compose_lts.Make (IntLang) (TypingLTS))
+      let module Restricted =
+        WithInnocence (Ogs.Vis_lts.MakeNameIndexed (TypingLTS)) in
+      Restricted.lts
   | (true, true, CPS) ->
       let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
-      let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
-      let module TypingLTS = Ogs.Vis_lts.MakeNameIndexed (TypingLTS) in
-      (module Ogs.Compose_lts.Make (IntLang) (TypingLTS))
+      let module ProductLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
+      let module Restricted =
+        WithInnocence (Ogs.Vis_lts.MakeNameIndexed (ProductLTS)) in
+      Restricted.lts
   (* Direct style is intrinsically well-bracketed: well-bracketing needs no
      enforcement, and visibility is enforced by the stack-based LTS alone. *)
   | (true, false, DirectStyle) ->
@@ -439,27 +488,47 @@ let build_compose_lts kind : (module SINGLE_RESULT_COMPOSITION_WITH_INIT) =
       (module Ogs.Compose_lts.Make (IntLang) (TypingLTS))
 
 let build_symbolic_lts kind : (module MULTI_RESULT_LTS_WITH_INIT) =
+  check_innocence_in_cps kind;
   let (module OpLang) = build_oplang_multi kind in
   let (module IntLang) = build_intlang_multi kind (module OpLang) in
   let module TypingLTS = Ogs.Typing.Make (IntLang) in
+  let innocence = List.mem Innocence kind.restrictions in
+  let module WithInnocence
+      (RunTypingLTS :
+        Lts.Typing.LTS
+          with module Moves = TypingLTS.Moves
+           and type store_ctx = TypingLTS.store_ctx) =
+  struct
+    let lts : (module MULTI_RESULT_LTS_WITH_INIT) =
+      if innocence then
+        (module Ogs.Ogslts.MakeWithInit
+                  (IntLang)
+                  (Ogs.Innocence_lts.Make (IntLang) (RunTypingLTS)))
+      else (module Ogs.Ogslts.MakeWithInit (IntLang) (RunTypingLTS))
+  end in
   match
     ( List.mem WellBracketing kind.restrictions,
       List.mem Visibility kind.restrictions,
       kind.control )
   with
-  | (false, false, _) -> (module Ogs.Ogslts.MakeWithInit (IntLang) (TypingLTS))
+  | (false, false, _) ->
+      let module Restricted = WithInnocence (TypingLTS) in
+      Restricted.lts
   | (true, false, CPS) ->
       let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
-      let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
-      (module Ogs.Ogslts.MakeWithInit (IntLang) (TypingLTS))
+      let module Restricted =
+        WithInnocence (Lts.Product_lts.Make (TypingLTS) (WBLTS)) in
+      Restricted.lts
   | (false, true, CPS) ->
-      let module TypingLTS = Ogs.Vis_lts.MakeNameIndexed (TypingLTS) in
-      (module Ogs.Ogslts.MakeWithInit (IntLang) (TypingLTS))
+      let module Restricted =
+        WithInnocence (Ogs.Vis_lts.MakeNameIndexed (TypingLTS)) in
+      Restricted.lts
   | (true, true, CPS) ->
       let module WBLTS = Ogs.Wblts.Make (TypingLTS.Moves) in
-      let module TypingLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
-      let module TypingLTS = Ogs.Vis_lts.MakeNameIndexed (TypingLTS) in
-      (module Ogs.Ogslts.MakeWithInit (IntLang) (TypingLTS))
+      let module ProductLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
+      let module Restricted =
+        WithInnocence (Ogs.Vis_lts.MakeNameIndexed (ProductLTS)) in
+      Restricted.lts
   (* Direct style is intrinsically well-bracketed: well-bracketing needs no
      enforcement, and visibility is enforced by the stack-based LTS alone. *)
   | (true, false, DirectStyle) ->

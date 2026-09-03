@@ -35,7 +35,7 @@ struct
         let typ = TypingLTS.Moves.Renaming.Namectx.lookup_exn namectxP name in
         snd
           (ViewFunctionLang.IEnv.add_fresh ienv "" typ
-             (ViewFunction.initial_pointed_view position name)))
+             (ViewFunction.initial_pointed_view namectxO name)))
       (ViewFunctionLang.IEnv.empty namectxO)
       (TypingLTS.Moves.Renaming.Namectx.get_names namectxP)
 

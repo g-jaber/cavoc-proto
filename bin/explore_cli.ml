@@ -20,6 +20,7 @@ let is_program = ref false
 let enable_wb = ref true
 let enable_cps = ref true
 let enable_visibility = ref false
+let enable_innocence = ref false
 let generate_tree = ref false
 let is_mode = ref Explore
 let is_compare = ref false
@@ -41,6 +42,9 @@ let speclist =
     ( "-vis",
       Arg.Set enable_visibility,
       "Enable the visibility enforcement of the interaction" );
+    ( "-innocence",
+      Arg.Set enable_innocence,
+      "Enable the innocence enforcement of the Opponent, in cps style only." );
     ( "-no-cps",
       Tuple [ Arg.Clear enable_cps; Arg.Clear enable_wb ],
       "Use a representation of actions as calls and return rather than in cps \
@@ -61,6 +65,8 @@ let generate_kind_lts () =
   let restrictions =
     if !enable_visibility then Visibility :: restrictions else restrictions
   in
+  let restrictions =
+    if !enable_innocence then Innocence :: restrictions else restrictions in
   { oplang; symbolic= false; control; restrictions }
 
 let fix_mode () =

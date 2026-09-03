@@ -1,5 +1,7 @@
-(* The visibility discipline over a typing LTS. *)
-module type VISIBILITY = sig
+(* A restriction over a typing LTS: a conf carried along the play, which each
+   move extends or is rejected by; the visibility restrictions below, the
+   innocence one in Innocence_lts. *)
+module type RESTRICTION = sig
   module TypingLTS : Lts.Typing.LTS
 
   type conf [@@deriving to_yojson]
@@ -16,31 +18,31 @@ module type VISIBILITY = sig
     TypingLTS.Moves.Renaming.Namectx.t ->
     conf
 
-  (* From the Player context after the move and the weakening of the
-     local context of the move. *)
-  val check_visibility :
-    TypingLTS.Moves.Renaming.Namectx.t ->
+  (* From the target position of the move and the weakening of its local
+     context. *)
+  val check :
+    TypingLTS.position ->
     TypingLTS.Moves.Renaming.t ->
     conf ->
     TypingLTS.Moves.pol_move ->
     conf option
 end
 
-module Make (Visibility : VISIBILITY) :
+module Make (Restriction : RESTRICTION) :
   Lts.Typing.LTS
-    with module Moves = Visibility.TypingLTS.Moves
-     and module BranchMonad = Visibility.TypingLTS.BranchMonad
-     and type store_ctx = Visibility.TypingLTS.store_ctx = struct
-  module TypingLTS = Visibility.TypingLTS
+    with module Moves = Restriction.TypingLTS.Moves
+     and module BranchMonad = Restriction.TypingLTS.BranchMonad
+     and type store_ctx = Restriction.TypingLTS.store_ctx = struct
+  module TypingLTS = Restriction.TypingLTS
   module Moves = TypingLTS.Moves
   module BranchMonad = TypingLTS.BranchMonad
 
   type store_ctx = TypingLTS.store_ctx
-  type position = TypingLTS.position * Visibility.conf [@@deriving to_yojson]
+  type position = TypingLTS.position * Restriction.conf [@@deriving to_yojson]
 
   let pp_position fmt (position, conf) =
     Format.fprintf fmt "@[%a |@, %a@]" TypingLTS.pp_position position
-      Visibility.pp_conf conf
+      Restriction.pp_conf conf
 
   let string_of_position = Format.asprintf "%a" pp_position
   let get_namectxO (position, _) = TypingLTS.get_namectxO position
@@ -50,11 +52,7 @@ module Make (Visibility : VISIBILITY) :
   let generate_moves (position, conf) =
     let open BranchMonad in
     let* (move, weakening, position') = TypingLTS.generate_moves position in
-    match
-      Visibility.check_visibility
-        (TypingLTS.get_namectxP position')
-        weakening conf move
-    with
+    match Restriction.check position' weakening conf move with
     | None -> fail ()
     | Some conf' -> return (move, weakening, (position', conf'))
 
@@ -64,31 +62,25 @@ module Make (Visibility : VISIBILITY) :
     | Some (weakening, position') ->
         Option.map
           (fun conf' -> (weakening, (position', conf')))
-          (Visibility.check_visibility
-             (TypingLTS.get_namectxP position')
-             weakening conf move)
+          (Restriction.check position' weakening conf move)
 
   let trigger_move (position, conf) move =
     let (weakening, position') = TypingLTS.trigger_move position move in
-    match
-      Visibility.check_visibility
-        (TypingLTS.get_namectxP position')
-        weakening conf move
-    with
+    match Restriction.check position' weakening conf move with
     | Some conf' -> (weakening, (position', conf'))
-    | None -> failwith "Trying to trigger a move rejected by visibility."
+    | None -> failwith "Trying to trigger a move rejected by the restriction."
 
   let init_act_pos store_ctx namectxP namectxO =
     let position = TypingLTS.init_act_pos store_ctx namectxP namectxO in
     ( position,
-      Visibility.init_active_conf
+      Restriction.init_active_conf
         (TypingLTS.get_namectxP position)
         (TypingLTS.get_namectxO position) )
 
   let init_pas_pos store_ctx namectxP namectxO =
     let position = TypingLTS.init_pas_pos store_ctx namectxP namectxO in
     ( position,
-      Visibility.init_passive_conf
+      Restriction.init_passive_conf
         (TypingLTS.get_namectxP position)
         (TypingLTS.get_namectxO position) )
 end
@@ -96,7 +88,7 @@ end
 (* Name-indexed visibility: each Opponent name records the Player view
    current when it was introduced. *)
 module NameIndexed (TypingLTS : Lts.Typing.LTS) :
-  VISIBILITY with module TypingLTS = TypingLTS = struct
+  RESTRICTION with module TypingLTS = TypingLTS = struct
   module TypingLTS = TypingLTS
   module Moves = TypingLTS.Moves
   module View = Lts.View.Make (Moves.Renaming)
@@ -125,7 +117,8 @@ module NameIndexed (TypingLTS : Lts.Typing.LTS) :
     let view = Moves.Renaming.id namectxP in
     Passive (view, init_view_map view namectxO)
 
-  let check_visibility target_namectxP weakening conf (direction, move) =
+  let check target_position weakening conf (direction, move) =
+    let target_namectxP = TypingLTS.get_namectxP target_position in
     match (conf, direction) with
     | (Active view_map, Moves.Output) ->
         let view =
@@ -151,7 +144,7 @@ module MakeNameIndexed (TypingLTS : Lts.Typing.LTS) =
 (* Stack-based visibility, for direct style: questions push the current view
    on a stack and answers pop it. *)
 module StackBased (TypingLTS : Lts.Typing.LTS) :
-  VISIBILITY with module TypingLTS = TypingLTS = struct
+  RESTRICTION with module TypingLTS = TypingLTS = struct
   module TypingLTS = TypingLTS
   module Moves = TypingLTS.Moves
   module View = Lts.View.Make (Moves.Renaming)
@@ -197,7 +190,8 @@ module StackBased (TypingLTS : Lts.Typing.LTS) :
     let view = initial_view namectxP in
     Passive (view, init_view_map view namectxO, [])
 
-  let check_visibility target_namectxP weakening conf (direction, move) =
+  let check target_position weakening conf (direction, move) =
+    let target_namectxP = TypingLTS.get_namectxP target_position in
     match (conf, direction) with
     | (Active (view_map, stack), Moves.Output) ->
         let subject = Moves.get_subject_name move in
