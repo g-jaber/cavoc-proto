@@ -68,12 +68,12 @@ function cavocApplyOptionsToMenu() {
     cavocEnforceSynthesisLock();
 }
 
-/* The synthesis page synthesizes both participants from the play, so every
-   option is forced: the concrete CPS stack, and the two restrictions that
-   keep the play definable (Lts_kind.build_arena forces them too). */
+/* The synthesis page synthesizes both participants from the play, so the
+   concrete stack and the two restrictions that keep the play definable are
+   forced (Lts_kind.build_arena forces them too); the control structure is
+   the user's, a direct-style play being synthesized through its CPS form. */
 function cavocEnforceSynthesisLock() {
-    const forced = { directStyle: false, symbolic: false,
-                     visibility: true, wellBracketing: true };
+    const forced = { symbolic: false, visibility: true, wellBracketing: true };
     if (window.cavocScenario.mode !== 'synthesis') {
         /* The other locks own every box but Visibility. */
         const visibility = document.getElementById(cavocOptionIds.visibility);
@@ -87,6 +87,8 @@ function cavocEnforceSynthesisLock() {
         box.checked = forced[key];
         box.disabled = true;
     }
+    const direct = document.getElementById(cavocOptionIds.directStyle);
+    if (direct) direct.disabled = false;
 }
 
 /* Two options are greyed out in compose mode: Symbolic, because the
