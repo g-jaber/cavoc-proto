@@ -104,14 +104,19 @@ module Make (IntLang : Lang.Interactive.LANG) :
     let weakening = local_context_weakening pos dir lnamectx in
     match (dir, pos) with
     | (Moves.Output, Active { storectx; namectxO }) -> begin
-        match IntLang.type_check_a_nf storectx namectxO (a_nf, lnamectx) with
+        match
+          IntLang.type_check_a_nf storectx namectxO
+            IntLang.IEnv.Renaming.Namectx.empty (a_nf, lnamectx)
+        with
         | Some namectxO ->
             let namectxP = IntLang.IEnv.Renaming.im weakening in
             Some (weakening, Passive { storectx; namectxP; namectxO })
         | None -> None
       end
-    | (Moves.Input, Passive { storectx; namectxP; _ }) -> begin
-        match IntLang.type_check_a_nf storectx namectxP (a_nf, lnamectx) with
+    | (Moves.Input, Passive { storectx; namectxP; namectxO }) -> begin
+        match
+          IntLang.type_check_a_nf storectx namectxP namectxO (a_nf, lnamectx)
+        with
         | Some _ ->
             let namectxO = IntLang.IEnv.Renaming.im weakening in
             Some (weakening, Active { storectx; namectxO })

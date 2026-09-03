@@ -86,15 +86,21 @@ module Make (IntLang : Lang.Interactive.LANG) :
   let check_move pos ((dir, (a_nf, lnamectx)) : Moves.pol_move) =
     let weakening = local_context_weakening pos dir lnamectx in
     match (dir, pos) with
-    | (Moves.Output, { status= Active; storectx; namectxO; _ }) -> begin
-        match IntLang.type_check_a_nf storectx namectxO (a_nf, lnamectx) with
+    (* A Proponent move is typed with the two contexts swapped, like its
+       generation. *)
+    | (Moves.Output, { status= Active; storectx; namectxO; namectxP }) -> begin
+        match
+          IntLang.type_check_a_nf storectx namectxO namectxP (a_nf, lnamectx)
+        with
         | Some namectxO ->
             let namectxP = IntLang.IEnv.Renaming.im weakening in
             Some (weakening, { status= Passive; storectx; namectxP; namectxO })
         | None -> None
       end
-    | (Moves.Input, { status= Passive; storectx; namectxP; _ }) -> begin
-        match IntLang.type_check_a_nf storectx namectxP (a_nf, lnamectx) with
+    | (Moves.Input, { status= Passive; storectx; namectxP; namectxO }) -> begin
+        match
+          IntLang.type_check_a_nf storectx namectxP namectxO (a_nf, lnamectx)
+        with
         | Some namectxP ->
             let namectxO = IntLang.IEnv.Renaming.im weakening in
             Some (weakening, { status= Active; storectx; namectxP; namectxO })

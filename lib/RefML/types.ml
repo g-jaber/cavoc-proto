@@ -250,6 +250,7 @@ let mgu_type tenv (ty1, ty2) =
         let tsubst' = subst_in_tsubst tsubst tvar ty in
         Some (Util.Pmap.add (tvar, ty) tsubst')
         (* We should do some occur_check *)
+    | (TName tname1, TName tname2) when tname1 = tname2 -> Some tsubst
     | (TId id, ty) | (ty, TId id) -> begin
         match Util.Pmap.lookup id tenv with
         | Some ty' -> mgu_type_aux ty ty' tsubst

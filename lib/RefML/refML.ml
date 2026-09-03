@@ -84,13 +84,14 @@ module MakeCompBase (BranchMonad : Util.Monad.BRANCH) = struct
         | None -> []
         | Some lexBuffer_imports ->
             parse_and_handle_error Parser.signature lexBuffer_imports in
-      let (import_val_env, import_var_ctx, import_name_ctx) =
+      let (import_val_env, import_var_ctx, import_name_ctx, import_type_env) =
         Declaration.get_imported_name_env import_decl_l in
       let type_ctx =
         {
           (Type_ctx.build_type_ctx ()) with
           var_ctx= import_var_ctx;
           name_ctx= import_name_ctx;
+          type_env= import_type_env;
         } in
       let (type_ctx, ty) = Type_checker.typing_expr type_ctx expr in
       Util.Debug.print_debug
@@ -106,7 +107,8 @@ module MakeCompBase (BranchMonad : Util.Monad.BRANCH) = struct
   let get_typed_namectx lexBuffer_signature =
     let signature_decl_l =
       parse_and_handle_error Parser.signature lexBuffer_signature in
-    let (_, _, namectx) = Declaration.get_imported_name_env signature_decl_l in
+    let (_, _, namectx, _) =
+      Declaration.get_imported_name_env signature_decl_l in
     namectx
 
   let get_typed_ienv ?opponent_signature lexBuffer_implem lexBuffer_signature =
@@ -119,17 +121,17 @@ module MakeCompBase (BranchMonad : Util.Monad.BRANCH) = struct
         | None -> []
         | Some lexBuffer_imports ->
             parse_and_handle_error Parser.signature lexBuffer_imports in
-      let (import_val_env, import_var_ctx, import_name_ctx) =
+      let (import_val_env, import_var_ctx, import_name_ctx, import_type_env) =
         Declaration.get_imported_name_env import_decl_l in
       let (comp_env, namectxO, cons_ctx) =
         Declaration.get_typed_comp_env ~import_var_ctx ~import_name_ctx
-          implem_decl_l signature_decl_l in
+          ~import_type_env implem_decl_l signature_decl_l in
       let store =
         Interpreter.normalize_term_env ~val_env:import_val_env cons_ctx comp_env
       in
       let (ienv, namectxP) =
-        Declaration.get_typed_val_env ~namectxO store.valenv signature_decl_l
-      in
+        Declaration.get_typed_val_env ~namectxO ~import_type_env store.valenv
+          signature_decl_l in
       (* We should pass namectxO to get_typed_val_env so that ienv get the right image namectx*)
       (ienv, store, namectxP, namectxO)
     with Type_checker.TypingError msg -> failwith ("Typing Error: " ^ msg)

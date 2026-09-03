@@ -199,9 +199,12 @@ let add_algebraic_constructors cons_ctx type_env =
 (* An imported signature declares names the module may use but does not
    implement. *)
 let get_imported_name_env import_decl_l =
-  let (var_decl_l, _, type_publ_decl_l, _) =
+  let (var_decl_l, type_priv_decl_l, type_publ_decl_l, _) =
     split_signature_decl_list import_decl_l in
-  let type_env = Util.Pmap.list_to_pmap type_publ_decl_l in
+  let type_env =
+    Util.Pmap.list_to_pmap
+      (type_publ_decl_l
+      @ List.map (fun tid -> (tid, Types.TName tid)) type_priv_decl_l) in
   let rec aux ((val_env, var_ctx, name_ctx) as acc) = function
     | [] -> acc
     | (var, ty) :: tl -> begin
@@ -225,17 +228,23 @@ let get_imported_name_env import_decl_l =
              ^ Types.string_of_typ ty');
             aux acc tl
       end in
-  aux
-    (Syntax.empty_val_env, Type_ctx.empty_var_ctx, Namectx.Namectx.empty)
-    var_decl_l
+  let (val_env, var_ctx, name_ctx) =
+    aux
+      (Syntax.empty_val_env, Type_ctx.empty_var_ctx, Namectx.Namectx.empty)
+      var_decl_l in
+  (val_env, var_ctx, name_ctx, type_env)
 
 let get_typed_comp_env ?(import_var_ctx = Type_ctx.empty_var_ctx)
-    ?(import_name_ctx = Namectx.Namectx.empty) implem_decl_l sign_decl_l =
+    ?(import_name_ctx = Namectx.Namectx.empty)
+    ?(import_type_env = Types.empty_type_env) implem_decl_l sign_decl_l =
   let (comp_decl_l, implem_type_decl_l, implem_exn_l) =
     split_implem_decl_list implem_decl_l in
   let (var_decl_l, type_priv_decl_l, type_publ_decl_l, sign_exn_l) =
     split_signature_decl_list sign_decl_l in
-  let type_env = Util.Pmap.list_to_pmap implem_type_decl_l in
+  let type_env =
+    Util.Pmap.concat
+      (Util.Pmap.list_to_pmap implem_type_decl_l)
+      import_type_env in
   let field_ctx = create_field_ctx implem_type_decl_l in
   let exn_cons_ctx = Util.Pmap.list_to_pmap implem_exn_l in
   let cons_ctx = add_algebraic_constructors exn_cons_ctx type_env in
@@ -261,11 +270,13 @@ let get_typed_comp_env ?(import_var_ctx = Type_ctx.empty_var_ctx)
 (* [namectxO] is the Opponent context the values of the interactive environment
    may mention. Copairing later requires the module's actual one, imports
    included. *)
-let get_typed_val_env ?(namectxO = Namectx.Namectx.empty) var_val_env
-    sign_decl_l =
+let get_typed_val_env ?(namectxO = Namectx.Namectx.empty)
+    ?(import_type_env = Types.empty_type_env) var_val_env sign_decl_l =
   let (var_ctx_l, _, type_publ_decl_l, _) =
     split_signature_decl_list sign_decl_l in
-  let type_env = Util.Pmap.list_to_pmap type_publ_decl_l in
+  let type_env =
+    Util.Pmap.concat (Util.Pmap.list_to_pmap type_publ_decl_l) import_type_env
+  in
   let rec partition_env (((ienvf, ienvp), (fnamectx, pnamectx)) as acc) =
     function
     | [] -> acc

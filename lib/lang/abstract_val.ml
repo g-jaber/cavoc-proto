@@ -65,13 +65,12 @@ module type AVAL = sig
   (* rename A ρ instantiates the bound names of A along ρ : Δ → Γ+Δ. *)
   val rename : abstract_val -> renaming -> abstract_val
 
-  (* The typing judgment of an abstracted value Γ ⊢ A : τ ▷ Δ
-     produces the interactive name contexts Δ of fresh names introduced by A.
-     it returns None when the type checking fails.
-     The context Γ_P is used to retrieve the existing polymorphic names, and to check for freshness other names.
-     The contexts Γ_O is used to check for freshness of names *)
+  (* The typing judgment Σ;Γ_P;Γ_O ⊢ A : τ ▷ Δ of an abstracted value, over both
+     name contexts of the position, Δ being the fresh names introduced by A. *)
+  (* A free polymorphic name is looked up at its type in Γ_P then in Γ_O; by
+     its kind exactly one of them can hold it. *)
   val type_check_abstract_val :
-    store_ctx -> name_ctx -> typ -> abstract_val * name_ctx -> bool
+    store_ctx -> name_ctx -> name_ctx -> typ -> abstract_val * name_ctx -> bool
 
   module BranchMonad : Util.Monad.BRANCH
 

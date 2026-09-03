@@ -74,11 +74,12 @@ module type TYPED_A_NF = sig
     (abstract_normal_form * IEnv.Renaming.Namectx.t * IEnv.Renaming.Namectx.t)
     BranchMonad.m
 
-  (* The typing judgment Σ;Γ ⊢ A ▷ Δ, returning the interactive name context
-     Γ' where the linear resources of Γ used by A have been removed; None
-     when the type checking fails. *)
+  (* The typing judgment Σ;Γ_P;Γ_O ⊢ A ▷ Δ, returning the interactive name
+     context Γ'_P where the linear resources of Γ_P used by A have been
+     removed; None when the type checking fails. *)
   val type_check_a_nf :
     Storectx.t ->
+    IEnv.Renaming.Namectx.t ->
     IEnv.Renaming.Namectx.t ->
     abstract_normal_form * IEnv.Renaming.Namectx.t ->
     IEnv.Renaming.Namectx.t option
@@ -360,13 +361,13 @@ module Make (OpLang : Language.WITHAVAL_NEG) :
     let* store = Store.generate_store storectx in
     return ((a_nf_term, store), lnamectx, namectxP)
 
-  let type_check_a_nf store_ctx name_ctx ((nf_term, _), lnamectx) =
+  let type_check_a_nf store_ctx namectxP namectxO ((nf_term, _), lnamectx) =
     (* Why do we ignore the store ? *)
     let type_check_val aval nty =
       let ty = OpLang.negating_type nty in
-      OpLang.AVal.type_check_abstract_val store_ctx name_ctx ty (aval, lnamectx)
-    in
-    OpLang.type_check_nf_term ~name_ctx ~type_check_val nf_term
+      OpLang.AVal.type_check_abstract_val store_ctx namectxP namectxO ty
+        (aval, lnamectx) in
+    OpLang.type_check_nf_term ~name_ctx:namectxP ~type_check_val nf_term
 
   (*TODO: Type check the store part and
      check that the disclosure process is respected*)

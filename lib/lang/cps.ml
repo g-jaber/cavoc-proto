@@ -411,17 +411,19 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
               OpLang.AVal.map_free_names_of_abstract_val f_oplang aval,
               cn )
 
-    let type_check_abstract_val storectx namectx gty
+    let type_check_abstract_val storectx namectxP namectxO gty
         (aval, (lfnamectx, lcnamectx)) =
+      let type_check_oplang_val =
+        OpLang.AVal.type_check_abstract_val storectx
+          (extract_name_ctx namectxP)
+          (extract_name_ctx namectxO) in
       match (gty, aval) with
       | (GType ty, AVal aval) ->
           CNamectx.is_empty lcnamectx
-          && OpLang.AVal.type_check_abstract_val storectx
-               (extract_name_ctx namectx) ty (aval, lfnamectx)
+          && type_check_oplang_val ty (aval, lfnamectx)
       | (GProd (ty, tyhole), APair (aval, cn)) ->
           CNamectx.is_singleton lcnamectx cn tyhole
-          && OpLang.AVal.type_check_abstract_val storectx
-               (extract_name_ctx namectx) ty (aval, lfnamectx)
+          && type_check_oplang_val ty (aval, lfnamectx)
       | _ -> false
 
     let abstracting_value gval (namectxO, cnamectxO) gty =

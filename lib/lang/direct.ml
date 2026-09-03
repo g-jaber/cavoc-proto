@@ -311,8 +311,8 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
       (generate_a_nf_ret storectx namectxP)
 
   let[@warning "-8"] type_check_a_nf storectx
-      ((fnamectxP, stackctxP) as namectxP) ((nf_term, _), (lnamectx, _stackctx))
-      =
+      ((fnamectxP, stackctxP) as namectxP) (fnamectxO, _)
+      ((nf_term, _), (lnamectx, _stackctx)) =
     let inj_ty ty = ty in
     let empty_res = namectxP in
     let get_type_fname fn = OpLang.Namectx.lookup_exn fnamectxP fn in
@@ -321,25 +321,20 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
     let get_type_cname () =
       let ty_hole = Stackctx.lookup_exn stackctxP () in
       (ty_hole, ty_hole) in
+    let type_check_oplang_val =
+      OpLang.AVal.type_check_abstract_val storectx fnamectxP fnamectxO in
     let type_check_call aval nty =
       let (_, ty_arg) = OpLang.get_input_type nty in
       (*let ty_out' = OpLang.get_output_type nty in*)
-      begin if
-        OpLang.AVal.type_check_abstract_val storectx fnamectxP ty_arg
-          (aval, lnamectx)
-      then Some namectxP
-      else None
-      end in
+      if type_check_oplang_val ty_arg (aval, lnamectx) then Some namectxP
+      else None in
     let type_check_ret aval ty_hole _ty_out =
       match Stackctx.is_last stackctxP () ty_hole with
       | None -> None
       | Some stackctxP' -> begin
           (* We could also check Stackctx.is_last stackctx () ty_out *)
           let namectxP' = (fnamectxP, stackctxP') in
-          if
-            OpLang.AVal.type_check_abstract_val storectx fnamectxP ty_hole
-              (aval, lnamectx)
-          then Some namectxP'
+          if type_check_oplang_val ty_hole (aval, lnamectx) then Some namectxP'
           else None
         end in
     OpLang.type_check_nf_term ~inj_ty ~empty_res ~get_type_fname ~get_type_cname

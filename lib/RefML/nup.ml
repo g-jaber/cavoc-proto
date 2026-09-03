@@ -279,8 +279,9 @@ module Make
     let empty_ctx = Namectx.Namectx.empty in
     aux (storectx, empty_ctx) ty
 
-  (* namectxO is needed in the following definition to check freshness, while namectxP is needed for checking existence of box names*)
-  let type_check_abstract_val _storectx namectx ty (nup, lnamectx) =
+  let type_check_abstract_val _storectx namectxP namectxO ty (nup, lnamectx) =
+    let has_type namectx nn ty =
+      Util.Pmap.lookup nn (Namectx.Namectx.to_pmap namectx) = Some ty in
     let rec aux ty (nup, lnamectx) =
       let open Util.Monad.Option in
       match (ty, nup) with
@@ -306,17 +307,16 @@ module Make
           let nty = Types.force_negative_type ty in
           Namectx.Namectx.is_last lnamectx nn nty
       | (TArrow _, _) | (TForall _, _) -> None
-      | (TId id, AFree nn) -> begin
-          match Namectx.Namectx.lookup_exn namectx nn with
-          (* What about the Not_found exception ?*)
-          | TId id' when id = id' -> Some lnamectx
-          | _ -> None
-        end
-      | (TId _, _) -> None
-      | (TName _, ABound nn) ->
+      | (TId _, AFree nn) | (TName _, AFree nn) ->
+          if has_type namectxP nn ty || has_type namectxO nn ty then
+            Some lnamectx
+          else None
+      (* The judgment has no polarity to say which player may create at the
+         type name. *)
+      | (TId _, ABound nn) | (TName _, ABound nn) ->
           let nty = Types.force_negative_type ty in
           Namectx.Namectx.is_last lnamectx nn nty
-      (*TODO: Should we check to who belongs the TName ? *)
+      | (TId _, _) -> None
       (* | (TExn, ACons (c, nup')) ->
         let (TArrow (param_ty, _)) = Util.Pmap.lookup_exn c (Util.Pmap.concat namectxP namectxO) in
         type_check_abstract_val namectxP namectxO param_ty nup' *)
@@ -416,9 +416,12 @@ module Make
           ("Error: the name " ^ Names.string_of_name nn
          ^ " of an abstract value has not been instantiated. Please report.")
 
-  let subst_pnames (_ienvf, ienvp) nup =
+  (*Opponent polymorphic names are already at their ambient levels. *)
+  let subst_pnames (_ienvf, (ienvpP, _)) nup =
     let aux value (nn, nval) =
-      Syntax.subst value (Name (Names.embed_pname nn)) (embed_negative_val nval)
-    in
-    Ienv.IEnvP.fold aux (to_value nup) ienvp (* TODO : Not efficient at all*)
+      Syntax.subst value
+        (Name (Names.embed_pnameP nn))
+        (embed_negative_val nval) in
+    Ienv.IEnvPolP.fold aux (to_value nup)
+      ienvpP (* TODO : Not efficient at all*)
 end
