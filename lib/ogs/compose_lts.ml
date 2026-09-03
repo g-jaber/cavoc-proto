@@ -47,7 +47,7 @@ module Make
       Lts.Typing.LTS
         with module Moves.Renaming = IntLang.IEnv.Renaming
          and type Moves.copattern =
-          IntLang.abstract_normal_form * IntLang.IEnv.Renaming.t
+          IntLang.abstract_normal_form * IntLang.IEnv.Renaming.Namectx.t
          and type store_ctx = IntLang.Storectx.t) :
   COMPOSITION_WITH_INIT
     with module TypingLTS = TypingLTS

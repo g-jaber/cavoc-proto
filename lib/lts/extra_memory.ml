@@ -20,9 +20,8 @@ module type EXTRA_MEMORY = sig
      discriminate on the identity of a name. *)
   val guard_of_state : state -> pattern
 
-  (* Observe one Opponent move; what of it is remembered is the instance's
-     own decision, read back only by its reifiers. *)
-  val advance : move -> state -> state
+  (* Observe one Opponent move through the weakening of its local context. *)
+  val advance : renaming -> move -> state -> state
 
   (* The provided context: the names the other player has provided that
      Player moves may use beyond their view, in providing order, with their
@@ -57,7 +56,7 @@ module InnocentMachine (Moves : Moves.MOVES) = struct
 
   let initial_state = ()
   let guard_of_state () = InnocentGuard
-  let advance _o_move () = ()
+  let advance _weakening _o_move () = ()
   let provided_context () = Moves.Renaming.Namectx.empty
 
   let provided_reading () namectxO =
@@ -78,7 +77,7 @@ module ClockMachine (Moves : Moves.MOVES) = struct
 
   let initial_state = 0
   let guard_of_state clock = ClockAt clock
-  let advance _o_move clock = clock + 1
+  let advance _weakening _o_move clock = clock + 1
   let provided_context _clock = Moves.Renaming.Namectx.empty
 
   let provided_reading _clock namectxO =
@@ -108,7 +107,7 @@ module HOSMachine (Moves : Moves.MOVES) = struct
 
   (* Continuations are never provided: none can live in a store cell, and
      answering an out-of-view one breaks well-bracketing. *)
-  let provided_of_move o_move =
+  let provided_of_move weakening o_move =
     let local_namectx = Moves.get_namectx o_move in
     List.filter
       (fun (ambient_name, _typ) ->
@@ -117,13 +116,14 @@ module HOSMachine (Moves : Moves.MOVES) = struct
          (fun ambient_name local_name ->
            ( ambient_name,
              Moves.Renaming.Namectx.lookup_exn local_namectx local_name ))
-         (Moves.get_fresh_names o_move)
+         (Moves.fresh_names weakening o_move)
          (Moves.Renaming.Namectx.get_names local_namectx))
 
-  let advance o_move state =
+  let advance weakening o_move state =
     {
       clock= state.clock + 1;
-      provided_per_move= state.provided_per_move @ [ provided_of_move o_move ];
+      provided_per_move=
+        state.provided_per_move @ [ provided_of_move weakening o_move ];
     }
 
   let provided_context state =

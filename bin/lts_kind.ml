@@ -60,7 +60,8 @@ module type SINGLE_RESULT_ARENA = sig
     arena:TypingLTS.position ->
     TypingLTS.position ->
     TypingLTS.Moves.pol_move list ->
-    (TypingLTS.Moves.pol_move * TypingLTS.position) list
+    (TypingLTS.Moves.pol_move * TypingLTS.Moves.Renaming.t * TypingLTS.position)
+    list
 
   (* The two participants the play defines, the moves chronological and in the
      module's own polarity; None until that side has been played. *)
@@ -163,7 +164,7 @@ module MakeDefinabilityStack () = struct
            (TypingLTS.init_act_pos IntLang.Storectx.empty Namectx.empty
               continuation_namectx))
     with
-    | [ ((_, move), _) ] -> (continuation_namectx, move)
+    | [ ((_, move), _, _) ] -> (continuation_namectx, move)
     | _ -> failwith "Definability: no single answer (). Please report."
 
   let synthesize_client_source ~storectx ~namectxP ~namectxO moves =
@@ -259,7 +260,7 @@ let build_arena () : (module SINGLE_RESULT_ARENA) =
           true
         with Failure _ -> false in
       List.filter
-        (fun (move, _) -> keeps_the_play_definable move)
+        (fun (move, _, _) -> keeps_the_play_definable move)
         (RunTypingLTS.BranchMonad.run (RunTypingLTS.generate_moves position))
   end)
 

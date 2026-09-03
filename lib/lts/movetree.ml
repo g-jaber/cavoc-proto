@@ -36,7 +36,7 @@ module Make
       Typing.LTS
         with module Moves.Renaming = A_nf.IEnv.Renaming
          and type Moves.copattern =
-          A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t) :
+          A_nf.abstract_normal_form * A_nf.IEnv.Renaming.Namectx.t) :
   MOVETREE with module TypingLTS = TypingLTS = struct
   module TypingLTS = TypingLTS
   module Moves = TypingLTS.Moves
@@ -68,7 +68,7 @@ module Make
             "Movetree: the name %a occurs free outside the view %a"
             Moves.Renaming.Namectx.Names.pp_name name Moves.Renaming.pp view
     in
-    Moves.local_form (Moves.map_free_names view_level move)
+    Moves.erase_display_hints (Moves.map_free_names view_level move)
 
   let rec pp fmt node =
     match node.branches with
@@ -97,19 +97,24 @@ module Make
           (Moves.Renaming.Namectx.get_names namectxP);
     }
 
-  let advance full_view opponent_move mid_position player_move target_position =
+  let advance full_view (opponent_step : Play.step) (player_step : Play.step) =
+    let opponent_move = opponent_step.move in
+    let mid_position = opponent_step.target in
+    let player_move = player_step.move in
     let player_view =
       View.transport_to_context full_view.player_view
         (TypingLTS.get_namectxP mid_position) in
     let view_local_opponent_move = view_local_move player_view opponent_move in
-    let fresh_opponent_names = Moves.get_fresh_names opponent_move in
+    let fresh_opponent_names =
+      Moves.fresh_names opponent_step.weakening opponent_move in
     let player_move_view =
       View.restore_view_at_subject full_view.opponent_views_at_player_names
         (Moves.get_subject_name opponent_move)
         (TypingLTS.get_namectxO mid_position)
         fresh_opponent_names in
     let view_local_player_move = view_local_move player_move_view player_move in
-    let fresh_player_names = Moves.get_fresh_names player_move in
+    let fresh_player_names =
+      Moves.fresh_names player_step.weakening player_move in
     let player_views_at_opponent_names =
       View.record_view_at_introduction full_view.player_views_at_opponent_names
         player_view fresh_opponent_names in
@@ -119,7 +124,7 @@ module Make
     let player_view =
       View.restore_view_at_subject player_views_at_opponent_names
         (Moves.get_subject_name player_move)
-        (TypingLTS.get_namectxP target_position)
+        (TypingLTS.get_namectxP player_step.target)
         fresh_player_names in
     ( view_local_opponent_move,
       view_local_player_move,
@@ -132,11 +137,10 @@ module Make
   let rec insert_op_moves node full_view play =
     match Play.opponent_step play with
     | None -> node
-    | Some (opponent_move, mid_position, rest) ->
-        let (player_move, target_position, rest) = Play.player_step rest in
+    | Some (opponent_step, rest) ->
+        let (player_step, rest) = Play.player_step rest in
         let (view_local_opponent_move, player_move, full_view) =
-          advance full_view opponent_move mid_position player_move
-            target_position in
+          advance full_view opponent_step player_step in
         {
           branches=
             insert_branch view_local_opponent_move player_move full_view rest
@@ -180,7 +184,7 @@ module MakeLang
         with module TypingLTS.Moves.Renaming = A_nf.IEnv.Renaming
          and module TypingLTS.BranchMonad = A_nf.BranchMonad
          and type TypingLTS.Moves.copattern =
-          A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t
+          A_nf.abstract_normal_form * A_nf.IEnv.Renaming.Namectx.t
          and type TypingLTS.store_ctx = A_nf.Storectx.t)
     (EvalMonad : Util.Monad.RUNNABLE) =
 struct
@@ -204,14 +208,14 @@ struct
     let initial_values _strategy _namectxO local_namectx =
       List.map (fun _ -> ()) (Renaming.Namectx.get_names local_namectx)
 
-    let answer strategy () namectxO incoming_move =
+    let answer strategy () namectxO weakening incoming_move =
       let full_view = strategy.full_view in
       let view_local_opponent_move =
         Movetree.view_local_move full_view.Movetree.player_view incoming_move
       in
       Option.map
         (fun branch ->
-          let fresh_opponent_names = Moves.get_fresh_names incoming_move in
+          let fresh_opponent_names = Moves.fresh_names weakening incoming_move in
           let player_move_view =
             Movetree.View.restore_view_at_subject
               full_view.Movetree.opponent_views_at_player_names
@@ -222,28 +226,25 @@ struct
               full_view.Movetree.player_views_at_opponent_names
               full_view.Movetree.player_view fresh_opponent_names in
           let namectxP = Moves.Renaming.im full_view.Movetree.player_view in
-          let ((branch_a_nf, branch_renaming) : Moves.move) =
-            branch.Movetree.player_move in
-          let player_move_a_nf =
-            A_nf.map_free_names_of_a_nf
+          let player_move =
+            Moves.map_free_names
               (Moves.Renaming.lookup player_move_view)
-              branch_a_nf in
-          let player_move_namectx = Renaming.dom branch_renaming in
+              branch.Movetree.player_move in
+          let player_move_namectx = Moves.get_namectx player_move in
           let fresh_player_names =
-            Moves.get_fresh_names
-              (player_move_a_nf, Renaming.weak_r player_move_namectx namectxP)
-          in
+            Moves.fresh_names
+              (Renaming.weak_r player_move_namectx namectxP)
+              player_move in
           let opponent_views_at_player_names =
             Movetree.View.record_view_at_introduction
               full_view.Movetree.opponent_views_at_player_names player_move_view
               fresh_player_names in
           let player_view =
             Movetree.View.restore_view_at_subject player_views_at_opponent_names
-              (A_nf.get_subject_name player_move_a_nf)
+              (Moves.get_subject_name player_move)
               (Renaming.Namectx.concat namectxP player_move_namectx)
               fresh_player_names in
-          ( player_move_a_nf,
-            player_move_namectx,
+          ( player_move,
             List.map
               (fun _ -> ())
               (Renaming.Namectx.get_names player_move_namectx),
@@ -277,7 +278,7 @@ module _ : functor
                 with module TypingLTS.Moves.Renaming = A_nf.IEnv.Renaming
                  and module TypingLTS.BranchMonad = A_nf.BranchMonad
                  and type TypingLTS.Moves.copattern =
-                  A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t
+                  A_nf.abstract_normal_form * A_nf.IEnv.Renaming.Namectx.t
                  and type TypingLTS.store_ctx = A_nf.Storectx.t)
   (EvalMonad : Util.Monad.RUNNABLE)
   -> Lang.Interactive.LANG =

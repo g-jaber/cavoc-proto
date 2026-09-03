@@ -7,7 +7,7 @@ module Make
       Lts.Typing.LTS
         with module Moves.Renaming = Lang.IEnv.Renaming
          and type Moves.copattern =
-          Lang.abstract_normal_form * Lang.IEnv.Renaming.t
+          Lang.abstract_normal_form * Lang.IEnv.Renaming.Namectx.t
          and type store_ctx = Lang.Storectx.t) : sig
   include
     Lts.Strategy.LTS
@@ -72,11 +72,8 @@ end = struct
     let* ((a_nf, lnamectx, _storectx_discl), ienv, store) =
       Lang.eval (act_conf.opconf, namectxO, TypingLTS.get_storectx act_conf.pos)
     in
-    let move =
-      ( TypingLTS.Moves.Output,
-        TypingLTS.weaken_move act_conf.pos TypingLTS.Moves.Output
-          (a_nf, TypingLTS.Moves.Renaming.id lnamectx) ) in
-    let pos = TypingLTS.trigger_move act_conf.pos move in
+    let move = (TypingLTS.Moves.Output, (a_nf, lnamectx)) in
+    let (_, pos) = TypingLTS.trigger_move act_conf.pos move in
     let ienv = Lang.IEnv.copairing act_conf.ienv ienv in
     (* The weakening of the move and the ienv-domain extension performed by
        copairing must agree, up to display hints. *)
@@ -85,20 +82,21 @@ end = struct
       = TypingLTS.Moves.Renaming.Namectx.to_pmap (Lang.IEnv.dom ienv));
     return (move, { store; ienv; pos })
 
-  let o_trans pas_conf ((_, a_nf) as input_move) =
+  let o_trans pas_conf ((_, (a_nf, _)) as input_move) =
     match TypingLTS.check_move pas_conf.pos input_move with
     | None -> None
-    | Some pos ->
+    | Some (weakening, pos) ->
         let (opconf, ienv) =
-          Lang.concretize_a_nf pas_conf.store pas_conf.ienv a_nf in
+          Lang.concretize_a_nf pas_conf.store pas_conf.ienv (a_nf, weakening)
+        in
         Some { opconf; ienv; pos }
 
   let o_trans_gen pas_conf =
     let open TypingLTS.BranchMonad in
-    let* (((_, a_nf) as input_move), pos) =
+    let* (((_, (a_nf, _)) as input_move), weakening, pos) =
       TypingLTS.generate_moves pas_conf.pos in
     let (opconf, ienv) =
-      Lang.concretize_a_nf pas_conf.store pas_conf.ienv a_nf in
+      Lang.concretize_a_nf pas_conf.store pas_conf.ienv (a_nf, weakening) in
     return (input_move, { opconf; ienv; pos })
 
   let init_aconf opconf namectxO =
@@ -124,7 +122,7 @@ module MakeWithInit
       Lts.Typing.LTS
         with module Moves.Renaming = Lang.IEnv.Renaming
          and type Moves.copattern =
-          Lang.abstract_normal_form * Lang.IEnv.Renaming.t
+          Lang.abstract_normal_form * Lang.IEnv.Renaming.Namectx.t
          and type store_ctx = Lang.Storectx.t) :
   Lts.Strategy.LTS_WITH_INIT
     with module TypingLTS = TypingLTS

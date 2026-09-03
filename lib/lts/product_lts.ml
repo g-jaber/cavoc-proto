@@ -3,6 +3,7 @@ module Make
     (HistLts :
       Hislts.HISLTS_INIT
         with type move = TypingLTS.Moves.pol_move
+         and type renaming = TypingLTS.Moves.Renaming.t
          and type name = TypingLTS.Moves.Renaming.Namectx.Names.name) :
   Typing.LTS
     with module Moves = TypingLTS.Moves
@@ -22,30 +23,26 @@ module Make
   let get_namectxP (pos, _) = TypingLTS.get_namectxP pos
   let get_storectx (pos, _) = TypingLTS.get_storectx pos
 
-  (* History LTSs leave the weakening to the typing LTS. *)
-  let weaken_move (pos, _) dir move = TypingLTS.weaken_move pos dir move
-
   let generate_moves (pos, hconf) =
     let open BranchMonad in
-    let* (move, pos') = TypingLTS.generate_moves pos in
-    match HistLts.trans_check hconf move with
+    let* (move, weakening, pos') = TypingLTS.generate_moves pos in
+    match HistLts.trans_check hconf weakening move with
     | None -> fail ()
-    | Some hconf' -> return (move, (pos', hconf'))
+    | Some hconf' -> return (move, weakening, (pos', hconf'))
 
-  (* check_move Γₓ m return Some Δ
-     when there exists a name context Γ for the free names of m such that
-      Γₓ ⊢ m ▷ Δ.
-     It returns None when m is not well-typed.*)
   let check_move (pos, hconf) move =
-    match (TypingLTS.check_move pos move, HistLts.trans_check hconf move) with
-    | (None, _) | (_, None) -> None
-    | (Some pos', Some hconf') -> Some (pos', hconf')
+    match TypingLTS.check_move pos move with
+    | None -> None
+    | Some (weakening, pos') ->
+        Option.map
+          (fun hconf' -> (weakening, (pos', hconf')))
+          (HistLts.trans_check hconf weakening move)
 
   let trigger_move (pos, hconf) move =
-    let pos' = TypingLTS.trigger_move pos move in
-    match HistLts.trans_check hconf move with
+    let (weakening, pos') = TypingLTS.trigger_move pos move in
+    match HistLts.trans_check hconf weakening move with
     | None -> failwith "TODO"
-    | Some hconf' -> (pos', hconf')
+    | Some hconf' -> (weakening, (pos', hconf'))
 
   let init_act_pos storectx namectxP namectxO =
     let pos = TypingLTS.init_act_pos storectx namectxP namectxO in

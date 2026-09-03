@@ -7,7 +7,8 @@ module Make
     (ViewFunction :
       Lts.View_function.VIEWFUNCTION
         with type TypingLTS.Moves.copattern =
-          InteractiveOps.abstract_normal_form * InteractiveOps.Renaming.t
+          InteractiveOps.abstract_normal_form
+          * InteractiveOps.Renaming.Namectx.t
          and module TypingLTS.Moves.Renaming = InteractiveOps.Renaming)
     (Reification :
       Reification.REIFICATION
@@ -188,7 +189,7 @@ end = struct
     else begin
       match
         List.filter Namectx.Names.is_cname
-          (Moves.get_fresh_names (fst player_move, fresh_names_weakening))
+          (Moves.fresh_names fresh_names_weakening player_move)
       with
       | [ introduced_continuation ] ->
           InteractiveOps.pattern_matching_call
@@ -327,7 +328,7 @@ end = struct
       failwith
         "Definability: a client strategy must start with an empty Player \
          context.";
-    let localized_initial_move = Moves.local_form initial_move in
+    let localized_initial_move = Moves.erase_display_hints initial_move in
     let scope =
       initial_scope position opponent_name_values toplevel_continuation
         (ViewFunction.player_context_of_view
@@ -340,7 +341,7 @@ end = struct
     InteractiveOps.allocate_store
       (Reification.reify_store_declarations memory)
       (synthesize_player_move_term strategy scope
-         (snd localized_initial_move)
+         (Renaming.id (Moves.get_namectx localized_initial_move))
          (fun provided_level ->
            Util.Error.failwithf
              "Definability: the initial move reads the provided level %a. \
@@ -403,17 +404,15 @@ end = struct
           let dual = dual path in
           match final_move with
           | Some (_, move) when actions <> [] && is_complete actions ->
-              Some
-                (Play.extend_by_player_move dual
-                   (ViewFunction.TypingLTS.weaken_move
-                      (Play.final_position dual) Moves.Output move))
+              Some (Play.extend_by_player_move dual move)
           | _ -> Play.drop_last_move dual
         end
       | Play.Active -> Some (dual path) in
     match client_play with
     | None -> None
     | Some play ->
-        let (initial_move, _, tail) = Play.player_step play in
+        let (initial_step, tail) = Play.player_step play in
+        let initial_move = initial_step.Play.move in
         let (strategy, memory) = ViewFunction.add_play ViewFunction.empty tail in
         let opponent_name_values =
           Util.Pmap.list_to_pmap

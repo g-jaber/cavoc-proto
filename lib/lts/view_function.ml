@@ -146,7 +146,7 @@ module Make
       Typing.LTS
         with module Moves.Renaming = A_nf.IEnv.Renaming
          and type Moves.copattern =
-          A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t)
+          A_nf.abstract_normal_form * A_nf.IEnv.Renaming.Namectx.t)
     (ExtraMemory :
       Extra_memory.EXTRA_MEMORY
         with type move = TypingLTS.Moves.move
@@ -243,7 +243,7 @@ module Make
           "View_function: the name %a occurs free besides the subject %a; a \
            polymorphic name given back is outside the fragment."
           Namectx.Names.pp_name name Namectx.Names.pp_name ambient_subject in
-    Moves.local_form (Moves.map_free_names remap move)
+    Moves.erase_display_hints (Moves.map_free_names remap move)
 
   (* The weakening of the provided context into the context of a stored
      Player move's free names, after the view's Opponent names. *)
@@ -268,7 +268,7 @@ module Make
                  provided; outside the fragment."
                 Namectx.Names.pp_name name
         end in
-    Moves.local_form (Moves.map_free_names convert move)
+    Moves.erase_display_hints (Moves.map_free_names convert move)
 
   let instantiate_player_move o_support provided_reading (move : Moves.move) =
     let weakening =
@@ -355,9 +355,8 @@ module Make
       (Namectx.erase_display_hints initial_namectxO)
       view_play
 
-  let fresh_names_weakening initial_namectxP view_play
-      ((_, renaming) : Moves.move) =
-    Renaming.weak_r (Renaming.dom renaming)
+  let fresh_names_weakening initial_namectxP view_play move =
+    Renaming.weak_r (Moves.get_namectx move)
       (player_context_of_view initial_namectxP view_play)
 
   let add_play strategy play =
@@ -368,8 +367,11 @@ module Make
         (List.map
            (fun name -> (name, initial_pointed_view initial_position name))
            (Namectx.get_names initial_namectxP)) in
-    let insert_op_move (strategy, pointed_views, memory_state) opponent_move
-        mid_position ambient_player_move =
+    let insert_op_move (strategy, pointed_views, memory_state)
+        (opponent_step : Play.step) (player_step : Play.step) =
+      let opponent_move = opponent_step.move in
+      let mid_position = opponent_step.target in
+      let ambient_player_move = player_step.move in
       let ambient_subject = Moves.get_subject_name opponent_move in
       let pointed_view =
         match Util.Pmap.lookup ambient_subject pointed_views with
@@ -382,7 +384,7 @@ module Make
       let mid_namectxO = TypingLTS.get_namectxO mid_position in
       let o_support =
         View.restore_view pointed_view.o_support mid_namectxO
-          (Moves.get_fresh_names opponent_move) in
+          (Moves.fresh_names opponent_step.weakening opponent_move) in
       let pattern = localize_incoming_move pointed_view opponent_move in
       let player_move =
         localize_player_move o_support
@@ -404,22 +406,23 @@ module Make
           (fun ambient_name view_level ->
             ( ambient_name,
               { view_play= extended_view; subject= view_level; o_support } ))
-          (Moves.get_fresh_names ambient_player_move)
-          (Moves.get_fresh_names
-             ( fst player_move,
-               fresh_names_weakening initial_namectxP pointed_view.view_play
-                 player_move )) in
+          (Moves.fresh_names player_step.weakening ambient_player_move)
+          (Moves.fresh_names
+             (fresh_names_weakening initial_namectxP pointed_view.view_play
+                player_move)
+             player_move) in
       ( strategy,
         Util.Pmap.concat pointed_views
           (Util.Pmap.list_to_pmap fresh_pointed_views),
-        ExtraMemory.advance opponent_move memory_state ) in
+        ExtraMemory.advance opponent_step.weakening opponent_move memory_state
+      ) in
     let rec insert_op_moves ((strategy, _, memory_state) as recording) play =
       match Play.opponent_step play with
       | None -> (strategy, memory_state)
-      | Some (opponent_move, mid_position, rest) ->
-          let (player_move, _target_position, rest) = Play.player_step rest in
+      | Some (opponent_step, rest) ->
+          let (player_step, rest) = Play.player_step rest in
           insert_op_moves
-            (insert_op_move recording opponent_move mid_position player_move)
+            (insert_op_move recording opponent_step player_step)
             rest in
     insert_op_moves
       (strategy, initial_pointed_views, ExtraMemory.initial_state)
@@ -433,7 +436,7 @@ module MakeLang
     (ViewFunction :
       VIEWFUNCTION
         with type TypingLTS.Moves.copattern =
-          A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t
+          A_nf.abstract_normal_form * A_nf.IEnv.Renaming.Namectx.t
          and module TypingLTS.Moves.Renaming = A_nf.IEnv.Renaming
          and module TypingLTS.BranchMonad = A_nf.BranchMonad
          and type TypingLTS.store_ctx = A_nf.Storectx.t)
@@ -475,18 +478,18 @@ struct
           })
         (Renaming.Namectx.get_names local_namectx)
 
-    let answer strategy subject_view namectxO move =
+    let answer strategy subject_view namectxO weakening move =
       let pattern = ViewFunction.localize_incoming_move subject_view move in
       let o_support =
         ViewFunction.View.restore_view subject_view.ViewFunction.o_support
           namectxO
-          (Moves.get_fresh_names move) in
+          (Moves.fresh_names weakening move) in
       Option.bind
         (ViewFunction.player_move_at strategy.view_function
            subject_view.ViewFunction.view_play subject_view.ViewFunction.subject
            pattern strategy.memory) (fun player_move ->
           Option.map
-            (fun ((instantiated_a_nf, player_move_renaming) : Moves.move) ->
+            (fun (instantiated_player_move : Moves.move) ->
               let extended_view =
                 subject_view.ViewFunction.view_play
                 @ [ { ViewFunction.o= pattern; p= player_move } ] in
@@ -498,18 +501,18 @@ struct
                       subject= view_level;
                       o_support;
                     })
-                  (Moves.get_fresh_names
-                     ( instantiated_a_nf,
-                       ViewFunction.fresh_names_weakening
-                         strategy.initial_namectxP
-                         subject_view.ViewFunction.view_play player_move ))
-              in
-              ( instantiated_a_nf,
-                Renaming.dom player_move_renaming,
+                  (Moves.fresh_names
+                     (ViewFunction.fresh_names_weakening
+                        strategy.initial_namectxP
+                        subject_view.ViewFunction.view_play player_move)
+                     instantiated_player_move) in
+              ( instantiated_player_move,
                 pointed_views,
                 {
                   strategy with
-                  memory= ViewFunction.ExtraMemory.advance move strategy.memory;
+                  memory=
+                    ViewFunction.ExtraMemory.advance weakening move
+                      strategy.memory;
                 } ))
             (ViewFunction.instantiate_player_move o_support
                (ViewFunction.ExtraMemory.provided_reading strategy.memory

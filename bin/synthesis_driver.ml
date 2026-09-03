@@ -36,27 +36,29 @@ module Drive (Arena : Lts_kind.SINGLE_RESULT_ARENA) = struct
     | generated -> (
         let json_list =
           List.map
-            (fun (move, _) ->
+            (fun (move, weakening, _) ->
               Moves.pol_move_to_yojson_in
                 ~show_name:(show_name_at position move)
-                move)
+                weakening move)
             generated in
         show_moves_list json_list;
         (* Every move offered at a position is that participant's, so the
            panel can say whose turn the user is taking. *)
         Moves_display.set_caption
-          (match fst (fst (List.hd generated)) with
-          | Moves.Input -> "Your move, as the client — click to play"
-          | Moves.Output -> "Your move, as the module — click to play");
+          (match List.hd generated with
+          | ((Moves.Input, _), _, _) ->
+              "Your move, as the client — click to play"
+          | ((Moves.Output, _), _, _) ->
+              "Your move, as the module — click to play");
         let%lwt chosen = get_move (List.length json_list - 1) in
         match chosen with
         | Quit -> Lwt.return User_quit
         | Chose chosen_index ->
-            let (move, target) = List.nth generated chosen_index in
+            let (move, weakening, target) = List.nth generated chosen_index in
             Moves_manager.add_move (player_of move)
               (Moves.string_of_pol_move_in
                  ~show_name:(show_name_at position move)
-                 move);
+                 weakening move);
             let played = played @ [ move ] in
             show_play played;
             drive ~show_moves_list ~get_move ~show_play ~arena target played)

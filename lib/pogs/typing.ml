@@ -3,7 +3,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
     with module Moves.Renaming = IntLang.IEnv.Renaming
      and type store_ctx = IntLang.Storectx.t
      and type Moves.copattern =
-      IntLang.abstract_normal_form * IntLang.IEnv.Renaming.t = struct
+      IntLang.abstract_normal_form * IntLang.IEnv.Renaming.Namectx.t = struct
   module Moves = Lts.Moves.Make (IntLang : Lang.Interactive.A_NF)
   module BranchMonad = IntLang.BranchMonad
 
@@ -79,61 +79,57 @@ module Make (IntLang : Lang.Interactive.LANG) :
     | Moves.Output -> IntLang.IEnv.Renaming.id lnamectx
     | Moves.Input -> IntLang.IEnv.Renaming.weak_r lnamectx (get_namectxO pos)
 
-  let weaken_move pos dir ((a_nf, renaming) : Moves.move) : Moves.move =
-    (a_nf, local_context_weakening pos dir (Moves.Renaming.dom renaming))
-
-  let same_weakening renaming expected =
-    Moves.Renaming.im renaming = Moves.Renaming.im expected
-    && List.for_all
-         (fun nn ->
-           Moves.Renaming.lookup renaming nn = Moves.Renaming.lookup expected nn)
-         (Moves.Renaming.Namectx.get_names (Moves.Renaming.dom renaming))
-
   let generate_moves pos =
     Util.Debug.print_debug "Generating moves";
     let open IntLang.BranchMonad in
     match pos with
     | Passive { storectx; namectxP; _ } ->
         let* (a_nf, lnamectx, _) = IntLang.generate_a_nf storectx namectxP in
-        let renaming = local_context_weakening pos Moves.Input lnamectx in
-        let namectxO = IntLang.IEnv.Renaming.im renaming in
-        return ((Moves.Input, (a_nf, renaming)), Active { storectx; namectxO })
+        let weakening = local_context_weakening pos Moves.Input lnamectx in
+        let namectxO = IntLang.IEnv.Renaming.im weakening in
+        return
+          ( (Moves.Input, (a_nf, lnamectx)),
+            weakening,
+            Active { storectx; namectxO } )
     | Active { storectx; namectxO } ->
         let* (a_nf, namectxP, namectxO) =
           IntLang.generate_a_nf storectx namectxO in
-        let renaming = local_context_weakening pos Moves.Output namectxP in
+        let weakening = local_context_weakening pos Moves.Output namectxP in
         return
-          ( (Moves.Output, (a_nf, renaming)),
+          ( (Moves.Output, (a_nf, namectxP)),
+            weakening,
             Passive { storectx; namectxP; namectxO } )
 
-  let check_move pos ((dir, (a_nf, renaming)) : Moves.pol_move) =
-    let lnamectx = Moves.Renaming.dom renaming in
-    if not (same_weakening renaming (local_context_weakening pos dir lnamectx))
-    then None
-    else
-      match (dir, pos) with
-      | (Moves.Output, Active { storectx; namectxO }) -> begin
-          match IntLang.type_check_a_nf storectx namectxO (a_nf, lnamectx) with
-          | Some namectxO ->
-              let namectxP = Moves.Renaming.im renaming in
-              Some (Passive { storectx; namectxP; namectxO })
-          | None -> None
-        end
-      | (Moves.Input, Passive { storectx; namectxP; _ }) -> begin
-          match IntLang.type_check_a_nf storectx namectxP (a_nf, lnamectx) with
-          | Some _ ->
-              let namectxO = Moves.Renaming.im renaming in
-              Some (Active { storectx; namectxO })
-          | None -> None
-        end
-      | _ -> None
+  let check_move pos ((dir, (a_nf, lnamectx)) : Moves.pol_move) =
+    let weakening = local_context_weakening pos dir lnamectx in
+    match (dir, pos) with
+    | (Moves.Output, Active { storectx; namectxO }) -> begin
+        match IntLang.type_check_a_nf storectx namectxO (a_nf, lnamectx) with
+        | Some namectxO ->
+            let namectxP = IntLang.IEnv.Renaming.im weakening in
+            Some (weakening, Passive { storectx; namectxP; namectxO })
+        | None -> None
+      end
+    | (Moves.Input, Passive { storectx; namectxP; _ }) -> begin
+        match IntLang.type_check_a_nf storectx namectxP (a_nf, lnamectx) with
+        | Some _ ->
+            let namectxO = IntLang.IEnv.Renaming.im weakening in
+            Some (weakening, Active { storectx; namectxO })
+        | None -> None
+      end
+    | _ -> None
 
-  let trigger_move pos ((dir, (_a_nf, renaming)) : Moves.pol_move) =
+  let trigger_move pos ((dir, (_a_nf, lnamectx)) : Moves.pol_move) =
+    let weakening = local_context_weakening pos dir lnamectx in
     match (dir, pos) with
     | (Moves.Output, Active { storectx; namectxO }) ->
-        Passive { namectxP= Moves.Renaming.im renaming; storectx; namectxO }
+        ( weakening,
+          Passive
+            { namectxP= IntLang.IEnv.Renaming.im weakening; storectx; namectxO }
+        )
     | (Moves.Input, Passive { storectx; _ }) ->
-        Active { storectx; namectxO= Moves.Renaming.im renaming }
+        ( weakening,
+          Active { storectx; namectxO= IntLang.IEnv.Renaming.im weakening } )
     | _ ->
         failwith
           "Trying to trigger a move of the wrong polarity. Please report."

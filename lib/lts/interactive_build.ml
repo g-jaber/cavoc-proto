@@ -73,8 +73,12 @@ struct
               show_name_at
                 (IntLTS.TypingLTS.get_namectxO (IntLTS.get_active_pos act_conf))
             in
+            let (weakening, _) =
+              IntLTS.TypingLTS.trigger_move
+                (IntLTS.get_active_pos act_conf)
+                output_move in
             let move_string =
-              IntLTS.TypingLTS.Moves.string_of_pol_move_in ~show_name
+              IntLTS.TypingLTS.Moves.string_of_pol_move_in ~show_name weakening
                 output_move in
             show_move Proponent move_string;
             record_move output_move;
@@ -90,13 +94,17 @@ struct
         in
         let results_list =
           IntLTS.TypingLTS.BranchMonad.run (IntLTS.o_trans_gen pas_conf) in
-        let moves_list = List.map (fun (x, _) -> x) results_list in
-
-        (* JSON pour le front : id + label (+ payload local optionnel) *)
+        let weakening_of input_move =
+          fst
+            (IntLTS.TypingLTS.trigger_move
+               (IntLTS.get_passive_pos pas_conf)
+               input_move) in
         let json_list =
           List.map
-            (IntLTS.TypingLTS.Moves.pol_move_to_yojson_in ~show_name)
-            moves_list in
+            (fun (input_move, _) ->
+              IntLTS.TypingLTS.Moves.pol_move_to_yojson_in ~show_name
+                (weakening_of input_move) input_move)
+            results_list in
 
         show_moves_list json_list;
         let* chosen = get_move (List.length json_list - 1) in
@@ -105,8 +113,8 @@ struct
         | Chose chosen_index ->
             let (input_move, act_conf) = List.nth results_list chosen_index in
             let move_string =
-              IntLTS.TypingLTS.Moves.string_of_pol_move_in ~show_name input_move
-            in
+              IntLTS.TypingLTS.Moves.string_of_pol_move_in ~show_name
+                (weakening_of input_move) input_move in
             let () = show_move Opponent move_string in
             record_move input_move;
             interactive_build ~record_move ~show_move ~show_conf

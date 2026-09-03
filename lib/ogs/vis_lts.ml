@@ -16,9 +16,11 @@ module type VISIBILITY = sig
     TypingLTS.Moves.Renaming.Namectx.t ->
     conf
 
-  (* From the Player context after the move; None rejects the move. *)
+  (* From the Player context after the move and the weakening of the
+     local context of the move. *)
   val check_visibility :
     TypingLTS.Moves.Renaming.Namectx.t ->
+    TypingLTS.Moves.Renaming.t ->
     conf ->
     TypingLTS.Moves.pol_move ->
     conf option
@@ -45,34 +47,35 @@ module Make (Visibility : VISIBILITY) :
   let get_namectxP (position, _) = TypingLTS.get_namectxP position
   let get_storectx (position, _) = TypingLTS.get_storectx position
 
-  let weaken_move (position, _) direction move =
-    TypingLTS.weaken_move position direction move
-
   let generate_moves (position, conf) =
     let open BranchMonad in
-    let* (move, position') = TypingLTS.generate_moves position in
+    let* (move, weakening, position') = TypingLTS.generate_moves position in
     match
-      Visibility.check_visibility (TypingLTS.get_namectxP position') conf move
+      Visibility.check_visibility
+        (TypingLTS.get_namectxP position')
+        weakening conf move
     with
     | None -> fail ()
-    | Some conf' -> return (move, (position', conf'))
+    | Some conf' -> return (move, weakening, (position', conf'))
 
   let check_move (position, conf) move =
     match TypingLTS.check_move position move with
     | None -> None
-    | Some position' ->
+    | Some (weakening, position') ->
         Option.map
-          (fun conf' -> (position', conf'))
+          (fun conf' -> (weakening, (position', conf')))
           (Visibility.check_visibility
              (TypingLTS.get_namectxP position')
-             conf move)
+             weakening conf move)
 
   let trigger_move (position, conf) move =
-    let position' = TypingLTS.trigger_move position move in
+    let (weakening, position') = TypingLTS.trigger_move position move in
     match
-      Visibility.check_visibility (TypingLTS.get_namectxP position') conf move
+      Visibility.check_visibility
+        (TypingLTS.get_namectxP position')
+        weakening conf move
     with
-    | Some conf' -> (position', conf')
+    | Some conf' -> (weakening, (position', conf'))
     | None -> failwith "Trying to trigger a move rejected by visibility."
 
   let init_act_pos store_ctx namectxP namectxO =
@@ -122,14 +125,14 @@ module NameIndexed (TypingLTS : Lts.Typing.LTS) :
     let view = Moves.Renaming.id namectxP in
     Passive (view, init_view_map view namectxO)
 
-  let check_visibility target_namectxP conf (direction, move) =
+  let check_visibility target_namectxP weakening conf (direction, move) =
     match (conf, direction) with
     | (Active view_map, Moves.Output) ->
         let view =
           View.restore_view_at_subject view_map
             (Moves.get_subject_name move)
             target_namectxP
-            (Moves.get_fresh_names move) in
+            (Moves.fresh_names weakening move) in
         Some (Passive (view, view_map))
     | (Passive (view, view_map), Moves.Input) ->
         let view = View.transport_to_context view target_namectxP in
@@ -137,7 +140,7 @@ module NameIndexed (TypingLTS : Lts.Typing.LTS) :
           Some
             (Active
                (View.record_view_at_introduction view_map view
-                  (Moves.get_fresh_names move)))
+                  (Moves.fresh_names weakening move)))
         else None
     | _ -> None
 end
@@ -194,11 +197,11 @@ module StackBased (TypingLTS : Lts.Typing.LTS) :
     let view = initial_view namectxP in
     Passive (view, init_view_map view namectxO, [])
 
-  let check_visibility target_namectxP conf (direction, move) =
+  let check_visibility target_namectxP weakening conf (direction, move) =
     match (conf, direction) with
     | (Active (view_map, stack), Moves.Output) ->
         let subject = Moves.get_subject_name move in
-        let fresh = non_cnames (Moves.get_fresh_names move) in
+        let fresh = non_cnames (Moves.fresh_names weakening move) in
         if Moves.Renaming.Namectx.Names.is_cname subject then begin
           match stack with
           | saved_view :: stack' ->
@@ -219,7 +222,7 @@ module StackBased (TypingLTS : Lts.Typing.LTS) :
         let subject = Moves.get_subject_name move in
         let view_map' =
           View.record_view_at_introduction view_map view
-            (non_cnames (Moves.get_fresh_names move)) in
+            (non_cnames (Moves.fresh_names weakening move)) in
         if Moves.Renaming.Namectx.Names.is_cname subject then
           Some (Active (view_map', stack))
         else if View.contains view subject then

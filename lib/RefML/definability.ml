@@ -301,7 +301,7 @@ module HigherOrderStoreMemory (Moves : CPS_MOVES) = struct
     let receivers =
       List.filter
         (fun delta_name -> not (Namectx.Names.is_cname delta_name))
-        (Moves.get_fresh_names o_move) in
+        (Namectx.get_names (Moves.get_namectx o_move)) in
     HOSReification.advance_term
       (List.map2
          (fun provided_level delta_name ->

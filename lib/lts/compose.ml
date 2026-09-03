@@ -26,11 +26,12 @@ module type INT_STRUCTURE = sig
   val is_shared_subject :
     t -> side -> TypingLTS.Moves.Renaming.Namectx.Names.name -> bool
 
-  (* Translate a move of component [side] whose subject is external into the
-     corresponding move of the composite, extending the external span. *)
+ (* Translate a move of component [side] whose subject is external into the
+-     corresponding move of the composite, extending the external span. *)
   val export_move :
     t ->
     side ->
+    TypingLTS.position ->
     CompositeTypingLTS.position ->
     TypingLTS.Moves.pol_move ->
     (CompositeTypingLTS.Moves.pol_move * t, string) result
@@ -41,6 +42,7 @@ module type INT_STRUCTURE = sig
      composite typing cannot detect. *)
   val import_move :
     t ->
+    CompositeTypingLTS.position ->
     TypingLTS.position ->
     TypingLTS.position ->
     CompositeTypingLTS.Moves.pol_move ->
@@ -53,6 +55,7 @@ module type INT_STRUCTURE = sig
   val forward_move :
     t ->
     side ->
+    TypingLTS.position ->
     TypingLTS.position ->
     TypingLTS.Moves.pol_move ->
     (TypingLTS.Moves.pol_move * t, string) result
@@ -174,21 +177,22 @@ struct
           let show_name =
             IntStructure.CompositeTypingLTS.Moves.Renaming.Namectx.show_name_in
               (IntStructure.CompositeTypingLTS.get_namectxO aconf.pos) in
+          let (weakening, _) =
+            IntStructure.CompositeTypingLTS.trigger_move aconf.pos m in
           IntStructure.CompositeTypingLTS.Moves.string_of_pol_move_in ~show_name
-            m
-      | SyncMove (_, move) ->
-          let sender_namectxO =
+            weakening m
+      | SyncMove ((_, move) as m) ->
+          let sender_pos =
             match aconf.comps with
-            | ActiveLeft (actL, _) ->
-                IntStructure.TypingLTS.get_namectxO
-                  (LeftComponent.get_active_pos actL)
-            | ActiveRight (_, actR) ->
-                IntStructure.TypingLTS.get_namectxO
-                  (RightComponent.get_active_pos actR) in
+            | ActiveLeft (actL, _) -> LeftComponent.get_active_pos actL
+            | ActiveRight (_, actR) -> RightComponent.get_active_pos actR in
           let show_name =
             IntStructure.TypingLTS.Moves.Renaming.Namectx.show_name_in
-              sender_namectxO in
-          IntStructure.TypingLTS.Moves.string_of_move_in ~show_name move
+              (IntStructure.TypingLTS.get_namectxO sender_pos) in
+          let (weakening, _) =
+            IntStructure.TypingLTS.trigger_move sender_pos m in
+          IntStructure.TypingLTS.Moves.string_of_move_in ~show_name weakening
+            move
 
     type conf = Active of active_conf | Passive of passive_conf
 
@@ -208,23 +212,23 @@ struct
        whether the subject of the produced move is shared. *)
     let p_trans (aconf : active_conf) : (comp_move * conf) EvalMonad.m =
       let open EvalMonad in
-      let route_move side m sync_state pos passive_pos emit sync =
+      let route_move side m sync_state sender_pos pos passive_pos emit sync =
         let (_, move) = m in
         let nn = IntStructure.TypingLTS.Moves.get_subject_name move in
         match IntStructure.is_shared_subject sync_state side nn with
         | false -> begin
-            match IntStructure.export_move sync_state side pos m with
+            match IntStructure.export_move sync_state side sender_pos pos m with
             | Error msg -> free_name_error side m msg
             | Ok (composite_move, sync_state) ->
-                (* [trigger_move] trusts the weakening carried by the move,
-                   which [export_move] has just built. *)
-                let pos =
+                let (_, pos) =
                   IntStructure.CompositeTypingLTS.trigger_move pos
                     composite_move in
                 return (ExternalMove composite_move, emit sync_state pos)
           end
         | true -> begin
-            match IntStructure.forward_move sync_state side passive_pos m with
+            match
+              IntStructure.forward_move sync_state side sender_pos passive_pos m
+            with
             | Error msg -> free_name_error side m msg
             | Ok (forwarded_m, sync_state) -> begin
                 match sync forwarded_m with
@@ -242,7 +246,9 @@ struct
       match aconf.comps with
       | ActiveLeft (actL, pasR) ->
           let* (m, pasL) = LeftComponent.p_trans actL in
-          route_move IntStructure.Left m aconf.sync_state aconf.pos
+          route_move IntStructure.Left m aconf.sync_state
+            (LeftComponent.get_active_pos actL)
+            aconf.pos
             (RightComponent.get_passive_pos pasR)
             (fun sync_state pos -> Passive { pasL; pasR; pos; sync_state })
             (fun forwarded_m ->
@@ -251,7 +257,9 @@ struct
                 (RightComponent.o_trans pasR forwarded_m))
       | ActiveRight (pasL, actR) ->
           let* (m, pasR) = RightComponent.p_trans actR in
-          route_move IntStructure.Right m aconf.sync_state aconf.pos
+          route_move IntStructure.Right m aconf.sync_state
+            (RightComponent.get_active_pos actR)
+            aconf.pos
             (LeftComponent.get_passive_pos pasL)
             (fun sync_state pos -> Passive { pasL; pasR; pos; sync_state })
             (fun forwarded_m ->
@@ -270,9 +278,9 @@ struct
         IntStructure.CompositeTypingLTS.check_move pconf.pos composite_move
       with
       | None -> None
-      | Some pos -> begin
+      | Some (_, pos) -> begin
           match
-            IntStructure.import_move pconf.sync_state
+            IntStructure.import_move pconf.sync_state pconf.pos
               (LeftComponent.get_passive_pos pconf.pasL)
               (RightComponent.get_passive_pos pconf.pasR)
               composite_move
@@ -303,7 +311,7 @@ struct
         (IntStructure.CompositeTypingLTS.Moves.pol_move * active_conf)
         IntStructure.CompositeTypingLTS.BranchMonad.m =
       let open IntStructure.CompositeTypingLTS.BranchMonad in
-      let* (composite_move, _) =
+      let* (composite_move, _, _) =
         IntStructure.CompositeTypingLTS.generate_moves pconf.pos in
       match o_trans pconf composite_move with
       | None -> fail ()
@@ -363,7 +371,7 @@ module MakeIntStructure
       Typing.LTS
         with module Moves.Renaming = IntLang.IEnv.Renaming
          and type Moves.copattern =
-          IntLang.abstract_normal_form * IntLang.IEnv.Renaming.t) =
+          IntLang.abstract_normal_form * IntLang.IEnv.Renaming.Namectx.t) =
 struct
   module TypingLTS = TypingLTS
   module CompositeTypingLTS = TypingLTS
@@ -405,8 +413,12 @@ struct
         translated_subject)
       a_nf
 
-  let forward_move sync_state side passive_pos
-      ((dir, (a_nf, sender_renaming)) : TypingLTS.Moves.pol_move) =
+  (* The weakening a typing LTS gives a move played from a position. *)
+  let weakening_at position action =
+    fst (TypingLTS.trigger_move position action)
+
+  let forward_move sync_state side sender_pos passive_pos
+      ((dir, (a_nf, lnamectx)) as action : TypingLTS.Moves.pol_move) =
     assert (dir = TypingLTS.Moves.Output);
     let nn = IntLang.get_subject_name a_nf in
     match check_free_names a_nf with
@@ -417,18 +429,18 @@ struct
             failwith
               "Forwarding a move whose subject is not shared. Please report."
         | Some forwarded_subject ->
-            let ((_, forwarded_renaming) as forwarded_move) =
-              TypingLTS.weaken_move passive_pos TypingLTS.Moves.Input
-                (translate_subject a_nf nn forwarded_subject, sender_renaming)
-            in
+            let forwarded_action =
+              ( TypingLTS.Moves.Input,
+                (translate_subject a_nf nn forwarded_subject, lnamectx) ) in
             let sync_state =
-              SyncState.extend_shared sync_state side sender_renaming
-                forwarded_renaming in
-            Ok ((TypingLTS.Moves.Input, forwarded_move), sync_state)
+              SyncState.extend_shared sync_state side
+                (weakening_at sender_pos action)
+                (weakening_at passive_pos forwarded_action) in
+            Ok (forwarded_action, sync_state)
       end
 
-  let export_move sync_state side composite_pos
-      ((dir, (a_nf, component_renaming)) : TypingLTS.Moves.pol_move) =
+  let export_move sync_state side sender_pos composite_pos
+      ((dir, (a_nf, lnamectx)) as action : TypingLTS.Moves.pol_move) =
     assert (dir = TypingLTS.Moves.Output);
     let nn = IntLang.get_subject_name a_nf in
     match check_free_names a_nf with
@@ -439,19 +451,19 @@ struct
             failwith
               "Exporting a move whose subject is not external. Please report."
         | Some composite_level ->
-            let ((_, composite_renaming) as composite_move) =
-              CompositeTypingLTS.weaken_move composite_pos
-                CompositeTypingLTS.Moves.Output
-                (translate_subject a_nf nn composite_level, component_renaming)
-            in
+            let composite_action =
+              ( CompositeTypingLTS.Moves.Output,
+                (translate_subject a_nf nn composite_level, lnamectx) ) in
             let sync_state =
-              SyncState.extend_externalP sync_state side component_renaming
-                composite_renaming in
-            Ok ((CompositeTypingLTS.Moves.Output, composite_move), sync_state)
+              SyncState.extend_externalP sync_state side
+                (weakening_at sender_pos action)
+                (weakening_at composite_pos composite_action) in
+            Ok (composite_action, sync_state)
       end
 
-  let import_move sync_state left_pos right_pos
-      ((dir, (a_nf, composite_renaming)) : CompositeTypingLTS.Moves.pol_move) =
+  let import_move sync_state composite_pos left_pos right_pos
+      ((dir, (a_nf, lnamectx)) as composite_action :
+        CompositeTypingLTS.Moves.pol_move) =
     assert (dir = CompositeTypingLTS.Moves.Input);
     let nn = IntLang.get_subject_name a_nf in
     match check_free_names a_nf with
@@ -465,14 +477,14 @@ struct
         | Some (side, component_level) ->
             let component_pos =
               match side with Left -> left_pos | Right -> right_pos in
-            let ((_, component_renaming) as component_move) =
-              TypingLTS.weaken_move component_pos TypingLTS.Moves.Input
-                (translate_subject a_nf nn component_level, composite_renaming)
-            in
+            let component_action =
+              ( TypingLTS.Moves.Input,
+                (translate_subject a_nf nn component_level, lnamectx) ) in
             let sync_state =
-              SyncState.extend_externalO sync_state side composite_renaming
-                component_renaming in
-            Ok (side, (TypingLTS.Moves.Input, component_move), sync_state)
+              SyncState.extend_externalO sync_state side
+                (weakening_at composite_pos composite_action)
+                (weakening_at component_pos component_action) in
+            Ok (side, component_action, sync_state)
       end
 
   (* The name pairs initialize Shared_LR, the remaining names going to the external

@@ -11,7 +11,13 @@ module Make (TypingLTS : Typing.LTS) : sig
   type passive = opponent_turn * player_turn
   type _ status = Active : active status | Passive : passive status
 
-  (* Every target position is derived by check_move. *)
+  (* Both the weakening and the target are derived by check_move. *)
+  type step = {
+    move: TypingLTS.Moves.move;
+    weakening: TypingLTS.Moves.Renaming.t;
+    target: TypingLTS.position;
+  }
+
   type ('s, 'e) path
   type t = (passive, passive) path
   type 's any_end = Any_end : ('s, 'e) path * 'e status -> 's any_end
@@ -29,13 +35,8 @@ module Make (TypingLTS : Typing.LTS) : sig
   val initial_position : ('s, 'e) path -> TypingLTS.position
   val final_position : ('s, 'e) path -> TypingLTS.position
   val actions : ('s, 'e) path -> TypingLTS.Moves.pol_move list
-
-  val opponent_step :
-    t ->
-    (TypingLTS.Moves.move * TypingLTS.position * (active, passive) path) option
-
-  val player_step :
-    (active, passive) path -> TypingLTS.Moves.move * TypingLTS.position * t
+  val opponent_step : t -> (step * (active, passive) path) option
+  val player_step : (active, passive) path -> step * t
 
   val extend_by_player_move :
     ('s, active) path -> TypingLTS.Moves.move -> ('s, passive) path
@@ -62,14 +63,16 @@ end = struct
   type passive = opponent_turn * player_turn
   type _ status = Active : active status | Passive : passive status
 
+  type step = {
+    move: Moves.move;
+    weakening: Moves.Renaming.t;
+    target: TypingLTS.position;
+  }
+
   type (_, _) steps =
     | End : ('s, 's) steps
-    | Opponent_step :
-        Moves.move * TypingLTS.position * (active, 'e) steps
-        -> (passive, 'e) steps
-    | Player_step :
-        Moves.move * TypingLTS.position * (passive, 'e) steps
-        -> (active, 'e) steps
+    | Opponent_step : step * (active, 'e) steps -> (passive, 'e) steps
+    | Player_step : step * (passive, 'e) steps -> (active, 'e) steps
 
   type ('s, 'e) path = { initial: TypingLTS.position; steps: ('s, 'e) steps }
   type t = (passive, passive) path
@@ -80,26 +83,26 @@ end = struct
     Util.Error.failwithf "Play: the move %a is not a valid step at %a"
       Moves.pp_move move TypingLTS.pp_position position
 
-  let step position action =
+  let checked_step position ((_, move) as action) =
     match TypingLTS.check_move position action with
-    | Some target -> target
-    | None -> invalid_step position (snd action)
+    | Some (weakening, target) -> { move; weakening; target }
+    | None -> invalid_step position move
 
   let rec steps_of_actions : type s.
       s status -> TypingLTS.position -> Moves.pol_move list -> s any_steps =
    fun status position actions ->
     match (status, actions) with
     | (_, []) -> Any_steps (End, status)
-    | (Passive, ((Moves.Input, move) as action) :: actions) ->
-        let target = step position action in
+    | (Passive, ((Moves.Input, _) as action) :: actions) ->
+        let step = checked_step position action in
         let (Any_steps (steps, ending)) =
-          steps_of_actions Active target actions in
-        Any_steps (Opponent_step (move, target, steps), ending)
-    | (Active, ((Moves.Output, move) as action) :: actions) ->
-        let target = step position action in
+          steps_of_actions Active step.target actions in
+        Any_steps (Opponent_step (step, steps), ending)
+    | (Active, ((Moves.Output, _) as action) :: actions) ->
+        let step = checked_step position action in
         let (Any_steps (steps, ending)) =
-          steps_of_actions Passive target actions in
-        Any_steps (Player_step (move, target, steps), ending)
+          steps_of_actions Passive step.target actions in
+        Any_steps (Player_step (step, steps), ending)
     | (Passive, (Moves.Output, move) :: _) | (Active, (Moves.Input, move) :: _)
       ->
         invalid_step position move
@@ -122,31 +125,29 @@ end = struct
       TypingLTS.position -> (s, e) steps -> TypingLTS.position =
    fun position -> function
     | End -> position
-    | Opponent_step (_, target, steps) -> final_position_of_steps target steps
-    | Player_step (_, target, steps) -> final_position_of_steps target steps
+    | Opponent_step (step, steps) -> final_position_of_steps step.target steps
+    | Player_step (step, steps) -> final_position_of_steps step.target steps
 
   let final_position path = final_position_of_steps path.initial path.steps
 
   let rec actions_of_steps : type s e. (s, e) steps -> Moves.pol_move list =
     function
     | End -> []
-    | Opponent_step (move, _, steps) ->
-        (Moves.Input, move) :: actions_of_steps steps
-    | Player_step (move, _, steps) ->
-        (Moves.Output, move) :: actions_of_steps steps
+    | Opponent_step (step, steps) ->
+        (Moves.Input, step.move) :: actions_of_steps steps
+    | Player_step (step, steps) ->
+        (Moves.Output, step.move) :: actions_of_steps steps
 
   let actions path = actions_of_steps path.steps
 
   let opponent_step (play : t) =
     match play.steps with
     | End -> None
-    | Opponent_step (move, target, steps) ->
-        Some (move, target, { initial= target; steps })
+    | Opponent_step (step, steps) -> Some (step, { initial= step.target; steps })
 
   let player_step (path : (active, passive) path) =
     match path.steps with
-    | Player_step (move, target, steps) ->
-        (move, target, { initial= target; steps })
+    | Player_step (step, steps) -> (step, { initial= step.target; steps })
 
   let rec extend_steps : type s.
       TypingLTS.position ->
@@ -155,11 +156,11 @@ end = struct
       (s, passive) steps =
    fun position steps move ->
     match steps with
-    | End -> Player_step (move, step position (Moves.Output, move), End)
-    | Opponent_step (opponent_move, target, steps) ->
-        Opponent_step (opponent_move, target, extend_steps target steps move)
-    | Player_step (player_move, target, steps) ->
-        Player_step (player_move, target, extend_steps target steps move)
+    | End -> Player_step (checked_step position (Moves.Output, move), End)
+    | Opponent_step (step, steps) ->
+        Opponent_step (step, extend_steps step.target steps move)
+    | Player_step (step, steps) ->
+        Player_step (step, extend_steps step.target steps move)
 
   let extend_by_player_move path move =
     { path with steps= extend_steps path.initial path.steps move }
@@ -167,21 +168,22 @@ end = struct
   let rec drop_last_step : type s.
       (s, active) steps -> (s, passive) steps option = function
     | End -> None
-    | Opponent_step (_, _, End) -> Some End
-    | Opponent_step (opponent_move, target, steps) ->
+    | Opponent_step (_, End) -> Some End
+    | Opponent_step (step, steps) ->
         Option.map
-          (fun steps -> Opponent_step (opponent_move, target, steps))
+          (fun steps -> Opponent_step (step, steps))
           (drop_last_step steps)
-    | Player_step (player_move, target, steps) ->
+    | Player_step (step, steps) ->
         Option.map
-          (fun steps -> Player_step (player_move, target, steps))
+          (fun steps -> Player_step (step, steps))
           (drop_last_step steps)
 
   let drop_last_move path =
     Option.map (fun steps -> { path with steps }) (drop_last_step path.steps)
 
   (* The inclusion maps this path's Player names to the other participant's
-     Opponent names, extended by the moves placed there. *)
+     Opponent names, extended at each Player move by its fresh names on both
+     sides. *)
   let rec dual_steps : type a b c d.
       TypingLTS.position ->
       (Namectx.Names.name, Namectx.Names.name) Util.Pmap.pmap ->
@@ -191,25 +193,26 @@ end = struct
     let open Util.Monad.Option in
     match steps with
     | End -> return End
-    | Opponent_step (move, _, steps) ->
+    | Opponent_step (step, steps) ->
         let move =
           Moves.map_free_names
             (fun name -> Util.Pmap.lookup_exn name inclusion)
-            move in
-        let* target = TypingLTS.check_move position (Moves.Output, move) in
+            step.move in
+        let* (weakening, target) =
+          TypingLTS.check_move position (Moves.Output, move) in
         let* steps = dual_steps target inclusion steps in
-        return (Player_step (move, target, steps))
-    | Player_step (move, _, steps) ->
-        let placed = TypingLTS.weaken_move position Moves.Input move in
-        let* target = TypingLTS.check_move position (Moves.Input, placed) in
+        return (Player_step ({ move; weakening; target }, steps))
+    | Player_step (step, steps) ->
+        let* (weakening, target) =
+          TypingLTS.check_move position (Moves.Input, step.move) in
         let inclusion =
           Util.Pmap.concat inclusion
             (Util.Pmap.list_to_pmap
                (List.combine
-                  (Moves.get_fresh_names move)
-                  (Moves.get_fresh_names placed))) in
+                  (Moves.fresh_names step.weakening step.move)
+                  (Moves.fresh_names weakening step.move))) in
         let* steps = dual_steps target inclusion steps in
-        return (Opponent_step (placed, target, steps))
+        return (Opponent_step ({ move= step.move; weakening; target }, steps))
 
   let dual position path =
     let inclusion =

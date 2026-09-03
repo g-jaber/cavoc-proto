@@ -49,7 +49,8 @@ module type SINGLE_RESULT_ARENA = sig
     arena:TypingLTS.position ->
     TypingLTS.position ->
     TypingLTS.Moves.pol_move list ->
-    (TypingLTS.Moves.pol_move * TypingLTS.position) list
+    (TypingLTS.Moves.pol_move * TypingLTS.Moves.Renaming.t * TypingLTS.position)
+    list
 
   (* The two participants the play defines, the moves chronological and in the
      module's own polarity; None until that side has been played. *)

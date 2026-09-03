@@ -1,8 +1,10 @@
 module Make (Moves : Lts.Moves.POLMOVES) :
   Lts.Hislts.HISLTS_INIT
     with type move = Moves.pol_move
+     and type renaming = Moves.Renaming.t
      and type name = Moves.Renaming.Namectx.Names.name = struct
   type move = Moves.pol_move
+  type renaming = Moves.Renaming.t
   type status = Active | Passive
 
   (*let string_of_status = function | Active -> "active" | Passive -> "passive"*)
@@ -25,10 +27,10 @@ module Make (Moves : Lts.Moves.POLMOVES) :
 
   let string_of_conf = Format.asprintf "%a" pp_conf
 
-  let trans_check (status, cstack) (dir, move) =
+  let trans_check (status, cstack) weakening (dir, move) =
     match (status, dir) with
     | (Active, Moves.Output) ->
-        let support = Moves.get_fresh_names move in
+        let support = Moves.fresh_names weakening move in
         let cstack' = List.filter Moves.Renaming.Namectx.Names.is_cname support in
         Some (Passive, cstack' @ cstack)
     | (Passive, Moves.Input) ->

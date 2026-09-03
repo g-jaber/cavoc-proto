@@ -8,7 +8,7 @@ module MakeComponent
         with module Moves.Renaming = IntLang.IEnv.Renaming
          and module BranchMonad = IntLang.BranchMonad
          and type Moves.copattern =
-          IntLang.abstract_normal_form * IntLang.IEnv.Renaming.t
+          IntLang.abstract_normal_form * IntLang.IEnv.Renaming.Namectx.t
          and type store_ctx = IntLang.Storectx.t)
     (ExtraMemory :
       Lts.Extra_memory.EXTRA_MEMORY
@@ -54,7 +54,7 @@ struct
     assert (direction = TypingLTS.Moves.Output);
     assert (
       TypingLTS.get_namectxP position = TypingLTS.Moves.Renaming.Namectx.empty);
-    let position_after_initial_move =
+    let (_, position_after_initial_move) =
       TypingLTS.trigger_move position initial_action in
     let store =
       ViewFunctionLang.initial_store strategy position_after_initial_move in

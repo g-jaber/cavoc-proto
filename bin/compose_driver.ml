@@ -134,11 +134,17 @@ struct
         let results_list =
           Composition.TypingLTS.BranchMonad.run (Composition.o_trans_gen pconf)
         in
-        let moves_list = List.map (fun (x, _) -> x) results_list in
+        let weakening_of input_move =
+          fst
+            (Composition.TypingLTS.trigger_move
+               (Composition.get_passive_pos pconf)
+               input_move) in
         let json_list =
           List.map
-            (Composition.TypingLTS.Moves.pol_move_to_yojson_in ~show_name)
-            moves_list in
+            (fun (input_move, _) ->
+              Composition.TypingLTS.Moves.pol_move_to_yojson_in ~show_name
+                (weakening_of input_move) input_move)
+            results_list in
         show_moves_list json_list;
         let%lwt chosen = get_move (List.length json_list - 1) in
         match chosen with
@@ -147,7 +153,7 @@ struct
             let (input_move, aconf) = List.nth results_list chosen_index in
             let move_string =
               Composition.TypingLTS.Moves.string_of_pol_move_in ~show_name
-                input_move in
+                (weakening_of input_move) input_move in
             Moves_manager.add_move Opponent move_string;
             drive ~show_moves_list ~get_move (Composition.Active aconf))
 end

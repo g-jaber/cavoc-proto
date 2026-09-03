@@ -11,19 +11,28 @@ module type MOVES = sig
   val pp_move : Format.formatter -> move -> unit
   val string_of_move : move -> string
 
-  (* The _in variants display the names of the ambient context with the
-     provided show_name, typically Namectx.show_name_in of that context. *)
+  (* The _in variants display the free names with show_name, typically
+     Namectx.show_name_in of the ambient context.
+    The bound names are shown at their
+     level using the given weakening of the local context. *)
   val pp_move_in :
     show_name:(Renaming.Namectx.Names.name -> string) ->
+    Renaming.t ->
     Format.formatter ->
     move ->
     unit
 
   val string_of_move_in :
-    show_name:(Renaming.Namectx.Names.name -> string) -> move -> string
+    show_name:(Renaming.Namectx.Names.name -> string) ->
+    Renaming.t ->
+    move ->
+    string
 
   val move_to_yojson_in :
-    show_name:(Renaming.Namectx.Names.name -> string) -> move -> Yojson.Safe.t
+    show_name:(Renaming.Namectx.Names.name -> string) ->
+    Renaming.t ->
+    move ->
+    Yojson.Safe.t
 
   val get_subject_name : move -> Renaming.Namectx.Names.name
 
@@ -31,16 +40,17 @@ module type MOVES = sig
      its names are move-local levels. *)
   val get_namectx : move -> Renaming.Namectx.t
 
-  (* The names introduced by the move, transported through its carried
-     weakening so that they denote names of the extended context. *)
-  val get_fresh_names : move -> Renaming.Namectx.Names.name list
+  (* The names introduced by the move, computed via the weakening of its local
+     context into the ambient one. *)
+  val fresh_names : Renaming.t -> move -> Renaming.Namectx.Names.name list
 
   (* Rename the free names of the move, including the subject. *)
   val map_free_names :
     (Renaming.Namectx.Names.name -> Renaming.Namectx.Names.name) -> move -> move
 
-  (* local_form relocate the move using its weakening.*)
-  val local_form : move -> move
+  (* The move with the display hints of its local context erased, so that
+     stored moves compare structurally. *)
+  val erase_display_hints : move -> move
 
   val unify_move :
     Renaming.Namectx.Names.name Util.Namespan.namespan ->
@@ -61,15 +71,20 @@ module type POLMOVES = sig
 
   val pp_pol_move_in :
     show_name:(Renaming.Namectx.Names.name -> string) ->
+    Renaming.t ->
     Format.formatter ->
     pol_move ->
     unit
 
   val string_of_pol_move_in :
-    show_name:(Renaming.Namectx.Names.name -> string) -> pol_move -> string
+    show_name:(Renaming.Namectx.Names.name -> string) ->
+    Renaming.t ->
+    pol_move ->
+    string
 
   val pol_move_to_yojson_in :
     show_name:(Renaming.Namectx.Names.name -> string) ->
+    Renaming.t ->
     pol_move ->
     Yojson.Safe.t
 
@@ -120,11 +135,12 @@ end *)
 module Make (A_nf : Lang.Interactive.A_NF) :
   POLMOVES
     with module Renaming = A_nf.IEnv.Renaming
-     and type copattern = A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t =
-struct
+     and type copattern =
+      A_nf.abstract_normal_form * A_nf.IEnv.Renaming.Namectx.t = struct
   module Renaming = A_nf.IEnv.Renaming
+  module Namectx = Renaming.Namectx
 
-  type copattern = A_nf.abstract_normal_form * Renaming.t
+  type copattern = A_nf.abstract_normal_form * Namectx.t
   type move = copattern
   type direction = Input | Output [@@deriving to_yojson]
 
@@ -133,49 +149,60 @@ struct
 
   type pol_move = direction * move
 
-  (* Bound names are displayed reindexed through the carried renaming;
-     free names are resolved by show_name. *)
-  let pp_move_gen ~show_name ~pp_dir fmt (a_nf, renaming) =
+  let pp_move_gen ~show_name ~show_bound_name ~pp_dir fmt (a_nf, _) =
     let pp_free_name fmt nn = Format.pp_print_string fmt (show_name nn) in
-    let pp_bound_name fmt nn =
-      Renaming.Namectx.Names.pp_name fmt (Renaming.lookup renaming nn) in
+    let pp_bound_name fmt nn = Format.pp_print_string fmt (show_bound_name nn) in
     A_nf.pp_a_nf_in ~pp_dir ~pp_free_name ~pp_bound_name fmt a_nf
 
-  let default_show = Renaming.Namectx.Names.string_of_name
+  let default_show = Namectx.Names.string_of_name
+  let show_through weakening nn = default_show (Renaming.lookup weakening nn)
+  let no_dir fmt = Format.pp_print_string fmt ""
 
-  let pp_move_in ~show_name fmt move =
-    let pp_dir fmt = Format.pp_print_string fmt "" in
-    pp_move_gen ~show_name ~pp_dir fmt move
+  let pp_move_in ~show_name weakening fmt move =
+    pp_move_gen ~show_name ~show_bound_name:(show_through weakening)
+      ~pp_dir:no_dir fmt move
 
-  let pp_move = pp_move_in ~show_name:default_show
+  (* Bound names are displayed at their local levels. *)
+  let pp_move fmt move =
+    pp_move_gen ~show_name:default_show ~show_bound_name:default_show
+      ~pp_dir:no_dir fmt move
 
-  let string_of_move_in ~show_name =
-    Format.asprintf "%a" (pp_move_in ~show_name)
+  let string_of_move_in ~show_name weakening =
+    Format.asprintf "%a" (pp_move_in ~show_name weakening)
 
-  let string_of_move = string_of_move_in ~show_name:default_show
+  let string_of_move = Format.asprintf "%a" pp_move
 
-  let pp_pol_move_in ~show_name fmt (dir, move) =
+  let pp_pol_move_in ~show_name weakening fmt (dir, move) =
     let pp_dir fmt = Format.pp_print_string fmt (string_of_direction dir) in
-    pp_move_gen ~show_name ~pp_dir fmt move
+    pp_move_gen ~show_name ~show_bound_name:(show_through weakening) ~pp_dir fmt
+      move
 
-  let pp_pol_move = pp_pol_move_in ~show_name:default_show
+  let pp_pol_move fmt (dir, move) =
+    let pp_dir fmt = Format.pp_print_string fmt (string_of_direction dir) in
+    pp_move_gen ~show_name:default_show ~show_bound_name:default_show ~pp_dir
+      fmt move
 
-  let string_of_pol_move_in ~show_name =
-    Format.asprintf "%a" (pp_pol_move_in ~show_name)
+  let string_of_pol_move_in ~show_name weakening =
+    Format.asprintf "%a" (pp_pol_move_in ~show_name weakening)
 
-  let string_of_pol_move = string_of_pol_move_in ~show_name:default_show
+  let string_of_pol_move = Format.asprintf "%a" pp_pol_move
 
-  let move_to_yojson_in ~show_name ((a_nf, _) as move : move) =
+  let move_to_yojson_in ~show_name weakening ((a_nf, _) as move : move) =
     `Assoc
       [
         ("subjectName", `String (show_name (A_nf.get_subject_name a_nf)));
-        ("string", `String (string_of_move_in ~show_name move));
+        ("string", `String (string_of_move_in ~show_name weakening move));
       ]
 
-  let move_to_yojson = move_to_yojson_in ~show_name:default_show
+  let move_to_yojson ((a_nf, _) as move : move) =
+    `Assoc
+      [
+        ("subjectName", `String (default_show (A_nf.get_subject_name a_nf)));
+        ("string", `String (string_of_move move));
+      ]
 
-  let pol_move_to_yojson_in ~show_name (_, move) =
-    move_to_yojson_in ~show_name move
+  let pol_move_to_yojson_in ~show_name weakening (_, move) =
+    move_to_yojson_in ~show_name weakening move
 
   let pol_move_to_yojson (_, move) = move_to_yojson move
 
@@ -184,20 +211,16 @@ struct
 
   let switch_direction (p, d) = (switch p, d)
   let get_subject_name (a_nf, _) = A_nf.get_subject_name a_nf
-  let get_namectx (_, renaming) = Renaming.dom renaming
+  let get_namectx (_, local_namectx) = local_namectx
 
-  let get_fresh_names (_, renaming) =
-    List.map (Renaming.lookup renaming)
-      (Renaming.Namectx.get_names (Renaming.dom renaming))
+  let fresh_names weakening (_, local_namectx) =
+    List.map (Renaming.lookup weakening) (Namectx.get_names local_namectx)
 
-  let map_free_names f (a_nf, renaming) =
-    (A_nf.map_free_names_of_a_nf f a_nf, renaming)
+  let map_free_names f (a_nf, local_namectx) =
+    (A_nf.map_free_names_of_a_nf f a_nf, local_namectx)
 
-  let local_form (a_nf, renaming) =
-    ( a_nf,
-      Renaming.weak_r
-        (Renaming.Namectx.erase_display_hints (Renaming.dom renaming))
-        Renaming.Namectx.empty )
+  let erase_display_hints (a_nf, local_namectx) =
+    (a_nf, Namectx.erase_display_hints local_namectx)
 
   let unify_move span (a_nf1, _) (a_nf2, _) =
     A_nf.is_equiv_a_nf span a_nf1 a_nf2

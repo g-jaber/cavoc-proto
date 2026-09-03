@@ -27,16 +27,17 @@ module type STRATEGY = sig
     TypingLTS.Moves.Renaming.Namectx.t ->
     value list
 
-  (* The answer to an Opponent move, from the value its subject is bound to:
-     the Player move in the ambient contexts, its local context, the values of
-     the names it introduces, and the strategy after it; None stops. *)
+  (* The answer to an Opponent move, given the weakening of its local context
+     and the value its subject is bound to.
+     The function provides the Player move in the ambient
+     contexts, the values of the names it introduces, and the strategy after it. *)
   val answer :
     t ->
     value ->
     TypingLTS.Moves.Renaming.Namectx.t ->
+    TypingLTS.Moves.Renaming.t ->
     TypingLTS.Moves.move ->
-    (abstract_normal_form * TypingLTS.Moves.Renaming.Namectx.t * value list * t)
-    option
+    (TypingLTS.Moves.move * value list * t) option
 end
 
 module Make
@@ -46,7 +47,7 @@ module Make
         with module Moves.Renaming = A_nf.IEnv.Renaming
          and module BranchMonad = A_nf.BranchMonad
          and type Moves.copattern =
-          A_nf.abstract_normal_form * A_nf.IEnv.Renaming.t
+          A_nf.abstract_normal_form * A_nf.IEnv.Renaming.Namectx.t
          and type store_ctx = A_nf.Storectx.t)
     (Strategy :
       STRATEGY
@@ -103,6 +104,7 @@ struct
   type pending_move =
     | OpponentMove of {
         move: Moves.move;
+        weakening: Renaming.t;
         namectxP: Renaming.Namectx.t;
             (* the Player context then, for printing *)
         subject_value: Strategy.value;
@@ -113,9 +115,11 @@ struct
 
   let pp_opconf fmt (pending_move, store) =
     match pending_move with
-    | OpponentMove { move; namectxP; _ } ->
+    | OpponentMove { move; weakening; namectxP; _ } ->
         Format.fprintf fmt "⟨%a | %a⟩"
-          (Moves.pp_move_in ~show_name:(Renaming.Namectx.show_name_in namectxP))
+          (Moves.pp_move_in
+             ~show_name:(Renaming.Namectx.show_name_in namectxP)
+             weakening)
           move pp_store store
     | InitialMove initial_move ->
         Format.fprintf fmt "⟨initial move %a | %a⟩" Moves.pp_move initial_move
@@ -123,9 +127,8 @@ struct
 
   let string_of_opconf = Format.asprintf "%a" pp_opconf
 
-  (* The initial move is stored in local form. *)
   let initial_move_opconf initial_move store =
-    (InitialMove (Moves.local_form initial_move), store)
+    (InitialMove (Moves.erase_display_hints initial_move), store)
 
   let generate_a_nf = A_nf.generate_a_nf
   let type_check_a_nf = A_nf.type_check_a_nf
@@ -148,10 +151,12 @@ struct
             bind_fresh_names namectxO local_namectx
               (Strategy.initial_values store.strategy namectxO local_namectx),
             store )
-    | OpponentMove { move; namectxP= _; subject_value } -> begin
-        match Strategy.answer store.strategy subject_value namectxO move with
+    | OpponentMove { move; weakening; subject_value; _ } -> begin
+        match
+          Strategy.answer store.strategy subject_value namectxO weakening move
+        with
         | None -> EvalMonad.stop ()
-        | Some (a_nf, local_namectx, values, strategy) ->
+        | Some ((a_nf, local_namectx), values, strategy) ->
             EvalMonad.return
               ( (a_nf, local_namectx, storectx),
                 bind_fresh_names namectxO local_namectx values,
@@ -160,14 +165,15 @@ struct
 
   (* Accepting an Opponent move extends the environment's image, where the
      machine reads the current Γ_O. *)
-  let concretize_a_nf store ienv (a_nf, renaming) =
-    let move = (a_nf, renaming) in
+  let concretize_a_nf store ienv (a_nf, weakening) =
+    let move = (a_nf, Renaming.dom weakening) in
     ( ( OpponentMove
           {
             move;
+            weakening;
             namectxP= IEnv.dom ienv;
             subject_value= IEnv.lookup_exn ienv (Moves.get_subject_name move);
           },
         store ),
-      IEnv.weaken_r ienv (Renaming.dom renaming) )
+      IEnv.weaken_r ienv (Moves.get_namectx move) )
 end

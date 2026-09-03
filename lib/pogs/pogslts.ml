@@ -42,26 +42,25 @@ module Make (Lang : Lang.Interactive.LANG_WITH_INIT) :
         ( act_conf.opconf,
           TypingLTS.get_namectxO act_conf.pos,
           TypingLTS.get_storectx act_conf.pos ) in
-    let move =
-      ( TypingLTS.Moves.Output,
-        TypingLTS.weaken_move act_conf.pos TypingLTS.Moves.Output
-          (a_nf, TypingLTS.Moves.Renaming.id lnamectx) ) in
-    let pos = TypingLTS.trigger_move act_conf.pos move in
+    let move = (TypingLTS.Moves.Output, (a_nf, lnamectx)) in
+    let (_, pos) = TypingLTS.trigger_move act_conf.pos move in
     return (move, { store; ienv; pos })
 
-  let o_trans pas_conf ((_, a_nf) as input_move) =
+  let o_trans pas_conf ((_, (a_nf, _)) as input_move) =
     match TypingLTS.check_move pas_conf.pos input_move with
     | None -> None
-    | Some pos ->
+    | Some (weakening, pos) ->
         let (opconf, _) =
-          Lang.concretize_a_nf pas_conf.store pas_conf.ienv a_nf in
+          Lang.concretize_a_nf pas_conf.store pas_conf.ienv (a_nf, weakening)
+        in
         Some { opconf; pos }
 
   let o_trans_gen pas_conf =
     let open TypingLTS.BranchMonad in
-    let* (((_, a_nf) as input_move), pos) =
+    let* (((_, (a_nf, _)) as input_move), weakening, pos) =
       TypingLTS.generate_moves pas_conf.pos in
-    let (opconf, _) = Lang.concretize_a_nf pas_conf.store pas_conf.ienv a_nf in
+    let (opconf, _) =
+      Lang.concretize_a_nf pas_conf.store pas_conf.ienv (a_nf, weakening) in
     (*we throw away the interactive environment γ from trigger_computation, since we
       do not have interactive environment in active configurations of POGS. *)
     return (input_move, { opconf; pos })
