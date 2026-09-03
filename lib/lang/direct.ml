@@ -316,8 +316,6 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
     let inj_ty ty = ty in
     let empty_res = namectxP in
     let get_type_fname fn = OpLang.Namectx.lookup_exn fnamectxP fn in
-    (* An answer's local context has an empty stack, so the hole type stands
-       for its return type, as in generate_a_nf_ret. *)
     let get_type_cname () =
       let ty_hole = Stackctx.lookup_exn stackctxP () in
       (ty_hole, ty_hole) in
