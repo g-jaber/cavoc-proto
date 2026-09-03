@@ -8,7 +8,8 @@
      { title, mode: 'single',
        dir,            // the test/ directory it was loaded from, if any
        participants: [ { name, dir, ml, mli } ],
-       options: { directStyle, wellBracketing, visibility, symbolic },
+       options: { directStyle, wellBracketing, visibility, innocence,
+                  symbolic },
        guide,          // markdown URL, or null
        locked }        // tutorial levels lock the options
 
@@ -33,7 +34,7 @@ window.cavocScenario = {
     mode: 'single',
     participants: [{ name: 'scratch', ml: null, mli: null }],
     options: { directStyle: false, wellBracketing: false,
-               visibility: false, symbolic: false },
+               visibility: false, innocence: false, symbolic: false },
     guide: 'help.md',
     locked: false,
 };
@@ -50,6 +51,7 @@ const cavocOptionIds = {
     directStyle: 'direct-style-check',
     wellBracketing: 'wellbracketing-check',
     visibility: 'visibility-check',
+    innocence: 'innocence-check',
     symbolic: 'symbolic-check',
 };
 
@@ -112,16 +114,21 @@ function cavocEnforceComposeLock() {
 }
 
 /* Direct style is intrinsically well-bracketed, so it implies WellBracketing
-   (same rule as explore_cli's -no-cps). */
+   (same rule as explore_cli's -no-cps); Innocence is enforced in CPS only. */
 function cavocEnforceDirectStyleLock() {
     const wb = document.getElementById('wellbracketing-check');
-    if (!wb) return;
+    const innocence = document.getElementById('innocence-check');
+    if (!wb || !innocence) return;
     if (window.cavocScenario.options.directStyle) {
         window.cavocScenario.options.wellBracketing = true;
         wb.checked = true;
         wb.disabled = true;
-    } else if (window.cavocScenario.mode !== 'synthesis') {
-        wb.disabled = false;
+        window.cavocScenario.options.innocence = false;
+        innocence.checked = false;
+        innocence.disabled = true;
+    } else {
+        innocence.disabled = false;
+        if (window.cavocScenario.mode !== 'synthesis') wb.disabled = false;
     }
 }
 
@@ -313,6 +320,7 @@ async function cavocScenarioFromDir(dir) {
             ? { directStyle: !!described.options.directStyle,
                 wellBracketing: !!described.options.wellBracketing,
                 visibility: !!described.options.visibility,
+                innocence: !!described.options.innocence,
                 symbolic: !!described.options.symbolic }
             : window.cavocScenario.options,
         guide: described.guide ? cavocExampleUrl(dir, described.guide) : null,
