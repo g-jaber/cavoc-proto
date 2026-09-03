@@ -228,3 +228,190 @@ module Make (A_nf : Lang.Interactive.A_NF) :
   let unify_pol_move span (dir1, move1) (dir2, move2) =
     if dir1 = dir2 then unify_move span move1 move2 else None
 end
+
+(* The moves of the tensor of two typing LTSs: a move of either game, tagged
+   by the game it is played in, over the aggregate of the two renamings. *)
+module Tensor (Moves1 : POLMOVES) (Moves2 : POLMOVES) :
+  POLMOVES
+    with type copattern = (Moves1.copattern, Moves2.copattern) Either.t
+     and type direction = Moves1.direction
+     and type Renaming.t = Moves1.Renaming.t * Moves2.Renaming.t
+     and type Renaming.Namectx.t =
+      Moves1.Renaming.Namectx.t * Moves2.Renaming.Namectx.t
+     and type Renaming.Namectx.typ =
+      (Moves1.Renaming.Namectx.typ, Moves2.Renaming.Namectx.typ) Either.t
+     and type Renaming.Namectx.Names.name =
+      ( Moves1.Renaming.Namectx.Names.name,
+        Moves2.Renaming.Namectx.Names.name )
+      Either.t = struct
+  module Names =
+    Lang.Names.MakeAggregate
+      (Moves1.Renaming.Namectx.Names)
+      (Moves2.Renaming.Namectx.Names)
+
+  module Namectx =
+    Lang.Typectx.Aggregate (Moves1.Renaming.Namectx) (Moves2.Renaming.Namectx)
+      (Names)
+
+  module Renaming =
+    Lang.Renaming.AggregateInjectiveRenaming (Moves1.Renaming) (Moves2.Renaming)
+      (Namectx)
+
+  type copattern = (Moves1.copattern, Moves2.copattern) Either.t
+  type move = copattern
+  type direction = Moves1.direction = Input | Output
+  type pol_move = direction * move
+
+  let switch = function Input -> Output | Output -> Input
+  let switch_direction (dir, move) = (switch dir, move)
+
+  (* The direction type of the second game is its own. *)
+  let direction2 = function Input -> Moves2.Input | Output -> Moves2.Output
+  let show_name1 show_name nn = show_name (Either.Left nn)
+  let show_name2 show_name nn = show_name (Either.Right nn)
+
+  let pp_move_in ~show_name (weakening1, weakening2) fmt = function
+    | Either.Left move ->
+        Moves1.pp_move_in ~show_name:(show_name1 show_name) weakening1 fmt move
+    | Either.Right move ->
+        Moves2.pp_move_in ~show_name:(show_name2 show_name) weakening2 fmt move
+
+  let pp_move fmt = function
+    | Either.Left move -> Moves1.pp_move fmt move
+    | Either.Right move -> Moves2.pp_move fmt move
+
+  let string_of_move_in ~show_name weakening =
+    Format.asprintf "%a" (pp_move_in ~show_name weakening)
+
+  let string_of_move = Format.asprintf "%a" pp_move
+
+  let pp_pol_move_in ~show_name (weakening1, weakening2) fmt (dir, move) =
+    match move with
+    | Either.Left move ->
+        Moves1.pp_pol_move_in ~show_name:(show_name1 show_name) weakening1 fmt
+          (dir, move)
+    | Either.Right move ->
+        Moves2.pp_pol_move_in ~show_name:(show_name2 show_name) weakening2 fmt
+          (direction2 dir, move)
+
+  let pp_pol_move fmt (dir, move) =
+    match move with
+    | Either.Left move -> Moves1.pp_pol_move fmt (dir, move)
+    | Either.Right move -> Moves2.pp_pol_move fmt (direction2 dir, move)
+
+  let string_of_pol_move_in ~show_name weakening =
+    Format.asprintf "%a" (pp_pol_move_in ~show_name weakening)
+
+  let string_of_pol_move = Format.asprintf "%a" pp_pol_move
+
+  let move_to_yojson_in ~show_name (weakening1, weakening2) = function
+    | Either.Left move ->
+        `Assoc
+          [
+            ( "left",
+              Moves1.move_to_yojson_in ~show_name:(show_name1 show_name)
+                weakening1 move );
+          ]
+    | Either.Right move ->
+        `Assoc
+          [
+            ( "right",
+              Moves2.move_to_yojson_in ~show_name:(show_name2 show_name)
+                weakening2 move );
+          ]
+
+  let move_to_yojson = function
+    | Either.Left move -> `Assoc [ ("left", Moves1.move_to_yojson move) ]
+    | Either.Right move -> `Assoc [ ("right", Moves2.move_to_yojson move) ]
+
+  let pol_move_to_yojson_in ~show_name weakening (_, move) =
+    move_to_yojson_in ~show_name weakening move
+
+  let pol_move_to_yojson (_, move) = move_to_yojson move
+
+  let yojson_of_move (move : move) : Yojson.Safe.t =
+    `Assoc [ ("label", `String (string_of_move move)) ]
+
+  let get_subject_name = function
+    | Either.Left move -> Either.Left (Moves1.get_subject_name move)
+    | Either.Right move -> Either.Right (Moves2.get_subject_name move)
+
+  let get_namectx = function
+    | Either.Left move ->
+        (Moves1.get_namectx move, Moves2.Renaming.Namectx.empty)
+    | Either.Right move ->
+        (Moves1.Renaming.Namectx.empty, Moves2.get_namectx move)
+
+  let fresh_names (weakening1, weakening2) = function
+    | Either.Left move ->
+        List.map (fun nn -> Either.Left nn) (Moves1.fresh_names weakening1 move)
+    | Either.Right move ->
+        List.map
+          (fun nn -> Either.Right nn)
+          (Moves2.fresh_names weakening2 move)
+
+  (* A free name stays in its game. *)
+  let map_free_names f = function
+    | Either.Left move ->
+        Either.Left
+          (Moves1.map_free_names
+             (fun nn ->
+               match f (Either.Left nn) with
+               | Either.Left nn' -> nn'
+               | Either.Right _ ->
+                   failwith "Renaming a free name into the other game.")
+             move)
+    | Either.Right move ->
+        Either.Right
+          (Moves2.map_free_names
+             (fun nn ->
+               match f (Either.Right nn) with
+               | Either.Right nn' -> nn'
+               | Either.Left _ ->
+                   failwith "Renaming a free name into the other game.")
+             move)
+
+  let erase_display_hints = function
+    | Either.Left move -> Either.Left (Moves1.erase_display_hints move)
+    | Either.Right move -> Either.Right (Moves2.erase_display_hints move)
+
+  (* A span over the tensor's names, restricted to one game and put back. *)
+  let split_span span =
+    let pairs = Util.Pmap.to_list span in
+    ( Util.Pmap.list_to_pmap
+        (List.filter_map
+           (function
+             | (Either.Left nn1, Either.Left nn2) -> Some (nn1, nn2) | _ -> None)
+           pairs),
+      Util.Pmap.list_to_pmap
+        (List.filter_map
+           (function
+             | (Either.Right nn1, Either.Right nn2) -> Some (nn1, nn2)
+             | _ -> None)
+           pairs) )
+
+  let join_span span1 span2 =
+    Util.Pmap.list_to_pmap
+      (List.map
+         (fun (nn1, nn2) -> (Either.Left nn1, Either.Left nn2))
+         (Util.Pmap.to_list span1)
+      @ List.map
+          (fun (nn1, nn2) -> (Either.Right nn1, Either.Right nn2))
+          (Util.Pmap.to_list span2))
+
+  let unify_move span move move' =
+    let (span1, span2) = split_span span in
+    match (move, move') with
+    | (Either.Left move, Either.Left move') ->
+        Option.map
+          (fun span1 -> join_span span1 span2)
+          (Moves1.unify_move span1 move move')
+    | (Either.Right move, Either.Right move') ->
+        Option.map
+          (fun span2 -> join_span span1 span2)
+          (Moves2.unify_move span2 move move')
+    | _ -> None
+
+  let unify_pol_move span (dir, move) (dir', move') =
+    if dir = dir' then unify_move span move move' else None
+end
