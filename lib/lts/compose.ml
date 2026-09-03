@@ -312,7 +312,8 @@ struct
         IntStructure.CompositeTypingLTS.BranchMonad.m =
       let open IntStructure.CompositeTypingLTS.BranchMonad in
       let* (composite_move, _, _) =
-        IntStructure.CompositeTypingLTS.generate_moves pconf.pos in
+        IntStructure.CompositeTypingLTS.generate_moves pconf.pos
+          IntStructure.CompositeTypingLTS.Moves.Input in
       match o_trans pconf composite_move with
       | None -> fail ()
       | Some aconf -> return (composite_move, aconf)

@@ -79,11 +79,11 @@ module Make (IntLang : Lang.Interactive.LANG) :
     | Moves.Output -> IntLang.IEnv.Renaming.id lnamectx
     | Moves.Input -> IntLang.IEnv.Renaming.weak_r lnamectx (get_namectxO pos)
 
-  let generate_moves pos =
+  let generate_moves pos dir =
     Util.Debug.print_debug "Generating moves";
     let open IntLang.BranchMonad in
-    match pos with
-    | Passive { storectx; namectxP; _ } ->
+    match (dir, pos) with
+    | (Moves.Input, Passive { storectx; namectxP; _ }) ->
         let* (a_nf, lnamectx, _) = IntLang.generate_a_nf storectx namectxP in
         let weakening = local_context_weakening pos Moves.Input lnamectx in
         let namectxO = IntLang.IEnv.Renaming.im weakening in
@@ -91,7 +91,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
           ( (Moves.Input, (a_nf, lnamectx)),
             weakening,
             Active { storectx; namectxO } )
-    | Active { storectx; namectxO } ->
+    | (Moves.Output, Active { storectx; namectxO }) ->
         let* (a_nf, namectxP, namectxO) =
           IntLang.generate_a_nf storectx namectxO in
         let weakening = local_context_weakening pos Moves.Output namectxP in
@@ -99,6 +99,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
           ( (Moves.Output, (a_nf, namectxP)),
             weakening,
             Passive { storectx; namectxP; namectxO } )
+    | _ -> fail ()
 
   let check_move pos ((dir, (a_nf, lnamectx)) : Moves.pol_move) =
     let weakening = local_context_weakening pos dir lnamectx in

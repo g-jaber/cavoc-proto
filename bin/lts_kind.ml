@@ -52,13 +52,14 @@ module type SINGLE_RESULT_ARENA = sig
      side. *)
   val initial_position : Lexing.lexbuf -> TypingLTS.position
 
-  (* The moves offered at a position: the well-typed ones the play so far
-     still leaves definable. *)
+  (* The moves of the given direction provided at a position: the well-typed
+     ones the play so far still leaves definable. *)
   (* The prototype does not consume answered continuations, so moves answering
-     them are still offered though neither participant can implement them. *)
+     them are still provided though neither participant can implement them. *)
   val offered_moves :
     arena:TypingLTS.position ->
     TypingLTS.position ->
+    TypingLTS.Moves.direction ->
     TypingLTS.Moves.pol_move list ->
     (TypingLTS.Moves.pol_move * TypingLTS.Moves.Renaming.t * TypingLTS.position)
     list
@@ -153,7 +154,8 @@ module MakeDefinabilityStack () = struct
       TypingLTS.BranchMonad.run
         (TypingLTS.generate_moves
            (TypingLTS.init_act_pos IntLang.Storectx.empty Namectx.empty
-              continuation_namectx))
+              continuation_namectx)
+           TypingLTS.Moves.Output)
     with
     | [ ((_, move), _, _) ] -> (continuation_namectx, move)
     | _ -> failwith "Definability: no single answer (). Please report."
@@ -366,17 +368,18 @@ struct
   module TypingLTS = RunTypingLTS
   include Syntheses
 
-  let offered_moves ~arena position played =
+  let offered_moves ~arena position direction play =
     let keeps_the_play_definable move =
-      let played = played @ [ move ] in
+      let play = play @ [ move ] in
       try
-        ignore (synthesize_module_source arena played);
-        ignore (synthesize_client_source arena played);
+        ignore (synthesize_module_source arena play);
+        ignore (synthesize_client_source arena play);
         true
       with Failure _ -> false in
     List.filter
       (fun (move, _, _) -> keeps_the_play_definable move)
-      (RunTypingLTS.BranchMonad.run (RunTypingLTS.generate_moves position))
+      (RunTypingLTS.BranchMonad.run
+         (RunTypingLTS.generate_moves position direction))
 end
 
 (* Both participants being synthesized, visibility and well-bracketing are

@@ -49,9 +49,9 @@ module Make (Restriction : RESTRICTION) :
   let get_namectxP (position, _) = TypingLTS.get_namectxP position
   let get_storectx (position, _) = TypingLTS.get_storectx position
 
-  let generate_moves (position, conf) =
+  let generate_moves (position, conf) dir =
     let open BranchMonad in
-    let* (move, weakening, position') = TypingLTS.generate_moves position in
+    let* (move, weakening, position') = TypingLTS.generate_moves position dir in
     match Restriction.check position' weakening conf move with
     | None -> fail ()
     | Some conf' -> return (move, weakening, (position', conf'))

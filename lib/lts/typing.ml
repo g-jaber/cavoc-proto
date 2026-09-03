@@ -27,11 +27,15 @@ module type LTS = sig
   (* Every transition returns, with the target position, the weakening of
      the local context of the move. *)
 
-  (* generate_moves Γₓ returns all the pairs (m, Γₓ') such that there exists
-     a name context Δ for the free names of m with Γₓ ⊢ m ▷ Δ and Γₓ' = Γₓ + Δ,
-     using the branching monad. *)
+  (* generate_moves Γₓ dir returns all the pairs (m, Γₓ') such that m has
+     direction dir and there exists a name context Δ for the free names of m
+     with Γₓ ⊢ m ▷ Δ and Γₓ' = Γₓ + Δ, using the branching monad. *)
+  (* A position need not record whose turn it is, so the direction is
+     supplied. *)
   val generate_moves :
-    position -> (Moves.pol_move * Moves.Renaming.t * position) BranchMonad.m
+    position ->
+    Moves.direction ->
+    (Moves.pol_move * Moves.Renaming.t * position) BranchMonad.m
 
   (* check_move Γₓ m returns None when m is not well-typed at Γₓ. *)
   val check_move :

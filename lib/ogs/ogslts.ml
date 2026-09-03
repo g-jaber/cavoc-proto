@@ -94,7 +94,7 @@ end = struct
   let o_trans_gen pas_conf =
     let open TypingLTS.BranchMonad in
     let* (((_, (a_nf, _)) as input_move), weakening, pos) =
-      TypingLTS.generate_moves pas_conf.pos in
+      TypingLTS.generate_moves pas_conf.pos TypingLTS.Moves.Input in
     let (opconf, ienv) =
       Lang.concretize_a_nf pas_conf.store pas_conf.ienv (a_nf, weakening) in
     return (input_move, { opconf; ienv; pos })

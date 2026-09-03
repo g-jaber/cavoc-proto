@@ -23,7 +23,10 @@ module Drive (Arena : Lts_kind.SINGLE_RESULT_ARENA) = struct
     | Moves.Input -> Lts.Interactive_build.Opponent
     | Moves.Output -> Lts.Interactive_build.Proponent
 
-  let rec drive ~show_moves_list ~get_move ~show_play ~arena position played =
+  (* The direction is the one of the moves to offer, the arena starting
+     passive. *)
+  let rec drive ~show_moves_list ~get_move ~show_play ~arena position direction
+      played =
     let open Lts.Interactive_build in
     (* The arena has no configuration beyond its position: it is what the
        Configuration tab and the gutter's readout show. *)
@@ -31,7 +34,7 @@ module Drive (Arena : Lts_kind.SINGLE_RESULT_ARENA) = struct
     Display_config.set_config_editor_text
       (Yojson.Safe.pretty_to_string position_json);
     Display_config.display_composite_position position_json;
-    match Arena.offered_moves ~arena position played with
+    match Arena.offered_moves ~arena position direction played with
     | [] -> Lwt.return Prop_stopped
     | generated -> (
         let json_list =
@@ -42,14 +45,10 @@ module Drive (Arena : Lts_kind.SINGLE_RESULT_ARENA) = struct
                 weakening move)
             generated in
         show_moves_list json_list;
-        (* Every move offered at a position is that participant's, so the
-           panel can say whose turn the user is taking. *)
         Moves_display.set_caption
-          (match List.hd generated with
-          | ((Moves.Input, _), _, _) ->
-              "Your move, as the client — click to play"
-          | ((Moves.Output, _), _, _) ->
-              "Your move, as the module — click to play");
+          (match direction with
+          | Moves.Input -> "Your move, as the client — click to play"
+          | Moves.Output -> "Your move, as the module — click to play");
         let%lwt chosen = get_move (List.length json_list - 1) in
         match chosen with
         | Quit -> Lwt.return User_quit
@@ -61,5 +60,10 @@ module Drive (Arena : Lts_kind.SINGLE_RESULT_ARENA) = struct
                  weakening move);
             let played = played @ [ move ] in
             show_play played;
-            drive ~show_moves_list ~get_move ~show_play ~arena target played)
+            let direction =
+              match direction with
+              | Moves.Input -> Moves.Output
+              | Moves.Output -> Moves.Input in
+            drive ~show_moves_list ~get_move ~show_play ~arena target direction
+              played)
 end

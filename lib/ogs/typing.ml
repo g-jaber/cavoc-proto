@@ -9,10 +9,8 @@ module Make (IntLang : Lang.Interactive.LANG) :
   module BranchMonad = IntLang.BranchMonad
 
   type store_ctx = IntLang.Storectx.t
-  type status = Active | Passive
 
   type position = {
-    status: status;
     storectx: IntLang.Storectx.t;
     namectxP: IntLang.IEnv.Renaming.Namectx.t;
     namectxO: IntLang.IEnv.Renaming.Namectx.t;
@@ -36,25 +34,21 @@ module Make (IntLang : Lang.Interactive.LANG) :
       IntLang.IEnv.Renaming.Namectx.pp pos.namectxP
 
   let string_of_position = Format.asprintf "%a" pp_position
-
-  let init_act_pos storectx namectxP namectxO =
-    { status= Active; storectx; namectxP; namectxO }
-
-  let init_pas_pos storectx namectxP namectxO =
-    { status= Passive; storectx; namectxP; namectxO }
+  let init_act_pos storectx namectxP namectxO = { storectx; namectxP; namectxO }
+  let init_pas_pos = init_act_pos
 
   let local_context_weakening pos dir lnamectx =
     match dir with
     | Moves.Output -> IntLang.IEnv.Renaming.weak_r lnamectx pos.namectxP
     | Moves.Input -> IntLang.IEnv.Renaming.weak_r lnamectx pos.namectxO
 
-  let generate_moves pos =
+  let generate_moves pos dir =
     Util.Debug.print_debug "Generating moves";
     let open IntLang.BranchMonad in
-    match pos with
-    | { status= Passive; storectx; namectxP; _ } ->
+    match dir with
+    | Moves.Input ->
         let* (a_nf, lnamectx, namectxP) =
-          IntLang.generate_a_nf storectx namectxP in
+          IntLang.generate_a_nf pos.storectx pos.namectxP in
         (* We get weakening : Δ → Γₒ + Δ with Δ=lnamectx and Γₒ=namectxO *)
         let weakening = local_context_weakening pos Moves.Input lnamectx in
         (* now namectxO = Γₒ + Δ *)
@@ -68,10 +62,10 @@ module Make (IntLang : Lang.Interactive.LANG) :
         return
           ( (Moves.Input, (a_nf, lnamectx)),
             weakening,
-            { status= Active; storectx; namectxO; namectxP } )
-    | { status= Active; storectx; namectxO; _ } ->
+            { pos with namectxO; namectxP } )
+    | Moves.Output ->
         let* (a_nf, lnamectx, namectxO) =
-          IntLang.generate_a_nf storectx namectxO in
+          IntLang.generate_a_nf pos.storectx pos.namectxO in
         let weakening = local_context_weakening pos Moves.Output lnamectx in
         let namectxP = IntLang.IEnv.Renaming.im weakening in
         Util.Debug.print_debug @@ "New Proponent name context :"
@@ -81,53 +75,51 @@ module Make (IntLang : Lang.Interactive.LANG) :
         return
           ( (Moves.Output, (a_nf, lnamectx)),
             weakening,
-            { status= Passive; storectx; namectxO; namectxP } )
+            { pos with namectxO; namectxP } )
 
   let check_move pos ((dir, (a_nf, lnamectx)) : Moves.pol_move) =
     let weakening = local_context_weakening pos dir lnamectx in
-    match (dir, pos) with
+    match dir with
     (* A Proponent move is typed with the two contexts swapped, like its
        generation. *)
-    | (Moves.Output, { status= Active; storectx; namectxO; namectxP }) -> begin
+    | Moves.Output -> begin
         match
-          IntLang.type_check_a_nf storectx namectxO namectxP (a_nf, lnamectx)
+          IntLang.type_check_a_nf pos.storectx pos.namectxO pos.namectxP
+            (a_nf, lnamectx)
         with
         | Some namectxO ->
             let namectxP = IntLang.IEnv.Renaming.im weakening in
-            Some (weakening, { status= Passive; storectx; namectxP; namectxO })
+            Some (weakening, { pos with namectxP; namectxO })
         | None -> None
       end
-    | (Moves.Input, { status= Passive; storectx; namectxP; namectxO }) -> begin
+    | Moves.Input -> begin
         match
-          IntLang.type_check_a_nf storectx namectxP namectxO (a_nf, lnamectx)
+          IntLang.type_check_a_nf pos.storectx pos.namectxP pos.namectxO
+            (a_nf, lnamectx)
         with
         | Some namectxP ->
             let namectxO = IntLang.IEnv.Renaming.im weakening in
-            Some (weakening, { status= Active; storectx; namectxP; namectxO })
+            Some (weakening, { pos with namectxP; namectxO })
         | None -> None
       end
-    | _ -> None
 
   (* Beware that trigger_move does not update correctly the positions when
     some resources are consumed by the move *)
   let trigger_move pos ((dir, (_a_nf, lnamectx)) : Moves.pol_move) =
     let weakening = local_context_weakening pos dir lnamectx in
-    match (dir, pos) with
-    | (Moves.Output, { status= Active; storectx; namectxO; _ }) ->
+    match dir with
+    | Moves.Output ->
         let namectxP = IntLang.IEnv.Renaming.im weakening in
         Util.Debug.print_debug @@ "After trigger, new Proponent name context :"
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxP
         ^ " and Opponent name context stays "
-        ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO;
-        (weakening, { status= Passive; storectx; namectxP; namectxO })
-    | (Moves.Input, { status= Passive; storectx; namectxP; _ }) ->
+        ^ IntLang.IEnv.Renaming.Namectx.to_string pos.namectxO;
+        (weakening, { pos with namectxP })
+    | Moves.Input ->
         let namectxO = IntLang.IEnv.Renaming.im weakening in
         Util.Debug.print_debug @@ "After trigger, new Opponent name context :"
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO
         ^ " and Proponent name context stays "
-        ^ IntLang.IEnv.Renaming.Namectx.to_string namectxP;
-        (weakening, { status= Active; storectx; namectxP; namectxO })
-    | _ ->
-        failwith
-          "Trying to trigger a move of the wrong polarity. Please report."
+        ^ IntLang.IEnv.Renaming.Namectx.to_string pos.namectxP;
+        (weakening, { pos with namectxO })
 end

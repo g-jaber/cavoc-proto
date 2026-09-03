@@ -219,7 +219,7 @@ let evaluate_synthesis participant =
   in
   let%lwt outcome =
     Driver.drive ~show_moves_list ~get_move ~show_play ~arena:position position
-      [] in
+      Arena.TypingLTS.Moves.Input [] in
   match outcome with
   | Lts.Interactive_build.Prop_stopped ->
       (* The arena, not a program, is what has run out of moves here. *)

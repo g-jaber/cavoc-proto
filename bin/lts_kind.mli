@@ -41,13 +41,14 @@ module type SINGLE_RESULT_ARENA = sig
      side. *)
   val initial_position : Lexing.lexbuf -> TypingLTS.position
 
-  (* The moves offered at a position: the well-typed ones the play so far
-     still leaves definable. *)
+  (* The moves of the given direction offered at a position: the well-typed
+     ones the play so far still leaves definable. *)
   (* The prototype does not consume answered continuations, so moves answering
      them are still offered though neither participant can implement them. *)
   val offered_moves :
     arena:TypingLTS.position ->
     TypingLTS.position ->
+    TypingLTS.Moves.direction ->
     TypingLTS.Moves.pol_move list ->
     (TypingLTS.Moves.pol_move * TypingLTS.Moves.Renaming.t * TypingLTS.position)
     list

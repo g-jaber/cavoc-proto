@@ -23,9 +23,9 @@ module Make
   let get_namectxP (pos, _) = TypingLTS.get_namectxP pos
   let get_storectx (pos, _) = TypingLTS.get_storectx pos
 
-  let generate_moves (pos, hconf) =
+  let generate_moves (pos, hconf) dir =
     let open BranchMonad in
-    let* (move, weakening, pos') = TypingLTS.generate_moves pos in
+    let* (move, weakening, pos') = TypingLTS.generate_moves pos dir in
     match HistLts.trans_check hconf weakening move with
     | None -> fail ()
     | Some hconf' -> return (move, weakening, (pos', hconf'))
