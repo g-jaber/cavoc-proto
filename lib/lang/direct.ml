@@ -1,6 +1,6 @@
-module Make (OpLang : Language.WITHAVAL_INOUT) :
-  Interactive.LANG_WITH_INIT with type 'a EvalMonad.r = 'a OpLang.EvalMonad.r =
-struct
+(* MakeBase is left unsealed for Definability.MakeWithDirectStyle to include;
+   Make is its sealed alias. *)
+module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
   module EvalMonad = OpLang.EvalMonad
   module BranchMonad = OpLang.AVal.BranchMonad
 
@@ -311,13 +311,16 @@ struct
       (generate_a_nf_ret storectx namectxP)
 
   let[@warning "-8"] type_check_a_nf storectx
-      ((fnamectxP, stackctxP) as namectxP) ((nf_term, _), (lnamectx, stackctx))
+      ((fnamectxP, stackctxP) as namectxP) ((nf_term, _), (lnamectx, _stackctx))
       =
     let inj_ty ty = ty in
     let empty_res = namectxP in
     let get_type_fname fn = OpLang.Namectx.lookup_exn fnamectxP fn in
+    (* An answer's local context has an empty stack, so the hole type stands
+       for its return type, as in generate_a_nf_ret. *)
     let get_type_cname () =
-      (Stackctx.lookup_exn stackctxP (), Stackctx.lookup_exn stackctx ()) in
+      let ty_hole = Stackctx.lookup_exn stackctxP () in
+      (ty_hole, ty_hole) in
     let type_check_call aval nty =
       let (_, ty_arg) = OpLang.get_input_type nty in
       (*let ty_out' = OpLang.get_output_type nty in*)
@@ -365,3 +368,7 @@ struct
     let ((), stackctx) = Stackctx.singleton ty in
     (opconf, (namectxO, stackctx))
 end
+
+module Make (OpLang : Language.WITHAVAL_INOUT) :
+  Interactive.LANG_WITH_INIT with type 'a EvalMonad.r = 'a OpLang.EvalMonad.r =
+  MakeBase (OpLang)

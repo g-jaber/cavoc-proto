@@ -65,6 +65,6 @@ val build_concrete_lts : kind_lts -> (module SINGLE_RESULT_LTS_WITH_CLIENT)
 
 (* The arena of a signature-only page: visibility and well-bracketing are
    forced, so that every move offered keeps the play definable. *)
-val build_arena : unit -> (module SINGLE_RESULT_ARENA)
+val build_arena : kind_lts -> (module SINGLE_RESULT_ARENA)
 val build_symbolic_lts : kind_lts -> (module MULTI_RESULT_LTS_WITH_INIT)
 val build_compose_lts : kind_lts -> (module SINGLE_RESULT_COMPOSITION_WITH_INIT)

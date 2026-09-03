@@ -100,16 +100,9 @@ module type WITHAVAL_NEG_DEFINABILITY = sig
 end
 
 (* The CPS glue of Cps.MakeCompBase, equipped with the interactive operations
-   of the synthesis. *)
-module MakeComp (OpLang : WITHAVAL_INOUT_DEFINABILITY) () :
-  WITHAVAL_NEG_DEFINABILITY
-    with module EvalMonad = OpLang.EvalMonad
-     and type negative_type = (OpLang.negative_type, OpLang.typ) Either.t
-     and type Definability.abstract_val = OpLang.AVal.abstract_val
-     and type Definability.value = OpLang.value
-     and type Definability.term = OpLang.term
-     and type Definability.source_pattern = OpLang.Definability.source_pattern
-     and type Definability.store = OpLang.Definability.store = struct
+   of the synthesis; MakeCompBase is left unsealed for MakeWithDirectStyle to
+   include, MakeComp is its sealed alias. *)
+module MakeCompBase (OpLang : WITHAVAL_INOUT_DEFINABILITY) () = struct
   include Cps.MakeCompBase (OpLang) ()
 
   module Definability = struct
@@ -225,4 +218,82 @@ module MakeComp (OpLang : WITHAVAL_INOUT_DEFINABILITY) () :
     let sequence = OpLang.Definability.sequence
     let allocate_store = OpLang.Definability.allocate_store
   end
+end
+
+module MakeComp (OpLang : WITHAVAL_INOUT_DEFINABILITY) () :
+  WITHAVAL_NEG_DEFINABILITY
+    with module EvalMonad = OpLang.EvalMonad
+     and type negative_type = (OpLang.negative_type, OpLang.typ) Either.t
+     and type Definability.abstract_val = OpLang.AVal.abstract_val
+     and type Definability.value = OpLang.value
+     and type Definability.term = OpLang.term
+     and type Definability.source_pattern = OpLang.Definability.source_pattern
+     and type Definability.store = OpLang.Definability.store =
+  MakeCompBase (OpLang) ()
+
+(* The CPS and the direct-style languages over one operational language, with
+   the CPS form of the direct-style moves: unit-named evaluation contexts
+   in place of continuation names. *)
+module type WITH_DIRECT_STYLE = sig
+  module Cps : WITHAVAL_NEG_DEFINABILITY
+  module Direct : Interactive.LANG_WITH_INIT
+
+  (* The context of a direct-style position whose stack of evaluation
+     contexts is empty. *)
+  val cps_namectx : Direct.IEnv.Renaming.Namectx.t -> Cps.Renaming.Namectx.t
+
+  (* A question introduces the continuation of its evaluation context; an
+     answer is on the pending continuation. *)
+  val move_of_direct_style :
+    pending:Cps.Names.name option ->
+    Direct.abstract_normal_form * Direct.IEnv.Renaming.Namectx.t ->
+    Cps.Definability.abstract_normal_form * Cps.Renaming.Namectx.t
+end
+
+module MakeWithDirectStyle (OpLang : WITHAVAL_INOUT_DEFINABILITY) () :
+  WITH_DIRECT_STYLE
+    with module Cps.EvalMonad = OpLang.EvalMonad
+     and type Cps.negative_type = (OpLang.negative_type, OpLang.typ) Either.t
+     and type Cps.Definability.abstract_val = OpLang.AVal.abstract_val
+     and type Cps.Definability.value = OpLang.value
+     and type Cps.Definability.term = OpLang.term
+     and type Cps.Definability.source_pattern =
+      OpLang.Definability.source_pattern
+     and type Cps.Definability.store = OpLang.Definability.store
+     and module Direct.EvalMonad = OpLang.EvalMonad = struct
+  module Cps = MakeCompBase (OpLang) ()
+  module Direct = Direct.MakeBase (OpLang)
+
+  let cps_namectx (fnamectx, stackctx) =
+    if not (Direct.Stackctx.is_empty stackctx) then
+      failwith
+        "Definability: a direct-style position with a pending evaluation \
+         context has no CPS form here. Please report.";
+    Cps.embed_name_ctx fnamectx
+
+  let move_of_direct_style ~pending ((nf_term, store), (lfnamectx, stackctx)) =
+    let (cnamectx, cps_value_of) =
+      OpLang.Nf.case_nf_term
+        ~on_call:(fun _ _ () ->
+          let (cn, cnamectx) =
+            Cps.CNamectx.singleton (Direct.Stackctx.lookup_exn stackctx ())
+          in
+          (cnamectx, fun aval -> Cps.APair (aval, cn)))
+        ~on_return:(fun () _ -> (Cps.CNamectx.empty, fun aval -> Cps.AVal aval))
+        ~on_raise:(fun () _ ->
+          failwith "Definability: raises are outside the definable fragment.")
+        ~on_error:(fun () ->
+          failwith "Definability: error moves are never emitted. Please report.")
+        nf_term in
+    let f_cn () =
+      match pending with
+      | Some cn -> cn
+      | None ->
+          failwith
+            "Definability: a direct-style answer with no pending question. \
+             Please report." in
+    let cps_nf_term =
+      OpLang.Nf.map ~f_cn ~f_fn:Cps.inj_name ~f_val:cps_value_of ~f_ectx:Fun.id
+        nf_term in
+    ((cps_nf_term, store), (lfnamectx, cnamectx))
 end

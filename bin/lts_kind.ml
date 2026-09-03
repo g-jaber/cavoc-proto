@@ -106,33 +106,12 @@ let build_intlang_multi kind (module OpLang : MULTI_OPLANG) :
       let module CpsLang = Lang.Cps.MakeComp (OpLang) () in
       (module Lang.Interactive.Make (CpsLang))
 
-(* The direct-style stack has no continuation names, which the client
-   synthesis is written against. *)
-let build_direct_style_lts kind : (module SINGLE_RESULT_LTS_WITH_CLIENT) =
-  let (module OpLang) = build_oplang kind in
-  let (module IntLang) = build_intlang kind (module OpLang) in
-  let module TypingLTS = Ogs.Typing.Make (IntLang) in
-  let module WithoutClientSynthesis
-      (RunTypingLTS :
-        Lts.Typing.LTS
-          with module Moves = TypingLTS.Moves
-           and type store_ctx = TypingLTS.store_ctx) =
-  struct
-    include Ogs.Ogslts.MakeWithInit (IntLang) (RunTypingLTS)
-
-    let synthesize_client_source = None
-  end in
-  (* Direct style is intrinsically well-bracketed: well-bracketing needs no
-     enforcement, and visibility is enforced by the stack-based LTS alone. *)
-  if List.mem Visibility kind.restrictions then
-    (module WithoutClientSynthesis (Ogs.Vis_lts.MakeStackBased (TypingLTS)))
-  else (module WithoutClientSynthesis (TypingLTS))
-
 (* The definability-equipped stack: the concrete CPS language, its typing LTS,
    and the two syntheses over it. *)
 module MakeDefinabilityStack () = struct
   module OpLang = Refml.Definability.WithAValConcrete (Util.Monad.ListB)
-  module CpsLang = Lang.Definability.MakeComp (OpLang) ()
+  module Languages = Lang.Definability.MakeWithDirectStyle (OpLang) ()
+  module CpsLang = Languages.Cps
   module IntLang = Lang.Interactive.Make (CpsLang)
   module TypingLTS = Ogs.Typing.Make (IntLang)
   module Namectx = IntLang.IEnv.Renaming.Namectx
@@ -195,8 +174,11 @@ module MakeDefinabilityStack () = struct
 
     let synthesize_module_source ~storectx ~namectxP ~namectxO moves =
       Option.map
-        (fun exports ->
+        (fun (exports, memory) ->
           Refml.Definability.source_of_definability_implementation
+            ~private_declarations:
+              (Refml.Definability.private_declarations_of_store
+                 (Memory.reify_store_declarations memory))
             ~exports:
               (List.map
                  (fun (nn, value) -> (identifier_of namectxP nn, value))
@@ -262,7 +244,57 @@ module MakeDefinabilityStack () = struct
             ~namectxP:(RunTypingLTS.get_namectxP position)
             ~namectxO:(RunTypingLTS.get_namectxO position))
   end
+
+  (* The direct-style stack over the same operational language: its plays
+     are translated into CPS for the syntheses, the evaluation contexts becoming
+     continuations. *)
+  module DirectLang = Languages.Direct
+  module DirectTypingLTS = Ogs.Typing.Make (DirectLang)
+
+  module DirectStyle =
+    Definability.Direct_style.Make (Languages) (DirectTypingLTS.Moves)
+      (TypingLTS)
+
+  (* A synthesis of a direct-style play, from the contexts of its initial
+     position. *)
+  let of_direct_style synthesize ~namectxP ~namectxO moves =
+    let storectx = IntLang.Storectx.empty in
+    let namectxP = Languages.cps_namectx namectxP in
+    let namectxO = Languages.cps_namectx namectxO in
+    synthesize ~storectx ~namectxP ~namectxO
+      (DirectStyle.cps_play
+         (plain_position ~storectx ~namectxP ~namectxO)
+         moves)
+
+  let client_source_of_direct_style = of_direct_style synthesize_client_source
+  let module_source_of_direct_style = of_direct_style synthesize_module_source
+
+  module WithDirectStyleClientSynthesis
+      (RunTypingLTS :
+        Lts.Typing.LTS
+          with module Moves = DirectTypingLTS.Moves
+           and type store_ctx = DirectTypingLTS.store_ctx) =
+  struct
+    include Ogs.Ogslts.MakeWithInit (DirectLang) (RunTypingLTS)
+
+    let synthesize_client_source =
+      Some
+        (fun position ->
+          client_source_of_direct_style
+            ~namectxP:(RunTypingLTS.get_namectxP position)
+            ~namectxO:(RunTypingLTS.get_namectxO position))
+  end
 end
+
+(* Direct style is intrinsically well-bracketed: well-bracketing needs no
+   enforcement, and visibility is enforced by the stack-based LTS alone. *)
+let build_direct_style_lts kind : (module SINGLE_RESULT_LTS_WITH_CLIENT) =
+  let module Stack = MakeDefinabilityStack () in
+  let module TypingLTS = Stack.DirectTypingLTS in
+  if List.mem Visibility kind.restrictions then
+    (module Stack.WithDirectStyleClientSynthesis
+              (Ogs.Vis_lts.MakeStackBased (TypingLTS)))
+  else (module Stack.WithDirectStyleClientSynthesis (TypingLTS))
 
 (* The CPS stack carries the definability-equipped language, so that the
    interaction can be synthesized back into a client program. *)
@@ -285,42 +317,91 @@ let build_cps_lts kind : (module SINGLE_RESULT_LTS_WITH_CLIENT) =
       let module ProductLTS = Lts.Product_lts.Make (TypingLTS) (WBLTS) in
       (module Stack.WithClientSynthesis (Ogs.Vis_lts.MakeNameIndexed (ProductLTS)))
 
+(* An arena over a typing LTS with the syntheses of its plays. *)
+module MakeArena
+    (RunTypingLTS : Lts.Typing.LTS)
+    (Syntheses : sig
+      val initial_position : Lexing.lexbuf -> RunTypingLTS.position
+
+      val synthesize_module_source :
+        RunTypingLTS.position ->
+        RunTypingLTS.Moves.pol_move list ->
+        string option
+
+      val synthesize_client_source :
+        RunTypingLTS.position ->
+        RunTypingLTS.Moves.pol_move list ->
+        string option
+    end) =
+struct
+  module TypingLTS = RunTypingLTS
+  include Syntheses
+
+  let offered_moves ~arena position played =
+    let keeps_the_play_definable move =
+      let played = played @ [ move ] in
+      try
+        ignore (synthesize_module_source arena played);
+        ignore (synthesize_client_source arena played);
+        true
+      with Failure _ -> false in
+    List.filter
+      (fun (move, _, _) -> keeps_the_play_definable move)
+      (RunTypingLTS.BranchMonad.run (RunTypingLTS.generate_moves position))
+end
+
 (* Both participants being synthesized, visibility and well-bracketing are
-   forced here rather than read off the options, which the page locks. *)
-let build_arena () : (module SINGLE_RESULT_ARENA) =
+   forced here rather than read off the options, which the page locks; the
+   control structure is the options'. *)
+let build_arena kind : (module SINGLE_RESULT_ARENA) =
   let module Stack = MakeDefinabilityStack () in
-  let module WBLTS = Ogs.Wblts.Make (Stack.TypingLTS.Moves) in
-  let module ProductLTS = Lts.Product_lts.Make (Stack.TypingLTS) (WBLTS) in
-  let module RunTypingLTS = Ogs.Vis_lts.MakeNameIndexed (ProductLTS) in
-  (module struct
-    module TypingLTS = RunTypingLTS
+  match kind.control with
+  | CPS ->
+      let module WBLTS = Ogs.Wblts.Make (Stack.TypingLTS.Moves) in
+      let module ProductLTS = Lts.Product_lts.Make (Stack.TypingLTS) (WBLTS) in
+      let module RunTypingLTS = Ogs.Vis_lts.MakeNameIndexed (ProductLTS) in
+      (module MakeArena
+                (RunTypingLTS)
+                (struct
+                  let initial_position signature =
+                    RunTypingLTS.init_pas_pos Stack.IntLang.Storectx.empty
+                      (Stack.IntLang.get_typed_namectx signature)
+                      Stack.Namectx.empty
 
-    let initial_position signature =
-      RunTypingLTS.init_pas_pos Stack.IntLang.Storectx.empty
-        (Stack.IntLang.get_typed_namectx signature)
-        Stack.Namectx.empty
+                  let synthesize_at synthesize position =
+                    synthesize
+                      ~storectx:(RunTypingLTS.get_storectx position)
+                      ~namectxP:(RunTypingLTS.get_namectxP position)
+                      ~namectxO:(RunTypingLTS.get_namectxO position)
 
-    let synthesize_at synthesize position =
-      synthesize
-        ~storectx:(RunTypingLTS.get_storectx position)
-        ~namectxP:(RunTypingLTS.get_namectxP position)
-        ~namectxO:(RunTypingLTS.get_namectxO position)
+                  let synthesize_module_source =
+                    synthesize_at Stack.synthesize_module_source
 
-    let synthesize_module_source = synthesize_at Stack.synthesize_module_source
-    let synthesize_client_source = synthesize_at Stack.synthesize_client_source
+                  let synthesize_client_source =
+                    synthesize_at Stack.synthesize_client_source
+                end))
+  | DirectStyle ->
+      let module RunTypingLTS =
+        Ogs.Vis_lts.MakeStackBased (Stack.DirectTypingLTS) in
+      (module MakeArena
+                (RunTypingLTS)
+                (struct
+                  let initial_position signature =
+                    RunTypingLTS.init_pas_pos Stack.DirectLang.Storectx.empty
+                      (Stack.DirectLang.get_typed_namectx signature)
+                      Stack.DirectLang.IEnv.Renaming.Namectx.empty
 
-    let offered_moves ~arena position played =
-      let keeps_the_play_definable move =
-        let played = played @ [ move ] in
-        try
-          ignore (synthesize_module_source arena played);
-          ignore (synthesize_client_source arena played);
-          true
-        with Failure _ -> false in
-      List.filter
-        (fun (move, _, _) -> keeps_the_play_definable move)
-        (RunTypingLTS.BranchMonad.run (RunTypingLTS.generate_moves position))
-  end)
+                  let synthesize_at synthesize position =
+                    synthesize
+                      ~namectxP:(RunTypingLTS.get_namectxP position)
+                      ~namectxO:(RunTypingLTS.get_namectxO position)
+
+                  let synthesize_module_source =
+                    synthesize_at Stack.module_source_of_direct_style
+
+                  let synthesize_client_source =
+                    synthesize_at Stack.client_source_of_direct_style
+                end))
 
 let build_concrete_lts kind : (module SINGLE_RESULT_LTS_WITH_CLIENT) =
   match kind.control with

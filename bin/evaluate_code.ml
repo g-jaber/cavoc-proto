@@ -206,7 +206,7 @@ let evaluate_composition kind_lts provider client =
 (* The synthesis page, where only the first card's signature is read and both
    participants of the play are shown in the two cards. *)
 let evaluate_synthesis participant =
-  let (module Arena) = Lts_kind.build_arena () in
+  let (module Arena) = Lts_kind.build_arena (Lts_config.generate_kind_lts ()) in
   let module Driver = Synthesis_driver.Drive (Arena) in
   let position =
     Arena.initial_position

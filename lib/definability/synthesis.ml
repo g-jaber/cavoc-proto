@@ -55,11 +55,13 @@ module Make
     InteractiveOps.term option
 
   (* Dually, the module the same play is recorded against, with its last
-     Player move removed. Its Opponent context must be empty. *)
+     Player move removed, and the final memory state its private declarations
+     are read from. Its Opponent context must be empty. *)
   val synthesize_module_program_of_play :
     ViewFunction.TypingLTS.position ->
     ViewFunction.TypingLTS.Moves.pol_move list ->
-    (InteractiveOps.Renaming.Namectx.Names.name * InteractiveOps.value) list
+    ((InteractiveOps.Renaming.Namectx.Names.name * InteractiveOps.value) list
+    * ViewFunction.ExtraMemory.state)
     option
 end = struct
   module Moves = ViewFunction.TypingLTS.Moves
@@ -439,5 +441,6 @@ end = struct
     | Some play ->
         let (strategy, memory) = ViewFunction.add_play ViewFunction.empty play in
         Some
-          (synthesize_module_program strategy memory position Util.Pmap.empty)
+          ( synthesize_module_program strategy memory position Util.Pmap.empty,
+            memory )
 end
