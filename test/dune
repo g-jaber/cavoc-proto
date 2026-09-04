@@ -17,8 +17,8 @@
  (applies_to composition)
  (deps
   %{bin:cavoc-explore_cli}
-  compose/provider.ml
-  compose/provider.mli
+  compose/module.ml
+  compose/module.mli
   compose/client.ml
   compose/client.mli
   vending-till/till.ml

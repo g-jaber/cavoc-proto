@@ -1,25 +1,25 @@
 Smoke tests for the sequential open composition, driving explore_cli over a
-provider (compose/provider.ml, `let f x = x + 1`, with compose/provider.mli as
+module (compose/module.ml, `let f x = x + 1`, with compose/module.mli as
 the shared interface) and its client (compose/client.ml, `let g y = f (f y)`,
 exporting g through compose/client.mli).
 
-The provider's interface is internal to the composition: the Opponent is
-offered the client's public name alone, never the provider's f.
+The module's interface is internal to the composition: the Opponent is
+offered the client's public name alone, never the module's f.
 
-  $ printf 'no\nexit\n' | cavoc-explore_cli -compose compose/provider.ml compose/provider.mli compose/client.ml compose/client.mli | grep -E '^[0-9]+: '
+  $ printf 'no\nexit\n' | cavoc-explore_cli -compose compose/module.ml compose/module.mli compose/client.ml compose/client.mli | grep -E '^[0-9]+: '
   1: g(0,c0)
   2: g(1,c0)
   3: g(2,c0)
 
 Calling g runs the client, whose two calls to f are forwarded across the shared
-interface to the provider and answered there. Those synchronizations are
+interface to the module and answered there. Those synchronizations are
 internal, so the composite shows only the external answer: g y = f (f y) = y + 2.
 
-  $ printf 'no\n1\nno\nexit\n' | cavoc-explore_cli -compose compose/provider.ml compose/provider.mli compose/client.ml compose/client.mli | grep -oE '[OP]: .*'
+  $ printf 'no\n1\nno\nexit\n' | cavoc-explore_cli -compose compose/module.ml compose/module.mli compose/client.ml compose/client.mli | grep -oE '[OP]: .*'
   O: g?(0,c0)
   P: c0!(2)
 
-  $ printf 'no\n2\nno\nexit\n' | cavoc-explore_cli -compose compose/provider.ml compose/provider.mli compose/client.ml compose/client.mli | grep -oE '[OP]: .*'
+  $ printf 'no\n2\nno\nexit\n' | cavoc-explore_cli -compose compose/module.ml compose/module.mli compose/client.ml compose/client.mli | grep -oE '[OP]: .*'
   O: g?(1,c0)
   P: c0!(3)
 
@@ -73,5 +73,5 @@ synchronizations rather than waiting for them to finish.
 Composition links two modules through the signature of the first, which a
 program does not have, so the two cannot be combined.
 
-  $ cavoc-explore_cli -compose -program compose/provider.ml compose/provider.mli compose/client.ml compose/client.mli
+  $ cavoc-explore_cli -compose -program compose/module.ml compose/module.mli compose/client.ml compose/client.mli
   Error: composition applies to modules, not programs: it links them through the signature of the first, which a program does not have.

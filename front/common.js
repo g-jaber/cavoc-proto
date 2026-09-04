@@ -2,7 +2,7 @@
    Shared page skeleton
    ==========================================================================
    The workspace of index.html: the toolbar, the row of participant cards
-   with the public gutter at its right edge, the splitter, the lower row —
+   with the play panel at its right edge, the splitter, the lower row —
    the History window under the cards, the Configuration/Console/Client tabs under
    the choice panel — and the guide panel. The markup is built here; the
    scenario/tutorial logic driving it lives in front/scenario.js.
@@ -94,10 +94,10 @@ function cavocToolbarMarkup() {
 }
 
 /* The workspace: the card row — one participant card per module, built by
-   cavocBuildCards below — with the public gutter at its right edge, then the
+   cavocBuildCards below — with the play panel at its right edge, then the
    splitter and the lower row: the trace always on show in the History
    window below the cards, and the Configuration/Console/Client tabs below
-   the choice panel. The public gutter is where the Opponent (the user) lives:
+   the choice panel. The play panel is where the Opponent (the user) lives:
    it hosts the choice panel, and its head is the one home for the live
    readouts of the interfaces a composite has — the outer position, and the
    span of the shared names, a slot each for bin/display_config.ml.
@@ -106,10 +106,10 @@ function cavocWorkspaceMarkup() {
     return `
     <div id="workspace-row">
       <div id="card-row"></div>
-      <aside id="public-gutter">
-        <div id="gutter-head">
-          <div id="gutter-position"></div>
-          <div id="gutter-shared"></div>
+      <aside id="play-panel">
+        <div id="play-panel-head">
+          <div id="play-panel-position"></div>
+          <div id="play-panel-shared"></div>
         </div>
         <div id="choice-panel">
           <div id="choice-caption">Your move</div>
@@ -338,7 +338,7 @@ function cavocBuildCards(participants, mode) {
     row.classList.remove('mode-single', 'mode-compose', 'mode-synthesis');
     row.classList.add('mode-' + mode);
     /* The mode also scopes chrome outside the row: the shared History lane
-       and the public gutter's position readout are compose-mode only. */
+       and the play panel's position readout are compose-mode only. */
     document.body.classList.toggle('mode-compose', mode === 'compose');
     document.body.classList.toggle('mode-synthesis', mode === 'synthesis');
     cavocSetHistoryLanes(mode);

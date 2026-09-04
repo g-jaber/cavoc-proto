@@ -29,7 +29,7 @@ module Drive (Arena : Lts_kind.SINGLE_RESULT_ARENA) = struct
       played =
     let open Lts.Interactive_build in
     (* The arena has no configuration beyond its position: it is what the
-       Configuration tab and the gutter's readout show. *)
+       Configuration tab and the play panel's readout show. *)
     let position_json = TypingLTS.position_to_yojson position in
     Display_config.set_config_editor_text
       (Yojson.Safe.pretty_to_string position_json);

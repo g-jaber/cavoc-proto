@@ -177,9 +177,9 @@ end = struct
        return ((direction_of2 dir, Either.Right move), ActiveRight (pas1, act2)))
 end
 
-(* The split of a strategy over T into a strategy over T ⊸ T.
-  Its configurations carry a renaming from the
-   concatenation of the two sides to its own position. *)
+(* The split of a strategy over T into a strategy over T ⊸ T: its
+   configurations carry a renaming from the concatenation of the two sides
+   to its own position. *)
 module Split
     (T : Typing.LTS)
     (S : LTS with module TypingLTS.Moves = T.Moves) : sig
@@ -188,7 +188,7 @@ module Split
       with module TypingLTS = Typing.Lollipop(T)(T)
        and module EvalMonad = S.EvalMonad
 
-  type renaming = Typing.Position_renaming(T.Moves).t
+  type renaming = Typing.Polarized_renaming(T.Moves).t
 
   val identity_renaming : TypingLTS.position -> renaming
 
@@ -203,8 +203,8 @@ module Split
 end = struct
   module TypingLTS = Typing.Lollipop (T) (T)
   module EvalMonad = S.EvalMonad
-  module Renaming = Typing.Position_renaming (T.Moves)
-  module Concatenation = Typing.Concatenation (T.Moves)
+  module Concatenation = Typing.Concatenation (T)
+  module Renaming = Concatenation.Polarized_renaming
   module Namectx = T.Moves.Renaming.Namectx
 
   type renaming = Renaming.t
@@ -254,8 +254,8 @@ end = struct
 
   let identity_renaming position =
     Renaming.identity
-      (Concatenation.of_sides (TypingLTS.get_namectxP position))
-      (Concatenation.of_sides (TypingLTS.get_namectxO position))
+      (Concatenation.get_namectxP position)
+      (Concatenation.get_namectxO position)
 
   (* The renaming must land in the strategy's own contexts. *)
   let check_renaming own_position (renaming : renaming) =
@@ -265,7 +265,7 @@ end = struct
         (T.Moves.Renaming.im renaming.proponent)
       && same_context
            (S.TypingLTS.get_namectxO own_position)
-           (T.Moves.Renaming.im renaming.opponent))
+           (T.Moves.Renaming.dom renaming.opponent))
 
   let split_pconf pas pas_position pas_renaming =
     check_renaming (S.get_passive_pos pas) pas_renaming;
@@ -275,70 +275,41 @@ end = struct
     check_renaming (S.get_active_pos act) act_renaming;
     { act; act_position; act_renaming }
 
-  (* The sides of the context a move's subject lives in, and of the one the
-     names it introduces land in. *)
-  let subject_sides position = function
-    | TypingLTS.Moves.Input -> TypingLTS.get_namectxP position
-    | TypingLTS.Moves.Output -> TypingLTS.get_namectxO position
-
-  let introduced_sides position = function
-    | TypingLTS.Moves.Input -> TypingLTS.get_namectxO position
-    | TypingLTS.Moves.Output -> TypingLTS.get_namectxP position
-
-  let extend renaming position dir tagged =
-    Renaming.update_introduced renaming dir (fun renaming ->
-        Concatenation.extend_renaming renaming
-          (introduced_sides position dir)
-          tagged)
-
-  let outside_the_fragment own_action msg =
-    failwith
-      ("Splitting outside the fragment: the move "
-      ^ T.Moves.string_of_pol_move own_action
-      ^ " " ^ msg)
-
   let p_trans aconf =
     let open EvalMonad in
-    let* (((dir, _) as own_action), pas) = S.p_trans aconf.act in
+    let* (own_action, pas) = S.p_trans aconf.act in
     let position = aconf.act_position in
-    let at_concatenation =
-      match Renaming.rename_move_inv aconf.act_renaming own_action with
-      | Some (_, move) -> move
-      | None ->
-          outside_the_fragment own_action "has a free name outside the renaming"
-    in
-    let tagged =
-      match Concatenation.tag (subject_sides position dir) at_concatenation with
-      | Some tagged -> tagged
-      | None -> outside_the_fragment own_action "has free names on both sides"
-    in
-    let action = (dir, tagged) in
+    let ((dir, _) as action) =
+      Concatenation.split_move position
+        (Renaming.rename_move aconf.act_renaming own_action) in
     let (_, pas_position) = TypingLTS.trigger_move position action in
     return
       ( action,
         {
           pas;
           pas_position;
-          pas_renaming= extend aconf.act_renaming position dir tagged;
+          pas_renaming=
+            Concatenation.extend_renaming (dir = T.Moves.Output) position action
+              aconf.act_renaming;
         } )
 
-  let o_trans pconf ((dir, tagged) as action : TypingLTS.Moves.pol_move) =
+  let o_trans pconf ((dir, _) as action : TypingLTS.Moves.pol_move) =
     match TypingLTS.check_move pconf.pas_position action with
     | None -> None
     | Some (_, act_position) ->
         let position = pconf.pas_position in
-        let at_concatenation =
-          Concatenation.untag (subject_sides position dir) tagged in
-        let own_action =
-          Renaming.rename_move pconf.pas_renaming (dir, at_concatenation) in
         Option.map
           (fun act ->
             {
               act;
               act_position;
-              act_renaming= extend pconf.pas_renaming position dir tagged;
+              act_renaming=
+                Concatenation.extend_renaming (dir = T.Moves.Output) position
+                  action pconf.pas_renaming;
             })
-          (S.o_trans pconf.pas own_action)
+          (S.o_trans pconf.pas
+             (Renaming.rename_move pconf.pas_renaming
+                (Concatenation.join_move position action)))
 
   let o_trans_gen pconf =
     let open TypingLTS.BranchMonad in
@@ -350,24 +321,41 @@ end = struct
 end
 
 (* The join of a strategy over T ⊸ T into a strategy over T', at a single
-   position starting as the concatenations of the two sides. *)
+   position starting as the concatenations of the two sides: its
+   configurations carry a renaming from that position to the
+   concatenation. *)
 module Join
     (T : Typing.LTS)
     (T' : Typing.LTS with module Moves = T.Moves)
     (S : LTS with module TypingLTS = Typing.Lollipop(T)(T)) : sig
-  include LTS with module TypingLTS = T' and module EvalMonad = S.EvalMonad
+  type renaming = Typing.Polarized_renaming(T.Moves).t
 
-  type renaming = Typing.Position_renaming(T.Moves).t
+  type active_conf = {
+    act: S.active_conf;
+    act_position: T'.position;
+    act_renaming: renaming;
+  }
+
+  type passive_conf = {
+    pas: S.passive_conf;
+    pas_position: T'.position;
+    pas_renaming: renaming;
+  }
+
+  include
+    LTS
+      with module TypingLTS = T'
+       and module EvalMonad = S.EvalMonad
+       and type active_conf := active_conf
+       and type passive_conf := passive_conf
 
   val join_pconf : T'.store_ctx -> S.passive_conf -> passive_conf
   val join_aconf : T'.store_ctx -> S.active_conf -> active_conf
-  val renaming_of_passive_conf : passive_conf -> renaming
-  val renaming_of_active_conf : active_conf -> renaming
 end = struct
   module TypingLTS = T'
   module EvalMonad = S.EvalMonad
-  module Renaming = Typing.Position_renaming (T.Moves)
-  module Concatenation = Typing.Concatenation (T.Moves)
+  module Concatenation = Typing.Concatenation (T)
+  module Renaming = Concatenation.Polarized_renaming
 
   type renaming = Renaming.t
 
@@ -408,12 +396,10 @@ end = struct
   let equiv_act_conf aconf aconf' = S.equiv_act_conf aconf.act aconf'.act
   let get_active_pos aconf = aconf.act_position
   let get_passive_pos pconf = pconf.pas_position
-  let renaming_of_passive_conf pconf = pconf.pas_renaming
-  let renaming_of_active_conf aconf = aconf.act_renaming
 
   let joined init storectx position =
-    let namectxP = Concatenation.of_sides (S.TypingLTS.get_namectxP position) in
-    let namectxO = Concatenation.of_sides (S.TypingLTS.get_namectxO position) in
+    let namectxP = Concatenation.get_namectxP position in
+    let namectxO = Concatenation.get_namectxO position in
     (init storectx namectxP namectxO, Renaming.identity namectxP namectxO)
 
   let join_pconf storectx pas =
@@ -426,62 +412,42 @@ end = struct
       joined T'.init_act_pos storectx (S.get_active_pos act) in
     { act; act_position; act_renaming }
 
-  let subject_sides position = function
-    | T'.Moves.Input -> S.TypingLTS.get_namectxP position
-    | T'.Moves.Output -> S.TypingLTS.get_namectxO position
-
-  let introduced_sides position = function
-    | T'.Moves.Input -> S.TypingLTS.get_namectxO position
-    | T'.Moves.Output -> S.TypingLTS.get_namectxP position
-
-  let extend renaming position dir tagged =
-    Renaming.update_introduced renaming dir (fun renaming ->
-        Concatenation.extend_renaming renaming
-          (introduced_sides position dir)
-          tagged)
-
   let p_trans aconf =
     let open EvalMonad in
-    let* (((dir, tagged) as action), pas) = S.p_trans aconf.act in
+    let* (((dir, _) as action), pas) = S.p_trans aconf.act in
     let position = S.get_active_pos aconf.act in
-    let at_concatenation =
-      Concatenation.untag (subject_sides position dir) tagged in
     let own_action =
-      Renaming.rename_move aconf.act_renaming (dir, at_concatenation) in
+      Renaming.rename_move aconf.act_renaming
+        (Concatenation.join_move position action) in
     let (_, pas_position) = T'.trigger_move aconf.act_position own_action in
-    ignore action;
     return
       ( own_action,
         {
           pas;
           pas_position;
-          pas_renaming= extend aconf.act_renaming position dir tagged;
+          pas_renaming=
+            Concatenation.extend_renaming (dir = T.Moves.Input) position action
+              aconf.act_renaming;
         } )
 
-  let o_trans pconf ((dir, _) as own_action : T'.Moves.pol_move) =
+  let o_trans pconf (own_action : T'.Moves.pol_move) =
     match T'.check_move pconf.pas_position own_action with
     | None -> None
-    | Some (_, act_position) -> begin
+    | Some (_, act_position) ->
         let position = S.get_passive_pos pconf.pas in
-        match Renaming.rename_move_inv pconf.pas_renaming own_action with
-        | None -> None
-        | Some (_, at_concatenation) -> begin
-            match
-              Concatenation.tag (subject_sides position dir) at_concatenation
-            with
-            | None -> None
-            | Some tagged ->
-                Option.map
-                  (fun act ->
-                    {
-                      act;
-                      act_position;
-                      act_renaming=
-                        extend pconf.pas_renaming position dir tagged;
-                    })
-                  (S.o_trans pconf.pas (dir, tagged))
-          end
-      end
+        let ((dir, _) as action) =
+          Concatenation.split_move position
+            (Renaming.rename_move pconf.pas_renaming own_action) in
+        Option.map
+          (fun act ->
+            {
+              act;
+              act_position;
+              act_renaming=
+                Concatenation.extend_renaming (dir = T.Moves.Input) position
+                  action pconf.pas_renaming;
+            })
+          (S.o_trans pconf.pas action)
 
   let o_trans_gen pconf =
     let open T'.BranchMonad in

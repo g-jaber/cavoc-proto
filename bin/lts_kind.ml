@@ -454,10 +454,9 @@ let build_compose_lts kind : (module SINGLE_RESULT_COMPOSITION_WITH_INIT) =
   struct
     let lts : (module SINGLE_RESULT_COMPOSITION_WITH_INIT) =
       if innocence then
-        (module Ogs.Compose_lts.Make
-                  (IntLang)
+        (module Ogs.Compose_lts.Make (IntLang) (TypingLTS)
                   (Ogs.Innocence_lts.Make (IntLang) (RunTypingLTS)))
-      else (module Ogs.Compose_lts.Make (IntLang) (RunTypingLTS))
+      else (module Ogs.Compose_lts.Make (IntLang) (TypingLTS) (RunTypingLTS))
   end in
   match
     ( List.mem WellBracketing kind.restrictions,
@@ -485,10 +484,10 @@ let build_compose_lts kind : (module SINGLE_RESULT_COMPOSITION_WITH_INIT) =
   (* Direct style is intrinsically well-bracketed: well-bracketing needs no
      enforcement, and visibility is enforced by the stack-based LTS alone. *)
   | (true, false, DirectStyle) ->
-      (module Ogs.Compose_lts.Make (IntLang) (TypingLTS))
+      (module Ogs.Compose_lts.Make (IntLang) (TypingLTS) (TypingLTS))
   | (_, true, DirectStyle) ->
-      let module TypingLTS = Ogs.Vis_lts.MakeStackBased (TypingLTS) in
-      (module Ogs.Compose_lts.Make (IntLang) (TypingLTS))
+      (module Ogs.Compose_lts.Make (IntLang) (TypingLTS)
+                (Ogs.Vis_lts.MakeStackBased (TypingLTS)))
 
 let build_symbolic_lts kind : (module MULTI_RESULT_LTS_WITH_INIT) =
   check_innocence_in_cps kind;

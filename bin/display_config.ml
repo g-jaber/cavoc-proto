@@ -240,14 +240,19 @@ let display_conf ?(card = 0) ?(preview = false) conf_json : unit =
   set_config_editor_text (Yojson.Safe.pretty_to_string conf_json);
   display_conf_panels ~card ~preview conf_json
 
-(* --- the composite: two cards and the gutters ------------------------------
-   A composite passive configuration serializes as {left, right, pos,
-   syncState}, whose four fields feed the two cards and the two gutters. *)
+(* --- the composite: two cards and the play panel ------------------------------
+   The client left and the module right, each {strategy, position,
+   renaming} with its position a pair {left, right}; either split's copy of
+   the position of G2 is the shared context. *)
 
 let set_inner_html element_id html =
   match Dom_html.getElementById_opt element_id with
   | None -> ()
   | Some element -> element##.innerHTML := Js.string html
+
+let field key = function
+  | `Assoc fields -> List.assoc_opt key fields
+  | _ -> None
 
 (* The name/type entries of a name context's JSON, whose {name: type} objects
    are nested in lists by the aggregate structure. *)
@@ -264,9 +269,9 @@ let rec base_position_json = function
   | `List items -> List.find_map base_position_json items
   | _ -> None
 
-(* The composite position, in the first slot of the public gutter's head: a
-   P n · O m strip expandable into the two name lists. *)
-let display_composite_position pos_json =
+(* A position in a play panel's head: a P n · O m strip expandable into the two
+   name lists. *)
+let display_position ~element_id ~title ~labelP ~labelO pos_json =
   match base_position_json pos_json with
   | Some (`Assoc fields) ->
       let entries key =
@@ -276,83 +281,49 @@ let display_composite_position pos_json =
       let entriesP = entries "namectxP" in
       let entriesO = entries "namectxO" in
       let entry_line (name, ty) =
-        Printf.sprintf "<div class=\"gutter-entry\">%s : %s</div>"
+        Printf.sprintf "<div class=\"play-panel-entry\">%s : %s</div>"
           (Ui_helpers.html_escape name)
           (Ui_helpers.html_escape ty) in
       let name_block label = function
         | [] -> ""
         | entries ->
-            Printf.sprintf "<div class=\"gutter-block\">%s</div>%s" label
+            Printf.sprintf "<div class=\"play-panel-block\">%s</div>%s" label
               (String.concat "" (List.map entry_line entries)) in
-      set_inner_html "gutter-position"
+      set_inner_html element_id
         (Printf.sprintf
-           "<details><summary>position — P %d · O %d</summary>%s%s</details>"
+           "<details><summary>%s — P %d · O %d</summary>%s%s</details>" title
            (List.length entriesP) (List.length entriesO)
-           (name_block "P (you may call)" entriesP)
-           (name_block "O (you introduced)" entriesO))
+           (name_block labelP entriesP)
+           (name_block labelO entriesO))
   | _ -> ()
 
-(* The shared context, in the second slot of the public gutter's head: one
-   row per shared entity, one column per component, the left one first. *)
-(* The two sides of the synchronization state have opposite introducers, so
-   one of them is read backwards here. *)
-let display_shared_spans sync_json =
-  match sync_json with
-  | `Assoc fields ->
-      let table_pairs key =
-        match List.assoc_opt key fields with
-        | Some (`List rows) ->
-            List.filter_map
-              (function
-                | `List [ key_name; value_name ] ->
-                    Some (json_text key_name, json_text value_name)
-                | _ -> None)
-              rows
-        | _ -> [] in
-      (* shared_left sends a client O-name to a provider P-name, shared_right
-         being its mirror. *)
-      let provided_by_left = table_pairs "sharedLeft" in
-      let provided_by_right = table_pairs "sharedRight" in
-      let pairs =
-        List.map
-          (fun (client_name, provider_name) -> (provider_name, client_name))
-          provided_by_left
-        @ provided_by_right in
-      let row_html (provider_name, client_name) =
-        Printf.sprintf
-          "<div class=\"span-row\"><span class=\"span-name\">%s</span><span \
-           class=\"span-arrow\">↔</span><span \
-           class=\"span-name\">%s</span></div>"
-          (Ui_helpers.html_escape provider_name)
-          (Ui_helpers.html_escape client_name) in
-      let count = List.length pairs in
-      let identity =
-        count > 0
-        && List.for_all
-             (fun (provider_name, client_name) -> provider_name = client_name)
-             pairs in
-      set_inner_html "gutter-shared"
-        (Printf.sprintf
-           "<details><summary>shared context — %d %s%s</summary>%s</details>"
-           count (plural count "name")
-           (if identity then " · identity" else "")
-           (String.concat "" (List.map row_html pairs)))
-  | _ -> ()
+(* The composite position, in the first slot of the play panel's head. *)
+let display_composite_position =
+  display_position ~element_id:"play-panel-position" ~title:"position"
+    ~labelP:"P (you may call)" ~labelO:"O (you introduced)"
+
+(* The position of G2, in the second slot of the play panel's head, read
+   in the module's polarity. *)
+let display_shared_position =
+  display_position ~element_id:"play-panel-shared" ~title:"shared context"
+    ~labelP:"provided by the module" ~labelO:"introduced by the client"
 
 let display_composite_conf ?(preview = false) conf_json : unit =
   set_config_editor_text (Yojson.Safe.pretty_to_string conf_json);
   match conf_json with
-  | `Assoc fields -> (
-      let side key card =
-        match List.assoc_opt key fields with
-        | Some half_json -> display_conf_panels ~card ~preview half_json
+  | `Assoc _ ->
+      let split side = Option.bind (field "strategy" conf_json) (field side) in
+      (* The page lays the module's card first. *)
+      let card split_json card =
+        match Option.bind split_json (field "strategy") with
+        | Some component_json ->
+            display_conf_panels ~card ~preview component_json
         | None -> () in
-      side "left" 0;
-      side "right" 1;
-      (match List.assoc_opt "pos" fields with
-      | Some pos_json -> display_composite_position pos_json
-      | None -> ());
-      match List.assoc_opt "syncState" fields with
-      | Some sync_json -> display_shared_spans sync_json
-      | None -> ())
+      card (split "right") 0;
+      card (split "left") 1;
+      Option.iter display_composite_position (field "position" conf_json);
+      Option.iter display_shared_position
+        (Option.bind
+           (Option.bind (split "right") (field "position"))
+           (field "left"))
   | _ -> Ui_helpers.print_to_output "Invalid JSON format"

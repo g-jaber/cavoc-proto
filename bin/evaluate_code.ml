@@ -173,33 +173,33 @@ let participant_lexbuf participant ~ext text =
   Lexing.set_filename lexbuf (participant.Editor_manager.participant_name ^ ext);
   lexbuf
 
-(* The open composition of the first two cards, provider then client. *)
+(* The open composition of the first two cards, module then client. *)
 (* It runs on the concrete stack, driven at its par layer so the internal
    chattering shows. *)
-let evaluate_composition kind_lts provider client =
+let evaluate_composition kind_lts module_participant client_participant =
   let (module Composition) = Lts_kind.build_compose_lts kind_lts in
   let module Driver = Compose_driver.Drive (Composition) in
   let init_conf =
     Composition.Passive
       (Composition.lexing_init_pconf
-         ~provider_implem:
-           (participant_lexbuf provider ~ext:".ml"
-              provider.Editor_manager.module_code)
-         ~provider_sig:
-           (participant_lexbuf provider ~ext:".mli"
-              provider.Editor_manager.signature_code)
+         ~module_implem:
+           (participant_lexbuf module_participant ~ext:".ml"
+              module_participant.Editor_manager.module_code)
+         ~module_sig:
+           (participant_lexbuf module_participant ~ext:".mli"
+              module_participant.Editor_manager.signature_code)
          ~client_implem:
-           (participant_lexbuf client ~ext:".ml"
-              client.Editor_manager.module_code)
+           (participant_lexbuf client_participant ~ext:".ml"
+              client_participant.Editor_manager.module_code)
          ~client_sig:
-           (participant_lexbuf client ~ext:".mli"
-              client.Editor_manager.signature_code)
-           (* A second buffer on the provider's signature, which is read
-              twice: as the provider's exports, then as the client's
+           (participant_lexbuf client_participant ~ext:".mli"
+              client_participant.Editor_manager.signature_code)
+           (* A second buffer on the module's signature, which is read
+              twice: as the module's exports, then as the client's
               imports. *)
          ~imported_sig:
-           (participant_lexbuf provider ~ext:".mli"
-              provider.Editor_manager.signature_code)) in
+           (participant_lexbuf module_participant ~ext:".mli"
+              module_participant.Editor_manager.signature_code)) in
   let%lwt outcome = Driver.drive ~show_moves_list ~get_move init_conf in
   report_interaction_end outcome
 
@@ -233,7 +233,7 @@ let evaluate_code () =
   Display_config.reset_move_deltas ();
 
   (* Single-module exploration runs over the leftmost card, a compose scenario
-     over the first two, provider then client. *)
+     over the first two, module then client. *)
   match
     (Lts_config.scenario_mode (), Editor_manager.fetch_participant_sources ())
   with
@@ -241,10 +241,12 @@ let evaluate_code () =
       Ui_helpers.print_to_output "No participant card on this page.";
       Ui_helpers.show_tab "console";
       Lwt.return_unit
-  | ("compose", provider :: client :: _) ->
+  | ("compose", module_participant :: client_participant :: _) ->
       Synthesis_display.display_no_client
         "Client synthesis is not available for a composition.";
-      evaluate_composition (Lts_config.generate_kind_lts ()) provider client
+      evaluate_composition
+        (Lts_config.generate_kind_lts ())
+        module_participant client_participant
   | ("compose", [ _ ]) ->
       Ui_helpers.print_to_output
         "A compose scenario needs two participant cards.";

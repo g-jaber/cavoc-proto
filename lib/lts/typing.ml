@@ -192,8 +192,9 @@ end
 module Lollipop (T1 : LTS) (T2 : LTS with module BranchMonad = T1.BranchMonad) =
   Tensor (T1) (Dual (T2))
 
-(* A renaming between two positions: one renaming per polarity. *)
-module Position_renaming (Moves : Moves.POLMOVES) = struct
+(* A renaming ρ : p ↪ q between two positions, one renaming per polarity,
+   contravariant on the Opponent side. *)
+module Polarized_renaming (Moves : Moves.POLMOVES) = struct
   module Renaming = Moves.Renaming
   module Names = Renaming.Namectx.Names
 
@@ -202,19 +203,12 @@ module Position_renaming (Moves : Moves.POLMOVES) = struct
   let identity namectxP namectxO =
     { proponent= Renaming.id namectxP; opponent= Renaming.id namectxO }
 
-  (* The renaming of the context a move's subject lives in. *)
-  let of_direction renaming = function
-    | Moves.Input -> renaming.proponent
-    | Moves.Output -> renaming.opponent
-
-  (* The renaming of the context the names a move introduces land in. *)
-  let update_introduced renaming dir f =
-    match dir with
-    | Moves.Input -> { renaming with opponent= f renaming.opponent }
-    | Moves.Output -> { renaming with proponent= f renaming.proponent }
-
+  (* An Input move at p read at q, an Output move at q read at p. *)
   let rename_move renaming ((dir, move) : Moves.pol_move) : Moves.pol_move =
-    let renaming = of_direction renaming dir in
+    let renaming =
+      match dir with
+      | Moves.Input -> renaming.proponent
+      | Moves.Output -> renaming.opponent in
     ( dir,
       Moves.map_free_names
         (fun nn ->
@@ -225,18 +219,11 @@ module Position_renaming (Moves : Moves.POLMOVES) = struct
              ^ " is outside the renaming."))
         move )
 
-  (* None on a move with a free name outside the image. *)
-  let rename_move_inv renaming ((dir, move) : Moves.pol_move) =
-    let inverse = Renaming.lookup_inv (of_direction renaming dir) in
-    let exception Outside in
-    try
-      Some
-        ( dir,
-          Moves.map_free_names
-            (fun nn ->
-              match inverse nn with Some nn -> nn | None -> raise Outside)
-            move )
-    with Outside -> None
+  (* The renaming of the contexts the names a move introduces land in. *)
+  let update_introduced renaming dir f =
+    match dir with
+    | Moves.Input -> { renaming with opponent= f renaming.opponent }
+    | Moves.Output -> { renaming with proponent= f renaming.proponent }
 
   let pp fmt renaming =
     Format.fprintf fmt "@[⟨P: %a;@ O: %a⟩@]" Renaming.pp renaming.proponent
@@ -250,53 +237,81 @@ module Position_renaming (Moves : Moves.POLMOVES) = struct
       ]
 end
 
-(* The concatenation of the two-sides contexts of a tensor over one typing
-   LTS, with its coprojections:. *)
-module Concatenation (Moves : Moves.POLMOVES) = struct
-  module Renaming = Moves.Renaming
+(* The concatenation of the two sides of a position of T ⊸ T, with the
+   reading of moves across it. *)
+module Concatenation (T : LTS) = struct
+  module Lollipop = Lollipop (T) (T)
+  module Renaming = T.Moves.Renaming
   module Namectx = Renaming.Namectx
+  module Polarized_renaming = Polarized_renaming (T.Moves)
 
-  let of_sides (left, right) = Namectx.concat left right
-  let left_coprojection (left, right) = Renaming.weak_l left right
-  let right_coprojection (left, right) = Renaming.weak_r right left
+  let concat (namectx_l, namectx_r) = Namectx.concat namectx_l namectx_r
+  let get_namectxP position = concat (Lollipop.get_namectxP position)
+  let get_namectxO position = concat (Lollipop.get_namectxO position)
 
-  (* A move of one side read at the concatenation. *)
-  let untag sides = function
-    | Either.Left move ->
-        Moves.map_free_names (Renaming.lookup (left_coprojection sides)) move
-    | Either.Right move ->
-        Moves.map_free_names (Renaming.lookup (right_coprojection sides)) move
+  (* The context of T ⊸ T the subject of a move lives in. *)
+  let subject_namectx position = function
+    | T.Moves.Input -> Lollipop.get_namectxP position
+    | T.Moves.Output -> Lollipop.get_namectxO position
 
-  (* A move at the concatenation tagged by the side of its subject.
-    It returns None when a free name is on the other side. *)
-  let tag sides move =
-    let exception Outside in
-    let through coprojection =
-      Moves.map_free_names
+  (* A tagged move read at the concatenation. *)
+  let join_move position ((dir, tagged) : Lollipop.Moves.pol_move) :
+      T.Moves.pol_move =
+    let (namectx_l, namectx_r) = subject_namectx position dir in
+    ( dir,
+      match tagged with
+      | Either.Left move ->
+          T.Moves.map_free_names
+            (Renaming.lookup (Renaming.weak_l namectx_l namectx_r))
+            move
+      | Either.Right move ->
+          T.Moves.map_free_names
+            (Renaming.lookup (Renaming.weak_r namectx_r namectx_l))
+            move )
+
+  (* A move at the concatenation tagged by the side of its subject. *)
+  let split_move position ((dir, move) : T.Moves.pol_move) :
+      Lollipop.Moves.pol_move =
+    let (namectx_l, namectx_r) = subject_namectx position dir in
+    let weak_l = Renaming.weak_l namectx_l namectx_r in
+    let weak_r = Renaming.weak_r namectx_r namectx_l in
+    let through weakening =
+      T.Moves.map_free_names
         (fun nn ->
-          match Renaming.lookup_inv coprojection nn with
+          match Renaming.lookup_inv weakening nn with
           | Some nn -> nn
-          | None -> raise Outside)
+          | None ->
+              failwith "Splitting a move whose free names are on both sides.")
         move in
-    try
-      match
-        Renaming.lookup_inv (left_coprojection sides)
-          (Moves.get_subject_name move)
-      with
-      | Some _ -> Some (Either.Left (through (left_coprojection sides)))
-      | None -> Some (Either.Right (through (right_coprojection sides)))
-    with Outside -> None
+    match Renaming.lookup_inv weak_l (T.Moves.get_subject_name move) with
+    | Some _ -> (dir, Either.Left (through weak_l))
+    | None -> (dir, Either.Right (through weak_r))
 
-  (* A renaming from the concatenation after a move introduced Δ on one
-     side: concat and sym put Δ where that side placed it. *)
-  let extend_renaming renaming (left, right) tagged =
+  (* ρ ⊕ id Δ after a tagged move introduced Δ, Δ permuted to its side on
+     the end of ρ that is the concatenation, the domain or the codomain. *)
+  let extend_renaming concatenated_domain position
+      ((dir, tagged) : Lollipop.Moves.pol_move) renaming =
+    (* The names a move introduces land in the context of the other
+       polarity. *)
+    let (namectx_l, namectx_r) =
+      match dir with
+      | T.Moves.Input -> Lollipop.get_namectxO position
+      | T.Moves.Output -> Lollipop.get_namectxP position in
     let lnamectx =
       match tagged with
-      | Either.Left move | Either.Right move -> Moves.get_namectx move in
-    let extended = Renaming.concat renaming (Renaming.id lnamectx) in
-    match tagged with
-    | Either.Left _ ->
-        Renaming.compose extended
-          (Renaming.concat (Renaming.id left) (Renaming.sym lnamectx right))
-    | Either.Right _ -> extended
+      | Either.Left move | Either.Right move -> T.Moves.get_namectx move in
+    Polarized_renaming.update_introduced renaming dir (fun renaming ->
+        let extended = Renaming.concat renaming (Renaming.id lnamectx) in
+        match tagged with
+        | Either.Right _ -> extended
+        | Either.Left _ ->
+            if concatenated_domain then
+              Renaming.compose extended
+                (Renaming.concat (Renaming.id namectx_l)
+                   (Renaming.sym lnamectx namectx_r))
+            else
+              Renaming.compose
+                (Renaming.concat (Renaming.id namectx_l)
+                   (Renaming.sym namectx_r lnamectx))
+                extended)
 end

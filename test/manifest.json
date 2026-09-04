@@ -23,7 +23,7 @@
     { "dir": "universal_type", "title": "universal_type", "mode": "single" },
     { "dir": "wbsc_context", "title": "wbsc_context", "mode": "single" },
     { "dir": "while_diverge", "title": "while_diverge", "mode": "single" },
-    { "dir": "compose", "title": "provider ∘ client", "mode": "compose" },
+    { "dir": "compose", "title": "module ∘ client", "mode": "compose" },
     { "dir": "vending-till", "title": "till ∘ vending", "mode": "compose" },
     { "dir": "twice-iter2", "title": "twice ∘ iter2", "mode": "compose" },
     { "dir": "synthesis-first-order", "title": "add and covers",

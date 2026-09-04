@@ -4,8 +4,9 @@
    Drives the open composition of two modules at its par layer, one move per
    step, so the internal chattering is shown instead of being iterated away
    (doc/web.md, stage 2). *)
-(* Synchronizations are not choices: they auto-play at the pace of the shared
-   gutter's chattering control, and only external moves ask the user. *)
+(* Synchronizations are not choices: they auto-play at the pace of the
+   chattering control of the Options menu, and only external moves ask the
+   user. *)
 (* It exists because Lts.Interactive_build is written over Strategy.LTS, which
    the par layer is not. *)
 

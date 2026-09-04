@@ -54,8 +54,7 @@ let speclist =
 
 let usage_msg =
   "Usage: explore filename.ml filename.mli [options]\n\
-  \       explore -compose provider.ml provider.mli client.ml client.mli \
-   [options]"
+  \       explore -compose module.ml module.mli client.ml client.mli [options]"
 
 let generate_kind_lts () =
   let open Lts_kind in
@@ -265,12 +264,11 @@ let build_strategy kind_lts =
       Util.Debug.print_debug "Getting the two module declarations";
       let init_conf =
         Composition.Passive
-          (Composition.lexing_init_pconf
-             ~provider_implem:(open_lexbuf !filename1)
-             ~provider_sig:(open_lexbuf !filename2)
+          (Composition.lexing_init_pconf ~module_implem:(open_lexbuf !filename1)
+             ~module_sig:(open_lexbuf !filename2)
              ~client_implem:(open_lexbuf !filename3)
              ~client_sig:(open_lexbuf !filename4)
-               (* A second buffer on the provider's signature: see
+               (* A second buffer on the module's signature: see
                   Ogs.Compose_lts. *)
              ~imported_sig:(open_lexbuf !filename2)) in
       run_interaction (module IBuild) init_conf
