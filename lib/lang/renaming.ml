@@ -56,6 +56,9 @@ module type INJECTIVE_RENAMING = sig
   (* the two arguments of copairing must have disjoint images. *)
   val copairing : t -> t -> t
   val sym : Namectx.t -> Namectx.t -> t
+
+  (* concat ρ1 ρ2 : Δ1 + Δ2 → Γ1 + Γ2. *)
+  val concat : t -> t -> t
   val add_fresh : t -> string -> Namectx.typ -> Namectx.Names.name * t
 
   (* the function argument should be an injective map *)
@@ -321,6 +324,11 @@ module MakeInjectiveRenaming (Weakening : WEAKENING) :
   let sym namectx_l namectx_r =
     copairing (weak_r namectx_l namectx_r) (weak_l namectx_r namectx_l)
 
+  let concat renam1 renam2 =
+    copairing
+      (compose (weak_l renam1.im renam2.im) renam1)
+      (compose (weak_r renam2.im renam1.im) renam2)
+
   let add_fresh (renam : t) (_str : string) (typ : Namectx.typ) :
       Namectx.Names.name * t =
     let (local, lnamectx) = Namectx.singleton typ in
@@ -395,6 +403,9 @@ module AggregateInjectiveRenaming
 
   let sym (namectx1_l, namectx2_l) (namectx1_r, namectx2_r) =
     (Renam1.sym namectx1_l namectx1_r, Renam2.sym namectx2_l namectx2_r)
+
+  let concat (renam11, renam12) (renam21, renam22) =
+    (Renam1.concat renam11 renam21, Renam2.concat renam12 renam22)
 
   let weaken_r (renam : t) (namectx : Namectx.t) : t =
     compose (weak_l (im renam) namectx) renam

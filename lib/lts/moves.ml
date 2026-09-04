@@ -229,8 +229,6 @@ module Make (A_nf : Lang.Interactive.A_NF) :
     if dir1 = dir2 then unify_move span move1 move2 else None
 end
 
-(* The moves of the tensor of two typing LTSs: a move of either game, tagged
-   by the game it is played in, over the aggregate of the two renamings. *)
 module Tensor (Moves1 : POLMOVES) (Moves2 : POLMOVES) :
   POLMOVES
     with type copattern = (Moves1.copattern, Moves2.copattern) Either.t
@@ -265,7 +263,7 @@ module Tensor (Moves1 : POLMOVES) (Moves2 : POLMOVES) :
   let switch = function Input -> Output | Output -> Input
   let switch_direction (dir, move) = (switch dir, move)
 
-  (* The direction type of the second game is its own. *)
+  (* The direction type of the second typing LTS is its own. *)
   let direction2 = function Input -> Moves2.Input | Output -> Moves2.Output
   let show_name1 show_name nn = show_name (Either.Left nn)
   let show_name2 show_name nn = show_name (Either.Right nn)
@@ -350,7 +348,7 @@ module Tensor (Moves1 : POLMOVES) (Moves2 : POLMOVES) :
           (fun nn -> Either.Right nn)
           (Moves2.fresh_names weakening2 move)
 
-  (* A free name stays in its game. *)
+  (* A free name stays on its side. *)
   let map_free_names f = function
     | Either.Left move ->
         Either.Left
@@ -359,7 +357,7 @@ module Tensor (Moves1 : POLMOVES) (Moves2 : POLMOVES) :
                match f (Either.Left nn) with
                | Either.Left nn' -> nn'
                | Either.Right _ ->
-                   failwith "Renaming a free name into the other game.")
+                   failwith "Renaming a free name to the other side.")
              move)
     | Either.Right move ->
         Either.Right
@@ -368,14 +366,14 @@ module Tensor (Moves1 : POLMOVES) (Moves2 : POLMOVES) :
                match f (Either.Right nn) with
                | Either.Right nn' -> nn'
                | Either.Left _ ->
-                   failwith "Renaming a free name into the other game.")
+                   failwith "Renaming a free name to the other side.")
              move)
 
   let erase_display_hints = function
     | Either.Left move -> Either.Left (Moves1.erase_display_hints move)
     | Either.Right move -> Either.Right (Moves2.erase_display_hints move)
 
-  (* A span over the tensor's names, restricted to one game and put back. *)
+  (* A span over the tensor's names, restricted to one side and put back. *)
   let split_span span =
     let pairs = Util.Pmap.to_list span in
     ( Util.Pmap.list_to_pmap
