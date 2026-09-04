@@ -1,0 +1,8 @@
+{
+  "title": "identity ∘ forward",
+  "mode": "compose",
+  "participants": [
+    { "name": "identity", "ml": "identity.ml", "mli": "identity.mli" },
+    { "name": "forward", "ml": "forward.ml", "mli": "forward.mli" }
+  ]
+}

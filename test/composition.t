@@ -70,6 +70,25 @@ synchronizations rather than waiting for them to finish.
   O: c1?(2)
   P: c1!(2)
 
+A polymorphic import (polymorphic-compose/: the identity behind
+val id : 'a -> 'a, and forward.ml's `let use x = id x` exported at the same
+type). The Opponent instantiates use at a type name a0 of its own and sends
+its argument as the fresh name p0 at it; the client instantiates id at a
+type name of its own and boxes p0 behind it, the identity gives that box
+back, and the client gives p0 back. The two synchronizations are internal,
+so the composite shows the instantiation and the answer only; the type
+names the client created for itself explain the gap in the numbering of
+the second call.
+
+  $ printf 'no\nexit\n' | cavoc-explore_cli -compose polymorphic-compose/identity.ml polymorphic-compose/identity.mli polymorphic-compose/forward.ml polymorphic-compose/forward.mli | grep -E '^[0-9]+: '
+  1: use(a0,p0,c0)
+
+  $ printf 'no\n1\nno\n1\nno\nexit\n' | cavoc-explore_cli -compose polymorphic-compose/identity.ml polymorphic-compose/identity.mli polymorphic-compose/forward.ml polymorphic-compose/forward.mli | grep -oE '[OP]: .*'
+  O: use?(a0,p0,c0)
+  P: c0!(p0)
+  O: use?(a2,p1,c1)
+  P: c1!(p1)
+
 Composition links two modules through the signature of the first, which a
 program does not have, so the two cannot be combined.
 

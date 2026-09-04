@@ -26,6 +26,8 @@
     { "dir": "compose", "title": "module ∘ client", "mode": "compose" },
     { "dir": "vending-till", "title": "till ∘ vending", "mode": "compose" },
     { "dir": "twice-iter2", "title": "twice ∘ iter2", "mode": "compose" },
+    { "dir": "polymorphic-compose", "title": "identity ∘ forward",
+      "mode": "compose" },
     { "dir": "synthesis-first-order", "title": "add and covers",
       "mode": "synthesis" },
     { "dir": "synthesis-ho", "title": "(unit -> int) -> int",

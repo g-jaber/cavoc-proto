@@ -28,4 +28,8 @@
   twice-iter2/twice.ml
   twice-iter2/twice.mli
   twice-iter2/iter2.ml
-  twice-iter2/iter2.mli))
+  twice-iter2/iter2.mli
+  polymorphic-compose/identity.ml
+  polymorphic-compose/identity.mli
+  polymorphic-compose/forward.ml
+  polymorphic-compose/forward.mli))
