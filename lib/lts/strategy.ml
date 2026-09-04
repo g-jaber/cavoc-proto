@@ -139,7 +139,6 @@ end = struct
   let get_passive_pos (pas1, pas2) =
     (S1.get_passive_pos pas1, S2.get_passive_pos pas2)
 
-  (* The direction type of the second typing LTS is its own. *)
   let direction2 = function
     | TypingLTS.Moves.Input -> S2.TypingLTS.Moves.Input
     | TypingLTS.Moves.Output -> S2.TypingLTS.Moves.Output
@@ -178,11 +177,9 @@ end = struct
        return ((direction_of2 dir, Either.Right move), ActiveRight (pas1, act2)))
 end
 
-(* The split of a strategy over T into a strategy over T ⊸ T, in the loose
-   form: the strategy's configuration with the renaming from the
+(* The split of a strategy over T into a strategy over T ⊸ T.
+  Its configurations carry a renaming from the
    concatenation of the two sides to its own position. *)
-(* Opponent moves are generated at the pair of positions and translated
-   into the strategy's own names, Proponent moves the other way. *)
 module Split
     (T : Typing.LTS)
     (S : LTS with module TypingLTS.Moves = T.Moves) : sig
@@ -193,10 +190,14 @@ module Split
 
   type renaming = Typing.Position_renaming(T.Moves).t
 
-  (* The strategy's contexts must be the concatenations of the position's
-     two sides, the renaming starting as the identity. *)
-  val split_pconf : S.passive_conf -> TypingLTS.position -> passive_conf
-  val split_aconf : S.active_conf -> TypingLTS.position -> active_conf
+  val identity_renaming : TypingLTS.position -> renaming
+
+  val split_pconf :
+    S.passive_conf -> TypingLTS.position -> renaming -> passive_conf
+
+  val split_aconf :
+    S.active_conf -> TypingLTS.position -> renaming -> active_conf
+
   val renaming_of_passive_conf : passive_conf -> renaming
   val renaming_of_active_conf : active_conf -> renaming
 end = struct
@@ -251,27 +252,28 @@ end = struct
   let same_context namectx namectx' =
     Namectx.to_pmap namectx = Namectx.to_pmap namectx'
 
-  let identity_renaming own_position position =
-    let namectxP = Concatenation.of_sides (TypingLTS.get_namectxP position) in
-    let namectxO = Concatenation.of_sides (TypingLTS.get_namectxO position) in
+  let identity_renaming position =
+    Renaming.identity
+      (Concatenation.of_sides (TypingLTS.get_namectxP position))
+      (Concatenation.of_sides (TypingLTS.get_namectxO position))
+
+  (* The renaming must land in the strategy's own contexts. *)
+  let check_renaming own_position (renaming : renaming) =
     assert (
-      same_context (S.TypingLTS.get_namectxP own_position) namectxP
-      && same_context (S.TypingLTS.get_namectxO own_position) namectxO);
-    Renaming.identity namectxP namectxO
+      same_context
+        (S.TypingLTS.get_namectxP own_position)
+        (T.Moves.Renaming.im renaming.proponent)
+      && same_context
+           (S.TypingLTS.get_namectxO own_position)
+           (T.Moves.Renaming.im renaming.opponent))
 
-  let split_pconf pas pas_position =
-    {
-      pas;
-      pas_position;
-      pas_renaming= identity_renaming (S.get_passive_pos pas) pas_position;
-    }
+  let split_pconf pas pas_position pas_renaming =
+    check_renaming (S.get_passive_pos pas) pas_renaming;
+    { pas; pas_position; pas_renaming }
 
-  let split_aconf act act_position =
-    {
-      act;
-      act_position;
-      act_renaming= identity_renaming (S.get_active_pos act) act_position;
-    }
+  let split_aconf act act_position act_renaming =
+    check_renaming (S.get_active_pos act) act_renaming;
+    { act; act_position; act_renaming }
 
   (* The sides of the context a move's subject lives in, and of the one the
      names it introduces land in. *)
@@ -348,10 +350,7 @@ end = struct
 end
 
 (* The join of a strategy over T ⊸ T into a strategy over T', at a single
-   position starting as the concatenations of the two sides, in the loose
-   form. *)
-(* T' has the moves of T and is the typing the joined strategy is presented
-   under, its Opponent moves being generated and checked there. *)
+   position starting as the concatenations of the two sides. *)
 module Join
     (T : Typing.LTS)
     (T' : Typing.LTS with module Moves = T.Moves)
