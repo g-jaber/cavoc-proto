@@ -49,8 +49,6 @@ module Make
     | Composition.SyncMove _ -> true
     | Composition.ExternalMove _ -> false
 
-  (* The client's imports being the module's exports read again, both
-     witnesses are identities. *)
   let lexing_init_pconf ~module_implem ~module_sig ~client_implem ~client_sig
       ~imported_sig =
     let module_pconf = Component.lexing_init_pconf module_implem module_sig in
@@ -64,7 +62,6 @@ module Make
     let client_pos = Component.get_passive_pos client_pconf in
     let shared_position =
       initial_position (PlainTypingLTS.get_namectxP module_pos) in
-    (* A client module's Opponent names are all imports. *)
     let client_position =
       initial_position (PlainTypingLTS.get_namectxP client_pos) in
     let module_position =
