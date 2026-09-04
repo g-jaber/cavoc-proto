@@ -285,12 +285,7 @@ let get_typed_val_env ?(namectxO = Namectx.Namectx.empty)
   in
   (* The abstract types of the signature are the Proponent's type names. *)
   let ienv =
-    List.fold_left
-      (fun ienv tid ->
-        snd
-          (Ienv.IEnv.add_fresh ienv tid Types.TypeUniverse
-             (Ienv.IEnv.embed_name (Names.embed_tname tid))))
-      (Ienv.IEnv.empty namectxO) type_priv_decl_l in
+    Ienv.IEnv.weaken_r (Ienv.tnames_ienv type_priv_decl_l) namectxO in
   let rec partition_env ienv = function
     | [] -> (ienv, Ienv.IEnv.dom ienv)
     | (var, ty) :: tl -> begin

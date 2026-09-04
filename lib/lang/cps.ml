@@ -424,6 +424,28 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
       | (GProd (ty, tyhole), APair (aval, cn)) ->
           CNamectx.is_singleton lcnamectx cn tyhole
           && type_check_oplang_val ty (aval, lfnamectx)
+      | (GExists (tvar_l, ty, tyhole), APack (tname_l, aval, cn)) ->
+          let type_subst = OpLang.typename_subst tvar_l tname_l in
+          let ty' = OpLang.apply_type_subst ty type_subst in
+          let tyhole' = OpLang.apply_type_subst tyhole type_subst in
+          let tnamectx = OpLang.typename_ctx tname_l in
+          let peel lfnamectx_opt (tn, tn_ty) =
+            match lfnamectx_opt with
+            | Some lfnamectx -> OpLang.Namectx.is_last lfnamectx tn tn_ty
+            | None -> None in
+          let lfnamectx_opt =
+            List.fold_left peel (Some lfnamectx)
+              (List.rev (Util.Pmap.to_list (OpLang.Namectx.to_pmap tnamectx)))
+          in
+          begin match lfnamectx_opt with
+          | None -> false
+          | Some lfnamectx' ->
+              CNamectx.is_singleton lcnamectx cn tyhole'
+              && OpLang.AVal.type_check_abstract_val storectx
+                   (extract_name_ctx namectxP)
+                   (OpLang.Namectx.concat (extract_name_ctx namectxO) tnamectx)
+                   ty' (aval, lfnamectx')
+          end
       | _ -> false
 
     let abstracting_value gval (namectxO, cnamectxO) gty =
@@ -439,6 +461,17 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
             OpLang.AVal.abstracting_value value namectxO ty in
           let ienv = embed_value_env val_env cnamectxO in
           (AVal aval, ienv)
+      | (GPairIn (value, ectx), GExists (tvar_l, ty_v, ty_c)) ->
+          let (tname_l, type_subst) = OpLang.generate_typename_subst tvar_l in
+          let ty_v' = OpLang.apply_type_subst ty_v type_subst in
+          let ty_c' = OpLang.apply_type_subst ty_c type_subst in
+          let (aval, val_env) =
+            OpLang.AVal.abstracting_value value namectxO ty_v' in
+          let val_env' =
+            OpLang.IEnv.tensor (OpLang.tnames_ienv tname_l) val_env in
+          let (cn, cienv) =
+            CIEnv.add_fresh (CIEnv.empty cnamectxO) "" ty_c' ectx in
+          (APack (tname_l, aval, cn), (val_env', cienv))
       | (_, _) -> failwith "Ill-typed interactive value. Please report."
 
     module BranchMonad = OpLang.AVal.BranchMonad

@@ -152,10 +152,9 @@ let rec apply_type_subst ty subst =
       match Util.Pmap.lookup tvar subst with Some ty' -> ty' | None -> ty
     end
   | TypeUniverse -> ty
-  | TForall _ ->
-      failwith
-      @@ "Error applying type substitution on universally quantified type "
-      ^ string_of_typ ty
+  | TForall (tvars, ty') ->
+      let subst' = Util.Pmap.filter_dom (fun tvar -> not (List.mem tvar tvars)) subst in
+      TForall (tvars, apply_type_subst ty' subst')
   | TUndef -> failwith "Error: undefined type, please report."
   | TAlgebraic _ -> failwith "Algebraic type are not yet supported (apply_type_subst)"
 

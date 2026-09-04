@@ -95,3 +95,12 @@ module IEnv =
             failwith @@ "Trying to add a name of the wrong type. "
             ^ Types.string_of_typ ty ^ " Please report"
     end)
+
+let tnames_ienv tname_l =
+  List.fold_left
+    (fun ienv tn ->
+      snd
+        (IEnv.add_fresh ienv tn Types.TypeUniverse
+           (IEnv.embed_name (Names.embed_tname tn))))
+    (IEnv.empty Namectx.Namectx.empty)
+    tname_l

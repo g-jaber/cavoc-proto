@@ -191,6 +191,7 @@ module WithAValBase (BranchMonad : Util.Monad.BRANCH) = struct
         snd (Namectx.Namectx.add_fresh namectx tname Types.TypeUniverse))
       Namectx.Namectx.empty tname_l
 
+  let tnames_ienv = Ienv.tnames_ienv
   let apply_type_subst = Types.apply_type_subst
   let get_input_type = Types.get_input_type
   let get_output_type = Types.get_output_type
