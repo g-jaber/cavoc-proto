@@ -3,10 +3,10 @@
    Chrome (toolbar, cards' headers, choice panel, guide) is sober and light;
    the code-facing surfaces (the editor panes, the live panels, the trace
    area) are dark. The page is a row of participant cards with the public
-   gutter at its right edge, then the trace area (doc/web.md, stage 1).
+   play panel at its right edge, then the trace area (doc/web.md, stage 1).
    ========================================================================== */
 
-/* The page is a grid: the toolbar, the workspace row (cards + gutter), a
+/* The page is a grid: the toolbar, the workspace row (cards + play panel), a
    draggable splitter and the lower row (History window + side tabs).
    --cards-h is the height of the workspace row and is what the splitter
    drags. */
@@ -140,7 +140,7 @@ button,
 }
 
 /* --------------------------------------------------------------------------
-   The workspace row: participant cards, public gutter at the right edge.
+   The workspace row: participant cards, play panel at the right edge.
    -------------------------------------------------------------------------- */
 #workspace-row {
   display: flex;
@@ -427,11 +427,11 @@ body.tutorial .card-file {
 }
 
 /* --------------------------------------------------------------------------
-   The public gutter: where the Opponent (the user) lives. It hosts the
+   The play panel: where the Opponent (the user) lives. It hosts the
    choice panel; its head will carry the outer-position readout once compose
    mode brings one (doc/web.md, stage 2).
    -------------------------------------------------------------------------- */
-#public-gutter {
+#play-panel {
   flex: 0 0 320px;
   min-width: 0;
   display: flex;
@@ -442,8 +442,8 @@ body.tutorial .card-file {
 /* The head carries the readouts of the interfaces the composite has: the
    outer position, then the span of the shared names, one slot each. Both
    only have data in compose mode (bin/display_config.ml), and both fold, so
-   the head is capped: the choice panel below it is what the gutter is for. */
-#gutter-head {
+   the head is capped: the choice panel below it is what the panel is for. */
+#play-panel-head {
   font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace;
   font-size: 12px;
   color: #444440;
@@ -455,25 +455,25 @@ body.tutorial .card-file {
   overflow-y: auto;
 }
 
-#gutter-head {
+#play-panel-head {
   display: none;
 }
-body.mode-compose #gutter-head,
-body.mode-synthesis #gutter-head {
+body.mode-compose #play-panel-head,
+body.mode-synthesis #play-panel-head {
   display: block;
 }
-#gutter-head summary {
+#play-panel-head summary {
   cursor: pointer;
 }
-#gutter-shared {
+#play-panel-shared {
   margin-top: 2px;
 }
-.gutter-block {
+.play-panel-block {
   margin-top: 4px;
   font-weight: 600;
   color: #55554f;
 }
-.gutter-entry {
+.play-panel-entry {
   padding-left: 8px;
   white-space: nowrap;
   overflow: hidden;
@@ -597,7 +597,7 @@ body.resizing {
 /* --------------------------------------------------------------------------
    The lower row: the trace always on show in the History window, below the
    cards; the raw Configuration and the Console in the tab block below the
-   choice panel, aligned with the public gutter.
+   choice panel, aligned with the play panel.
    -------------------------------------------------------------------------- */
 #lower-row {
   display: flex;
