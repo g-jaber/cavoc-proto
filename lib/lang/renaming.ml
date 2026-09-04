@@ -68,7 +68,7 @@ end
 
 (* Renamings over names drawn from a global gensym. *)
 module MakeGensymRenaming (Namectx : Typectx.TYPECTX) :
-  RENAMING with module Namectx = Namectx = struct
+  INJECTIVE_RENAMING with module Namectx = Namectx = struct
   module Namectx = Namectx
 
   type t = {
@@ -142,6 +142,29 @@ module MakeGensymRenaming (Namectx : Typectx.TYPECTX) :
       Util.Pmap.list_to_pmap
       @@ List.map (fun nn -> (nn, f nn)) (Namectx.get_names dom) in
     { map; dom; im }
+
+  let lookup_inv renam context_name =
+    match Util.Pmap.select_im context_name renam.map with
+    | [] -> None
+    | [ local ] -> Some local
+    | _ -> failwith "Renaming.lookup_inv: the renaming is not injective"
+
+  let of_support context support =
+    let (dom, entries) =
+      List.fold_left
+        (fun (dom, entries) context_name ->
+          let (local, dom') =
+            Namectx.add_fresh dom
+              (Namectx.Names.string_of_name context_name)
+              (Namectx.lookup_exn context context_name) in
+          (dom', (local, context_name) :: entries))
+        (Namectx.empty, []) support in
+    { map= Util.Pmap.list_to_pmap (List.rev entries); dom; im= context }
+
+  let concat renam1 renam2 =
+    copairing
+      (compose (weak_l renam1.im renam2.im) renam1)
+      (compose (weak_r renam2.im renam1.im) renam2)
 end
 
 (* Weakenings over de Bruijn levels, as an offset. *)

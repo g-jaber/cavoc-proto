@@ -191,7 +191,7 @@ list_ident :
 
 atomic_ty:
   | v=TVAR        { TVar v }
-  | v=VAR         { TId v }
+  | v=VAR         { TName v }
   | TUNIT         { TUnit }
   | TBOOL         { TBool }
   | TINT          { TInt }

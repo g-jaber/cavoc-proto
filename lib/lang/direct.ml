@@ -171,9 +171,17 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
           failwith
             "Error: trying to concretize a returning abstract normal form in \
              an empty stack. Please report" in
-    let f_val aval = (OpLang.AVal.subst_pnames fname_env aval, ()) in
+    let get_type_fname fn =
+      snd
+        (OpLang.get_input_type
+           (OpLang.Namectx.lookup_exn (OpLang.IEnv.dom fname_env) fn)) in
+    let get_type_cname () = Stackctx.lookup_exn (StackEnv.dom stack_ctx) () in
+    let typed_term =
+      OpLang.type_annotating_val ~inj_ty:Fun.id ~get_type_fname ~get_type_cname
+        a_nf_term' in
+    let f_val (aval, ty) = (OpLang.AVal.subst_pnames fname_env ty aval, ()) in
     let f_fn fn = (OpLang.IEnv.lookup_exn fname_env fn, ()) in
-    let (nf_term, ()) = OpLang.Nf.map_val () f_val a_nf_term' in
+    let (nf_term, ()) = OpLang.Nf.map_val () f_val typed_term in
     let (nf_term', ()) = OpLang.Nf.map_fn () f_fn nf_term in
     let (nf_term'', ienv'') = OpLang.Nf.map_cn ienv' f_cn nf_term' in
     Util.Debug.print_debug @@ "New Opponent context is "

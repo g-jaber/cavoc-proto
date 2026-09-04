@@ -464,6 +464,8 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
           let* (aval, (storectx, lnamectx)) =
             OpLang.AVal.generate_abstract_val storectx namectx ty' in
           let (cn, cnamectx) = CNamectx.singleton tyhole' in
+          let lnamectx =
+            OpLang.Namectx.concat (OpLang.typename_ctx tname_l) lnamectx in
           return (APack (tname_l, aval, cn), (storectx, (lnamectx, cnamectx)))
       | _ -> failwith "The glue type is not valid. Please report."
 
@@ -484,15 +486,19 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
           OpLang.AVal.unify_abstract_val nspan aval1 aval2
       | _ -> None*)
 
-    let subst_pnames ((val_env, _) : interactive_env) aval =
-      match aval with
-      | AVal aval -> GVal (OpLang.AVal.subst_pnames val_env aval)
-      | APair (aval, cn) ->
-          let value = OpLang.AVal.subst_pnames val_env aval in
+    let subst_pnames ((val_env, _) : interactive_env) gty aval =
+      match (gty, aval) with
+      | (GType ty, AVal aval) -> GVal (OpLang.AVal.subst_pnames val_env ty aval)
+      | (GProd (ty, _), APair (aval, cn)) ->
+          let value = OpLang.AVal.subst_pnames val_env ty aval in
           GPairOut (value, cn)
-      | APack (tname_l, aval, cn) ->
-          let value = OpLang.AVal.subst_pnames val_env aval in
+      | (GExists (tvar_l, ty, _), APack (tname_l, aval, cn)) ->
+          let ty' =
+            OpLang.apply_type_subst ty (OpLang.typename_subst tvar_l tname_l)
+          in
+          let value = OpLang.AVal.subst_pnames val_env ty' aval in
           GPackOut (tname_l, value, cn)
+      | _ -> failwith "Ill-typed interactive abstract value. Please report."
 
     let rename (aval : abstract_val) (renaming, crenaming) =
       match aval with

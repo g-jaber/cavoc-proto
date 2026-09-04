@@ -240,12 +240,15 @@ module Make (OpLang : Language.WITHAVAL_NEG) :
     ^ IEnv.to_string renaming_lifted;
     (* ienv'' = ienv ⊗ renaming, so that ienv'':Γₚ+Δ → Γₒ+Δ *)
     let ienv'' = IEnv.copairing ienv' renaming_lifted in
-    (* Then we substitute the names *)
-    let f_val = OpLang.AVal.subst_pnames ienv'' in
+    let get_ty nn =
+      OpLang.negating_type
+        (IEnv.Renaming.Namectx.lookup_exn (IEnv.dom ienv') nn) in
+    let typed_term = OpLang.type_annotating_val get_ty a_nf_term' in
+    let f_val (aval, gty) = OpLang.AVal.subst_pnames ienv' gty aval in
     let f_fn nn = IEnv.lookup_exn ienv'' nn in
     let f_cn = f_fn in
     let f_ectx () = () in
-    let nf_term' = OpLang.Nf.map ~f_val ~f_fn ~f_cn ~f_ectx a_nf_term' in
+    let nf_term' = OpLang.Nf.map ~f_val ~f_fn ~f_cn ~f_ectx typed_term in
     (* Then we deal with the store *)
     (* TODO: We should also weaken_r the abstract values present in the image of store'*)
     Util.Debug.print_debug "Updating the store";

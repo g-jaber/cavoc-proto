@@ -280,6 +280,9 @@ module type WITHAVAL_INOUT = sig
   val generate_typename_subst :
     typevar list -> typename list * (typevar, typ) Util.Pmap.pmap
 
+  val typename_subst : typevar list -> typename list -> (typevar, typ) Util.Pmap.pmap
+  val typename_ctx : typename list -> Namectx.t
+
   val apply_type_subst : typ -> (typevar, typ) Util.Pmap.pmap -> typ
   val get_input_type : negative_type -> typevar list * typ
   val get_output_type : negative_type -> typ

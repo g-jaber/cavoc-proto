@@ -229,7 +229,7 @@ module Make
           let nty = Types.force_negative_type ty in
           let (fn, lnamectx') = Namectx.Namectx.add_fresh lnamectx "" nty in
           return (ABound fn, (storectx, lnamectx'))
-      | TId _ as ty ->
+      | TName tn as ty when Namectx.has_type_name namectx tn ->
           let namectxP_pmap = Namectx.Namectx.to_pmap namectx in
           let pn_list = Util.Pmap.select_im ty namectxP_pmap in
           let* pn = para_list @@ pn_list in
@@ -307,16 +307,18 @@ module Make
           let nty = Types.force_negative_type ty in
           Namectx.Namectx.is_last lnamectx nn nty
       | (TArrow _, _) | (TForall _, _) -> None
-      | (TId _, AFree nn) | (TName _, AFree nn) ->
-          if has_type namectxP nn ty || has_type namectxO nn ty then
-            Some lnamectx
+      | (TName tn, AFree nn) ->
+          let owner =
+            if Namectx.has_type_name namectxP tn then Some namectxP
+            else if Namectx.has_type_name namectxO tn then Some namectxO
+            else None in
+          if Option.fold ~none:false ~some:(fun ctx -> has_type ctx nn ty) owner
+          then Some lnamectx
           else None
-      (* The judgment has no polarity to say which player may create at the
-         type name. *)
-      | (TId _, ABound nn) | (TName _, ABound nn) ->
-          let nty = Types.force_negative_type ty in
-          Namectx.Namectx.is_last lnamectx nn nty
-      | (TId _, _) -> None
+      | (TName tn, ABound nn) ->
+          if Namectx.has_type_name namectxO tn || Namectx.has_type_name lnamectx tn
+          then Namectx.Namectx.is_last lnamectx nn (Types.force_negative_type ty)
+          else None
       (* | (TExn, ACons (c, nup')) ->
         let (TArrow (param_ty, _)) = Util.Pmap.lookup_exn c (Util.Pmap.concat namectxP namectxO) in
         type_check_abstract_val namectxP namectxO param_ty nup' *)
@@ -324,7 +326,7 @@ module Make
       | (TVar _, _) ->
           failwith @@ "Error: trying to type-check a nup of type "
           ^ Types.string_of_typ ty ^ ". Please report."
-      | (TUndef, _) | (TRef _, _) | (TSum _, _) | (TExn, _) ->
+      | (TUndef, _) | (TRef _, _) | (TSum _, _) | (TExn, _) | (TypeUniverse, _) ->
           failwith @@ "Error: type-checking a nup of type "
           ^ Types.string_of_typ ty ^ " is not yet supported."
       | (TAlgebraic _, _) ->
@@ -378,13 +380,16 @@ module Make
           let (nup1, ienv1) = aux ienv value1 ty1 in
           let (nup2, ienv2) = aux ienv1 value2 ty2 in
           (APair (nup1, nup2), ienv2)
-      | (_, TId _) -> begin
+      (* An Opponent polymorphic name is not refreshed. *)
+      | (Name nn, TName tn) when Namectx.has_type_name namectxO tn ->
+          (AFree nn, ienv)
+      (* A value at a Player type name is boxed. *)
+      | (_, TName _) -> begin
           let nval = Syntax.force_negative_val value in
           let nty = Types.force_negative_type ty in
           let (pn, ienv') = Ienv.IEnv.add_fresh ienv "" nty nval in
           (ABound pn, ienv')
         end
-      | (Name nn, TName _) -> (AFree nn, ienv)
       | (Constructor (c, Some value'), TExn) ->
           (ACons (c, nup_of_ground_value value'), ienv)
       | (Record val_fields, TRecord ty_fields) ->
@@ -402,26 +407,40 @@ module Make
            ^ " cannot be abstracted because it is not a value.") in
     aux (Ienv.IEnv.empty namectxO) value ty
 
-  let rec to_value = function
+  let rec value_of_ground_nup = function
     | AUnit -> Unit
     | AInt n -> Int n
     | ABool b -> Bool b
     | ASymb sexpr -> Symbolic sexpr
-    | APair (nup1, nup2) -> Pair (to_value nup1, to_value nup2)
-    | ACons (c, nup') -> Constructor (c, Some (to_value nup'))
-    | ARecord fields -> Record (Util.Pmap.map_im to_value fields)
-    | AFree nn -> Name nn
-    | ABound nn ->
+    | APair (nup1, nup2) -> Pair (value_of_ground_nup nup1, value_of_ground_nup nup2)
+    | ACons (c, nup') -> Constructor (c, Some (value_of_ground_nup nup'))
+    | ARecord fields -> Record (Util.Pmap.map_im value_of_ground_nup fields)
+    | AFree nn | ABound nn ->
         failwith
           ("Error: the name " ^ Names.string_of_name nn
-         ^ " of an abstract value has not been instantiated. Please report.")
+         ^ " is not part of a ground abstract value. Please report.")
 
-  (*Opponent polymorphic names are already at their ambient levels. *)
-  let subst_pnames (_ienvf, (ienvpP, _)) nup =
-    let aux value (nn, nval) =
-      Syntax.subst value
-        (Name (Names.embed_pnameP nn))
-        (embed_negative_val nval) in
-    Ienv.IEnvPolP.fold aux (to_value nup)
-      ienvpP (* TODO : Not efficient at all*)
+  (* Instantiating Proponent polymorphic names, guided by the type. *)
+  let subst_pnames ienv ty nup =
+    let namectxP = Ienv.IEnv.dom ienv in
+    let rec aux ty nup =
+      match (ty, nup) with
+      | (TProd (ty1, ty2), APair (nup1, nup2)) -> Pair (aux ty1 nup1, aux ty2 nup2)
+      | (TRecord ty_fields, ARecord fields) ->
+          Record
+            (Util.Pmap.map
+               (fun (field, nup') ->
+                 (field, aux (Util.Pmap.lookup_exn field ty_fields) nup'))
+               fields)
+      | (TName tn, AFree nn) when Namectx.has_type_name namectxP tn ->
+          embed_negative_val (Ienv.IEnv.lookup_exn ienv nn)
+      | (_, AFree nn) -> Name nn
+      | (_, ABound nn) ->
+          failwith
+            ("Error: the name " ^ Names.string_of_name nn
+           ^ " of an abstract value has not been instantiated. Please report.")
+      | (_, (AUnit | AInt _ | ABool _ | ASymb _ | ACons _ | APair _ | ARecord _))
+        ->
+          value_of_ground_nup nup in
+    aux ty nup
 end

@@ -15,11 +15,10 @@ type typ =
   | TExn
   | TVar of typevar
   | TForall of typevar list * typ
-  | TId of id
   | TName of id
+  | TypeUniverse
   | TUndef
 
-let pp_tid fmt id = Format.fprintf fmt "%s" id
 let pp_tname fmt n = Format.fprintf fmt "%s" n
 let pp_tvar fmt typevar = Format.fprintf fmt "%s" typevar
 
@@ -42,8 +41,8 @@ let rec pp_typ fmt = function
   | TForall ([], ty) -> Format.fprintf fmt "%a" pp_typ ty
   | TForall (tvar_l, ty) ->
       Format.fprintf fmt "∀%a . %a" pp_tvar_l tvar_l pp_typ ty
-  | TId id -> pp_tid fmt id
   | TName n -> pp_tname fmt n
+  | TypeUniverse -> Format.pp_print_string fmt "type"
   | TUndef -> Format.fprintf fmt "undef"
   | TRecord ty -> (
     Format.pp_print_string fmt "{ "; 
@@ -99,7 +98,7 @@ end)
 
 let rec free_vars_of_type ty =
   let rec aux acc = function
-  | TUnit | TInt | TBool | TExn | TId _ | TName _ | TUndef -> acc
+  | TUnit | TInt | TBool | TExn | TName _ | TypeUniverse | TUndef -> acc
   | TArrow (ty1, ty2) | TProd (ty1, ty2) | TSum (ty1, ty2) ->
       let acc' = aux acc ty1 in
       aux acc' ty2
@@ -152,7 +151,7 @@ let rec apply_type_subst ty subst =
   | TVar tvar -> begin
       match Util.Pmap.lookup tvar subst with Some ty' -> ty' | None -> ty
     end
-  | TId _ -> ty
+  | TypeUniverse -> ty
   | TForall _ ->
       failwith
       @@ "Error applying type substitution on universally quantified type "
@@ -174,7 +173,7 @@ let rec subst_type tvar sty ty =
   )
   | TVar tvar' when tvar = tvar' -> sty
   | TVar _ -> ty
-  | TId _ | TName _ -> ty
+  | TypeUniverse | TName _ -> ty
   | TForall (tvars, ty') when List.mem tvar tvars ->
       TForall (tvars, subst_type tvar sty ty')
   | TForall _ -> ty
@@ -198,7 +197,7 @@ let empty_type_env = Util.Pmap.empty
 
 let rec apply_type_env ty type_env =
   match ty with
-  | TUnit | TInt | TBool | TRef _ | TName _ | TVar _ | TExn -> ty
+  | TUnit | TInt | TBool | TRef _ | TVar _ | TExn | TypeUniverse -> ty
   | TArrow (ty1, ty2) ->
       TArrow (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
   | TProd (ty1, ty2) ->
@@ -209,7 +208,7 @@ let rec apply_type_env ty type_env =
     let apply_to_ty (id, ty) = (id, apply_type_env ty type_env) in
     TRecord (Util.Pmap.map apply_to_ty l)
   )
-  | TId id -> begin
+  | TName id -> begin
       match Util.Pmap.lookup id type_env with Some ty' -> ty' | None -> ty
     end
   | TForall (tvar_l, ty') -> TForall (tvar_l, apply_type_env ty' type_env)
@@ -251,11 +250,11 @@ let mgu_type tenv (ty1, ty2) =
         Some (Util.Pmap.add (tvar, ty) tsubst')
         (* We should do some occur_check *)
     | (TName tname1, TName tname2) when tname1 = tname2 -> Some tsubst
-    | (TId id, ty) | (ty, TId id) -> begin
-        match Util.Pmap.lookup id tenv with
-        | Some ty' -> mgu_type_aux ty ty' tsubst
-        | None -> None
-      end
+    (* A type name is unfolded only when the environment defines it, otherwise it is rigid. *)
+    | (TName id, ty) when Util.Pmap.mem id tenv ->
+        mgu_type_aux (Util.Pmap.lookup_exn id tenv) ty tsubst
+    | (ty, TName id) when Util.Pmap.mem id tenv ->
+        mgu_type_aux ty (Util.Pmap.lookup_exn id tenv) tsubst
     | (TForall _, TForall _) ->
         failwith
           "Computing the MGU of forall types is not yet supported. Please \

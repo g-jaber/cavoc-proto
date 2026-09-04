@@ -6,10 +6,11 @@ exception TypingError of string
 
 let rec get_type_from_tid ty type_ctx =
   match ty with
-  | TId id ->
-      get_type_from_tid
-        (Util.Pmap.lookup_exn id (Type_ctx.get_type_env type_ctx))
-        type_ctx
+  | TName id -> begin
+      match Util.Pmap.lookup id (Type_ctx.get_type_env type_ctx) with
+      | Some ty' -> get_type_from_tid ty' type_ctx
+      | None -> ty
+    end
   | ty -> ty
 
 let rec infer_type type_ctx type_subst expr =
@@ -90,7 +91,7 @@ let rec infer_type type_ctx type_subst expr =
       let get_tid_from_field field =
         let id_ref = Util.Pmap.lookup field (Type_ctx.get_field_ctx type_ctx) in
         match id_ref with
-        | Some type_id -> Types.TId type_id
+        | Some type_id -> Types.TName type_id
         | None ->
             Util.Error.fail_error
               ("Error typing "

@@ -187,24 +187,28 @@ let create_field_ctx type_decl_l =
 (* Every constructor of an algebraic type of [type_env], at the type it builds. *)
 let add_algebraic_constructors cons_ctx type_env =
   let add_constructor type_id cons_ctx = function
-    | (cons, None) -> Util.Pmap.add (cons, Types.TId type_id) cons_ctx
+    | (cons, None) -> Util.Pmap.add (cons, Types.TName type_id) cons_ctx
     | (cons, Some ty) ->
-        Util.Pmap.add (cons, Types.TArrow (ty, Types.TId type_id)) cons_ctx in
+        Util.Pmap.add (cons, Types.TArrow (ty, Types.TName type_id)) cons_ctx in
   let add_type cons_ctx = function
     | (type_id, Types.TAlgebraic cons_list) ->
         Util.Pmap.fold (add_constructor type_id) cons_ctx cons_list
     | _ -> cons_ctx in
   Util.Pmap.fold add_type cons_ctx type_env
 
+(* The abstract types of a signature, defined as the type names of a context. *)
+let add_type_names name_ctx type_priv_decl_l =
+  List.fold_left
+    (fun name_ctx tid ->
+      snd (Namectx.Namectx.add_fresh name_ctx tid Types.TypeUniverse))
+    name_ctx type_priv_decl_l
+
 (* An imported signature declares names the module may use but does not
-   implement. *)
+   implement, its abstract types being type names of the Opponent. *)
 let get_imported_name_env import_decl_l =
   let (var_decl_l, type_priv_decl_l, type_publ_decl_l, _) =
     split_signature_decl_list import_decl_l in
-  let type_env =
-    Util.Pmap.list_to_pmap
-      (type_publ_decl_l
-      @ List.map (fun tid -> (tid, Types.TName tid)) type_priv_decl_l) in
+  let type_env = Util.Pmap.list_to_pmap type_publ_decl_l in
   let rec aux ((val_env, var_ctx, name_ctx) as acc) = function
     | [] -> acc
     | (var, ty) :: tl -> begin
@@ -212,7 +216,7 @@ let get_imported_name_env import_decl_l =
           Types.generalize_type Types.TVarSet.empty
           @@ Types.apply_type_env ty type_env in
         match ty' with
-        | Types.TArrow _ | Types.TForall _ | Types.TId _ | Types.TName _ ->
+        | Types.TArrow _ | Types.TForall _ | Types.TName _ ->
             let (nn, name_ctx') =
               Namectx.Namectx.add_fresh name_ctx var
                 (Types.force_negative_type ty') in
@@ -230,7 +234,9 @@ let get_imported_name_env import_decl_l =
       end in
   let (val_env, var_ctx, name_ctx) =
     aux
-      (Syntax.empty_val_env, Type_ctx.empty_var_ctx, Namectx.Namectx.empty)
+      ( Syntax.empty_val_env,
+        Type_ctx.empty_var_ctx,
+        add_type_names Namectx.Namectx.empty type_priv_decl_l )
       var_decl_l in
   (val_env, var_ctx, name_ctx, type_env)
 
@@ -272,37 +278,36 @@ let get_typed_comp_env ?(import_var_ctx = Type_ctx.empty_var_ctx)
    included. *)
 let get_typed_val_env ?(namectxO = Namectx.Namectx.empty)
     ?(import_type_env = Types.empty_type_env) var_val_env sign_decl_l =
-  let (var_ctx_l, _, type_publ_decl_l, _) =
+  let (var_ctx_l, type_priv_decl_l, type_publ_decl_l, _) =
     split_signature_decl_list sign_decl_l in
   let type_env =
     Util.Pmap.concat (Util.Pmap.list_to_pmap type_publ_decl_l) import_type_env
   in
-  let rec partition_env (((ienvf, ienvp), (fnamectx, pnamectx)) as acc) =
-    function
-    | [] -> acc
+  (* The abstract types of the signature are the Proponent's type names. *)
+  let ienv =
+    List.fold_left
+      (fun ienv tid ->
+        snd
+          (Ienv.IEnv.add_fresh ienv tid Types.TypeUniverse
+             (Ienv.IEnv.embed_name (Names.embed_tname tid))))
+      (Ienv.IEnv.empty namectxO) type_priv_decl_l in
+  let rec partition_env ienv = function
+    | [] -> (ienv, Ienv.IEnv.dom ienv)
     | (var, ty) :: tl -> begin
         let value = Util.Pmap.lookup_exn var var_val_env in
-        let ty' = Types.generalize_type (Types.TVarSet.empty) @@ Types.apply_type_env ty type_env in
-        (* We might have to switch this generalization with the match below*)
+        let ty' =
+          Types.generalize_type Types.TVarSet.empty
+          @@ Types.apply_type_env ty type_env in
         match ty' with
-        | Types.TArrow _ | Types.TForall _ ->
+        | Types.TArrow _ | Types.TForall _ | Types.TName _ ->
             let nval = Syntax.force_negative_val value in
-            let (_fn, ienvf') = Ienv.IEnvF.add_fresh ienvf var ty' nval in
-            partition_env
-              ((ienvf', ienvp), (Ienv.IEnvF.dom ienvf', pnamectx))
-              tl
-        | Types.TId _ | Types.TName _ ->
-            let nval = Syntax.force_negative_val value in
-
-            let (_pn, ienvp') = Ienv.IEnvP.add_fresh ienvp var ty' nval in
-            partition_env
-              ((ienvf, ienvp'), (fnamectx, Ienv.IEnvP.dom ienvp'))
-              tl
+            let (_, ienv') = Ienv.IEnv.add_fresh ienv var ty' nval in
+            partition_env ienv' tl
         | _ ->
             Util.Debug.print_debug
               ("The identifier " ^ Syntax.string_of_id var
              ^ " is not included in the environment because it is of \
                 non-negative type " ^ Types.string_of_typ ty');
-            partition_env acc tl
+            partition_env ienv tl
       end in
-  partition_env (Ienv.IEnv.empty namectxO, Namectx.Namectx.empty) var_ctx_l
+  partition_env ienv var_ctx_l

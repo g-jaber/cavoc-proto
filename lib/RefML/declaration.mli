@@ -20,10 +20,8 @@ val extract_type_subst : implem_decl list -> Types.type_subst
 
 type comp_env = (Syntax.id * Syntax.term) list
 
-(* get_imported_name_env works on signature of *imported* declarations. Its
-   abstract types are type names provided by the Opponent: the returned type
-   environment sends each such t to TName t, which replaces the TId t the
-   parser reads wherever the environment is applied. *)
+(* get_imported_name_env works on signature of *imported* declarations: its
+   abstract types enter the returned context as type names of the Opponent. *)
 val get_imported_name_env :
   signature_decl list ->
   Syntax.val_env * Type_ctx.var_ctx * Namectx.Namectx.t * Types.type_env

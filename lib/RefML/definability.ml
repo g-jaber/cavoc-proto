@@ -343,7 +343,7 @@ and pp_source_atomic_typ fmt = function
   | Types.TBool -> Format.pp_print_string fmt "bool"
   | Types.TExn -> Format.pp_print_string fmt "exn"
   | Types.TVar tvar -> Format.pp_print_string fmt tvar
-  | Types.TId id -> Format.pp_print_string fmt id
+  | Types.TName id -> Format.pp_print_string fmt id
   | Types.TRef typ -> Format.fprintf fmt "ref %a" pp_source_atomic_typ typ
   | Types.TRecord fields ->
       Format.pp_print_string fmt "{ ";
@@ -353,7 +353,7 @@ and pp_source_atomic_typ fmt = function
       Format.pp_print_string fmt "}"
   | (Types.TArrow _ | Types.TProd _) as typ ->
       Format.fprintf fmt "(%a)" pp_source_typ typ
-  | ( Types.TSum _ | Types.TAlgebraic _ | Types.TForall _ | Types.TName _
+  | ( Types.TSum _ | Types.TAlgebraic _ | Types.TForall _ | Types.TypeUniverse
     | Types.TUndef ) as typ ->
       failwith
         ("Definability: the type " ^ Types.string_of_typ typ

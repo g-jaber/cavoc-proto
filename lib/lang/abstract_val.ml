@@ -60,7 +60,9 @@ module type AVAL = sig
   val abstracting_value :
     value -> name_ctx -> typ -> abstract_val * interactive_env
 
-  val subst_pnames : interactive_env -> abstract_val -> value
+  (* subst_pnames γ τ A replaces the names of γ in A, read at the type τ, by
+     their values. *)
+  val subst_pnames : interactive_env -> typ -> abstract_val -> value
 
   (* rename A ρ instantiates the bound names of A along ρ : Δ → Γ+Δ. *)
   val rename : abstract_val -> renaming -> abstract_val

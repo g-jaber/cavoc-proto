@@ -16,9 +16,8 @@ type typ =
   | TExn
   | TVar of typevar
   | TForall of typevar list * typ
-  | TId of id (* Implementation is only known by Proponent.  *)
-  | TName of
-      id (* Generated dynamically while instantiating Forall quantifiers. *)
+  | TName of id
+  | TypeUniverse
   | TUndef [@@deriving to_yojson]
 (* Used to represent the absence of type annotation in fun and fix terms *)
 

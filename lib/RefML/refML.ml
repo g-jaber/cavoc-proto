@@ -181,6 +181,16 @@ module WithAValBase (BranchMonad : Util.Monad.BRANCH) = struct
     let (tname_l, type_subst_l) = List.split @@ List.map aux tvar_l in
     (tname_l, Util.Pmap.list_to_pmap type_subst_l)
 
+  let typename_subst tvar_l tname_l =
+    Util.Pmap.list_to_pmap
+      (List.map2 (fun tvar tname -> (tvar, Types.TName tname)) tvar_l tname_l)
+
+  let typename_ctx tname_l =
+    List.fold_left
+      (fun namectx tname ->
+        snd (Namectx.Namectx.add_fresh namectx tname Types.TypeUniverse))
+      Namectx.Namectx.empty tname_l
+
   let apply_type_subst = Types.apply_type_subst
   let get_input_type = Types.get_input_type
   let get_output_type = Types.get_output_type

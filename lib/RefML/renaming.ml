@@ -1,19 +1,17 @@
+module TRenaming = Lang.Renaming.MakeGensymRenaming (Namectx.TNamectx)
+
 module FRenaming =
   Lang.Renaming.MakeInjectiveRenaming
     (Lang.Renaming.MakeDeBruijnWeakening (Namectx.FNamectx))
 
-module PRenamingP =
-  Lang.Renaming.MakeInjectiveRenaming
-    (Lang.Renaming.MakeDeBruijnWeakening (Namectx.PNamectxP))
-
-module PRenamingO =
-  Lang.Renaming.MakeInjectiveRenaming
-    (Lang.Renaming.MakeDeBruijnWeakening (Namectx.PNamectxO))
-
 module PRenaming =
-  Lang.Renaming.AggregateInjectiveRenaming (PRenamingP) (PRenamingO)
-    (Namectx.PNamectx)
+  Lang.Renaming.MakeInjectiveRenaming
+    (Lang.Renaming.MakeDeBruijnWeakening (Namectx.PNamectx))
+
+module ValueRenaming =
+  Lang.Renaming.AggregateInjectiveRenaming (FRenaming) (PRenaming)
+    (Namectx.ValueNamectx)
 
 module Renaming =
-  Lang.Renaming.AggregateInjectiveRenaming (FRenaming) (PRenaming)
+  Lang.Renaming.AggregateInjectiveRenaming (TRenaming) (ValueRenaming)
     (Namectx.Namectx)
