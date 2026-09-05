@@ -152,6 +152,7 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
     NTerm (cn', term')
 
   module Store = OpLang.Store
+  module DisclosedStore = OpLang.DisclosedStore
 
   type opconf = term * Store.store
 

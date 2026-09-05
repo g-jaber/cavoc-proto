@@ -309,6 +309,9 @@ module type WITHAVAL_INOUT = sig
        and type interactive_env = IEnv.t
        and type renaming = Renaming.t
        and module BranchMonad = Store.BranchMonad
+
+  module DisclosedStore :
+    Disclosed_store.DISCLOSED_STORE with type store_ctx = Store.Storectx.t
 end
 
 (** [WITHAVAL_NEG] is used for operational languages with normal forms that have
@@ -358,4 +361,7 @@ module type WITHAVAL_NEG = sig
        and type interactive_env = IEnv.t
        and type renaming = Renaming.t
        and module BranchMonad = Store.BranchMonad
+
+  module DisclosedStore :
+    Disclosed_store.DISCLOSED_STORE with type store_ctx = Store.Storectx.t
 end

@@ -236,6 +236,7 @@ module type WITHAVAL_INOUT_REFML =
      and type ('value, 'ectx, 'fname, 'cname) Nf.nf_term =
       ('value, 'ectx, 'fname, 'cname) Nf.nf_term
      and type AVal.abstract_val = Nup.nup
+     and type DisclosedStore.t = Nup.disclosed_store
 
 module WithAValSymbolic (BranchMonad : Util.Monad.BRANCH) :
   WITHAVAL_INOUT_REFML
@@ -260,6 +261,8 @@ module WithAValSymbolic (BranchMonad : Util.Monad.BRANCH) :
        and type abstract_val = Nup.nup
        and module BranchMonad = BranchMonad =
     Nup.Make (BranchMonad) (Nup.MakeGenerateSymbolicValue (BranchMonad))
+
+  module DisclosedStore = Disclosed_store.Make (AVal)
 end
 
 module WithAValConcrete (BranchMonad : Util.Monad.BRANCH) :
@@ -285,4 +288,6 @@ module WithAValConcrete (BranchMonad : Util.Monad.BRANCH) :
        and type abstract_val = Nup.nup
        and module BranchMonad = BranchMonad =
     Nup.Make (BranchMonad) (Nup.MakeGenerateConcreteValue (BranchMonad))
+
+  module DisclosedStore = Disclosed_store.Make (AVal)
 end

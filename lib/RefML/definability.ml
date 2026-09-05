@@ -50,6 +50,8 @@ module Ops :
     | Nup.ASymb _ ->
         failwith
           "Definability: symbolic values are outside the definable fragment."
+    | Nup.ALocFree _ | Nup.ALocBound _ ->
+        failwith "Definability: disclosed locations are not yet reified."
 
   type branch = {
     pattern: abstract_val;
@@ -81,6 +83,8 @@ module Ops :
     | Nup.ASymb _ ->
         failwith
           "Definability: symbolic patterns are outside the definable fragment."
+    | Nup.ALocFree _ | Nup.ALocBound _ ->
+        failwith "Definability: disclosed locations are not yet reified."
 
   (*  A guarded match takes the pair of the matched term and the state reading
      term; unguarded branches pair with the wildcard. *)

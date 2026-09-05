@@ -58,6 +58,31 @@ let symbolic_add_constraint store konstraint =
 let embed_cons_ctx cons_ctx =
   { empty_store with cons_ctx }
 
+module LocCtx =
+  Lang.Typectx.Make_List
+    (Names.LocNames)
+    (struct
+      type t = Types.typ [@@deriving to_yojson]
+
+      let pp = Types.pp_typ
+    end)
+
+(* The location environment: the operational location each public de Bruijn level
+   is mapped to. *)
+module LocEnv =
+  Lang.Typectx.Make_List
+    (Names.LocNames)
+    (struct
+      type t = Syntax.loc [@@deriving to_yojson]
+
+      let pp = Syntax.pp_loc
+    end)
+
+let level_of_loc locenv loc =
+  List.find_opt
+    (fun level -> LocEnv.lookup_exn locenv level = loc)
+    (LocEnv.get_names locenv)
+
 module Storectx = struct
   (* TODO: This should really be a record *)
   type t = Type_ctx.loc_ctx * Symbolic.symbolic_ctx * Type_ctx.cons_ctx

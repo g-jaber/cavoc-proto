@@ -5,7 +5,9 @@ open Syntax
 
 (** Abstract values (nups) are patterns whose leaves are ground values or names:
     [ABound] names are introduced by the move, at their level in its local
-    typing context Δ; [AFree] names are reused from the ambient one. *)
+    typing context Δ; [AFree] names are reused from the ambient one. Locations
+    are mapped to their de Bruijn level in the disclosed store
+    context. *)
 type nup =
   | AUnit
   | AInt of int
@@ -16,6 +18,18 @@ type nup =
   | ASymb of Symbolic.symbolic_expr
   | AFree of Names.name
   | ABound of Names.name
+  | ALocFree of Names.LocNames.name
+  | ALocBound of Names.LocNames.name
+
+(** The store part of a move: the content of every public location, over the
+    disclosed store context Σ extended by [local_locctx], the locations the move
+    discloses in order of mention. *)
+type disclosed_store = {
+  local_locctx: Store.LocCtx.t;
+  contents: nup list;
+  symbolic_ctx: Symbolic.branch;
+  cons_ctx: Type_ctx.cons_ctx;
+}
 
 (** The {!module-type: GENERATE_VALUE} signature is implemented by modules
     providing a strategy to generate {e RefML} values. Such modules are used to
@@ -105,6 +119,7 @@ module Make
         Format.pp_print_string fmt "}"
     | AFree nn -> pp_free_name fmt nn
     | ABound nn -> pp_bound_name fmt nn
+    | ALocFree level | ALocBound level -> Names.LocNames.pp_name fmt level
 
   let pp_abstract_val =
     pp_abstract_val_in ~pp_free_name:Names.pp_name ~pp_bound_name:Names.pp_name
@@ -113,7 +128,7 @@ module Make
   let abstract_val_to_yojson aval = `String (string_of_abstract_val aval)
 
   let rec add_names lnames = function
-    | AUnit | AInt _ | ABool _ | ASymb _ -> lnames
+    | AUnit | AInt _ | ABool _ | ASymb _ | ALocFree _ | ALocBound _ -> lnames
     | APair (nup1, nup2) -> add_names (add_names lnames nup1) nup2
     | ACons (_, nup') -> add_names lnames nup'
     | ARecord fields ->
@@ -126,7 +141,9 @@ module Make
   let names_of_abstract_val = add_names []
 
   let rec fold_free_names_of_abstract_val f acc = function
-    | AUnit | AInt _ | ABool _ | ASymb _ | ABound _ -> acc
+    | AUnit | AInt _ | ABool _ | ASymb _ | ABound _ | ALocFree _ | ALocBound _
+      ->
+        acc
     | AFree nn -> f acc nn
     | APair (nup1, nup2) ->
         fold_free_names_of_abstract_val f
@@ -139,7 +156,9 @@ module Make
           acc fields
 
   let rec map_free_names_of_abstract_val f = function
-    | (AUnit | AInt _ | ABool _ | ASymb _ | ABound _) as nup -> nup
+    | (AUnit | AInt _ | ABool _ | ASymb _ | ABound _ | ALocFree _ | ALocBound _)
+      as nup ->
+        nup
     | AFree nn -> AFree (f nn)
     | APair (nup1, nup2) ->
         APair
@@ -150,7 +169,9 @@ module Make
         ARecord (Util.Pmap.map_im (map_free_names_of_abstract_val f) fields)
 
   let rec add_labels label_l = function
-    | AUnit | AInt _ | ABool _ | ASymb _ | AFree _ | ABound _ -> label_l
+    | AUnit | AInt _ | ABool _ | ASymb _ | AFree _ | ABound _ | ALocFree _
+    | ALocBound _ ->
+        label_l
     | ACons (c, _) ->
         if List.mem (ConsL c) label_l then label_l else ConsL c :: label_l
     | APair (nup1, nup2) -> add_labels (add_labels label_l nup1) nup2
@@ -163,7 +184,8 @@ module Make
 
   let rec rename nup renam =
     match nup with
-    | AUnit | AInt _ | ABool _ | ASymb _ | AFree _ -> nup
+    | AUnit | AInt _ | ABool _ | ASymb _ | AFree _ | ALocFree _ | ALocBound _ ->
+        nup
     | APair (nup1, nup2) -> APair (rename nup1 renam, rename nup2 renam)
     | ACons (c, nup') -> ACons (c, rename nup' renam)
     | ARecord fields ->
@@ -425,6 +447,10 @@ module Make
         failwith
           ("Error: the name " ^ Names.string_of_name nn
          ^ " is not part of a ground abstract value. Please report.")
+    | ALocFree level | ALocBound level ->
+        failwith
+          ("Error: the location " ^ Names.LocNames.string_of_name level
+         ^ " needs the location environment to be concretized.")
 
   (* Instantiating Proponent polymorphic names, guided by the type. *)
   let subst_pnames ienv ty nup =
@@ -445,8 +471,9 @@ module Make
           failwith
             ("Error: the name " ^ Names.string_of_name nn
            ^ " of an abstract value has not been instantiated. Please report.")
-      | (_, (AUnit | AInt _ | ABool _ | ASymb _ | ACons _ | APair _ | ARecord _))
-        ->
+      | ( _,
+          ( AUnit | AInt _ | ABool _ | ASymb _ | ACons _ | APair _ | ARecord _
+          | ALocFree _ | ALocBound _ ) ) ->
           value_of_ground_nup nup in
     aux ty nup
 end

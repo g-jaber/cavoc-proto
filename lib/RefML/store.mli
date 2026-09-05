@@ -25,6 +25,19 @@ val symbolic_add_constraint : store -> Symbolic.symbolic_expr -> store
 
 val embed_cons_ctx : Type_ctx.cons_ctx -> store
 
+(* The public locations as de Bruijn levels. *)
+module LocCtx : Lang.Typectx.TYPECTX
+  with type typ = Types.typ
+  and type Names.name = Names.LocNames.name
+
+(* The location environment: the operational location each public de Bruijn level
+   stands for. *)
+module LocEnv : Lang.Typectx.TYPECTX
+  with type typ = Syntax.loc
+  and type Names.name = Names.LocNames.name
+
+val level_of_loc : LocEnv.t -> Syntax.loc -> Names.LocNames.name option
+
 module Storectx : Lang.Typectx.TYPECTX
   with type t = Type_ctx.loc_ctx * Symbolic.symbolic_ctx * Type_ctx.cons_ctx
   and type typ = Types.typ

@@ -30,6 +30,17 @@ module TNames : Lang.Names.NAMES_GEN with type name = Types.id = struct
   let from_string id = id
 end
 
+(* The locations disclosed in moves, as de Bruijn levels of the disclosed store
+   context Σ. *)
+module LocNames : Lang.Names.NAMES_INT =
+  Lang.Names.MakeInt (struct
+      let is_callable = false let is_cname = false
+    end)
+    (struct
+      let prefix = "l"
+    end)
+    ()
+
 module ValueNames = Lang.Names.MakeAggregate (FNames) (PNames)
 include Lang.Names.MakeAggregate (TNames) (ValueNames)
 

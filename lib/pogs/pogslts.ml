@@ -1,4 +1,4 @@
-(* Opponent chooses the whole heap over the cells of ground type when it
+(* Opponent chooses the whole heap over the locations of ground type when it
    plays, andPlayer answers with its whole heap. *)
 module Make (Lang : Lang.Interactive.LANG_WITH_INIT) : sig
   include
