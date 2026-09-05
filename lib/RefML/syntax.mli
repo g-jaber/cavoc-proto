@@ -160,3 +160,4 @@ val refold_nf_term :
 
 (* The following function should be replaced by generate_nup *)
 val generate_ground_value : Types.typ -> value list
+val type_of_ground_value : value -> Types.typ option

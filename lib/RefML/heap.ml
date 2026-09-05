@@ -29,8 +29,8 @@ let update heap heap' =
 let lookup heap l = Util.Pmap.lookup l heap
 
 
-let loc_ctx_of_heap = Util.Pmap.map_im (fun _ -> Types.TInt)
-(* TODO !!! *)
+(* Only work for ground store for now *)
+let loc_ctx_of_heap heap = Util.Pmap.filter_map_im Syntax.type_of_ground_value heap
 
 let rec shuffle_heaps = function
   | [] -> [ emptyheap ]

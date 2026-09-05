@@ -696,3 +696,10 @@ let generate_ground_value : Types.typ -> term list = function
       failwith
         ("Error: the type" ^ Types.string_of_typ ty
        ^ " is not of ground type. It should not appear inside heaps.")
+
+(* Symbolic contents are boolean currently. *)
+let type_of_ground_value : value -> Types.typ option = function
+  | Unit -> Some Types.TUnit
+  | Bool _ | Symbolic _ -> Some Types.TBool
+  | Int _ -> Some Types.TInt
+  | _ -> None

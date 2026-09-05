@@ -1,5 +1,7 @@
 module Make (Lang : Lang.Interactive.LANG_WITH_INIT) :
-  Lts.Strategy.LTS_WITH_INIT with module EvalMonad = Lang.EvalMonad = struct
+  Lts.Strategy.LTS_WITH_INIT
+    with module EvalMonad = Lang.EvalMonad
+     and type TypingLTS.store_ctx = Lang.Storectx.t = struct
   module TypingLTS = Typing.Make (Lang)
   module EvalMonad = Lang.EvalMonad
   module Moves = TypingLTS.Moves

@@ -194,6 +194,13 @@ let is_equiv_store ~compare_heaps store1 store2 =
   && Util.Pmap.equal store1.cons_ctx store2.cons_ctx
 
 let restrict_ctx (loc_ctx, symbolic_ctx, cons_ctx) label_l =
+  let check_typed = function
+    | Syntax.LocL l when not (Util.Pmap.mem l loc_ctx) ->
+        failwith
+          ("Error: the disclosed location " ^ Syntax.string_of_loc l
+         ^ "is not of ground type.")
+    | _ -> () in
+  List.iter check_typed label_l;
   let loc_ctx' =
     Util.Pmap.filter_dom (fun l -> List.mem (Syntax.LocL l) label_l) loc_ctx
   in
