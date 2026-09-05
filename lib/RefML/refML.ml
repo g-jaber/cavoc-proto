@@ -254,6 +254,7 @@ module WithAValSymbolic (BranchMonad : Util.Monad.BRANCH) :
        and type negative_val = Syntax.negative_val
        and type renaming = Renaming.t
        and type store_ctx = Store.Storectx.t
+       and type store = Store.store
        and type typ = Types.typ
        and type value = Syntax.value
        and type abstract_val = Nup.nup
@@ -278,6 +279,7 @@ module WithAValConcrete (BranchMonad : Util.Monad.BRANCH) :
        and type negative_val = Syntax.negative_val
        and type renaming = Renaming.t
        and type store_ctx = Store.Storectx.t
+       and type store = Store.store
        and type typ = Types.typ
        and type value = Syntax.value
        and type abstract_val = Nup.nup

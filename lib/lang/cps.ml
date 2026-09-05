@@ -328,6 +328,7 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
        and type negative_type = negative_type_temp
        and type label = Store.label
        and type store_ctx = Store.Storectx.t
+       and type store = Store.store
        and type name_ctx = Namectx.t
        and type interactive_env = IEnv.t
        and type renaming = Renaming.t
@@ -341,6 +342,7 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
     type typ = typ_temp
     type negative_type = negative_type_temp
     type store_ctx = Store.Storectx.t
+    type store = Store.store
 
     (*    type negative_type = OpLang.negative_type*)
     type name_ctx = Namectx.t
@@ -502,22 +504,15 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
           return (APack (tname_l, aval, cn), (storectx, (lnamectx, cnamectx)))
       | _ -> failwith "The glue type is not valid. Please report."
 
-    let unify_abstract_val _nspan _aval1 _aval2 =
-      failwith "To be reimplemented."
-    (*      match (aval1, aval2) with
+    let is_equiv_abstract_val store1 store2 aval1 aval2 =
+      let is_equiv = OpLang.AVal.is_equiv_abstract_val store1 store2 in
+      match (aval1, aval2) with
+      | (AVal aval1, AVal aval2) -> is_equiv aval1 aval2
       | (APair (aval1, cn1), APair (aval2, cn2)) ->
-          let nspan1_option = OpLang.AVal.unify_abstract_val nspan aval1 aval2 in
-          begin
-            match nspan1_option with
-            | None -> None
-            | Some nspan1 ->
-                Util.Namespan.add_nspan
-                  (inj_cname cn1, inj_cname cn2)
-                  nspan1
-          end
-      | (AVal aval1, AVal aval2) ->
-          OpLang.AVal.unify_abstract_val nspan aval1 aval2
-      | _ -> None*)
+          cn1 = cn2 && is_equiv aval1 aval2
+      | (APack (tname_l1, aval1, cn1), APack (tname_l2, aval2, cn2)) ->
+          tname_l1 = tname_l2 && cn1 = cn2 && is_equiv aval1 aval2
+      | _ -> false
 
     let subst_pnames ((val_env, _) : interactive_env) gty aval =
       match (gty, aval) with

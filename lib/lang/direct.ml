@@ -346,10 +346,11 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
     OpLang.type_check_nf_term ~inj_ty ~empty_res ~get_type_fname ~get_type_cname
       ~type_check_call ~type_check_ret nf_term
 
-  (* Beware that is_equiv_a_nf does not check the equivalence of
-     the store part of abstract normal forms.
-     This is needed for the POGS equivalence. *)
-  let is_equiv_a_nf _ (_, _) (_, _) = failwith "Not yet implemented"
+  let is_equiv_a_nf ~compare_heaps (anf1, store1) (anf2, store2) =
+    OpLang.Nf.equiv_nf_term
+      (OpLang.AVal.is_equiv_abstract_val store1 store2)
+      anf1 anf2
+    && OpLang.Store.is_equiv_store ~compare_heaps store1 store2
 
   let get_typed_namectx lexBuffer_signature =
     (OpLang.get_typed_namectx lexBuffer_signature, Stackctx.empty)

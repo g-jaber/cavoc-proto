@@ -16,6 +16,7 @@ module type AVAL = sig
   type negative_type
   type name_ctx
   type store_ctx
+  type store
   (* Interactive environments γ are partial maps from names to interactive values*)
 
   type interactive_env
@@ -88,9 +89,6 @@ module type AVAL = sig
     typ ->
     (abstract_val * (store_ctx * name_ctx)) BranchMonad.m
 
-  val unify_abstract_val :
-    name Util.Namespan.namespan ->
-    abstract_val ->
-    abstract_val ->
-    name Util.Namespan.namespan option
+  (* Equivalence up to the discriminating power of the environment. *)
+  val is_equiv_abstract_val : store -> store -> abstract_val -> abstract_val -> bool
 end

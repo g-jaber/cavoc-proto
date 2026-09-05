@@ -37,7 +37,8 @@ module type LTS = sig
     Moves.direction ->
     (Moves.pol_move * Moves.Renaming.t * position) BranchMonad.m
 
-  (* check_move Γₓ m returns None when m is not well-typed at Γₓ. *)
+  (* check_move Γₓ m returns None when m is not well-typed at Γₓ; the subject
+     of m is assumed to be a name of Γₓ. *)
   val check_move :
     position -> Moves.pol_move -> (Moves.Renaming.t * position) option
 

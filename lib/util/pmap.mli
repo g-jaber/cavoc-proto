@@ -12,9 +12,7 @@ val codom : ('a, 'b) pmap -> 'b list
 val mem : 'a -> ('a, 'b) pmap -> bool
 val lookup : 'a -> ('a, 'b) pmap -> 'b option
 val lookup_exn : 'a -> ('a, 'b) pmap -> 'b
-val is_in_dom_im : 'a * 'b -> ('a, 'b) pmap -> bool
 val add : 'a * 'b -> ('a, 'b) pmap -> ('a, 'b) pmap
-val add_span : 'a * 'b -> ('a, 'b) pmap -> ('a, 'b) pmap option
 val modadd : 'a * 'b -> ('a, 'b) pmap -> ('a, 'b) pmap
 val failadd : 'a * 'b -> ('a, 'b) pmap -> ('a, 'b) pmap option
 (* The first argument of string_of_pmap is the string for the empty map,
@@ -47,3 +45,6 @@ val select_im : 'b -> ('a, 'b) pmap -> 'a list
 val filter_dom : ('a -> bool) -> ('a, 'b) pmap -> ('a, 'b) pmap
 
 val iter : (('a * 'b) -> unit) -> ('a, 'b) pmap -> unit
+
+(* The same bindings, in any order. *)
+val equal : ('a, 'b) pmap -> ('a, 'b) pmap -> bool

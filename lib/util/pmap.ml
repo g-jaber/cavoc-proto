@@ -21,14 +21,7 @@ let rec lookup_exn x = function
   | (y, v) :: _ when x = y -> v
   | _ :: pmap -> lookup_exn x pmap
 
-let rec is_in_dom_im (a, b) = function
-  | [] -> false
-  | (a', b') :: p -> if a = a' && b = b' then true else is_in_dom_im (a, b) p
-
 let add (a, b) p = (a, b) :: p
-
-let add_span (a, b) p =
-  if is_in_dom_im (a, b) p then None else Some (add (a, b) p)
 
 let rec modadd (x, v) = function
   | [] -> [ (x, v) ]
@@ -74,3 +67,8 @@ let rec select_im b = function
 let filter_dom f = List.filter (fun (a, _) -> f a)
 
 let iter = List.iter
+
+(* The same bindings, in any order. *)
+let equal pmap1 pmap2 =
+  List.length pmap1 = List.length pmap2
+  && List.for_all (fun binding -> List.mem binding pmap2) pmap1

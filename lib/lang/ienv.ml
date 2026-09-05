@@ -25,6 +25,9 @@ module type IENV = sig
   (* Taking γ : Γ → Δ and Θ, then weaken_l γ Θ : Γ → Θ + Δ *)
   val weaken_l : t -> Renaming.Namectx.t -> t
 
+  (* Taking  ρ : Γ' ↪ Γ and γ : Γ → Δ, restrict ρ γ : Γ' → Δ *)
+  val restrict : Renaming.t -> t -> t
+
   (* Taking γ₁ : Γ₁ → Δ₁ and γ₂ : Γ₂ → Δ₂, pairing γ₁ γ₂ : (Γ₁ + Γ₂) → (Δ₁ + Δ₂)  *)
   val tensor : t -> t -> t
   val lookup_exn : t -> Renaming.Namectx.Names.name -> value
@@ -107,6 +110,16 @@ struct
     let renam = Renaming.weak_r ienv.im namectx in
     let map = Util.Pmap.map_im (Value.renam_act renam) ienv.map in
     { map; dom= ienv.dom; im= Renaming.im renam }
+
+  let restrict thinning ienv =
+    let dom = Renaming.dom thinning in
+    let map =
+      Util.Pmap.list_to_pmap
+        (List.map
+           (fun nn ->
+             (nn, Util.Pmap.lookup_exn (Renaming.lookup thinning nn) ienv.map))
+           (Renaming.Namectx.get_names dom)) in
+    { map; dom; im= ienv.im }
 
   let tensor ienv1 ienv2 =
     let ienv1' = weaken_r ienv1 (im ienv2) in
@@ -239,6 +252,15 @@ struct
       List.map (fun (str, v) -> (str, Value.renam_act renam v)) ienv.map in
     { map; dom= ienv.dom; im= Renaming.im renam }
 
+  (* The thinning is monotone, so the kept entries stay in domain order. *)
+  let restrict thinning ienv =
+    let dom = Renaming.dom thinning in
+    let map =
+      List.map
+        (fun nn -> List.nth ienv.map (Renaming.lookup thinning nn))
+        (Renaming.Namectx.get_names dom) in
+    { map; dom; im= ienv.im }
+
   let tensor ienv1 ienv2 =
     let ienv1' = weaken_r ienv1 (im ienv2) in
     let ienv2' = weaken_l ienv2 (im ienv1) in
@@ -319,6 +341,13 @@ module Make_Stack
     let renam = Renaming.weak_r ienv.im namectx in
     let stack = List.map (Value.renam_act renam) ienv.stack in
     { stack; dom= ienv.dom; im= Renaming.im renam }
+
+  (* Evaluation contexts have no identity, so the most recent ones are kept. *)
+  let restrict thinning ienv =
+    let dom = Renaming.dom thinning in
+    let size = List.length (Renaming.Namectx.get_names dom) in
+    let stack = List.filteri (fun i _ -> i < size) ienv.stack in
+    { stack; dom; im= ienv.im }
 
   let tensor ienv1 ienv2 =
     let ienv1' = weaken_r ienv1 (im ienv2) in
@@ -410,6 +439,9 @@ module Aggregate
     let ienv1' = IEnv1.weaken_l ienv1 namectx1 in
     let ienv2' = IEnv2.weaken_l ienv2 namectx2 in
     (ienv1', ienv2')
+
+  let restrict (thinning1, thinning2) (ienv1, ienv2) =
+    (IEnv1.restrict thinning1 ienv1, IEnv2.restrict thinning2 ienv2)
 
   let tensor ienv1 ienv2 =
     Util.Debug.print_debug @@ "Tensoring Aggregate " ^ to_string ienv1 ^ " and "
@@ -528,6 +560,9 @@ module AggregateCommon
     let ienv1' = IEnv1.weaken_l ienv1 namectx1 in
     let ienv2' = IEnv2.weaken_l ienv2 namectx2 in
     (ienv1', ienv2')
+
+  let restrict (thinning1, thinning2) (ienv1, ienv2) =
+    (IEnv1.restrict thinning1 ienv1, IEnv2.restrict thinning2 ienv2)
 
   let tensor ienv1 ienv2 =
     let ienv1' = weaken_r ienv1 (im ienv2) in

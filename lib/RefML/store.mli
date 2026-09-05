@@ -37,3 +37,4 @@ val update_store : store -> store -> store
 val restrict : Storectx.t -> store -> store
 
 val restrict_ctx : Storectx.t -> label list -> Storectx.t
+val is_equiv_store : compare_heaps:bool -> store -> store -> bool

@@ -50,11 +50,10 @@ module type A_NF = sig
 
   val string_of_a_nf : string -> abstract_normal_form -> string
 
+  (* Equivalence up to what the environment can observe. The heap part is
+     compared only when asked: POGS relates heaps a posteriori. *)
   val is_equiv_a_nf :
-    IEnv.Renaming.Namectx.Names.name Util.Namespan.namespan ->
-    abstract_normal_form ->
-    abstract_normal_form ->
-    IEnv.Renaming.Namectx.Names.name Util.Namespan.namespan option
+    compare_heaps:bool -> abstract_normal_form -> abstract_normal_form -> bool
 end
 
 (* Abstract normal forms with their generation and type checking. *)
@@ -375,11 +374,11 @@ module Make (OpLang : Language.WITHAVAL_NEG) :
   (*TODO: Type check the store part and
      check that the disclosure process is respected*)
 
-  (* Beware that is_equiv_a_nf does not check the equivalence of
-     the store part of abstract normal forms.
-     This is needed for the POGS equivalence. *)
-  let is_equiv_a_nf span (anf1, _) (anf2, _) =
-    OpLang.Nf.equiv_nf_term OpLang.AVal.unify_abstract_val span anf1 anf2
+  let is_equiv_a_nf ~compare_heaps (anf1, store1) (anf2, store2) =
+    OpLang.Nf.equiv_nf_term
+      (OpLang.AVal.is_equiv_abstract_val store1 store2)
+      anf1 anf2
+    && OpLang.Store.is_equiv_store ~compare_heaps store1 store2
 
   let get_typed_ienv = OpLang.get_typed_ienv
   let get_typed_namectx = OpLang.get_typed_namectx

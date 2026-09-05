@@ -52,11 +52,8 @@ module type MOVES = sig
      stored moves compare structurally. *)
   val erase_display_hints : move -> move
 
-  val unify_move :
-    Renaming.Namectx.Names.name Util.Namespan.namespan ->
-    move ->
-    move ->
-    Renaming.Namectx.Names.name Util.Namespan.namespan option
+  (* Names being de Bruijn levels, moves at the same position compare structurally. *)
+  val is_equiv_move : move -> move -> bool
 end
 
 module type POLMOVES = sig
@@ -90,11 +87,7 @@ module type POLMOVES = sig
 
   val switch_direction : pol_move -> pol_move
 
-  val unify_pol_move :
-    Renaming.Namectx.Names.name Util.Namespan.namespan ->
-    pol_move ->
-    pol_move ->
-    Renaming.Namectx.Names.name Util.Namespan.namespan option
+  val is_equiv_pol_move : pol_move -> pol_move -> bool
 end
 
 module type GEN_POLMOVES = sig
@@ -129,10 +122,15 @@ include Moves
   val string_of_pol_move : pol_move -> string
   val switch_direction : pol_move -> pol_move
 
-  val unify_pol_move :
+  val is_equiv_pol_move :
 end *)
 
-module Make (A_nf : Lang.Interactive.A_NF) :
+(* The typing LTS fixes whether the heap part of moves is compared. *)
+module Make
+    (A_nf : Lang.Interactive.A_NF)
+    (Equivalence : sig
+      val compare_heaps : bool
+    end) :
   POLMOVES
     with module Renaming = A_nf.IEnv.Renaming
      and type copattern =
@@ -222,11 +220,11 @@ module Make (A_nf : Lang.Interactive.A_NF) :
   let erase_display_hints (a_nf, local_namectx) =
     (a_nf, Namectx.erase_display_hints local_namectx)
 
-  let unify_move span (a_nf1, _) (a_nf2, _) =
-    A_nf.is_equiv_a_nf span a_nf1 a_nf2
+  let is_equiv_move (a_nf1, _) (a_nf2, _) =
+    A_nf.is_equiv_a_nf ~compare_heaps:Equivalence.compare_heaps a_nf1 a_nf2
 
-  let unify_pol_move span (dir1, move1) (dir2, move2) =
-    if dir1 = dir2 then unify_move span move1 move2 else None
+  let is_equiv_pol_move (dir1, move1) (dir2, move2) =
+    dir1 = dir2 && is_equiv_move move1 move2
 end
 
 module Tensor (Moves1 : POLMOVES) (Moves2 : POLMOVES) :
@@ -373,43 +371,13 @@ module Tensor (Moves1 : POLMOVES) (Moves2 : POLMOVES) :
     | Either.Left move -> Either.Left (Moves1.erase_display_hints move)
     | Either.Right move -> Either.Right (Moves2.erase_display_hints move)
 
-  (* A span over the tensor's names, restricted to one side and put back. *)
-  let split_span span =
-    let pairs = Util.Pmap.to_list span in
-    ( Util.Pmap.list_to_pmap
-        (List.filter_map
-           (function
-             | (Either.Left nn1, Either.Left nn2) -> Some (nn1, nn2) | _ -> None)
-           pairs),
-      Util.Pmap.list_to_pmap
-        (List.filter_map
-           (function
-             | (Either.Right nn1, Either.Right nn2) -> Some (nn1, nn2)
-             | _ -> None)
-           pairs) )
-
-  let join_span span1 span2 =
-    Util.Pmap.list_to_pmap
-      (List.map
-         (fun (nn1, nn2) -> (Either.Left nn1, Either.Left nn2))
-         (Util.Pmap.to_list span1)
-      @ List.map
-          (fun (nn1, nn2) -> (Either.Right nn1, Either.Right nn2))
-          (Util.Pmap.to_list span2))
-
-  let unify_move span move move' =
-    let (span1, span2) = split_span span in
+  let is_equiv_move move move' =
     match (move, move') with
-    | (Either.Left move, Either.Left move') ->
-        Option.map
-          (fun span1 -> join_span span1 span2)
-          (Moves1.unify_move span1 move move')
+    | (Either.Left move, Either.Left move') -> Moves1.is_equiv_move move move'
     | (Either.Right move, Either.Right move') ->
-        Option.map
-          (fun span2 -> join_span span1 span2)
-          (Moves2.unify_move span2 move move')
-    | _ -> None
+        Moves2.is_equiv_move move move'
+    | _ -> false
 
-  let unify_pol_move span (dir, move) (dir', move') =
-    if dir = dir' then unify_move span move move' else None
+  let is_equiv_pol_move (dir, move) (dir', move') =
+    dir = dir' && is_equiv_move move move'
 end

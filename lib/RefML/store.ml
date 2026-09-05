@@ -183,10 +183,15 @@ let update_store store1 store2 =
 (* TODO: not sure when restrict and restrict_ctx are called
          and whether the variables declared in the storectx
          should be exported to the returned store *)
+(* The constraints of the branch are kept *)
 let restrict (loc_ctx, symbolic_ctx, cons_ctx) store =
   let heap = Heap.restrict loc_ctx store.heap in
-  let symbolic_ctx = { Symbolic.empty with pathdecl = symbolic_ctx } in
+  let symbolic_ctx = { store.symbolic_ctx with pathdecl = symbolic_ctx } in
   { empty_store with heap ; symbolic_ctx ; cons_ctx }
+
+let is_equiv_store ~compare_heaps store1 store2 =
+  ((not compare_heaps) || Util.Pmap.equal store1.heap store2.heap)
+  && Util.Pmap.equal store1.cons_ctx store2.cons_ctx
 
 let restrict_ctx (loc_ctx, symbolic_ctx, cons_ctx) label_l =
   let loc_ctx' =

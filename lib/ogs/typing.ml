@@ -5,7 +5,12 @@ module Make (IntLang : Lang.Interactive.LANG) :
      and type store_ctx = IntLang.Storectx.t
      and type Moves.copattern =
       IntLang.abstract_normal_form * IntLang.IEnv.Renaming.Namectx.t = struct
-  module Moves = Lts.Moves.Make (IntLang : Lang.Interactive.A_NF)
+  module Moves =
+    Lts.Moves.Make
+      (IntLang : Lang.Interactive.A_NF)
+      (struct
+        let compare_heaps = true
+      end)
   module BranchMonad = IntLang.BranchMonad
 
   type store_ctx = IntLang.Storectx.t

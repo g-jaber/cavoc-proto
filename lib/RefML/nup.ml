@@ -62,6 +62,7 @@ module Make
      and type negative_val = Syntax.negative_val
      and type renaming = Renaming.Renaming.t
      and type store_ctx = Store.Storectx.t
+     and type store = Store.store
      and type typ = Types.typ
      and type value = Syntax.value
      and type abstract_val = nup
@@ -77,6 +78,7 @@ module Make
   type typ = Types.typ
   type negative_type = Types.negative_type
   type store_ctx = Store.Storectx.t
+  type store = Store.store
   type name_ctx = Namectx.Namectx.t
 
   (* *)
@@ -168,27 +170,27 @@ module Make
         ARecord (Util.Pmap.map_im (fun nup' -> rename nup' renam) fields)
     | ABound nn -> AFree (Renaming.Renaming.lookup renam nn)
 
-  let rec unify_abstract_val nspan nup1 nup2 =
+  (* Symbolic values would need the constraints of the two branches. *)
+  let rec is_equiv_abstract_val store1 store2 nup1 nup2 =
     match (nup1, nup2) with
-    | (AUnit, AUnit) -> Some nspan
-    | (ABool b1, ABool b2) -> if b1 = b2 then Some nspan else None
-    | (AInt n1, AInt n2) -> if n1 = n2 then Some nspan else None
-    | (APair (nup11, nup12), APair (nup21, nup22)) ->
-        let nspan1_option = unify_abstract_val nspan nup11 nup21 in
-        begin match nspan1_option with
-        | None -> None
-        | Some nspan1 -> unify_abstract_val nspan1 nup12 nup22
-        end
-    | (AFree n1, AFree n2) | (ABound n1, ABound n2) ->
-        Util.Namespan.add_nspan (n1, n2) nspan
-    | (AFree _, ABound _) | (ABound _, AFree _) -> None
-    | _ ->
+    | (ASymb _, _) | (_, ASymb _) ->
         failwith
-          ("Error: one of the terms "
-          ^ string_of_abstract_val nup1
-          ^ " or "
-          ^ string_of_abstract_val nup2
-          ^ " is not a NUP. Please report.")
+          "The equivalence of symbolic abstract values is not implemented. \
+           Please report."
+    | (APair (nup11, nup12), APair (nup21, nup22)) ->
+        is_equiv_abstract_val store1 store2 nup11 nup21
+        && is_equiv_abstract_val store1 store2 nup12 nup22
+    | (ACons (c1, nup1'), ACons (c2, nup2')) ->
+        c1 = c2 && is_equiv_abstract_val store1 store2 nup1' nup2'
+    | (ARecord fields1, ARecord fields2) ->
+        let fields1 = Util.Pmap.to_list fields1 in
+        let fields2 = Util.Pmap.to_list fields2 in
+        List.length fields1 = List.length fields2
+        && List.for_all2
+             (fun (label1, nup1') (label2, nup2') ->
+               label1 = label2 && is_equiv_abstract_val store1 store2 nup1' nup2')
+             fields1 fields2
+    | _ -> nup1 = nup2
 
   (* The following function is used to generate the nups associated to a given type.
       It takes as input a store context Σ, a name context Γ and a type τ, and

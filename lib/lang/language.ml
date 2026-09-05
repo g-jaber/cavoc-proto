@@ -42,6 +42,8 @@ module type STORE = sig
   (* *)
 
   val generate_store : Storectx.t -> store BranchMonad.m
+
+  val is_equiv_store : compare_heaps:bool -> store -> store -> bool
 end
 
 (** The [COMP] signature represents a machine language with all the features
@@ -214,15 +216,12 @@ module type NF = sig
     ('value, 'ectx, 'fname, 'cname) nf_term ->
     (('avalue, unit, 'fname, 'cname) nf_term * 'res) BranchMonad.m
 
+  (* Same head name and constructor, values equivalent by the given relation. *)
   val equiv_nf_term :
-    ('name Util.Namespan.namespan ->
-    'value ->
-    'value ->
-    'name Util.Namespan.namespan option) ->
-    'name Util.Namespan.namespan ->
-    ('value, 'ectx, 'name, 'name) nf_term ->
-    ('value, 'ectx, 'name, 'name) nf_term ->
-    'name Util.Namespan.namespan option
+    ('value -> 'value -> bool) ->
+    ('value, 'ectx, 'fname, 'cname) nf_term ->
+    ('value, 'ectx, 'fname, 'cname) nf_term ->
+    bool
 end
 
 (** [WITHAVAL_INOUT] is used for operational languages with normal forms that do
@@ -305,6 +304,7 @@ module type WITHAVAL_INOUT = sig
        and type negative_type = negative_type
        and type label = Store.label
        and type store_ctx = Store.Storectx.t
+       and type store = Store.store
        and type name_ctx = Namectx.t
        and type interactive_env = IEnv.t
        and type renaming = Renaming.t
@@ -353,6 +353,7 @@ module type WITHAVAL_NEG = sig
        and type negative_type = negative_type
        and type label = Store.label
        and type store_ctx = Store.Storectx.t
+       and type store = Store.store
        and type name_ctx = Namectx.t
        and type interactive_env = IEnv.t
        and type renaming = Renaming.t

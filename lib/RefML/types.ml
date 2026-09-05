@@ -138,7 +138,8 @@ let string_of_type_subst =
 (* The following function perform parallel substitution of subst on ty *)
 let rec apply_type_subst ty subst =
   match ty with
-  | TUnit | TInt | TBool | TName _ | TRef _ | TExn -> ty
+  | TUnit | TInt | TBool | TName _ | TExn -> ty
+  | TRef ty' -> TRef (apply_type_subst ty' subst)
   | TArrow (ty1, ty2) ->
       TArrow (apply_type_subst ty1 subst, apply_type_subst ty2 subst)
   | TProd (ty1, ty2) ->
@@ -161,7 +162,8 @@ let rec apply_type_subst ty subst =
 
 let rec subst_type tvar sty ty =
   match ty with
-  | TUnit | TInt | TBool | TRef _ | TExn -> ty
+  | TUnit | TInt | TBool | TExn -> ty
+  | TRef ty' -> TRef (subst_type tvar sty ty')
   | TArrow (ty1, ty2) ->
       TArrow (subst_type tvar sty ty1, subst_type tvar sty ty2)
   | TProd (ty1, ty2) -> TProd (subst_type tvar sty ty1, subst_type tvar sty ty2)
@@ -196,7 +198,8 @@ let empty_type_env = Util.Pmap.empty
 
 let rec apply_type_env ty type_env =
   match ty with
-  | TUnit | TInt | TBool | TRef _ | TVar _ | TExn | TypeUniverse -> ty
+  | TUnit | TInt | TBool | TVar _ | TExn | TypeUniverse -> ty
+  | TRef ty' -> TRef (apply_type_env ty' type_env)
   | TArrow (ty1, ty2) ->
       TArrow (apply_type_env ty1 type_env, apply_type_env ty2 type_env)
   | TProd (ty1, ty2) ->
