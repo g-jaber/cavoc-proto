@@ -170,13 +170,17 @@ module Make
         ARecord (Util.Pmap.map_im (fun nup' -> rename nup' renam) fields)
     | ABound nn -> AFree (Renaming.Renaming.lookup renam nn)
 
-  (* Symbolic values would need the constraints of the two branches. *)
   let rec is_equiv_abstract_val store1 store2 nup1 nup2 =
     match (nup1, nup2) with
-    | (ASymb _, _) | (_, ASymb _) ->
-        failwith
-          "The equivalence of symbolic abstract values is not implemented. \
-           Please report."
+    | (ASymb expr1, ASymb expr2) ->
+        Symbolic.equiv_under store1.Store.symbolic_ctx store2.Store.symbolic_ctx
+          expr1 expr2
+    | (ASymb expr, ABool b) ->
+        Symbolic.equiv_under store1.Store.symbolic_ctx store2.Store.symbolic_ctx
+          expr (Symbolic.Kbool b)
+    | (ABool b, ASymb expr) ->
+        Symbolic.equiv_under store1.Store.symbolic_ctx store2.Store.symbolic_ctx
+          (Symbolic.Kbool b) expr
     | (APair (nup11, nup12), APair (nup21, nup22)) ->
         is_equiv_abstract_val store1 store2 nup11 nup21
         && is_equiv_abstract_val store1 store2 nup12 nup22

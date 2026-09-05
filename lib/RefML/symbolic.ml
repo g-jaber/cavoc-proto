@@ -75,6 +75,18 @@ let check_sat branch =
 
   match Sat.solve solver with Sat.Sat _ -> true | _ -> false
 
+(** Equality under both paths, always true when their conjunction is infeasible. *)
+let equiv_under branch1 branch2 expr1 expr2 =
+  let pathdecl =
+    List.sort_uniq
+      (fun (id1, _) (id2, _) -> Int.compare id1 id2)
+      (branch1.pathdecl @ branch2.pathdecl)
+  in
+  let pathcond =
+    Kneq (expr1, expr2) :: (branch1.pathcond @ branch2.pathcond)
+  in
+  not (check_sat { pathdecl; pathcond })
+
 let string_of_id id = "s" ^ string_of_int id
 let rec string_of_constraint =
   let print op a b =
