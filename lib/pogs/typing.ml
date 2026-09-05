@@ -9,6 +9,8 @@ module Make (IntLang : Lang.Interactive.LANG) : sig
   (* The thinning Γ_P↾ ↪ Γ_P keeping the type and polymorphic names, along
      which an Input move resets the Player context. *)
   val reset_thinning : Moves.Renaming.Namectx.t -> Moves.Renaming.t
+
+  val replace_storectx : store_ctx -> position -> position
 end = struct
   (* POGS relates heaps a posteriori, so moves are compared without them. *)
   module Moves =
@@ -47,6 +49,7 @@ end = struct
   let get_storectx pos = pos.storectx
   let init_act_pos storectx namectxP namectxO = { storectx; namectxP; namectxO }
   let init_pas_pos = init_act_pos
+  let replace_storectx storectx pos = { pos with storectx }
 
   let reset_thinning namectxP =
     let kept =

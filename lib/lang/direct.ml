@@ -192,6 +192,7 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
   let labels_of_a_nf_term =
     OpLang.Nf.apply_val [] OpLang.AVal.labels_of_abstract_val
 
+  let replace_store_of_a_nf (a_nf_term, _) store = (a_nf_term, store)
   let abstracting_store = OpLang.Store.restrict
   (* TODO: Deal with the abstraction process of the heap properly *)
 

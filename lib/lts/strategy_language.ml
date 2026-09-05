@@ -98,6 +98,8 @@ struct
 
   let infer_type_store store = store.storectx
 
+  let replace_store_of_a_nf a_nf _ = a_nf
+
   (* The pending move [concretize_a_nf] packages for eval, which receives no
      environment: either an Opponent move with the value of its subject, or
      the initial move the strategy opens with. *)

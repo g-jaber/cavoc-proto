@@ -99,6 +99,8 @@ module type LANG = sig
   val pp_store : Format.formatter -> store -> unit
   val infer_type_store : store -> Storectx.t
 
+  val replace_store_of_a_nf : abstract_normal_form -> store -> abstract_normal_form
+
   (* The typed focusing process implemented by abstracting_nf decomposes a
      normal form into an abstract normal form for the observable part and a
      typed interactive environment for the negative part. *)
@@ -220,6 +222,8 @@ module Make (OpLang : Language.WITHAVAL_NEG) :
         ~f_fn:Fun.id ~f_cn:Fun.id ~f_ectx:Fun.id a_nf_term in
     (a_nf_term', store)
   (* TODO: Rename also the store*)
+
+  let replace_store_of_a_nf (a_nf_term, _) store = (a_nf_term, store)
 
   let concretize_a_nf store ienv (a_nf, renaming) =
     (* we get renaming : Δ → Γₒ + Δ and ienv : Γₚ → Γₒ*)
