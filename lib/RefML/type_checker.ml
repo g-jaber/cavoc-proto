@@ -13,6 +13,21 @@ let rec get_type_from_tid ty type_ctx =
     end
   | ty -> ty
 
+(* We apply the value restriction. *)
+let generalize_binding type_ctx type_subst expr ty =
+  let is_value = match expr with Var _ -> true | _ -> Syntax.isval expr in
+  if is_value then
+    Types.generalize_type
+      (Type_ctx.free_vars_of_ctx (Type_ctx.apply_type_subst type_ctx type_subst))
+      ty
+  else ty
+
+let unify type_ctx type_subst ty1 ty2 =
+  mgu_type
+    (Type_ctx.get_type_env type_ctx)
+    ( Types.apply_type_subst ty1 type_subst,
+      Types.apply_type_subst ty2 type_subst )
+
 let rec infer_type type_ctx type_subst expr =
   match expr with
   | Var x -> begin
@@ -32,7 +47,7 @@ let rec infer_type type_ctx type_subst expr =
       | Some (TArrow (pty, ty)) ->
           let (pty', type_subst') = infer_type type_ctx type_subst e in
           (*Should we instantiate pty' ? *)
-          begin match mgu_type (Type_ctx.get_type_env type_ctx) (pty, pty') with
+          begin match unify type_ctx type_subst' pty pty' with
           | Some type_subst'' ->
               (ty, compose_type_subst type_subst'' type_subst')
           | None ->
@@ -58,7 +73,7 @@ let rec infer_type type_ctx type_subst expr =
       failwith "Empty constructor not implemented yet (infer_type)"
   | Name n -> begin
       match Namectx.Namectx.lookup_exn (Type_ctx.get_name_ctx type_ctx) n with
-      | ty -> (ty, type_subst)
+      | ty -> (Types.refresh_forall ty, type_subst)
       | exception Not_found ->
           Util.Error.fail_error
             ("Error: the name " ^ Names.string_of_name n
@@ -104,7 +119,7 @@ let rec infer_type type_ctx type_subst expr =
         let associated_tid = get_tid_from_field id in
         (* Ensure that the infered field type correspond to the declared type in signature *)
         begin match
-          mgu_type (Type_ctx.get_type_env type_ctx) (rty', associated_tid)
+          unify type_ctx type_subst' rty' associated_tid
         with
         | Some type_subst'' ->
             (associated_tid, compose_type_subst type_subst'' type_subst')
@@ -165,7 +180,7 @@ let rec infer_type type_ctx type_subst expr =
       let (ty2, type_subst2) = infer_type type_ctx type_subst1 e2 in
       let (ty3, type_subst3) = infer_type type_ctx type_subst2 e3 in
       (* Should we instantiate ty2 and ty3 ?*)
-      begin match mgu_type (Type_ctx.get_type_env type_ctx) (ty2, ty3) with
+      begin match unify type_ctx type_subst3 ty2 ty3 with
       | Some type_subst' -> (ty3, compose_type_subst type_subst' type_subst3)
       | None ->
           Util.Error.fail_error
@@ -190,7 +205,7 @@ let rec infer_type type_ctx type_subst expr =
       let type_ctx'' =
         Type_ctx.extend_var_ctx type_ctx' idfun (TArrow (tvar1, tvar2)) in
       let (rty, type_subst') = infer_type type_ctx'' type_subst e in
-      begin match mgu_type (Type_ctx.get_type_env type_ctx) (tvar2, rty) with
+      begin match unify type_ctx type_subst' tvar2 rty with
       | Some type_subst'' ->
           (TArrow (tvar1, rty), compose_type_subst type_subst'' type_subst')
       | None ->
@@ -207,7 +222,7 @@ let rec infer_type type_ctx type_subst expr =
       begin match Util.Pmap.lookup idfun type_ctx'.var_ctx with
       | Some fty -> begin
           match
-            mgu_type (Type_ctx.get_type_env type_ctx) (fty, TArrow (aty, rty))
+            unify type_ctx type_subst' fty (TArrow (aty, rty))
           with
           | Some type_subst'' ->
               (TArrow (aty, rty), compose_type_subst type_subst'' type_subst')
@@ -227,7 +242,7 @@ let rec infer_type type_ctx type_subst expr =
       let type_ctx' = Type_ctx.extend_var_ctx type_ctx' idfun fty in
       let (rty, type_subst') = infer_type type_ctx' type_subst e in
       begin match
-        mgu_type (Type_ctx.get_type_env type_ctx) (fty, TArrow (aty, rty))
+        unify type_ctx type_subst' fty (TArrow (aty, rty))
       with
       | Some type_subst'' ->
           (TArrow (aty, rty), compose_type_subst type_subst'' type_subst')
@@ -240,8 +255,7 @@ let rec infer_type type_ctx type_subst expr =
   | Let (var, e1, e2) ->
       let (ty, type_subst') = infer_type type_ctx type_subst e1 in
       let ty' = Types.apply_type_subst ty type_subst' in
-      let ty_gen =
-        Types.generalize_type (Type_ctx.free_vars_of_ctx type_ctx) ty' in
+      let ty_gen = generalize_binding type_ctx type_subst' e1 ty' in
       Util.Debug.print_debug
         ("We have " ^ Syntax.string_of_term e1 ^ " of type "
        ^ Types.string_of_typ ty
@@ -256,7 +270,7 @@ let rec infer_type type_ctx type_subst expr =
       let type_ctx' = Type_ctx.extend_var_ctx type_ctx var1 tvar1 in
       let type_ctx'' = Type_ctx.extend_var_ctx type_ctx' var2 tvar2 in
       begin match
-        mgu_type (Type_ctx.get_type_env type_ctx) (ty, TProd (tvar1, tvar2))
+        unify type_ctx type_subst' ty (TProd (tvar1, tvar2))
       with
       | Some type_subst'' ->
           let type_subst'' = compose_type_subst type_subst'' type_subst' in
@@ -279,7 +293,7 @@ let rec infer_type type_ctx type_subst expr =
        ^ " (was " ^ string_of_typ aty ^ ")");
       let tvar = fresh_typevar () in
       begin match
-        mgu_type (Type_ctx.get_type_env type_ctx) (fty', TArrow (aty', tvar))
+        unify type_ctx type_subst'' fty' (TArrow (aty', tvar))
       with
       | Some tsubst''' -> (tvar, compose_type_subst tsubst''' type_subst'')
       | None ->
@@ -318,7 +332,7 @@ let rec infer_type type_ctx type_subst expr =
   | Assign (e1, e2) ->
       let (ty1, type_subst') = infer_type type_ctx type_subst e1 in
       let (ty2, type_subst'') = infer_type type_ctx type_subst' e2 in
-      begin match mgu_type (Type_ctx.get_type_env type_ctx) (ty1, TRef ty2) with
+      begin match unify type_ctx type_subst'' ty1 (TRef ty2) with
       | Some type_subst''' ->
           Util.Debug.print_debug
             ("We get an assign with " ^ Syntax.string_of_term e1 ^ " of type "
@@ -367,7 +381,7 @@ let rec infer_type type_ctx type_subst expr =
                ^ " : only exception patterns may appear in a try-with handler."
                 )
           end in
-        begin match mgu_type (Type_ctx.get_type_env type_ctx) (ty, ty') with
+        begin match unify type_ctx type_subst' ty ty' with
         | Some type_subst'' -> (ty, compose_type_subst type_subst'' type_subst')
         | None -> failwith "Type checking of try with not fully implemented."
         end in
@@ -455,8 +469,7 @@ and most_general_pattern_type type_ctx pat =
 
 and check_type type_ctx type_subst expr res_ty =
   let (ty, type_subst') = infer_type type_ctx type_subst expr in
-  let ty_inst = Types.apply_type_subst ty type_subst' in
-  match mgu_type (Type_ctx.get_type_env type_ctx) (ty_inst, res_ty) with
+  match unify type_ctx type_subst' ty res_ty with
   | Some type_subst'' -> compose_type_subst type_subst'' type_subst'
   | None ->
       Util.Error.fail_error
@@ -471,13 +484,21 @@ and check_type_bin type_ctx type_subst com_ty expr1 expr2 =
 let typing_expr type_ctx expr =
   let (ty, tsubst) = infer_type type_ctx Types.empty_type_subst expr in
   let ty' = Types.apply_type_subst ty tsubst in
-  let ty_gen = Types.generalize_type (Type_ctx.free_vars_of_ctx type_ctx) ty' in
+  let ty_gen = generalize_binding type_ctx tsubst expr ty' in
   let type_ctx' = Type_ctx.apply_type_subst type_ctx tsubst in
   (type_ctx', ty_gen)
 
 let checking_expr type_ctx expr ty =
   let tsubst = check_type type_ctx Types.empty_type_subst expr ty in
   let ty' = Types.apply_type_subst ty tsubst in
-  let ty_gen = Types.generalize_type (Type_ctx.free_vars_of_ctx type_ctx) ty' in
+  let ty_gen = generalize_binding type_ctx tsubst expr ty' in
+  begin match ty_gen with
+  | TForall _ -> ()
+  | _ when Types.TVarSet.is_empty (Types.free_vars_of_type ty_gen) -> ()
+  | _ ->
+      Util.Error.fail_error
+        ("Error typing " ^ Syntax.string_of_term expr ^ ": it is not a value, \
+          so its type " ^ string_of_typ ty_gen ^ " cannot be generalized.")
+  end;
   let type_ctx' = Type_ctx.apply_type_subst type_ctx tsubst in
   (type_ctx', ty_gen)
