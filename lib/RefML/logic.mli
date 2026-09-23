@@ -1,12 +1,4 @@
 val iter : int -> ('a -> 'a) -> 'a -> 'a
-val fresh_locvar : unit -> string
-
-type symbheap = (Syntax.id, Syntax.term) Util.Pmap.pmap
-
-val string_of_symb_heap : symbheap -> string
-val fresh_lvar : unit -> string
-val fresh_bvar : unit -> string
-
 type arith_pred =
   | ATrue
   | AFalse

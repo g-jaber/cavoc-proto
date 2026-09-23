@@ -7,34 +7,6 @@ let rec iter n f x =
       let y = f x in
       iter (n - 1) f y
 
-let count_locvar = ref 0
-
-let fresh_locvar () =
-  let l = !count_locvar in
-  count_locvar := !count_locvar + 1;
-  "ℓ" ^ string_of_int l
-
-(* Symbolic Heaps *)
-
-type symbheap = (id, term) Util.Pmap.pmap
-
-let string_of_symb_heap =
-  Util.Pmap.string_of_pmap "ε" "↪" Syntax.string_of_id Syntax.string_of_term
-
-let count_lvar = ref 0
-
-let fresh_lvar () =
-  let x = !count_lvar in
-  count_lvar := !count_lvar + 1;
-  "x" ^ string_of_int x
-
-let count_bvar = ref 0
-
-let fresh_bvar () =
-  let x = !count_bvar in
-  count_bvar := !count_bvar + 1;
-  "b" ^ string_of_int x
-
 type arith_pred =
   | ATrue
   | AFalse

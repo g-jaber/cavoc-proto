@@ -5,14 +5,31 @@ open Util.Pmap
 type symbconf =
   Syntax.term
   * Syntax.val_env
-  * Logic.symbheap
-  * Logic.symbheap
-  * Type_ctx.var_ctx
+  * Heap.heap
+  * Heap.heap
+  * Symbolic.symbolic_ctx
   * Logic.arith_pred list
 
-let add_locvar heap v =
-  let l = fresh_locvar () in
-  (l, Util.Pmap.add (l, v) heap)
+let add_locvar heap v = Heap.allocate heap v
+
+(* A fresh symbolic variable of the given type, with its declaration. *)
+let symbolic_var_of_type = function
+  | Types.TUnit -> (Unit, [])
+  | (Types.TInt | Types.TBool) as ty ->
+      let x = Symbolic.fresh_symbolic () in
+      (Symbolic (Symbolic.Kvar x), [ (x, ty) ])
+  | ty ->
+      failwith
+        ("Symbolic evaluation has no symbolic variable of type " ^ Types.string_of_typ ty)
+
+(* The symbolic variable standing for the content of a ground location. *)
+let symbolic_var_of_loc loc_ctx l =
+  match Util.Pmap.lookup l loc_ctx with
+  | Some ty -> symbolic_var_of_type ty
+  | None ->
+      failwith
+        ("The location " ^ string_of_loc l
+       ^ " is outside the ground heap context")
 
 let aux g (a, b, c, d, e, f) = (g a, b, c, d, e, f)
 
@@ -33,44 +50,19 @@ let aux_bin_arith iop consfun expr1 expr2 heapPost symbred =
             Util.Pmap.empty,
             Util.Pmap.empty,
             heapPost,
-            Util.Pmap.empty,
+            [],
             [] );
         ],
         true )
-  | (Int n, Var x) ->
-      let newid = fresh_lvar () in
-      let newvar = Var newid in
+  | (Int _, Symbolic _) | (Symbolic _, Int _) | (Symbolic _, Symbolic _) ->
+      let (newvar, decl) = symbolic_var_of_type Types.TInt in
       ( [
           ( newvar,
             Util.Pmap.empty,
             Util.Pmap.empty,
             heapPost,
-            Util.Pmap.singleton (newid, Types.TInt),
-            [ AEqual (newvar, consfun (Int n, Var x)) ] );
-        ],
-        true )
-  | (Var x, Int n) ->
-      let newid = fresh_lvar () in
-      let newvar = Var newid in
-      ( [
-          ( newvar,
-            Util.Pmap.empty,
-            Util.Pmap.empty,
-            heapPost,
-            Util.Pmap.singleton (newid, Types.TInt),
-            [ AEqual (newvar, consfun (Var x, Int n)) ] );
-        ],
-        true )
-  | (Var x1, Var x2) ->
-      let newid = fresh_lvar () in
-      let newvar = Var newid in
-      ( [
-          ( newvar,
-            Util.Pmap.empty,
-            Util.Pmap.empty,
-            heapPost,
-            Util.Pmap.singleton (newid, Types.TInt),
-            [ AEqual (newvar, consfun (Var x1, Var x2)) ] );
+            decl,
+            [ AEqual (newvar, consfun (expr1, expr2)) ] );
         ],
         true )
   | (expr1, expr2) -> aux_bin_red symbred consfun (expr1, expr2)
@@ -84,63 +76,42 @@ let aux_bin_arithbool iop consfun expr1 expr2 heapPost symbred =
             Util.Pmap.empty,
             Util.Pmap.empty,
             heapPost,
-            Util.Pmap.empty,
+            [],
             [] );
         ],
         true )
-  | (Int n, Var x) ->
+  | (Int _, Symbolic _) | (Symbolic _, Int _) | (Symbolic _, Symbolic _) ->
       ( [
           ( Bool true,
             Util.Pmap.empty,
             Util.Pmap.empty,
             heapPost,
-            Util.Pmap.empty,
-            [ expr_to_arith_pred (consfun (Int n, Var x)) ] );
+            [],
+            [ expr_to_arith_pred (consfun (expr1, expr2)) ] );
           ( Bool false,
             Util.Pmap.empty,
             Util.Pmap.empty,
             heapPost,
-            Util.Pmap.empty,
-            [ negate_arith_pred (expr_to_arith_pred (consfun (Int n, Var x))) ]
+            [],
+            [ negate_arith_pred (expr_to_arith_pred (consfun (expr1, expr2))) ]
           );
-        ],
-        true )
-  | (Var x, Int n) ->
-      ( [
-          ( Bool true,
-            Util.Pmap.empty,
-            Util.Pmap.empty,
-            heapPost,
-            Util.Pmap.empty,
-            [ expr_to_arith_pred (consfun (Var x, Int n)) ] );
-          ( Bool false,
-            Util.Pmap.empty,
-            Util.Pmap.empty,
-            heapPost,
-            Util.Pmap.empty,
-            [ negate_arith_pred (expr_to_arith_pred (consfun (Var x, Int n))) ]
-          );
-        ],
-        true )
-  | (Var x1, Var x2) ->
-      ( [
-          ( Bool true,
-            Util.Pmap.empty,
-            Util.Pmap.empty,
-            heapPost,
-            Util.Pmap.empty,
-            [ expr_to_arith_pred (consfun (Var x1, Var x2)) ] );
-          ( Bool false,
-            Util.Pmap.empty,
-            Util.Pmap.empty,
-            heapPost,
-            Util.Pmap.empty,
-            [
-              negate_arith_pred (expr_to_arith_pred (consfun (Var x1, Var x2)));
-            ] );
         ],
         true )
   | (expr1, expr2) -> aux_bin_red symbred consfun (expr1, expr2)
+
+(* A Boolean symbolic variable splits on the constraint that it holds. *)
+let split_bool heapPost guard expr_true expr_false =
+  let holds = AEqual (guard, Bool true) in
+  ( [
+      (expr_true, Util.Pmap.empty, Util.Pmap.empty, heapPost, [], [ holds ]);
+      ( expr_false,
+        Util.Pmap.empty,
+        Util.Pmap.empty,
+        heapPost,
+        [],
+        [ negate_arith_pred holds ] );
+    ],
+    true )
 
 let aux_bin_bool iop consfun expr1 expr2 heapPost symbred =
   match (expr1, expr2) with
@@ -151,63 +122,75 @@ let aux_bin_bool iop consfun expr1 expr2 heapPost symbred =
             Util.Pmap.empty,
             Util.Pmap.empty,
             heapPost,
-            Util.Pmap.empty,
+            [],
             [] );
         ],
         true )
+  | (Symbolic _, _) ->
+      split_bool heapPost expr1
+        (consfun (Bool true, expr2))
+        (consfun (Bool false, expr2))
   | _ -> aux_bin_red symbred consfun (expr1, expr2)
 
-let rec symbred heapPost expr =
+let rec symbred loc_ctx heapPost expr =
   match expr with
+  | expr when isval expr ->
+      ([ (expr, Util.Pmap.empty, Util.Pmap.empty, heapPost, [], []) ], false)
   | App (Fun ((var, _), expr1), expr2) when isval expr2 ->
       ( [
           ( subst_var expr1 var expr2,
             Util.Pmap.empty,
             Util.Pmap.empty,
             heapPost,
-            Util.Pmap.empty,
+            [],
             [] );
         ],
         true )
-  | App (Fix ((idfun, _), (var, ty), expr1), expr2) when isval expr2 ->
+  | App ((Fix ((idfun, _), (var, _), expr1) as fix), expr2) when isval expr2 ->
       ( [
-          ( subst_var expr1 var expr2,
-            Util.Pmap.singleton (idfun, Fun ((var, ty), expr1)),
+          ( subst_var (subst_var expr1 var expr2) idfun fix,
+            Util.Pmap.empty,
             Util.Pmap.empty,
             heapPost,
-            Util.Pmap.empty,
+            [],
             [] );
         ],
         true )
+  | App (Name _, expr2) when isval expr2 ->
+      ([ (expr, Util.Pmap.empty, Util.Pmap.empty, heapPost, [], []) ], false)
   | App (expr1, expr2) ->
-      aux_bin_red (symbred heapPost) (fun (x, y) -> App (x, y)) (expr1, expr2)
+      aux_bin_red (symbred loc_ctx heapPost)
+        (fun (x, y) -> App (x, y))
+        (expr1, expr2)
   | Seq (Unit, expr2) ->
       ( [
           ( expr2,
             Util.Pmap.empty,
             Util.Pmap.empty,
             heapPost,
-            Util.Pmap.empty,
+            [],
             [] );
         ],
         true )
   | Seq (expr1, expr2) ->
-      let (result, b) = symbred heapPost expr1 in
+      let (result, b) = symbred loc_ctx heapPost expr1 in
       (List.map (aux (fun x -> Seq (x, expr2))) result, b)
   | Pair (expr1, expr2) ->
-      aux_bin_red (symbred heapPost) (fun (x, y) -> Pair (x, y)) (expr1, expr2)
+      aux_bin_red (symbred loc_ctx heapPost)
+        (fun (x, y) -> Pair (x, y))
+        (expr1, expr2)
   | Let (var, expr1, expr2) when isval expr1 ->
       ( [
           ( subst_var expr2 var expr1,
             Util.Pmap.empty,
             Util.Pmap.empty,
             heapPost,
-            Util.Pmap.empty,
+            [],
             [] );
         ],
         true )
   | Let (var, expr1, expr2) ->
-      let (result, b) = symbred heapPost expr1 in
+      let (result, b) = symbred loc_ctx heapPost expr1 in
       (List.map (aux (fun x -> Let (var, x, expr2))) result, b)
   | LetPair (var1, var2, Pair (expr1, expr2), expr')
     when isval expr1 && isval expr2 ->
@@ -218,29 +201,21 @@ let rec symbred heapPost expr =
             Util.Pmap.empty,
             Util.Pmap.empty,
             heapPost,
-            Util.Pmap.empty,
+            [],
             [] );
         ],
         true )
   | LetPair (var1, var2, expr1, expr2) ->
-      let (result, b) = symbred heapPost expr1 in
+      let (result, b) = symbred loc_ctx heapPost expr1 in
       (List.map (aux (fun x -> LetPair (var1, var2, x, expr2))) result, b)
   | Newref (ty, expr) ->
       if isval expr then
         let (l, heapPost') = add_locvar heapPost expr in
-        ( [
-            ( Var l,
-              Util.Pmap.empty,
-              Util.Pmap.empty,
-              heapPost',
-              Util.Pmap.singleton (l, Types.TRef Types.TInt),
-              [] );
-          ],
-          true ) (* Fix This *)
+        ([ (Loc l, Util.Pmap.empty, Util.Pmap.empty, heapPost', [], []) ], true)
       else
-        let (result, b) = symbred heapPost expr in
+        let (result, b) = symbred loc_ctx heapPost expr in
         (List.map (aux (fun x -> Newref (ty, x))) result, b)
-  | Deref (Var l) -> begin
+  | Deref (Loc l) -> begin
       match lookup l heapPost with
       | Some value ->
           ( [
@@ -248,28 +223,27 @@ let rec symbred heapPost expr =
                 Util.Pmap.empty,
                 Util.Pmap.empty,
                 heapPost,
-                Util.Pmap.empty,
+                [],
                 [] );
             ],
             true )
       | None ->
-          let x = Logic.fresh_lvar () in
-          let heapPre = Util.Pmap.singleton (l, Var x) in
+          let (x, decl) = symbolic_var_of_loc loc_ctx l in
+          let heapPre = Util.Pmap.singleton (l, x) in
           ( [
-              ( Var x,
+              ( x,
                 Util.Pmap.empty,
                 heapPre,
                 Util.Pmap.concat heapPre heapPost,
-                Util.Pmap.singleton (x, Types.TInt),
+                decl,
                 [] );
             ],
             true )
-      (* Fix This *)
     end
   | Deref expr ->
-      let (result, b) = symbred heapPost expr in
+      let (result, b) = symbred loc_ctx heapPost expr in
       (List.map (aux (fun x -> Deref x)) result, b)
-  | Assign (Var l, expr2) when isval expr2 -> begin
+  | Assign (Loc l, expr2) when isval expr2 -> begin
       match lookup l heapPost with
       | Some _ ->
           ( [
@@ -277,25 +251,27 @@ let rec symbred heapPost expr =
                 Util.Pmap.empty,
                 Util.Pmap.empty,
                 modadd (l, expr2) heapPost,
-                Util.Pmap.empty,
+                [],
                 [] );
             ],
             true )
       | None ->
-          let x = Logic.fresh_lvar () in
-          let heapPre = Util.Pmap.singleton (l, Var x) in
+          let (x, decl) = symbolic_var_of_loc loc_ctx l in
+          let heapPre = Util.Pmap.singleton (l, x) in
           ( [
               ( Unit,
                 Util.Pmap.empty,
                 heapPre,
                 modadd (l, expr2) heapPost,
-                Util.Pmap.singleton (x, Types.TInt),
+                decl,
                 [] );
             ],
             true )
     end
   | Assign (expr1, expr2) ->
-      aux_bin_red (symbred heapPost) (fun (x, y) -> Assign (x, y)) (expr1, expr2)
+      aux_bin_red (symbred loc_ctx heapPost)
+        (fun (x, y) -> Assign (x, y))
+        (expr1, expr2)
   | If (Bool b, expr1, expr2) ->
       if b then
         ( [
@@ -303,7 +279,7 @@ let rec symbred heapPost expr =
               Util.Pmap.empty,
               Util.Pmap.empty,
               heapPost,
-              Util.Pmap.empty,
+              [],
               [] );
           ],
           true )
@@ -313,42 +289,61 @@ let rec symbred heapPost expr =
               Util.Pmap.empty,
               Util.Pmap.empty,
               heapPost,
-              Util.Pmap.empty,
+              [],
               [] );
           ],
           true )
-  | If (Var _, _, _) ->
-      failwith
-        "Error: Boolean variables are not allowed in the symbolic reduction. \
-         Please report."
+  | If ((Symbolic _ as guard), expr1, expr2) ->
+      split_bool heapPost guard expr1 expr2
   | If (expr, expr1, expr2) ->
-      let (result, b) = symbred heapPost expr in
+      let (result, b) = symbred loc_ctx heapPost expr in
       (List.map (aux (fun x -> If (x, expr1, expr2))) result, b)
+  | BinaryOp (Div, expr1, Int 0) when isval expr1 ->
+      ([ (Error, Util.Pmap.empty, Util.Pmap.empty, heapPost, [], []) ], true)
+  | BinaryOp (Div, expr1, (Symbolic _ as expr2)) when isval expr1 ->
+      let zero = AEqual (expr2, Int 0) in
+      let consfun = Syntax.get_consfun_from_bin_cons expr in
+      let (result, _) =
+        aux_bin_arith ( / ) consfun expr1 expr2 heapPost
+          (symbred loc_ctx heapPost) in
+      let nonzero (expr', gamma, heapPre, heapPost, vars, preds) =
+        (expr', gamma, heapPre, heapPost, vars, negate_arith_pred zero :: preds)
+      in
+      ( (Error, Util.Pmap.empty, Util.Pmap.empty, heapPost, [], [ zero ])
+        :: List.map nonzero result,
+        true )
   | BinaryOp ((Plus as op), expr1, expr2)
   | BinaryOp ((Minus as op), expr1, expr2)
   | BinaryOp ((Mult as op), expr1, expr2)
   | BinaryOp ((Div as op), expr1, expr2) ->
       let iop = Syntax.implement_arith_op op in
       let consfun = Syntax.get_consfun_from_bin_cons expr in
-      aux_bin_arith iop consfun expr1 expr2 heapPost (symbred heapPost)
+      aux_bin_arith iop consfun expr1 expr2 heapPost (symbred loc_ctx heapPost)
+  | BinaryOp (And, Bool false, _) ->
+      ([ (Bool false, Util.Pmap.empty, Util.Pmap.empty, heapPost, [], []) ], true)
+  | BinaryOp (Or, Bool true, _) ->
+      ([ (Bool true, Util.Pmap.empty, Util.Pmap.empty, heapPost, [], []) ], true)
+  | BinaryOp (And, Bool true, expr2) | BinaryOp (Or, Bool false, expr2) ->
+      ([ (expr2, Util.Pmap.empty, Util.Pmap.empty, heapPost, [], []) ], true)
   | BinaryOp ((And as op), expr1, expr2) | BinaryOp ((Or as op), expr1, expr2)
     ->
       let iop = Syntax.implement_bin_bool_op op in
       let consfun = Syntax.get_consfun_from_bin_cons expr in
-      aux_bin_bool iop consfun expr1 expr2 heapPost (symbred heapPost)
+      aux_bin_bool iop consfun expr1 expr2 heapPost (symbred loc_ctx heapPost)
   | UnaryOp (Not, Bool b) ->
       ( [
           ( Bool (not b),
             Util.Pmap.empty,
             Util.Pmap.empty,
             heapPost,
-            Util.Pmap.empty,
+            [],
             [] );
         ],
         true )
-  (*  | Not (Var b) -> [(Bool true, [],[],heapPost,[AEqual (AExpr(Var b)),(Bool false)]);(Bool false, [], [], heapPost,[AEqual (AExpr(Var b)),(Bool true)])]*)
+  | UnaryOp (Not, (Symbolic _ as b)) ->
+      split_bool heapPost b (Bool false) (Bool true)
   | UnaryOp (Not, expr) ->
-      let (result, b) = symbred heapPost expr in
+      let (result, b) = symbred loc_ctx heapPost expr in
       (List.map (aux (fun x -> UnaryOp (Not, x))) result, b)
   | BinaryOp ((Equal as op), expr1, expr2)
   | BinaryOp ((NEqual as op), expr1, expr2)
@@ -358,41 +353,165 @@ let rec symbred heapPost expr =
   | BinaryOp ((GreatEq as op), expr1, expr2) ->
       let iop = Syntax.implement_compar_op op in
       let consfun = Syntax.get_consfun_from_bin_cons expr in
-      aux_bin_arithbool iop consfun expr1 expr2 heapPost (symbred heapPost)
-  | _ ->
+      aux_bin_arithbool iop consfun expr1 expr2 heapPost
+        (symbred loc_ctx heapPost)
+  | While (guard, body) ->
       ( [
-          (expr, Util.Pmap.empty, Util.Pmap.empty, heapPost, Util.Pmap.empty, []);
+          ( If (guard, Seq (body, While (guard, body)), Unit),
+            Util.Pmap.empty,
+            Util.Pmap.empty,
+            heapPost,
+            [],
+            [] );
         ],
-        false )
+        true )
+  | Assert (Bool b) ->
+      ( [
+          ( (if b then Unit else Error),
+            Util.Pmap.empty,
+            Util.Pmap.empty,
+            heapPost,
+            [],
+            [] );
+        ],
+        true )
+  | Assert (Symbolic _ as guard) -> split_bool heapPost guard Unit Error
+  | Assert expr ->
+      let (result, b) = symbred loc_ctx heapPost expr in
+      (List.map (aux (fun x -> Assert x)) result, b)
+  | Nondet ty ->
+      let (x, decl) = symbolic_var_of_type ty in
+      ([ (x, Util.Pmap.empty, Util.Pmap.empty, heapPost, decl, []) ], true)
+  | Raise expr ->
+      let (result, b) = symbred loc_ctx heapPost expr in
+      (List.map (aux (fun x -> Raise x)) result, b)
+  | Error ->
+      ([ (expr, Util.Pmap.empty, Util.Pmap.empty, heapPost, [], []) ], false)
+  | Match (expr, handler_l) when isval expr ->
+      (select_handler heapPost expr Error handler_l, true)
+  | Match (expr, handler_l) ->
+      let (result, b) = symbred loc_ctx heapPost expr in
+      (List.map (aux (fun x -> Match (x, handler_l))) result, b)
+  | TryWith (expr, handler_l) -> begin
+      let (result, b) = symbred loc_ctx heapPost expr in
+      if b then (List.map (aux (fun x -> TryWith (x, handler_l))) result, true)
+      else
+        match get_nf_term expr with
+        | Nf.NFValue ((), value) ->
+            ( [ (value, Util.Pmap.empty, Util.Pmap.empty, heapPost, [], []) ],
+              true )
+        | Nf.NFRaise ((), value) ->
+            (select_handler heapPost value (Raise value) handler_l, true)
+        | _ ->
+            ( [ (expr, Util.Pmap.empty, Util.Pmap.empty, heapPost, [], []) ],
+              false )
+    end
+  | Constructor (cons, Some expr) ->
+      let (result, b) = symbred loc_ctx heapPost expr in
+      (List.map (aux (fun x -> Constructor (cons, Some x))) result, b)
+  | Record fields ->
+      let (id, field) =
+        List.find
+          (fun (_, field) -> not (isval field))
+          (Util.Pmap.to_list fields) in
+      let (result, b) = symbred loc_ctx heapPost field in
+      (List.map (aux (fun x -> Record (modadd (id, x) fields))) result, b)
+  | Projection (Record fields, id) when isval (Record fields) ->
+      ( [
+          ( lookup_exn id fields,
+            Util.Pmap.empty,
+            Util.Pmap.empty,
+            heapPost,
+            [],
+            [] );
+        ],
+        true )
+  | Projection (expr, id) ->
+      let (result, b) = symbred loc_ctx heapPost expr in
+      (List.map (aux (fun x -> Projection (x, id))) result, b)
+  | _ ->
+      failwith
+        ("Error: " ^ string_of_term expr
+       ^ " is outside of the fragment of the symbolic evaluation.")
 
-let rec symbred_trans (expr, gamma, heapPre, heapPost, vars, preds) =
-  let aux (expr', gamma', heapPre', heapPost', vars', preds') =
-    ( expr',
-      Util.Pmap.concat gamma' gamma,
-      Util.Pmap.concat heapPre' heapPre,
-      heapPost',
-      Util.Pmap.concat vars' vars,
-      preds' @ preds ) in
-  let (result, b) = symbred heapPost expr in
-  if not b then List.map aux result
-  else
-    List.flatten
-      (List.map
-         (fun (expr', gamma', heapPre', heapPost', vars', preds') ->
-           symbred_trans
-             ( expr',
-               Util.Pmap.concat gamma' gamma,
-               Util.Pmap.concat heapPre' heapPre,
-               heapPost',
-               Util.Pmap.concat vars' vars,
-               preds' @ preds ))
-         result)
+(* The outcomes of matching a value against a pattern: the constraints of each
+   one and, when it matches, its substitution. A literal pattern on a symbolic variable
+   splits as a comparison does. *)
+and match_outcomes pattern value =
+  match (pattern, value) with
+  | (PatInt n, Symbolic _) ->
+      [
+        ([ AEqual (value, Int n) ], Some []); ([ ANEqual (value, Int n) ], None);
+      ]
+  | (PatBool b, Symbolic _) ->
+      let holds = AEqual (value, Bool b) in
+      [ ([ holds ], Some []); ([ negate_arith_pred holds ], None) ]
+  | (PatPair (pattern1, pattern2), Pair (value1, value2)) ->
+      List.concat_map
+        (function
+          | (preds1, None) -> [ (preds1, None) ]
+          | (preds1, Some substitution1) ->
+              List.map
+                (fun (preds2, outcome2) ->
+                  ( preds2 @ preds1,
+                    Option.map (fun s2 -> substitution1 @ s2) outcome2 ))
+                (match_outcomes pattern2 value2))
+        (match_outcomes pattern1 value1)
+  | _ -> [ ([], match_pattern_with_value pattern value) ]
 
-let compute_nf expr =
-  symbred_trans
-    ( expr,
-      Util.Pmap.empty,
-      Util.Pmap.empty,
-      Util.Pmap.empty,
-      Util.Pmap.empty,
-      [] )
+(* The handlers are tried in order; on_none is the term reached when none
+   matches. *)
+and select_handler heapPost value on_none = function
+  | [] -> [ (on_none, Util.Pmap.empty, Util.Pmap.empty, heapPost, [], []) ]
+  | Handler (pattern, expr_branch) :: rest ->
+      let substitute e (id, v) = subst_var e id v in
+      List.concat_map
+        (function
+          | (preds, Some substitution) ->
+              [
+                ( List.fold_left substitute expr_branch substitution,
+                  Util.Pmap.empty,
+                  Util.Pmap.empty,
+                  heapPost,
+                  [],
+                  preds );
+              ]
+          | (preds, None) ->
+              List.map
+                (fun (expr', gamma, heapPre, heapPost, vars, preds') ->
+                  (expr', gamma, heapPre, heapPost, vars, preds' @ preds))
+                (select_handler heapPost value on_none rest))
+        (match_outcomes pattern value)
+
+type run_result =
+  | Normal_form of symbconf
+  | Divergence of symbconf
+  | Incomplete of symbconf
+
+let symbred_trans ?(bound = 1000) ~check_sat loc_ctx conf =
+  let rec symbred_trans bound seen
+      ((expr, gamma, heapPre, heapPost, vars, preds) as conf) =
+    let aux (expr', gamma', heapPre', heapPost', vars', preds') =
+      ( expr',
+        Util.Pmap.concat gamma' gamma,
+        Util.Pmap.concat heapPre' heapPre,
+        heapPost',
+        vars' @ vars,
+        preds' @ preds ) in
+    let feasible (_, _, _, _, vars', preds') =
+      preds' = [] || check_sat vars' preds' <> Arith_solver.Unsat in
+    if bound = 0 then [ Incomplete conf ]
+    else if List.mem (expr, heapPost) seen then [ Divergence conf ]
+    else
+      let (result, b) = symbred loc_ctx heapPost expr in
+      if not b then List.map (fun conf' -> Normal_form (aux conf')) result
+      else
+        List.flatten
+          (List.map
+             (symbred_trans (bound - 1) ((expr, heapPost) :: seen))
+             (List.filter feasible (List.map aux result))) in
+  symbred_trans bound [] conf
+
+let compute_nf ?bound ~check_sat loc_ctx heapPost expr =
+  symbred_trans ?bound ~check_sat loc_ctx
+    (expr, Util.Pmap.empty, Util.Pmap.empty, heapPost, [], [])
