@@ -62,6 +62,9 @@ module type TYPED_A_NF = sig
   module BranchMonad : Util.Monad.BRANCH
   module Storectx : Typectx.TYPECTX
 
+  (* The disclosed store context Σ' a move leaves. *)
+  val store_ctx_of_a_nf : abstract_normal_form -> Storectx.t
+
   (* From the interactive name context Γ_P, all the pairs (A,Δ,Γ'_P) formed
      by an abstracted normal form A such that Γ_P;_ ⊢ A ▷ Δ. *)
   (* The names introduced by A are de Bruijn levels of the locally built Δ,
@@ -99,8 +102,6 @@ module type LANG = sig
   val pp_store : Format.formatter -> store -> unit
   val infer_type_store : store -> Storectx.t
 
-  val replace_store_of_a_nf : abstract_normal_form -> store -> abstract_normal_form
-
   (* The typed focusing process implemented by abstracting_nf decomposes a
      normal form into an abstract normal form for the observable part and a
      typed interactive environment for the negative part. *)
@@ -115,6 +116,15 @@ module type LANG = sig
 
   val concretize_a_nf :
     store -> IEnv.t -> abstract_normal_form * IEnv.Renaming.t -> opconf * IEnv.t
+
+  (* Every location holding a ground value becomes public; the identity for a
+     language without heap. *)
+  val disclose_heap : store -> store
+
+  (* The store part of a move extended with the values of the public
+     locations it does not cover yet, disclosing through them as eval does. *)
+  val complete_abstract_store :
+    store -> abstract_normal_form * IEnv.t -> abstract_normal_form * IEnv.t
 end
 
 module type LANG_WITH_INIT = sig
@@ -143,6 +153,145 @@ module type LANG_WITH_INIT = sig
   val get_typed_namectx : Lexing.lexbuf -> IEnv.Renaming.Namectx.t
 end
 
+(* The store part of a move: the disclosed store context Σ' the move leaves,
+   the value of every location of Σ' in the order of their names, and the
+   operational store restricted to the constraints of the branch and the
+   declarations. *)
+type ('abstract_val, 'store_ctx, 'store) abstract_store = {
+  storectx: 'store_ctx;
+  values: 'abstract_val list;
+  constraints: 'store;
+}
+
+(* The operations on abstract stores shared by the CPS and the direct-style
+   interactive languages. *)
+module Abstract_store
+    (OpLang : sig
+      module Store : Language.STORE
+      module IEnv : Ienv.IENV
+
+      module AVal :
+        Abstract_val.AVAL
+          with type store = Store.store
+           and type store_ctx = Store.Storectx.t
+           and type typ = Store.typ
+           and type interactive_env = IEnv.t
+           and type name_ctx = IEnv.Renaming.Namectx.t
+           and type name = IEnv.Renaming.Namectx.Names.name
+           and type renaming = IEnv.Renaming.t
+    end) =
+struct
+  open OpLang
+
+  type t = (AVal.abstract_val, Store.Storectx.t, Store.store) abstract_store
+
+  (* The declarations alone are readable from Σ', so only the constraints of
+     the branch are worth printing. *)
+  let has_constraints (astore : t) =
+    astore.constraints <> Store.without_heap astore.storectx Store.empty_store
+
+  let pp_in ~pp_free_name ~pp_bound_name fmt (astore : t) =
+    let pp_sep fmt () = Format.fprintf fmt ";@ " in
+    let pp_value fmt (loc_name, aval) =
+      Format.fprintf fmt "%a ↪ %a" Store.LocCtx.Names.pp_name loc_name
+        (AVal.pp_abstract_val_in ~pp_free_name ~pp_bound_name)
+        aval in
+    let values =
+      List.combine
+        (Store.LocCtx.get_names (Store.loc_ctx astore.storectx))
+        astore.values in
+    if values <> [] then
+      Format.fprintf fmt "[@[<hov>%a@]]"
+        (Format.pp_print_list ~pp_sep pp_value)
+        values;
+    if has_constraints astore then Store.pp_store fmt astore.constraints
+
+  let is_printable (astore : t) = astore.values <> [] || has_constraints astore
+
+  let rename (astore : t) renaming =
+    let rename_value aval = AVal.rename aval renaming in
+    let values = List.map rename_value astore.values in
+    { astore with values }
+
+  let is_equiv ~compare_heaps (astore1 : t) (astore2 : t) =
+    ((not compare_heaps)
+    || List.length astore1.values = List.length astore2.values
+       && List.for_all2
+            (AVal.is_equiv_abstract_val astore1.constraints astore2.constraints)
+            astore1.values astore2.values)
+    && Store.is_equiv_store astore1.constraints astore2.constraints
+
+  (* The store part of a Player move whose first values are given, from the
+     store holding the constraints of the branch. *)
+  let abstracting store values constraints ienv =
+    let (values', ienv', store') = AVal.abstracting_store ienv store values in
+    let storectx = Store.infer_type_store store' in
+    let astore : t =
+      {
+        storectx;
+        values= values';
+        constraints= Store.without_heap storectx constraints;
+      } in
+    (astore, ienv', store')
+
+  (* A stored value may disclose locations, so the values are generated until
+     every location of the Σ' declared so far has one. *)
+  let generate namectxP storectx lnamectx =
+    let open AVal.BranchMonad in
+    let rec loop storectx lnamectx values =
+      let loc_ctx = Store.loc_ctx storectx in
+      match
+        List.nth_opt (Store.LocCtx.get_names loc_ctx) (List.length values)
+      with
+      | None -> return (values, (storectx, lnamectx))
+      | Some loc_name ->
+          let ty =
+            Store.embed_loc_typ (Store.LocCtx.lookup_exn loc_ctx loc_name)
+          in
+          let* (aval, (storectx', lnamectx')) =
+            AVal.generate_abstract_val storectx lnamectx namectxP ty in
+          loop storectx' lnamectx' (values @ [ aval ]) in
+    let* (values, (storectx', lnamectx')) = loop storectx lnamectx [] in
+    let astore : t =
+      {
+        storectx= storectx';
+        values;
+        constraints= Store.without_heap storectx' Store.empty_store;
+      } in
+    return (astore, (storectx', lnamectx'))
+
+  (* The values are checked at the types Σ' gives them from the pair (Σ, Δ)
+     the value of the move has built, which must end as (Σ', Δ) of the move. *)
+  let type_check namectxP namectxO storectx lnamectx
+      ((astore : t), lnamectx_move) =
+    let rec loop storectx lnamectx values =
+      let loc_ctx = Store.loc_ctx storectx in
+      let covered = List.length astore.values - List.length values in
+      match (List.nth_opt (Store.LocCtx.get_names loc_ctx) covered, values) with
+      | (None, []) ->
+          loc_ctx = Store.loc_ctx astore.storectx
+          && IEnv.Renaming.Namectx.erase_display_hints lnamectx
+             = IEnv.Renaming.Namectx.erase_display_hints lnamectx_move
+      | (Some loc_name, aval :: values') -> begin
+          let ty =
+            Store.embed_loc_typ (Store.LocCtx.lookup_exn loc_ctx loc_name)
+          in
+          match
+            AVal.type_check_abstract_val storectx lnamectx namectxP namectxO ty
+              aval
+          with
+          | Some (storectx', lnamectx') -> loop storectx' lnamectx' values'
+          | None -> false
+        end
+      | (None, _ :: _) | (Some _, []) -> false in
+    loop storectx lnamectx astore.values
+
+  let concretize store ienv (astore : t) =
+    AVal.concretize_store ienv
+      (Store.update_store store astore.constraints)
+      astore.storectx astore.values
+end
+
 (* The following functor create a module of type Interactive.LANG_WITH_INIT
    from a module OpLang of type Language.WITHAVAL_NEG *)
 module Make (OpLang : Language.WITHAVAL_NEG) :
@@ -155,11 +304,15 @@ module Make (OpLang : Language.WITHAVAL_NEG) :
         OpLang.Names.name,
         OpLang.Names.name )
       OpLang.Nf.nf_term
-      * OpLang.Store.store = struct
+      * ( OpLang.AVal.abstract_val,
+          OpLang.Store.Storectx.t,
+          OpLang.Store.store )
+        abstract_store = struct
   module EvalMonad = OpLang.EvalMonad
   module BranchMonad = OpLang.AVal.BranchMonad
   module IEnv = OpLang.IEnv
   module Store = OpLang.Store
+  module AStore = Abstract_store (OpLang)
 
   type opconf = OpLang.opconf
 
@@ -181,16 +334,21 @@ module Make (OpLang : Language.WITHAVAL_NEG) :
       IEnv.Renaming.Namectx.Names.name,
       IEnv.Renaming.Namectx.Names.name )
     OpLang.Nf.nf_term
-    * Store.store
+    * AStore.t
 
-  let pp_a_nf_in ~pp_dir ~pp_free_name ~pp_bound_name fmt (a_nf_term, store) =
+  let store_ctx_of_a_nf (_, (astore : AStore.t)) = astore.storectx
+
+  let pp_a_nf_in ~pp_dir ~pp_free_name ~pp_bound_name fmt (a_nf_term, astore) =
     let pp_ectx fmt () = Format.pp_print_string fmt "" in
     let pp_a_nf_term =
       OpLang.Nf.pp_nf_term ~pp_dir
         (OpLang.AVal.pp_abstract_val_in ~pp_free_name ~pp_bound_name)
         pp_ectx pp_free_name pp_free_name in
-    if store = Store.empty_store then pp_a_nf_term fmt a_nf_term
-    else Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term Store.pp_store store
+    if AStore.is_printable astore then
+      Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term
+        (AStore.pp_in ~pp_free_name ~pp_bound_name)
+        astore
+    else pp_a_nf_term fmt a_nf_term
 
   let pp_a_nf ~pp_dir =
     let pp_name = OpLang.IEnv.Renaming.Namectx.Names.pp_name in
@@ -215,27 +373,23 @@ module Make (OpLang : Language.WITHAVAL_NEG) :
         ("string", `String (string_of_a_nf "" a_nf));
       ]
 
-  let renaming_a_nf renaming (a_nf_term, store) =
+  let renaming_a_nf renaming (a_nf_term, astore) =
     let a_nf_term' =
       OpLang.Nf.map
         ~f_val:(fun aval -> OpLang.AVal.rename aval renaming)
         ~f_fn:Fun.id ~f_cn:Fun.id ~f_ectx:Fun.id a_nf_term in
-    (a_nf_term', store)
-  (* TODO: Rename also the store*)
-
-  let replace_store_of_a_nf (a_nf_term, _) store = (a_nf_term, store)
+    (a_nf_term', AStore.rename astore renaming)
 
   let concretize_a_nf store ienv (a_nf, renaming) =
     (* we get renaming : Δ → Γₒ + Δ and ienv : Γₚ → Γₒ*)
     let lnamectx = OpLang.Renaming.dom renaming in
-    (* TO BE CORRECTED *)
     Util.Debug.print_debug @@ "concretize the a nf " ^ string_of_a_nf "" a_nf;
     Util.Debug.print_debug @@ "IEnv provided in input  : " ^ IEnv.to_string ienv;
     Util.Debug.print_debug @@ "Renaming provided in input  : "
     ^ IEnv.Renaming.to_string renaming;
-    let (a_nf_term', store') = renaming_a_nf renaming a_nf in
+    let (a_nf_term', astore') = renaming_a_nf renaming a_nf in
     Util.Debug.print_debug @@ "After renaming: "
-    ^ string_of_a_nf "" (a_nf_term', store');
+    ^ string_of_a_nf "" (a_nf_term', astore');
     (* ienv':Γₚ → Γₒ+Δ *)
     let ienv' = IEnv.weaken_r ienv lnamectx in
     let renaming_lifted = IEnv.embed_renaming renaming in
@@ -247,28 +401,20 @@ module Make (OpLang : Language.WITHAVAL_NEG) :
       OpLang.negating_type
         (IEnv.Renaming.Namectx.lookup_exn (IEnv.dom ienv') nn) in
     let typed_term = OpLang.type_annotating_val get_ty a_nf_term' in
-    let f_val (aval, gty) = OpLang.AVal.subst_pnames ienv' gty aval in
+    (* The store part first: it allocates the locations the value mentions. *)
+    let newstore = AStore.concretize store ienv' astore' in
+    let f_val (aval, gty) = OpLang.AVal.subst_pnames ienv' newstore gty aval in
     let f_fn nn = IEnv.lookup_exn ienv'' nn in
     let f_cn = f_fn in
     let f_ectx () = () in
     let nf_term' = OpLang.Nf.map ~f_val ~f_fn ~f_cn ~f_ectx typed_term in
-    (* Then we deal with the store *)
-    (* TODO: We should also weaken_r the abstract values present in the image of store'*)
-    Util.Debug.print_debug "Updating the store";
-    let newstore = Store.update_store store store' in
     let newterm = OpLang.refold_nf_term nf_term' in
     Util.Debug.print_debug @@ "Once concretized we get "
     ^ OpLang.string_of_term newterm;
     ((newterm, newstore), ienv')
   (* We do not use ienv'' here as it has an extra identity component for the renaming of Δ*)
 
-  let labels_of_a_nf_term =
-    OpLang.Nf.apply_val [] OpLang.AVal.labels_of_abstract_val
-
-  let abstracting_store = OpLang.Store.restrict
-  (* TODO Deal with the abstraction process of the heap properly *)
-
-  let abstracting_nf_term nf_term namectxO =
+  let abstracting_nf_term nf_term namectxO store =
     Util.Debug.print_debug @@ "Trying to abstract the nf_term ";
     let get_ty nn =
       Util.Debug.print_debug @@ "Looking for "
@@ -287,31 +433,19 @@ module Make (OpLang : Language.WITHAVAL_NEG) :
       Util.Debug.print_debug @@ " Abstracting the value "
       ^ OpLang.string_of_value value
       ^ " of type " ^ OpLang.string_of_type ty;
-      let (aval, ienv) = OpLang.AVal.abstracting_value value namectxO ty in
-      (aval, ienv) in
-    let empty_res = IEnv.empty namectxO in
+      let (aval, ienv, store') =
+        OpLang.AVal.abstracting_value value namectxO store ty in
+      (aval, (ienv, store')) in
+    let empty_res = (IEnv.empty namectxO, store) in
     OpLang.Nf.map_val empty_res f_val nf_typed_term
 
-  let abstracting_nf (nf_term, store) namectxO storectx_discl =
-    let (a_nf_term, ienv) = abstracting_nf_term nf_term namectxO in
+  let abstracting_nf (nf_term, store) namectxO =
+    let (a_nf_term, (ienv, store')) = abstracting_nf_term nf_term namectxO store in
     if OpLang.Nf.is_error a_nf_term then None
     else
-      let label_l = labels_of_a_nf_term a_nf_term in
-      let storectx = OpLang.Store.infer_type_store store in
-      Util.Debug.print_debug @@ "The full store context is "
-      ^ OpLang.Store.Storectx.to_string storectx;
-      let storectx_discl' = OpLang.Store.restrict_ctx storectx label_l in
-      let storectx_discl'' =
-        OpLang.Store.Storectx.concat storectx_discl storectx_discl' in
-      Util.Debug.print_debug @@ "The new diclosed store context is "
-      ^ OpLang.Store.Storectx.to_string storectx_discl'';
-      let store_discl = abstracting_store storectx_discl' store in
-      Some ((a_nf_term, store_discl), ienv, storectx_discl'')
-
-  (* Notice that the disclosure process is in fact more complex
-     since the image of  store_discl might itself has
-     labels that becomes diclosed.
-     This computation would necessitate an iterative process. *)
+      let (astore, ienv', store'') =
+        AStore.abstracting store' [] store' ienv in
+      Some ((a_nf_term, astore), ienv', store'')
 
   let get_subject_name (a_nf_term, _) =
     let f_fn nn = (nn, Some nn) in
@@ -330,29 +464,36 @@ module Make (OpLang : Language.WITHAVAL_NEG) :
       (OpLang.AVal.fold_free_names_of_abstract_val f acc')
       a_nf_term
 
-  let map_free_names_of_a_nf f (a_nf_term, store) =
+  let map_free_names_of_a_nf f (a_nf_term, astore) =
     let a_nf_term' =
       OpLang.Nf.map ~f_fn:f ~f_cn:f
         ~f_val:(OpLang.AVal.map_free_names_of_abstract_val f)
         ~f_ectx:Fun.id a_nf_term in
-    (a_nf_term', store)
+    (a_nf_term', astore)
 
-  let eval (opconf, namectxO, storectx_discl) =
+  let eval (opconf, namectxO, _storectx) =
     let open EvalMonad in
     let* (term', store') = OpLang.normalize_opconf opconf in
     let nf_term = OpLang.get_nf_term term' in
-    match abstracting_nf (nf_term, store') namectxO storectx_discl with
-    | Some ((a_nf_term, discl_store), ienv, storectx_discl) ->
+    match abstracting_nf (nf_term, store') namectxO with
+    | Some (a_nf, ienv, store'') ->
         let lnamectx = IEnv.dom ienv in
-        return
-          (((a_nf_term, discl_store), lnamectx, storectx_discl), ienv, store')
+        return ((a_nf, lnamectx, store_ctx_of_a_nf a_nf), ienv, store'')
     | None -> stop ()
+
+  let disclose_heap = Store.disclose_heap
+
+  let complete_abstract_store store ((a_nf_term, (astore : AStore.t)), ienv) =
+    let (astore', ienv', _) =
+      AStore.abstracting store astore.values astore.constraints ienv in
+    ((a_nf_term, astore'), ienv')
 
   include OpLang.AVal.BranchMonad
 
   let fill_abstract_val storectx namectxP_pmap nf_skeleton =
     let gen_val ty =
-      OpLang.AVal.generate_abstract_val storectx namectxP_pmap ty in
+      OpLang.AVal.generate_abstract_val storectx IEnv.Renaming.Namectx.empty
+        namectxP_pmap ty in
     OpLang.Nf.abstract_nf_term_m ~gen_val nf_skeleton
 
   let generate_a_nf storectx namectxP =
@@ -364,25 +505,29 @@ module Make (OpLang : Language.WITHAVAL_NEG) :
     let* _ =
       return @@ Util.Debug.print_debug @@ "Once filled we get the new names "
       ^ OpLang.IEnv.Renaming.Namectx.to_string lnamectx in
-    let* store = Store.generate_store storectx in
-    return ((a_nf_term, store), lnamectx, namectxP)
+    let* (astore, (_, lnamectx')) =
+      AStore.generate namectxP storectx lnamectx in
+    return ((a_nf_term, astore), lnamectx', namectxP)
 
-  let type_check_a_nf store_ctx namectxP namectxO ((nf_term, _), lnamectx) =
-    (* Why do we ignore the store ? *)
+  let type_check_a_nf storectx namectxP namectxO ((nf_term, astore), lnamectx) =
     let type_check_val aval nty =
-      let ty = OpLang.negating_type nty in
-      OpLang.AVal.type_check_abstract_val store_ctx namectxP namectxO ty
-        (aval, lnamectx) in
+      match
+        OpLang.AVal.type_check_abstract_val storectx IEnv.Renaming.Namectx.empty
+          namectxP namectxO (OpLang.negating_type nty) aval
+      with
+      | Some (storectx', lnamectx') ->
+          AStore.type_check namectxP namectxO storectx' lnamectx'
+            (astore, lnamectx)
+      | None -> false in
     OpLang.type_check_nf_term ~name_ctx:namectxP ~type_check_val nf_term
 
-  (*TODO: Type check the store part and
-     check that the disclosure process is respected*)
-
-  let is_equiv_a_nf ~compare_heaps (anf1, store1) (anf2, store2) =
+  let is_equiv_a_nf ~compare_heaps (anf1, (astore1 : AStore.t))
+      (anf2, (astore2 : AStore.t)) =
     OpLang.Nf.equiv_nf_term
-      (OpLang.AVal.is_equiv_abstract_val store1 store2)
+      (OpLang.AVal.is_equiv_abstract_val astore1.constraints
+         astore2.constraints)
       anf1 anf2
-    && OpLang.Store.is_equiv_store ~compare_heaps store1 store2
+    && AStore.is_equiv ~compare_heaps astore1 astore2
 
   let get_typed_ienv = OpLang.get_typed_ienv
   let get_typed_namectx = OpLang.get_typed_namectx

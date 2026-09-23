@@ -9,8 +9,6 @@ module Make (IntLang : Lang.Interactive.LANG) : sig
   (* The thinning Γ_P↾ ↪ Γ_P keeping the type and polymorphic names, along
      which an Input move resets the Player context. *)
   val reset_thinning : Moves.Renaming.Namectx.t -> Moves.Renaming.t
-
-  val replace_storectx : store_ctx -> position -> position
 end = struct
   (* POGS relates heaps a posteriori, so moves are compared without them. *)
   module Moves =
@@ -49,7 +47,6 @@ end = struct
   let get_storectx pos = pos.storectx
   let init_act_pos storectx namectxP namectxO = { storectx; namectxP; namectxO }
   let init_pas_pos = init_act_pos
-  let replace_storectx storectx pos = { pos with storectx }
 
   let reset_thinning namectxP =
     let kept =
@@ -78,7 +75,11 @@ end = struct
         return
           ( (Moves.Input, (a_nf, lnamectx)),
             weakening,
-            { pos with namectxO; namectxP= reset namectxP } )
+            {
+              storectx= IntLang.store_ctx_of_a_nf a_nf;
+              namectxO;
+              namectxP= reset namectxP;
+            } )
     | Moves.Output ->
         let* (a_nf, lnamectx, namectxO) =
           IntLang.generate_a_nf pos.storectx pos.namectxO in
@@ -87,10 +88,12 @@ end = struct
         return
           ( (Moves.Output, (a_nf, lnamectx)),
             weakening,
-            { pos with namectxO; namectxP } )
+            { storectx= IntLang.store_ctx_of_a_nf a_nf; namectxO; namectxP } )
 
+  (* The move is typed in the store context it leaves, as in OGS. *)
   let check_move pos ((dir, (a_nf, lnamectx)) : Moves.pol_move) =
     let weakening = local_context_weakening pos dir lnamectx in
+    let storectx = IntLang.store_ctx_of_a_nf a_nf in
     match dir with
     | Moves.Output -> begin
         match
@@ -99,7 +102,7 @@ end = struct
         with
         | Some namectxO ->
             let namectxP = Renaming.im weakening in
-            Some (weakening, { pos with namectxP; namectxO })
+            Some (weakening, { storectx; namectxP; namectxO })
         | None -> None
       end
     | Moves.Input -> begin
@@ -109,19 +112,20 @@ end = struct
         with
         | Some namectxP ->
             let namectxO = Renaming.im weakening in
-            Some (weakening, { pos with namectxP= reset namectxP; namectxO })
+            Some (weakening, { storectx; namectxP= reset namectxP; namectxO })
         | None -> None
       end
 
-  let trigger_move pos ((dir, (_a_nf, lnamectx)) : Moves.pol_move) =
+  let trigger_move pos ((dir, (a_nf, lnamectx)) : Moves.pol_move) =
     let weakening = local_context_weakening pos dir lnamectx in
+    let storectx = IntLang.store_ctx_of_a_nf a_nf in
     match dir with
     | Moves.Output ->
-        (weakening, { pos with namectxP= Renaming.im weakening })
+        (weakening, { pos with storectx; namectxP= Renaming.im weakening })
     | Moves.Input ->
         ( weakening,
           {
-            pos with
+            storectx;
             namectxO= Renaming.im weakening;
             namectxP= reset pos.namectxP;
           } )

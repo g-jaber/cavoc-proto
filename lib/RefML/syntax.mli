@@ -10,9 +10,6 @@ val string_of_constructor : constructor -> string
 val string_of_loc : loc -> string
 val fresh_loc : unit -> loc
 
-type label = LocL of loc | ConsL of constructor | SymL of Symbolic.id
-[@@deriving to_yojson]
-
 val fresh_evar : unit -> id
 
 type pattern =
@@ -103,12 +100,6 @@ val get_new_names : name_set -> term -> name_set
 
 val get_names : term -> name_set
 
-type label_set = label list
-
-val empty_label_set : label_set
-val get_new_labels : label_set -> term -> label_set
-val get_labels : term -> label_set
-
 type value = term [@@deriving to_yojson]
 
 val pp_value : Format.formatter -> value -> unit
@@ -158,6 +149,4 @@ val get_nf_term : term -> (value, eval_context, Names.name, unit) Nf.nf_term
 val refold_nf_term :
   (value, unit, negative_val, eval_context) Nf.nf_term -> term
 
-(* The following function should be replaced by generate_nup *)
-val generate_ground_value : Types.typ -> value list
 val type_of_ground_value : value -> Types.typ option

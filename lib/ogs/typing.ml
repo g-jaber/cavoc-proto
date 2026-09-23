@@ -67,7 +67,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
         return
           ( (Moves.Input, (a_nf, lnamectx)),
             weakening,
-            { pos with namectxO; namectxP } )
+            { storectx= IntLang.store_ctx_of_a_nf a_nf; namectxO; namectxP } )
     | Moves.Output ->
         let* (a_nf, lnamectx, namectxO) =
           IntLang.generate_a_nf pos.storectx pos.namectxO in
@@ -80,10 +80,11 @@ module Make (IntLang : Lang.Interactive.LANG) :
         return
           ( (Moves.Output, (a_nf, lnamectx)),
             weakening,
-            { pos with namectxO; namectxP } )
+            { storectx= IntLang.store_ctx_of_a_nf a_nf; namectxO; namectxP } )
 
   let check_move pos ((dir, (a_nf, lnamectx)) : Moves.pol_move) =
     let weakening = local_context_weakening pos dir lnamectx in
+    let storectx = IntLang.store_ctx_of_a_nf a_nf in
     match dir with
     (* A Proponent move is typed with the two contexts swapped, like its
        generation. *)
@@ -94,7 +95,7 @@ module Make (IntLang : Lang.Interactive.LANG) :
         with
         | Some namectxO ->
             let namectxP = IntLang.IEnv.Renaming.im weakening in
-            Some (weakening, { pos with namectxP; namectxO })
+            Some (weakening, { storectx; namectxP; namectxO })
         | None -> None
       end
     | Moves.Input -> begin
@@ -104,14 +105,15 @@ module Make (IntLang : Lang.Interactive.LANG) :
         with
         | Some namectxP ->
             let namectxO = IntLang.IEnv.Renaming.im weakening in
-            Some (weakening, { pos with namectxP; namectxO })
+            Some (weakening, { storectx; namectxP; namectxO })
         | None -> None
       end
 
   (* Beware that trigger_move does not update correctly the positions when
     some resources are consumed by the move *)
-  let trigger_move pos ((dir, (_a_nf, lnamectx)) : Moves.pol_move) =
+  let trigger_move pos ((dir, (a_nf, lnamectx)) : Moves.pol_move) =
     let weakening = local_context_weakening pos dir lnamectx in
+    let storectx = IntLang.store_ctx_of_a_nf a_nf in
     match dir with
     | Moves.Output ->
         let namectxP = IntLang.IEnv.Renaming.im weakening in
@@ -119,12 +121,12 @@ module Make (IntLang : Lang.Interactive.LANG) :
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxP
         ^ " and Opponent name context stays "
         ^ IntLang.IEnv.Renaming.Namectx.to_string pos.namectxO;
-        (weakening, { pos with namectxP })
+        (weakening, { pos with storectx; namectxP })
     | Moves.Input ->
         let namectxO = IntLang.IEnv.Renaming.im weakening in
         Util.Debug.print_debug @@ "After trigger, new Opponent name context :"
         ^ IntLang.IEnv.Renaming.Namectx.to_string namectxO
         ^ " and Proponent name context stays "
         ^ IntLang.IEnv.Renaming.Namectx.to_string pos.namectxP;
-        (weakening, { pos with namectxO })
+        (weakening, { pos with storectx; namectxO })
 end

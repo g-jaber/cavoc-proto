@@ -8,6 +8,7 @@ val allocate : heap -> Syntax.value -> Syntax.loc * heap
 val modify : heap -> Syntax.loc -> Syntax.value -> heap
 val update : heap -> heap -> heap
 val lookup : heap -> Syntax.loc -> Syntax.value option
+
+(* The locations holding a ground value, typed by it, in allocation
+   order. *)
 val loc_ctx_of_heap : heap -> Type_ctx.loc_ctx
-val generate_heaps : Type_ctx.loc_ctx -> heap list
-val restrict : Type_ctx.loc_ctx -> heap -> heap

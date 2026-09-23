@@ -23,6 +23,7 @@ end
 module type STORE = sig
   type store [@@deriving to_yojson]
   type label
+  type typ
 
   val string_of_store : store -> string
   val pp_store : Format.formatter -> store -> unit
@@ -32,25 +33,33 @@ module type STORE = sig
 
   val infer_type_store : store -> Storectx.t
 
-  val update_store : store -> store -> store
-  (** [update_store µ µ'] is equal to µ\[µ'\] *)
+  (* The store typing of the disclosed locations: Σ(l) = τ for l : ref τ. *)
+  module LocCtx : Typectx.TYPECTX
 
-  val restrict : Storectx.t -> store -> store
-  val restrict_ctx : Storectx.t -> label list -> Storectx.t
+  val loc_ctx : Storectx.t -> LocCtx.t
+  val embed_loc_typ : LocCtx.typ -> typ
+
+  (* Every location holding a ground value is disclosed, the others being of
+     unknown type. *)
+  val disclose_heap : store -> store
+
+  (* update_store µ µ' is µ[µ'], a declaration already in µ not repeated. *)
+  val update_store : store -> store -> store
+
+  (* without_heap Σ µ is the store a move carries: the constraints of the
+     branch of µ and the declarations of Σ, the heap left out since the
+     disclosed values travel as abstract values. *)
+  val without_heap : Storectx.t -> store -> store
+
+  val is_equiv_store : store -> store -> bool
 
   module BranchMonad : Util.Monad.BRANCH
-  (* *)
-
-  val generate_store : Storectx.t -> store BranchMonad.m
-
-  val is_equiv_store : compare_heaps:bool -> store -> store -> bool
 end
 
 (** The [COMP] signature represents a machine language with all the features
     needed to {{!val: COMP.normalize_opconf}evaluate} terms. *)
 module type COMP = sig
   include TYPED
-  module Store : STORE
 
   type term
 
@@ -62,6 +71,8 @@ module type COMP = sig
 
   val pp_value : Format.formatter -> value -> unit
   val string_of_value : value -> string
+
+  module Store : STORE with type typ = typ
 
   type negative_val
 
@@ -309,9 +320,6 @@ module type WITHAVAL_INOUT = sig
        and type interactive_env = IEnv.t
        and type renaming = Renaming.t
        and module BranchMonad = Store.BranchMonad
-
-  module DisclosedStore :
-    Disclosed_store.DISCLOSED_STORE with type store_ctx = Store.Storectx.t
 end
 
 (** [WITHAVAL_NEG] is used for operational languages with normal forms that have
@@ -361,7 +369,4 @@ module type WITHAVAL_NEG = sig
        and type interactive_env = IEnv.t
        and type renaming = Renaming.t
        and module BranchMonad = Store.BranchMonad
-
-  module DisclosedStore :
-    Disclosed_store.DISCLOSED_STORE with type store_ctx = Store.Storectx.t
 end

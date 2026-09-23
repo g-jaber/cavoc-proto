@@ -6,8 +6,8 @@ open Syntax
 (** Abstract values (nups) are patterns whose leaves are ground values or names:
     [ABound] names are introduced by the move, at their level in its local
     typing context Δ; [AFree] names are reused from the ambient one. Locations
-    are mapped to their de Bruijn level in the disclosed store
-    context. *)
+    are mapped to their name in the disclosed store context, bound the first time
+    they are introduced. *)
 type nup =
   | AUnit
   | AInt of int
@@ -20,16 +20,6 @@ type nup =
   | ABound of Names.name
   | ALocFree of Names.LocNames.name
   | ALocBound of Names.LocNames.name
-
-(** The store part of a move: the content of every public location, over the
-    disclosed store context Σ extended by [local_locctx], the locations the move
-    discloses in order of mention. *)
-type disclosed_store = {
-  local_locctx: Store.LocCtx.t;
-  contents: nup list;
-  symbolic_ctx: Symbolic.branch;
-  cons_ctx: Type_ctx.cons_ctx;
-}
 
 (** The {!module-type: GENERATE_VALUE} signature is implemented by modules
     providing a strategy to generate {e RefML} values. Such modules are used to
@@ -70,7 +60,7 @@ module Make
   Lang.Abstract_val.AVAL
     with type name = Names.name
      and type interactive_env = Ienv.IEnv.t
-     and type label = Syntax.label
+     and type label = Store.label
      and type name_ctx = Namectx.Namectx.t
      and type negative_type = Types.negative_type
      and type negative_val = Syntax.negative_val
@@ -86,7 +76,7 @@ module Make
 
   type name = Names.name
   type renaming = Renaming.Renaming.t
-  type label = Syntax.label
+  type label = Store.label
   type value = Syntax.value
   type negative_val = Syntax.negative_val
   type typ = Types.typ
@@ -119,7 +109,8 @@ module Make
         Format.pp_print_string fmt "}"
     | AFree nn -> pp_free_name fmt nn
     | ABound nn -> pp_bound_name fmt nn
-    | ALocFree level | ALocBound level -> Names.LocNames.pp_name fmt level
+    | ALocFree loc_name | ALocBound loc_name ->
+        Names.LocNames.pp_name fmt loc_name
 
   let pp_abstract_val =
     pp_abstract_val_in ~pp_free_name:Names.pp_name ~pp_bound_name:Names.pp_name
@@ -169,11 +160,12 @@ module Make
         ARecord (Util.Pmap.map_im (map_free_names_of_abstract_val f) fields)
 
   let rec add_labels label_l = function
-    | AUnit | AInt _ | ABool _ | ASymb _ | AFree _ | ABound _ | ALocFree _
-    | ALocBound _ ->
+    | AUnit | AInt _ | ABool _ | ASymb _ | AFree _ | ABound _ | ALocFree _ ->
         label_l
+    | ALocBound loc_name -> Store.LocL loc_name :: label_l
     | ACons (c, _) ->
-        if List.mem (ConsL c) label_l then label_l else ConsL c :: label_l
+        if List.mem (Store.ConsL c) label_l then label_l
+        else Store.ConsL c :: label_l
     | APair (nup1, nup2) -> add_labels (add_labels label_l nup1) nup2
     | ARecord fields ->
         Util.Pmap.fold
@@ -224,7 +216,7 @@ module Make
       - Σ;Γ ⊢ A : τ ▷ Δ (as a nup)
   *)
 
-  let generate_abstract_val ((_, _, cons_ctx) as storectx) namectx ty =
+  let generate_abstract_val ((_, _, cons_ctx) as storectx) lnamectx namectx ty =
     let open BranchMonad in
     let rec aux ((storectx, lnamectx) as res) = function
       | TUnit -> return (AUnit, res)
@@ -246,6 +238,21 @@ module Make
           let* (nup1, res) = aux res ty1 in
           let* (nup2, res) = aux res ty2 in
           return (APair (nup1, nup2), res)
+      (* A disclosed location of that type, or the location name fresh for
+         Σ. *)
+      | TRef ty ->
+          let (loc_ctx, symbolic_ctx, cons_ctx) = storectx in
+          let free_loc_names =
+            List.filter
+              (fun loc_name -> Store.LocCtx.lookup_exn loc_ctx loc_name = ty)
+              (Store.LocCtx.get_names loc_ctx) in
+          let (loc_name, loc_ctx') = Store.LocCtx.add_fresh loc_ctx "" ty in
+          para_list
+            (List.map (fun loc_name -> (ALocFree loc_name, res)) free_loc_names
+            @ [
+                ( ALocBound loc_name,
+                  ((loc_ctx', symbolic_ctx, cons_ctx), lnamectx) );
+              ])
       | TSum _ ->
           failwith "Need to add injection to the syntax of expressions"
           (*
@@ -304,36 +311,37 @@ module Make
           failwith
             ("Error generating a nup on type " ^ Types.string_of_typ ty
            ^ ". Please report") in
-    let empty_ctx = Namectx.Namectx.empty in
-    aux (storectx, empty_ctx) ty
+    aux (storectx, lnamectx) ty
 
-  let type_check_abstract_val _storectx namectxP namectxO ty (nup, lnamectx) =
+  let type_check_abstract_val storectx lnamectx namectxP namectxO ty nup =
     let has_type namectx nn ty =
       Util.Pmap.lookup nn (Namectx.Namectx.to_pmap namectx) = Some ty in
-    let rec aux ty (nup, lnamectx) =
+    let is_next_name (storectx, lnamectx) nn nty =
+      let (nn', lnamectx') = Namectx.Namectx.add_fresh lnamectx "" nty in
+      if nn = nn' then Some (storectx, lnamectx') else None in
+    let rec aux (((loc_ctx, symbolic_ctx, cons_ctx), lnamectx) as res) ty nup =
       let open Util.Monad.Option in
       match (ty, nup) with
-      | (TUnit, AUnit) -> Some lnamectx
+      | (TUnit, AUnit) -> Some res
       | (TUnit, _) -> None
-      | (TBool, ABool _) -> Some lnamectx
+      | (TBool, ABool _) -> Some res
       | (TBool, _) -> None
-      | (TInt, AInt _) -> Some lnamectx
+      | (TInt, AInt _) -> Some res
       | (TInt, _) -> None
       | (TProd (ty1, ty2), APair (nup1, nup2)) -> begin
-          let* lnamectx' = aux ty1 (nup1, lnamectx) in
-          aux ty2 (nup2, lnamectx')
+          let* res' = aux res ty1 nup1 in
+          aux res' ty2 nup2
         end
       | (TProd _, _) -> None
       | (TRecord ty_fields, ARecord val_fields) ->
-          let check_on_field lnamectx_m (field_name, ty) =
-            let* current_lnamectx = lnamectx_m in
+          let check_on_field res_m (field_name, ty) =
+            let* current_res = res_m in
             let associated_val = Util.Pmap.lookup_exn field_name val_fields in
-            aux ty (associated_val, current_lnamectx) in
-          Util.Pmap.fold check_on_field (Some lnamectx) ty_fields
+            aux current_res ty associated_val in
+          Util.Pmap.fold check_on_field (Some res) ty_fields
       | (TRecord _, _) -> None
       | (TArrow _, ABound nn) | (TForall _, ABound nn) ->
-          let nty = Types.force_negative_type ty in
-          Namectx.Namectx.is_last lnamectx nn nty
+          is_next_name res nn (Types.force_negative_type ty)
       | (TArrow _, _) | (TForall _, _) -> None
       | (TName tn, AFree nn) ->
           let owner =
@@ -341,30 +349,39 @@ module Make
             else if Namectx.has_type_name namectxO tn then Some namectxO
             else None in
           if Option.fold ~none:false ~some:(fun ctx -> has_type ctx nn ty) owner
-          then Some lnamectx
+          then Some res
           else None
       | (TName tn, ABound nn) ->
           if Namectx.has_type_name namectxO tn || Namectx.has_type_name lnamectx tn
-          then Namectx.Namectx.is_last lnamectx nn (Types.force_negative_type ty)
+          then is_next_name res nn (Types.force_negative_type ty)
           else None
       (* | (TExn, ACons (c, nup')) ->
         let (TArrow (param_ty, _)) = Util.Pmap.lookup_exn c (Util.Pmap.concat namectxP namectxO) in
         type_check_abstract_val namectxP namectxO param_ty nup' *)
       | (TName _, _) -> None
+      | (TRef ty', ALocFree loc_name) ->
+          if
+            List.mem loc_name (Store.LocCtx.get_names loc_ctx)
+            && Store.LocCtx.lookup_exn loc_ctx loc_name = ty'
+          then Some res
+          else None
+      | (TRef ty', ALocBound loc_name) ->
+          let (loc_name', loc_ctx') = Store.LocCtx.add_fresh loc_ctx "" ty' in
+          if loc_name = loc_name' then
+            Some ((loc_ctx', symbolic_ctx, cons_ctx), lnamectx)
+          else None
+      | (TRef _, _) -> None
       | (TVar _, _) ->
           failwith @@ "Error: trying to type-check a nup of type "
           ^ Types.string_of_typ ty ^ ". Please report."
-      | (TUndef, _) | (TRef _, _) | (TSum _, _) | (TExn, _) | (TypeUniverse, _) ->
+      | (TUndef, _) | (TSum _, _) | (TExn, _) | (TypeUniverse, _) ->
           failwith @@ "Error: type-checking a nup of type "
           ^ Types.string_of_typ ty ^ " is not yet supported."
       | (TAlgebraic _, _) ->
           failwith
             "Algebraic type are not yet supported (type_check_abstract_val)"
     in
-    match aux ty (nup, lnamectx) with
-    | None -> false
-    | Some lnamectx when Namectx.Namectx.is_empty lnamectx -> true
-    | Some _ -> false
+    aux (storectx, lnamectx) ty nup
 
   (* Exception payloads kept in abstract values must be ground. *)
   let rec nup_of_ground_value value =
@@ -385,55 +402,99 @@ module Make
          ^ " is not ground, it cannot be kept in an abstract value. Please \
             report.")
 
-  let abstracting_value (value : value) namectxO ty =
-    let rec aux ienv value ty =
-      match (value, ty) with
-      | (Fun _, TArrow _)
-      | (Fix _, TArrow _)
-      | (Name _, TArrow _)
-      | (Fun _, TForall (_, TArrow _))
-      | (Fix _, TForall (_, TArrow _))
-      | (Name _, TForall (_, TArrow _)) -> begin
-          let nval = Syntax.force_negative_val value in
-          let nty = Types.force_negative_type ty in
-          let (fn, ienv') = Ienv.IEnv.add_fresh ienv "" nty nval in
-          (ABound fn, ienv')
-        end
-      | (Unit, TUnit) -> (AUnit, ienv)
-      | (Bool b, TBool) -> (ABool b, ienv)
-      | (Int n, TInt) -> (AInt n, ienv)
-      (* Symbolic expressions are treated as values *)
-      | (Symbolic sexpr, _) -> (ASymb sexpr, ienv)
-      | (Pair (value1, value2), TProd (ty1, ty2)) ->
-          let (nup1, ienv1) = aux ienv value1 ty1 in
-          let (nup2, ienv2) = aux ienv1 value2 ty2 in
-          (APair (nup1, nup2), ienv2)
-      (* An Opponent polymorphic name is not refreshed. *)
-      | (Name nn, TName tn) when Namectx.has_type_name namectxO tn ->
-          (AFree nn, ienv)
-      (* A value at a Player type name is boxed. *)
-      | (_, TName _) -> begin
-          let nval = Syntax.force_negative_val value in
-          let nty = Types.force_negative_type ty in
-          let (pn, ienv') = Ienv.IEnv.add_fresh ienv "" nty nval in
-          (ABound pn, ienv')
-        end
-      | (Constructor (c, Some value'), TExn) ->
-          (ACons (c, nup_of_ground_value value'), ienv)
-      | (Record val_fields, TRecord ty_fields) ->
-          let abstracting_field (new_fields, current_ienv) (field_name, expr) =
-            let associated_ty = Util.Pmap.lookup_exn field_name ty_fields in
-            let (nup, ienv') = aux current_ienv expr associated_ty in
-            (Util.Pmap.add (field_name, nup) new_fields, ienv') in
-          let (new_fields, ienv') =
-            Util.Pmap.fold abstracting_field (Util.Pmap.empty, ienv) val_fields
-          in
-          (ARecord new_fields, ienv')
-      | _ ->
-          failwith
-            ("Error: " ^ string_of_term value ^ " of type " ^ string_of_typ ty
-           ^ " cannot be abstracted because it is not a value.") in
-    aux (Ienv.IEnv.empty namectxO) value ty
+  (* abstracting_value_from (γ, µ) V τ abstracts V at τ extending the pair
+     given, so that the values of one move share its Δ. *)
+  let rec abstracting_value_from (ienv, store) (value : value) ty =
+    match (value, ty) with
+    | (Fun _, TArrow _)
+    | (Fix _, TArrow _)
+    | (Name _, TArrow _)
+    | (Fun _, TForall (_, TArrow _))
+    | (Fix _, TForall (_, TArrow _))
+    | (Name _, TForall (_, TArrow _)) -> begin
+        let nval = Syntax.force_negative_val value in
+        let nty = Types.force_negative_type ty in
+        let (fn, ienv') = Ienv.IEnv.add_fresh ienv "" nty nval in
+        (ABound fn, (ienv', store))
+      end
+    | (Unit, TUnit) -> (AUnit, (ienv, store))
+    | (Bool b, TBool) -> (ABool b, (ienv, store))
+    | (Int n, TInt) -> (AInt n, (ienv, store))
+    (* Symbolic expressions are treated as values *)
+    | (Symbolic sexpr, _) -> (ASymb sexpr, (ienv, store))
+    | (Pair (value1, value2), TProd (ty1, ty2)) ->
+        let (nup1, res1) =
+          abstracting_value_from (ienv, store) value1 ty1 in
+        let (nup2, res2) = abstracting_value_from res1 value2 ty2 in
+        (APair (nup1, nup2), res2)
+    (* An Opponent polymorphic name is not refreshed. *)
+    | (Name nn, TName tn) when Namectx.has_type_name (Ienv.IEnv.im ienv) tn ->
+        (AFree nn, (ienv, store))
+    (* A value at a Player type name is boxed. *)
+    | (_, TName _) -> begin
+        let nval = Syntax.force_negative_val value in
+        let nty = Types.force_negative_type ty in
+        let (pn, ienv') = Ienv.IEnv.add_fresh ienv "" nty nval in
+        (ABound pn, (ienv', store))
+      end
+    | (Loc loc, TRef ty') -> begin
+        match Store.loc_name_of_loc store loc with
+        | Some loc_name -> (ALocFree loc_name, (ienv, store))
+        | None ->
+            let (loc_name, store') = Store.disclose_loc store loc ty' in
+            (ALocBound loc_name, (ienv, store'))
+      end
+    | (Constructor (c, Some value'), TExn) ->
+        (ACons (c, nup_of_ground_value value'), (ienv, store))
+    | (Record val_fields, TRecord ty_fields) ->
+        let abstracting_field (new_fields, current_res) (field_name, expr) =
+          let associated_ty = Util.Pmap.lookup_exn field_name ty_fields in
+          let (nup, res') =
+            abstracting_value_from current_res expr associated_ty in
+          (Util.Pmap.add (field_name, nup) new_fields, res') in
+        let (new_fields, res') =
+          Util.Pmap.fold abstracting_field
+            (Util.Pmap.empty, (ienv, store))
+            val_fields in
+        (ARecord new_fields, res')
+    | _ ->
+        failwith
+          ("Error: " ^ string_of_term value ^ " of type " ^ string_of_typ ty
+         ^ " cannot be abstracted because it is not a value.")
+
+  let abstracting_value value namectxO store ty =
+    let (nup, (ienv, store')) =
+      abstracting_value_from (Ienv.IEnv.empty namectxO, store) value ty
+    in
+    (nup, ienv, store')
+
+  let loc_of_loc_name_exn store loc_name =
+    match Store.loc_of_loc_name store loc_name with
+    | Some loc -> loc
+    | None ->
+        failwith
+          ("Error: the location name "
+          ^ Names.LocNames.string_of_name loc_name
+          ^ " is not disclosed in the store. Please report.")
+
+  let rec abstracting_store ienv store values =
+    let loc_ctx = store.Store.loc_ctx in
+    let loc_names = Store.LocCtx.get_names loc_ctx in
+    match List.nth_opt loc_names (List.length values) with
+    | None -> (values, ienv, store)
+    | Some loc_name ->
+        let loc = loc_of_loc_name_exn store loc_name in
+        let value =
+          match Store.loc_lookup store loc with
+          | Some value -> value
+          | None ->
+              failwith
+                ("Error: the disclosed location " ^ Syntax.string_of_loc loc
+               ^ " is not in the heap. Please report.") in
+        let (nup, (ienv', store')) =
+          abstracting_value_from (ienv, store) value
+            (Store.LocCtx.lookup_exn loc_ctx loc_name) in
+        abstracting_store ienv' store' (values @ [ nup ])
 
   let rec value_of_ground_nup = function
     | AUnit -> Unit
@@ -447,26 +508,29 @@ module Make
         failwith
           ("Error: the name " ^ Names.string_of_name nn
          ^ " is not part of a ground abstract value. Please report.")
-    | ALocFree level | ALocBound level ->
+    | ALocFree loc_name | ALocBound loc_name ->
         failwith
-          ("Error: the location " ^ Names.LocNames.string_of_name level
-         ^ " needs the location environment to be concretized.")
+          ("Error: the location name "
+          ^ Names.LocNames.string_of_name loc_name
+          ^ " is not part of a ground abstract value. Please report.")
 
-  (* Instantiating Proponent polymorphic names, guided by the type. *)
-  let subst_pnames ienv ty nup =
+  (* Instantiating Proponent polymorphic names, guided by the type. The bound
+     location names are already allocated in the store. *)
+  let subst_pnames ienv store ty nup =
     let namectxP = Ienv.IEnv.dom ienv in
     let rec aux ty nup =
       match (ty, nup) with
-      | (TProd (ty1, ty2), APair (nup1, nup2)) -> Pair (aux ty1 nup1, aux ty2 nup2)
+      | (TProd (ty1, ty2), APair (nup1, nup2)) ->
+          Pair (aux ty1 nup1, aux ty2 nup2)
       | (TRecord ty_fields, ARecord fields) ->
-          Record
-            (Util.Pmap.map
-               (fun (field, nup') ->
-                 (field, aux (Util.Pmap.lookup_exn field ty_fields) nup'))
-               fields)
+          let subst_field (field, nup') =
+            (field, aux (Util.Pmap.lookup_exn field ty_fields) nup') in
+          Record (Util.Pmap.map subst_field fields)
       | (TName tn, AFree nn) when Namectx.has_type_name namectxP tn ->
           embed_negative_val (Ienv.IEnv.lookup_exn ienv nn)
       | (_, AFree nn) -> Name nn
+      | (TRef _, (ALocFree loc_name | ALocBound loc_name)) ->
+          Loc (loc_of_loc_name_exn store loc_name)
       | (_, ABound nn) ->
           failwith
             ("Error: the name " ^ Names.string_of_name nn
@@ -476,4 +540,35 @@ module Make
           | ALocFree _ | ALocBound _ ) ) ->
           value_of_ground_nup nup in
     aux ty nup
+
+  (* A location name the move binds has no location yet.
+      One is allocated for it, holding () until concretize_store writes its value. *)
+  let allocate_disclosed_locs store loc_ctx =
+    let allocate store loc_name =
+      match Store.loc_of_loc_name store loc_name with
+      | Some _ -> store
+      | None ->
+          let ty = Store.LocCtx.lookup_exn loc_ctx loc_name in
+          let (loc, store') = Store.loc_allocate store Unit in
+          let (loc_name', store'') = Store.disclose_loc store' loc ty in
+          if loc_name' <> loc_name then
+            failwith
+              ("Error: the bound location name "
+              ^ Names.LocNames.string_of_name loc_name
+              ^ " is not the one fresh for the store. Please report.");
+          store'' in
+    List.fold_left allocate store (Store.LocCtx.get_names loc_ctx)
+
+  let concretize_store ienv store storectx values =
+    let loc_ctx = Store.loc_ctx storectx in
+    let store' = allocate_disclosed_locs store loc_ctx in
+    let concretize_value heap loc_name nup =
+      let ty = Store.LocCtx.lookup_exn loc_ctx loc_name in
+      let value = subst_pnames ienv store' ty nup in
+      Heap.modify heap (loc_of_loc_name_exn store' loc_name) value in
+    let heap =
+      List.fold_left2 concretize_value Heap.emptyheap
+        (Store.LocCtx.get_names loc_ctx)
+        values in
+    Store.update_store store' { Store.empty_store with heap }
 end

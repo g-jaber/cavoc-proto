@@ -23,29 +23,15 @@ let allocate heap v =
   (l, Util.Pmap.add (l, v) heap)
 
 let modify heap l value = Util.Pmap.modadd (l, value) heap
+
 let update heap heap' =
   Util.Pmap.fold (fun heap (l,value) -> modify heap l value) heap heap'
 
 let lookup heap l = Util.Pmap.lookup l heap
 
-
-(* Only work for ground store for now *)
-let loc_ctx_of_heap heap = Util.Pmap.filter_map_im Syntax.type_of_ground_value heap
-
-let rec shuffle_heaps = function
-  | [] -> [ emptyheap ]
-  | (loc, listval) :: tl ->
-      let heaplist = shuffle_heaps tl in
-      let aux value = List.map (Util.Pmap.add (loc, value)) heaplist in
-      List.flatten (List.map aux listval)
-
-let generate_heaps loc_ctx =
-  Util.Debug.print_debug @@ "Generating heap for " ^ Type_ctx.string_of_loc_ctx loc_ctx;
-  let list_predheap =
-    Util.Pmap.map_list
-      (fun (l, ty) -> (l, Syntax.generate_ground_value ty))
-      loc_ctx in
-  shuffle_heaps list_predheap
-
-let restrict loc_ctx heap =
-  Util.Pmap.filter_dom (fun l -> Util.Pmap.mem l loc_ctx) heap
+(* The most recent allocation comes first in the heap. *)
+let loc_ctx_of_heap heap =
+  Util.Pmap.list_to_pmap
+    (List.rev
+       (Util.Pmap.to_list
+          (Util.Pmap.filter_map_im Syntax.type_of_ground_value heap)))

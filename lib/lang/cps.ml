@@ -120,6 +120,9 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
 
   let string_of_negative_val = Format.asprintf "%a" pp_negative_val
 
+  type value_temp = value
+  type typ_temp = typ
+
   let filter_negative_val = function
     | GVal value -> begin
         match OpLang.filter_negative_val value with
@@ -151,8 +154,16 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
     let cn' = CRenaming.lookup crenaming cn in
     NTerm (cn', term')
 
-  module Store = OpLang.Store
-  module DisclosedStore = OpLang.DisclosedStore
+  module Store = struct
+    include (
+      OpLang.Store :
+        module type of struct include OpLang.Store end
+          with type typ := OpLang.typ)
+
+    type typ = typ_temp
+
+    let embed_loc_typ ty = GType (OpLang.Store.embed_loc_typ ty)
+  end
 
   type opconf = term * Store.store
 
@@ -315,8 +326,6 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
     | APack of OpLang.typename list * OpLang.AVal.abstract_val * CNames.name
 
   type negative_type_temp = negative_type
-  type value_temp = value
-  type typ_temp = typ
   type negative_val_temp = negative_val
   type abstract_val_temp = abstract_val
 
@@ -414,82 +423,79 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
               OpLang.AVal.map_free_names_of_abstract_val f_oplang aval,
               cn )
 
-    let type_check_abstract_val storectx namectxP namectxO gty
-        (aval, (lfnamectx, lcnamectx)) =
-      let type_check_oplang_val =
-        OpLang.AVal.type_check_abstract_val storectx
-          (extract_name_ctx namectxP)
-          (extract_name_ctx namectxO) in
+    let type_check_abstract_val storectx (lfnamectx, lcnamectx) namectxP
+        namectxO gty aval =
+      let open Util.Monad.Option in
+      let type_check_oplang_val namectxO' =
+        OpLang.AVal.type_check_abstract_val storectx lfnamectx
+          (extract_name_ctx namectxP) namectxO' in
+      let is_next_cname cn tyhole =
+        let (cn', lcnamectx') = CNamectx.add_fresh lcnamectx "" tyhole in
+        if cn = cn' then Some lcnamectx' else None in
       match (gty, aval) with
       | (GType ty, AVal aval) ->
-          CNamectx.is_empty lcnamectx
-          && type_check_oplang_val ty (aval, lfnamectx)
+          let* (storectx', lfnamectx') =
+            type_check_oplang_val (extract_name_ctx namectxO) ty aval in
+          return (storectx', (lfnamectx', lcnamectx))
       | (GProd (ty, tyhole), APair (aval, cn)) ->
-          CNamectx.is_singleton lcnamectx cn tyhole
-          && type_check_oplang_val ty (aval, lfnamectx)
+          let* (storectx', lfnamectx') =
+            type_check_oplang_val (extract_name_ctx namectxO) ty aval in
+          let* lcnamectx' = is_next_cname cn tyhole in
+          return (storectx', (lfnamectx', lcnamectx'))
       | (GExists (tvar_l, ty, tyhole), APack (tname_l, aval, cn)) ->
           let type_subst = OpLang.typename_subst tvar_l tname_l in
           let ty' = OpLang.apply_type_subst ty type_subst in
           let tyhole' = OpLang.apply_type_subst tyhole type_subst in
           let tnamectx = OpLang.typename_ctx tname_l in
-          let peel lfnamectx_opt (tn, tn_ty) =
-            match lfnamectx_opt with
-            | Some lfnamectx -> OpLang.Namectx.is_last lfnamectx tn tn_ty
-            | None -> None in
-          let lfnamectx_opt =
-            List.fold_left peel (Some lfnamectx)
-              (List.rev (Util.Pmap.to_list (OpLang.Namectx.to_pmap tnamectx)))
-          in
-          begin match lfnamectx_opt with
-          | None -> false
-          | Some lfnamectx' ->
-              CNamectx.is_singleton lcnamectx cn tyhole'
-              && OpLang.AVal.type_check_abstract_val storectx
-                   (extract_name_ctx namectxP)
-                   (OpLang.Namectx.concat (extract_name_ctx namectxO) tnamectx)
-                   ty' (aval, lfnamectx')
-          end
-      | _ -> false
+          let* (storectx', lfnamectx') =
+            type_check_oplang_val
+              (OpLang.Namectx.concat (extract_name_ctx namectxO) tnamectx)
+              ty' aval in
+          let* lcnamectx' = is_next_cname cn tyhole' in
+          return
+            (storectx', (OpLang.Namectx.concat tnamectx lfnamectx', lcnamectx'))
+      | _ -> None
 
-    let abstracting_value gval (namectxO, cnamectxO) gty =
+    let abstracting_value gval (namectxO, cnamectxO) store gty =
       match (gval, gty) with
       | (GPairIn (value, ectx), GProd (ty_v, ty_c)) ->
-          let (aval, val_env) =
-            OpLang.AVal.abstracting_value value namectxO ty_v in
+          let (aval, val_env, store') =
+            OpLang.AVal.abstracting_value value namectxO store ty_v in
           let empty_ienv = CIEnv.empty cnamectxO in
           let (cn, cienv) = CIEnv.add_fresh empty_ienv "" ty_c ectx in
-          (APair (aval, cn), (val_env, cienv))
+          (APair (aval, cn), (val_env, cienv), store')
       | (GVal value, GType ty) ->
-          let (aval, val_env) =
-            OpLang.AVal.abstracting_value value namectxO ty in
+          let (aval, val_env, store') =
+            OpLang.AVal.abstracting_value value namectxO store ty in
           let ienv = embed_value_env val_env cnamectxO in
-          (AVal aval, ienv)
+          (AVal aval, ienv, store')
       | (GPairIn (value, ectx), GExists (tvar_l, ty_v, ty_c)) ->
           let (tname_l, type_subst) = OpLang.generate_typename_subst tvar_l in
           let ty_v' = OpLang.apply_type_subst ty_v type_subst in
           let ty_c' = OpLang.apply_type_subst ty_c type_subst in
-          let (aval, val_env) =
-            OpLang.AVal.abstracting_value value namectxO ty_v' in
+          let (aval, val_env, store') =
+            OpLang.AVal.abstracting_value value namectxO store ty_v' in
           let val_env' =
             OpLang.IEnv.tensor (OpLang.tnames_ienv tname_l) val_env in
           let (cn, cienv) =
             CIEnv.add_fresh (CIEnv.empty cnamectxO) "" ty_c' ectx in
-          (APack (tname_l, aval, cn), (val_env', cienv))
+          (APack (tname_l, aval, cn), (val_env', cienv), store')
       | (_, _) -> failwith "Ill-typed interactive value. Please report."
 
     module BranchMonad = OpLang.AVal.BranchMonad
 
-    let generate_abstract_val storectx (namectx, _) gtype =
+    let generate_abstract_val storectx (lnamectx, lcnamectx) (namectx, _)
+        gtype =
       let open OpLang.AVal.BranchMonad in
+      let generate_oplang_val =
+        OpLang.AVal.generate_abstract_val storectx lnamectx namectx in
       match gtype with
       | GType ty ->
-          let* (aval, (storectx, lnamectx)) =
-            OpLang.AVal.generate_abstract_val storectx namectx ty in
-          return (AVal aval, (storectx, (lnamectx, CNamectx.empty)))
+          let* (aval, (storectx, lnamectx)) = generate_oplang_val ty in
+          return (AVal aval, (storectx, (lnamectx, lcnamectx)))
       | GProd (ty, tyhole) ->
-          let* (aval, (storectx, lnamectx)) =
-            OpLang.AVal.generate_abstract_val storectx namectx ty in
-          let (cn, cnamectx) = CNamectx.singleton tyhole in
+          let* (aval, (storectx, lnamectx)) = generate_oplang_val ty in
+          let (cn, cnamectx) = CNamectx.add_fresh lcnamectx "" tyhole in
           return (APair (aval, cn), (storectx, (lnamectx, cnamectx)))
       | GExists (tvar_l, ty, tyhole) ->
           Util.Debug.print_debug
@@ -497,9 +503,8 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
           let (tname_l, type_subst) = OpLang.generate_typename_subst tvar_l in
           let ty' = OpLang.apply_type_subst ty type_subst in
           let tyhole' = OpLang.apply_type_subst tyhole type_subst in
-          let* (aval, (storectx, lnamectx)) =
-            OpLang.AVal.generate_abstract_val storectx namectx ty' in
-          let (cn, cnamectx) = CNamectx.singleton tyhole' in
+          let* (aval, (storectx, lnamectx)) = generate_oplang_val ty' in
+          let (cn, cnamectx) = CNamectx.add_fresh lcnamectx "" tyhole' in
           let lnamectx =
             OpLang.Namectx.concat (OpLang.typename_ctx tname_l) lnamectx in
           return (APack (tname_l, aval, cn), (storectx, (lnamectx, cnamectx)))
@@ -515,19 +520,39 @@ module MakeCompBase (OpLang : Language.WITHAVAL_INOUT) () = struct
           tname_l1 = tname_l2 && cn1 = cn2 && is_equiv aval1 aval2
       | _ -> false
 
-    let subst_pnames ((val_env, _) : interactive_env) gty aval =
+    let subst_pnames ((val_env, _) : interactive_env) store gty aval =
       match (gty, aval) with
-      | (GType ty, AVal aval) -> GVal (OpLang.AVal.subst_pnames val_env ty aval)
+      | (GType ty, AVal aval) ->
+          GVal (OpLang.AVal.subst_pnames val_env store ty aval)
       | (GProd (ty, _), APair (aval, cn)) ->
-          let value = OpLang.AVal.subst_pnames val_env ty aval in
-          GPairOut (value, cn)
+          GPairOut (OpLang.AVal.subst_pnames val_env store ty aval, cn)
       | (GExists (tvar_l, ty, _), APack (tname_l, aval, cn)) ->
           let ty' =
             OpLang.apply_type_subst ty (OpLang.typename_subst tvar_l tname_l)
           in
-          let value = OpLang.AVal.subst_pnames val_env ty' aval in
+          let value = OpLang.AVal.subst_pnames val_env store ty' aval in
           GPackOut (tname_l, value, cn)
       | _ -> failwith "Ill-typed interactive abstract value. Please report."
+
+    (* The value stored at a location is never paired with a continuation. *)
+    let oplang_value = function
+      | AVal aval -> aval
+      | APair _ | APack _ ->
+          failwith
+            "Error: the value stored at a location is paired with a \
+             continuation. \
+             Please report."
+
+    let abstracting_store ((val_env, cienv) : interactive_env) store values =
+      let (values', val_env', store') =
+        OpLang.AVal.abstracting_store val_env store
+          (List.map oplang_value values) in
+      (List.map (fun aval -> AVal aval) values', (val_env', cienv), store')
+
+    let concretize_store ((val_env, _) : interactive_env) store storectx values
+        =
+      OpLang.AVal.concretize_store val_env store storectx
+        (List.map oplang_value values)
 
     let rename (aval : abstract_val) (renaming, crenaming) =
       match aval with

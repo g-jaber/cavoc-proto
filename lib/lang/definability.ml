@@ -96,7 +96,10 @@ module type WITHAVAL_NEG_DEFINABILITY = sig
       with module Renaming = Renaming
        and type abstract_normal_form =
         (AVal.abstract_val, unit, Names.name, Names.name) Nf.nf_term
-        * Store.store
+        * ( AVal.abstract_val,
+            Store.Storectx.t,
+            Store.store )
+          Interactive.abstract_store
 end
 
 (* The CPS glue of Cps.MakeCompBase, equipped with the interactive operations
@@ -109,7 +112,8 @@ module MakeCompBase (OpLang : WITHAVAL_INOUT_DEFINABILITY) () = struct
     module Renaming = Renaming
 
     type abstract_normal_form =
-      (AVal.abstract_val, unit, Names.name, Names.name) Nf.nf_term * Store.store
+      (AVal.abstract_val, unit, Names.name, Names.name) Nf.nf_term
+      * (AVal.abstract_val, Store.Storectx.t, Store.store) Interactive.abstract_store
 
     type abstract_val = OpLang.AVal.abstract_val
     type value = OpLang.value
@@ -120,8 +124,9 @@ module MakeCompBase (OpLang : WITHAVAL_INOUT_DEFINABILITY) () = struct
     (* A question's value is a pair, an answer's a bare abstract value; a raise
        shares an answer's subject shape, so it is caught here, not at the move
        level. *)
-    let abstract_val_of_a_nf (a_nf_term, store) =
-      if not (Store.Storectx.is_empty (Store.infer_type_store store)) then
+    let abstract_val_of_a_nf
+        (a_nf_term, (astore : _ Interactive.abstract_store)) =
+      if astore.values <> [] then
         failwith
           "Definability: a move discloses locations, outside the definable \
            fragment.";
@@ -271,7 +276,9 @@ module MakeWithDirectStyle (OpLang : WITHAVAL_INOUT_DEFINABILITY) () :
          context has no CPS form here. Please report.";
     Cps.embed_name_ctx fnamectx
 
-  let move_of_direct_style ~pending ((nf_term, store), (lfnamectx, stackctx)) =
+  let move_of_direct_style ~pending
+      ( (nf_term, (astore : _ Interactive.abstract_store)),
+        (lfnamectx, stackctx) ) =
     let (cnamectx, cps_value_of) =
       OpLang.Nf.case_nf_term
         ~on_call:(fun _ _ () ->
@@ -295,5 +302,8 @@ module MakeWithDirectStyle (OpLang : WITHAVAL_INOUT_DEFINABILITY) () :
     let cps_nf_term =
       OpLang.Nf.map ~f_cn ~f_fn:Cps.inj_name ~f_val:cps_value_of ~f_ectx:Fun.id
         nf_term in
-    ((cps_nf_term, store), (lfnamectx, cnamectx))
+    let cps_astore : _ Interactive.abstract_store =
+      { astore with values= List.map (fun aval -> Cps.AVal aval) astore.values }
+    in
+    ((cps_nf_term, cps_astore), (lfnamectx, cnamectx))
 end

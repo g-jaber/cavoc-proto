@@ -40,10 +40,14 @@ end
 module MakeStore (BranchMonad : Util.Monad.BRANCH) :
   Lang.Language.STORE
     with type store = Store.store
-     and type label = Syntax.label
+     and type label = Store.label
+     and type typ = Types.typ
      and type Storectx.t = Store.Storectx.t
      and module BranchMonad = BranchMonad = struct
-  include Store_gen.Make (BranchMonad)
+  include Store
+  module BranchMonad = BranchMonad
+
+  type typ = Types.typ
 end
 
 let parse_and_handle_error parser_entry lexbuf =
@@ -227,7 +231,7 @@ module type WITHAVAL_INOUT_REFML =
      and type negative_val = Syntax.negative_val
      and type typ = Types.typ
      and type negative_type = Types.negative_type
-     and type Store.label = Syntax.label
+     and type Store.label = Store.label
      and type Store.Storectx.t = Store.Storectx.t
      and type Namectx.t = Namectx.Namectx.t
      and type Renaming.t = Renaming.Renaming.t
@@ -236,7 +240,6 @@ module type WITHAVAL_INOUT_REFML =
      and type ('value, 'ectx, 'fname, 'cname) Nf.nf_term =
       ('value, 'ectx, 'fname, 'cname) Nf.nf_term
      and type AVal.abstract_val = Nup.nup
-     and type DisclosedStore.t = Nup.disclosed_store
 
 module WithAValSymbolic (BranchMonad : Util.Monad.BRANCH) :
   WITHAVAL_INOUT_REFML
@@ -249,7 +252,7 @@ module WithAValSymbolic (BranchMonad : Util.Monad.BRANCH) :
     Lang.Abstract_val.AVAL
       with type name = Names.name
        and type interactive_env = Ienv.IEnv.t
-       and type label = Syntax.label
+       and type label = Store.label
        and type name_ctx = Namectx.t
        and type negative_type = Types.negative_type
        and type negative_val = Syntax.negative_val
@@ -262,7 +265,6 @@ module WithAValSymbolic (BranchMonad : Util.Monad.BRANCH) :
        and module BranchMonad = BranchMonad =
     Nup.Make (BranchMonad) (Nup.MakeGenerateSymbolicValue (BranchMonad))
 
-  module DisclosedStore = Disclosed_store.Make (AVal)
 end
 
 module WithAValConcrete (BranchMonad : Util.Monad.BRANCH) :
@@ -276,7 +278,7 @@ module WithAValConcrete (BranchMonad : Util.Monad.BRANCH) :
     Lang.Abstract_val.AVAL
       with type name = Names.name
        and type interactive_env = Ienv.IEnv.t
-       and type label = Syntax.label
+       and type label = Store.label
        and type name_ctx = Namectx.t
        and type negative_type = Types.negative_type
        and type negative_val = Syntax.negative_val
@@ -289,5 +291,4 @@ module WithAValConcrete (BranchMonad : Util.Monad.BRANCH) :
        and module BranchMonad = BranchMonad =
     Nup.Make (BranchMonad) (Nup.MakeGenerateConcreteValue (BranchMonad))
 
-  module DisclosedStore = Disclosed_store.Make (AVal)
 end

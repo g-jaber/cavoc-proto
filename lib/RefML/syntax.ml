@@ -23,8 +23,6 @@ let fresh_loc () =
   count_loc := !count_loc + 1;
   l
 
-type label = LocL of loc | ConsL of constructor | SymL of Symbolic.id
-[@@deriving to_yojson]
 
 (* we also provide fresh generation of variable identifiers,
    that is used in the parser to replace some anonymous construction like () or _ *)
@@ -265,55 +263,6 @@ let rec get_new_names lnames = function
 
 let get_names = get_new_names empty_name_set
 
-type label_set = label list
-
-let empty_label_set = []
-
-let rec get_new_labels label_l = function
-  | Loc l -> if List.mem (LocL l) label_l then label_l else LocL l :: label_l
-  | Constructor (c, _) ->
-      if List.mem (ConsL c) label_l then label_l else ConsL c :: label_l
-  | Name _ | Nondet _ | Var _ | Symbolic _ | Unit | Int _ | Bool _ | Hole
-  | Error ->
-      label_l
-  | Projection (e, _)
-  | UnaryOp (_, e)
-  | Fun (_, e)
-  | Fix (_, _, e)
-  | Newref (_, e)
-  | Deref e
-  | Assert e ->
-      get_new_labels label_l e
-  | BinaryOp (_, e1, e2)
-  | Let (_, e1, e2)
-  | LetPair (_, _, e1, e2)
-  | Seq (e1, e2)
-  | While (e1, e2)
-  | App (e1, e2)
-  | Pair (e1, e2)
-  | Assign (e1, e2) ->
-      let label_l1 = get_new_labels label_l e1 in
-      get_new_labels label_l1 e2
-  | If (e1, e2, e3) ->
-      let label_l1 = get_new_labels label_l e1 in
-      let label_l2 = get_new_labels label_l1 e2 in
-      get_new_labels label_l2 e3
-  | Raise e1 -> get_new_labels label_l e1
-  | TryWith (e1, handler_l) ->
-      let label_l' = get_new_labels label_l e1 in
-      List.fold_left
-        (fun label_l (Handler (_, expr)) -> get_new_labels label_l expr)
-        label_l' handler_l
-  | Record fields ->
-      let aux current_label_l (_, e) = get_new_labels current_label_l e in
-      Util.Pmap.fold aux label_l fields
-  | Match (e1, handler_l) ->
-      let label_l' = get_new_labels label_l e1 in
-      List.fold_left
-        (fun label_l (Handler (_, expr)) -> get_new_labels label_l expr)
-        label_l' handler_l
-
-let get_labels = get_new_labels empty_label_set
 
 type value = term
 
@@ -684,20 +633,7 @@ let refold_nf_term = function
   | NFError ectx -> fill_hole ectx Error
   | NFRaise (ectx, value) -> fill_hole ectx (Raise value)
 
-let max_int = 1
-
-let generate_ground_value : Types.typ -> term list = function
-  | TUnit -> [ Unit ]
-  | TBool -> [ Bool true; Bool false ]
-  | TInt ->
-      let rec aux i = if i < 0 then [] else Int i :: aux (i - 1) in
-      aux max_int
-  | ty ->
-      failwith
-        ("Error: the type" ^ Types.string_of_typ ty
-       ^ " is not of ground type. It should not appear inside heaps.")
-
-(* Symbolic contents are boolean currently. *)
+(* Symbolic values are boolean currently. *)
 let type_of_ground_value : value -> Types.typ option = function
   | Unit -> Some Types.TUnit
   | Bool _ | Symbolic _ -> Some Types.TBool

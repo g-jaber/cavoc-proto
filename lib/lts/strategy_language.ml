@@ -97,8 +97,9 @@ struct
     { strategy; storectx= TypingLTS.get_storectx position }
 
   let infer_type_store store = store.storectx
-
-  let replace_store_of_a_nf a_nf _ = a_nf
+  let store_ctx_of_a_nf = A_nf.store_ctx_of_a_nf
+  let disclose_heap = Fun.id
+  let complete_abstract_store _ = Fun.id
 
   (* The pending move [concretize_a_nf] packages for eval, which receives no
      environment: either an Opponent move with the value of its subject, or

@@ -75,6 +75,7 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
      and a stack of evaluation contexts. *)
 
   module IEnv = Ienv.Aggregate (OpLang.IEnv) (StackEnv) (Renaming)
+  module AStore = Interactive.Abstract_store (OpLang)
 
   type abstract_normal_form =
     ( OpLang.AVal.abstract_val,
@@ -82,7 +83,9 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
       OpLang.Names.name,
       UnitNames.name )
     OpLang.Nf.nf_term
-    * OpLang.Store.store
+    * AStore.t
+
+  let store_ctx_of_a_nf (_, (astore : AStore.t)) = astore.storectx
 
   let get_subject_name ((a_nf_term, _) : abstract_normal_form) :
       IEnv.Renaming.Namectx.Names.name =
@@ -99,7 +102,7 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
          acc')
       a_nf_term
 
-  let map_free_names_of_a_nf f (a_nf_term, store) =
+  let map_free_names_of_a_nf f (a_nf_term, astore) =
     let f_oplang nn =
       match f (inj_name nn) with
       | Either.Left nn' -> nn'
@@ -118,9 +121,9 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
       OpLang.Nf.map ~f_fn:f_oplang ~f_cn
         ~f_val:(OpLang.AVal.map_free_names_of_abstract_val f_oplang)
         ~f_ectx:Fun.id a_nf_term in
-    (a_nf_term', store)
+    (a_nf_term', astore)
 
-  let pp_a_nf_in ~pp_dir ~pp_free_name ~pp_bound_name fmt (a_nf_term, store) =
+  let pp_a_nf_in ~pp_dir ~pp_free_name ~pp_bound_name fmt (a_nf_term, astore) =
     let pp_ectx fmt () = Format.pp_print_string fmt "" in
     let pp_cn fmt () = Format.pp_print_string fmt "ret" in
     let embed pp fmt nn = pp fmt (inj_name nn) in
@@ -130,10 +133,12 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
         ~pp_bound_name:(embed pp_bound_name) in
     let pp_a_nf_term =
       OpLang.Nf.pp_nf_term ~pp_dir pp_aval pp_ectx pp_fn pp_cn in
-    if store = OpLang.Store.empty_store then pp_a_nf_term fmt a_nf_term
-    else
-      Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term OpLang.Store.pp_store
-        store
+    if AStore.is_printable astore then
+      Format.fprintf fmt "%a,%a" pp_a_nf_term a_nf_term
+        (AStore.pp_in ~pp_free_name:(embed pp_free_name)
+           ~pp_bound_name:(embed pp_bound_name))
+        astore
+    else pp_a_nf_term fmt a_nf_term
 
   let pp_a_nf ~pp_dir =
     let pp_name = IEnv.Renaming.Namectx.Names.pp_name in
@@ -152,17 +157,16 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
         ("string", `String (string_of_a_nf "" a_nf));
       ]
 
-  let renaming_a_nf (frenaming, _) (a_nf_term, store) =
+  let renaming_a_nf (frenaming, _) (a_nf_term, astore) =
     let a_nf_term' =
       OpLang.Nf.map
         ~f_val:(fun aval -> OpLang.AVal.rename aval frenaming)
         ~f_fn:Fun.id ~f_cn:Fun.id ~f_ectx:Fun.id a_nf_term in
-    (a_nf_term', store)
-  (* TODO: Rename also the store*)
+    (a_nf_term', AStore.rename astore frenaming)
 
   let concretize_a_nf store ienv (a_nf, renaming) =
     let lnamectx = Renaming.dom renaming in
-    let (a_nf_term', store') = renaming_a_nf renaming a_nf in
+    let (a_nf_term', astore') = renaming_a_nf renaming a_nf in
     let ((fname_env, stack_ctx) as ienv') = IEnv.weaken_r ienv lnamectx in
     let f_cn () =
       match StackEnv.get_last stack_ctx with
@@ -179,24 +183,19 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
     let typed_term =
       OpLang.type_annotating_val ~inj_ty:Fun.id ~get_type_fname ~get_type_cname
         a_nf_term' in
-    let f_val (aval, ty) = (OpLang.AVal.subst_pnames fname_env ty aval, ()) in
+    (* The store part first: it allocates the locations the value mentions. *)
+    let newstore = AStore.concretize store fname_env astore' in
+    let f_val (aval, ty) =
+      (OpLang.AVal.subst_pnames fname_env newstore ty aval, ()) in
     let f_fn fn = (OpLang.IEnv.lookup_exn fname_env fn, ()) in
     let (nf_term, ()) = OpLang.Nf.map_val () f_val typed_term in
     let (nf_term', ()) = OpLang.Nf.map_fn () f_fn nf_term in
     let (nf_term'', ienv'') = OpLang.Nf.map_cn ienv' f_cn nf_term' in
     Util.Debug.print_debug @@ "New Opponent context is "
     ^ Namectx.to_string (IEnv.im ienv'');
-    let newstore = OpLang.Store.update_store store store' in
     ((OpLang.refold_nf_term nf_term'', newstore), ienv'')
 
-  let labels_of_a_nf_term =
-    OpLang.Nf.apply_val [] OpLang.AVal.labels_of_abstract_val
-
-  let replace_store_of_a_nf (a_nf_term, _) store = (a_nf_term, store)
-  let abstracting_store = OpLang.Store.restrict
-  (* TODO: Deal with the abstraction process of the heap properly *)
-
-  let abstracting_nf_term nf_term ((fnamectxO, stackctxO) as namectxO) =
+  let abstracting_nf_term nf_term ((fnamectxO, stackctxO) as namectxO) store =
     Util.Debug.print_debug @@ "Abstracting_nf_term in the context "
     ^ Namectx.to_string namectxO;
     let ty_out = Stackctx.lookup_exn stackctxO () in
@@ -216,53 +215,52 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
     let nf_typed_term' =
       OpLang.type_annotating_ectx ~get_type_fname ty_out nf_typed_term in
     (* We could probably simplify type_annotating_ectx *)
-    let f_val (value, nty) = OpLang.AVal.abstracting_value value fnamectxO nty in
+    let f_val (value, nty) =
+      let (aval, fname_env, store') =
+        OpLang.AVal.abstracting_value value fnamectxO store nty in
+      (aval, (fname_env, store')) in
     let empty_stack = StackEnv.empty stackctxO in
     let f_ectx (ectx, (ty_hole, _)) =
       let ((), stack) = StackEnv.add_fresh empty_stack "" ty_hole ectx in
       ((), stack) in
-    let empty_fname_env = OpLang.IEnv.empty fnamectxO in
-    let (a_nf_term, fname_env) =
-      OpLang.Nf.map_val empty_fname_env f_val nf_typed_term' in
+    let empty_res = (OpLang.IEnv.empty fnamectxO, store) in
+    let (a_nf_term, (fname_env, store')) =
+      OpLang.Nf.map_val empty_res f_val nf_typed_term' in
     let (a_nf_term', stack) = OpLang.Nf.map_ectx empty_stack f_ectx a_nf_term in
-    (a_nf_term', (fname_env, stack))
+    (a_nf_term', (fname_env, stack), store')
 
-  let abstracting_nf (nf_term, store) namectxO storectx_discl =
-    let (a_nf_term, ienv) = abstracting_nf_term nf_term namectxO in
+  let abstracting_nf (nf_term, store) namectxO =
+    let (a_nf_term, (fname_env, stack), store') =
+      abstracting_nf_term nf_term namectxO store in
     if OpLang.Nf.is_error a_nf_term then None
     else
-      let label_l = labels_of_a_nf_term a_nf_term in
-      let storectx = OpLang.Store.infer_type_store store in
-      Util.Debug.print_debug @@ "The full store context is "
-      ^ OpLang.Store.Storectx.to_string storectx;
-      let storectx_discl' = OpLang.Store.restrict_ctx storectx label_l in
-      let storectx_discl'' =
-        OpLang.Store.Storectx.concat storectx_discl storectx_discl' in
-      Util.Debug.print_debug @@ "The new diclosed store context is "
-      ^ OpLang.Store.Storectx.to_string storectx_discl'';
-      let store_discl = abstracting_store storectx_discl' store in
-      Some ((a_nf_term, store_discl), ienv, storectx_discl'')
+      let (astore, fname_env', store'') =
+        AStore.abstracting store' [] store' fname_env in
+      Some ((a_nf_term, astore), (fname_env', stack), store'')
 
-  (* Notice that the disclosure process is in fact more complex
-     since the image of  store_discl might itself has
-     labels that becomes diclosed.
-     This computation would necessitate an iterative process. *)
-
-  let eval (opconf, namectxO, storectx_discl) =
+  let eval (opconf, namectxO, _storectx) =
     let open EvalMonad in
     let* (term', store') = OpLang.normalize_opconf opconf in
     let nf_term = OpLang.get_nf_term term' in
-    match abstracting_nf (nf_term, store') namectxO storectx_discl with
-    | Some ((a_nf_term, discl_store), ienv, storectx_discl) ->
+    match abstracting_nf (nf_term, store') namectxO with
+    | Some (a_nf, ienv, store'') ->
         let lnamectx = IEnv.dom ienv in
-        return
-          (((a_nf_term, discl_store), lnamectx, storectx_discl), ienv, store')
+        return ((a_nf, lnamectx, store_ctx_of_a_nf a_nf), ienv, store'')
     | None -> stop ()
+
+  let disclose_heap = OpLang.Store.disclose_heap
+
+  let complete_abstract_store store
+      ((a_nf_term, (astore : AStore.t)), (fname_env, stack)) =
+    let (astore', fname_env', _) =
+      AStore.abstracting store astore.values astore.constraints fname_env in
+    ((a_nf_term, astore'), (fname_env', stack))
 
   let fill_abstract_val storectx fnamectxP nf_skeleton =
     let gen_val in_ty =
       (*TODO: We should take into account the type var list*)
-      OpLang.AVal.generate_abstract_val storectx fnamectxP in_ty in
+      OpLang.AVal.generate_abstract_val storectx OpLang.Namectx.empty fnamectxP
+        in_ty in
     OpLang.Nf.abstract_nf_term_m ~gen_val nf_skeleton
 
   let generate_a_nf_call storectx ((fnamectxP, _stackctxP) as namectxP) =
@@ -288,11 +286,12 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
              some reason. *)
     let* (a_nf_term, (storectx, lfnamectx)) =
       fill_abstract_val storectx fnamectxP skel in
-    let* store = OpLang.Store.generate_store storectx in
+    let* (astore, (_, lfnamectx)) =
+      AStore.generate fnamectxP storectx lfnamectx in
     let ((), stackctx) = Stackctx.singleton typ in
     Util.Debug.print_debug @@ "Pushing on the stack "
     ^ Stackctx.to_string stackctx;
-    return ((a_nf_term, store), (lfnamectx, stackctx), namectxP)
+    return ((a_nf_term, astore), (lfnamectx, stackctx), namectxP)
 
   let[@warning "-8"] generate_a_nf_ret storectx (fnamectxP, stackctxP) =
     let open BranchMonad in
@@ -308,11 +307,12 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
       let* (skel, _typ) = OpLang.generate_nf_term_ret inj_ty cnamectx_pmap in
       let* (a_nf_term, (storectx, lfnamectx)) =
         fill_abstract_val storectx fnamectxP skel in
-      let* store = OpLang.Store.generate_store storectx in
+      let* (astore, (_, lfnamectx)) =
+        AStore.generate fnamectxP storectx lfnamectx in
       let namectxP' = (fnamectxP, stackctx') in
       Util.Debug.print_debug @@ "We get the following return :"
-      ^ string_of_a_nf "" (a_nf_term, store);
-      return ((a_nf_term, store), (lfnamectx, Stackctx.empty), namectxP')
+      ^ string_of_a_nf "" (a_nf_term, astore);
+      return ((a_nf_term, astore), (lfnamectx, Stackctx.empty), namectxP')
 
   let generate_a_nf storectx namectxP =
     BranchMonad.para_pair
@@ -321,15 +321,22 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
 
   let[@warning "-8"] type_check_a_nf storectx
       ((fnamectxP, stackctxP) as namectxP) (fnamectxO, _)
-      ((nf_term, _), (lnamectx, _stackctx)) =
+      ((nf_term, astore), (lnamectx, _stackctx)) =
     let inj_ty ty = ty in
     let empty_res = namectxP in
     let get_type_fname fn = OpLang.Namectx.lookup_exn fnamectxP fn in
     let get_type_cname () =
       let ty_hole = Stackctx.lookup_exn stackctxP () in
       (ty_hole, ty_hole) in
-    let type_check_oplang_val =
-      OpLang.AVal.type_check_abstract_val storectx fnamectxP fnamectxO in
+    let type_check_oplang_val ty (aval, lnamectx) =
+      match
+        OpLang.AVal.type_check_abstract_val storectx OpLang.Namectx.empty
+          fnamectxP fnamectxO ty aval
+      with
+      | Some (storectx', lnamectx') ->
+          AStore.type_check fnamectxP fnamectxO storectx' lnamectx'
+            (astore, lnamectx)
+      | None -> false in
     let type_check_call aval nty =
       let (_, ty_arg) = OpLang.get_input_type nty in
       (*let ty_out' = OpLang.get_output_type nty in*)
@@ -347,11 +354,13 @@ module MakeBase (OpLang : Language.WITHAVAL_INOUT) = struct
     OpLang.type_check_nf_term ~inj_ty ~empty_res ~get_type_fname ~get_type_cname
       ~type_check_call ~type_check_ret nf_term
 
-  let is_equiv_a_nf ~compare_heaps (anf1, store1) (anf2, store2) =
+  let is_equiv_a_nf ~compare_heaps (anf1, (astore1 : AStore.t))
+      (anf2, (astore2 : AStore.t)) =
     OpLang.Nf.equiv_nf_term
-      (OpLang.AVal.is_equiv_abstract_val store1 store2)
+      (OpLang.AVal.is_equiv_abstract_val astore1.constraints
+         astore2.constraints)
       anf1 anf2
-    && OpLang.Store.is_equiv_store ~compare_heaps store1 store2
+    && AStore.is_equiv ~compare_heaps astore1 astore2
 
   let get_typed_namectx lexBuffer_signature =
     (OpLang.get_typed_namectx lexBuffer_signature, Stackctx.empty)

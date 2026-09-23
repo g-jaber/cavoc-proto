@@ -58,12 +58,29 @@ module type AVAL = sig
       - an abstract value A for the observable part,
       - a typed interactive environment γ for the negative part.
     The type τ is needed to guide this abstracting process for polymorphic languages. *)
+  (* A location of V already disclosed in µ is abstracted as ALocFree of its
+     location name; one not yet disclosed is disclosed by the move, at the
+     location name fresh for Σ, and abstracted as ALocBound. *)
   val abstracting_value :
-    value -> name_ctx -> typ -> abstract_val * interactive_env
+    value -> name_ctx -> store -> typ -> abstract_val * interactive_env * store
 
-  (* subst_pnames γ τ A replaces the names of γ in A, read at the type τ, by
-     their values. *)
-  val subst_pnames : interactive_env -> typ -> abstract_val -> value
+  (* abstracting_store γ µ values extends values with the abstracted value
+     of every disclosed location it does not cover, to a fixpoint since a
+     stored value may disclose locations; their fresh names extend γ. *)
+  val abstracting_store :
+    interactive_env ->
+    store ->
+    abstract_val list ->
+    abstract_val list * interactive_env * store
+
+  (* subst_pnames γ µ τ A replaces the names of γ in A, read at the type τ, by
+     their values and its location names by their locations in µ. *)
+  val subst_pnames : interactive_env -> store -> typ -> abstract_val -> value
+
+  (* concretize_store γ µ Σ' values allocates the locations of Σ' absent from
+     µ, then writes the values of the locations of Σ' in µ. *)
+  val concretize_store :
+    interactive_env -> store -> store_ctx -> abstract_val list -> store
 
   (* rename A ρ instantiates the bound names of A along ρ : Δ → Γ+Δ. *)
   val rename : abstract_val -> renaming -> abstract_val
@@ -72,8 +89,17 @@ module type AVAL = sig
      name contexts of the position, Δ being the fresh names introduced by A. *)
   (* A free polymorphic name is looked up at its type in Γ_P then in Γ_O; by
      its kind exactly one of them can hold it. *)
+  (* The pair (Σ, Δ) the move has declared so far, given first, is returned
+     extended with what A binds, a bound name having to be the next one; None
+     when A is ill typed. *)
   val type_check_abstract_val :
-    store_ctx -> name_ctx -> name_ctx -> typ -> abstract_val * name_ctx -> bool
+    store_ctx ->
+    name_ctx ->
+    name_ctx ->
+    name_ctx ->
+    typ ->
+    abstract_val ->
+    (store_ctx * name_ctx) option
 
   module BranchMonad : Util.Monad.BRANCH
 
@@ -83,8 +109,11 @@ module type AVAL = sig
      The names introduced by A are de Bruijn levels of the locally built Δ,
      given an ambient identity by the weakening Δ ↪ Γ_O + Δ that the machine
      computes, so that we do not need to provide Γ_O. *)
+  (* The first two arguments are the pair (Σ, Δ) the move has declared so
+     far, returned extended. *)
   val generate_abstract_val :
     store_ctx ->
+    name_ctx ->
     name_ctx ->
     typ ->
     (abstract_val * (store_ctx * name_ctx)) BranchMonad.m
