@@ -69,7 +69,7 @@ module Make (IntLts : Strategy.LTS_WITH_INIT) :
     ( IntLts.lexing_init_aconf expr1_lexbuffer,
       IntLts.lexing_init_aconf expr2_lexbuffer )
 
-  let lexing_init_pconf decl1_lexbuffer decl2_lexbuffer signature_lexbuffer =
-    ( IntLts.lexing_init_pconf decl1_lexbuffer signature_lexbuffer,
-      IntLts.lexing_init_pconf decl2_lexbuffer signature_lexbuffer )
+  let lexing_init_pconf ~first_implem ~second_implem ~first_sig ~second_sig =
+    ( IntLts.lexing_init_pconf first_implem first_sig,
+      IntLts.lexing_init_pconf second_implem second_sig )
 end

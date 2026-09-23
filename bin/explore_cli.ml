@@ -54,6 +54,7 @@ let speclist =
 
 let usage_msg =
   "Usage: explore filename.ml filename.mli [options]\n\
+  \       explore -compare first.ml second.ml shared.mli [options]\n\
   \       explore -compose module.ml module.mli client.ml client.mli [options]"
 
 let generate_kind_lts () =
@@ -253,9 +254,16 @@ let build_strategy kind_lts =
       let module RunLts = MakeRunLts (Synch_LTS) in
       let module IBuild = Lts.Interactive_build.Make (Output) (RunLts) in
       let init_conf =
-        Synch_LTS.Active
-          (Synch_LTS.lexing_init_aconf (open_lexbuf !filename1)
-             (open_lexbuf !filename2)) in
+        if !is_program then
+          Synch_LTS.Active
+            (Synch_LTS.lexing_init_aconf (open_lexbuf !filename1)
+               (open_lexbuf !filename2))
+        else
+          Synch_LTS.Passive
+            (Synch_LTS.lexing_init_pconf ~first_implem:(open_lexbuf !filename1)
+               ~second_implem:(open_lexbuf !filename2)
+               ~first_sig:(open_lexbuf !filename3)
+               ~second_sig:(open_lexbuf !filename3)) in
       run_interaction (module IBuild) init_conf
   | Compose ->
       let (module Composition) = Lts_kind.build_compose_lts kind_lts in

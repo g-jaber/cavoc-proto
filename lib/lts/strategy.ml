@@ -63,8 +63,14 @@ module type LTS_WITH_INIT_BIN = sig
 
   val lexing_init_aconf : Lexing.lexbuf -> Lexing.lexbuf -> active_conf
 
+  (* The two modules share one signature, given in two buffers since parsing
+     consumes its buffer. *)
   val lexing_init_pconf :
-    Lexing.lexbuf -> Lexing.lexbuf -> Lexing.lexbuf -> passive_conf
+    first_implem:Lexing.lexbuf ->
+    second_implem:Lexing.lexbuf ->
+    first_sig:Lexing.lexbuf ->
+    second_sig:Lexing.lexbuf ->
+    passive_conf
 end
 
 (* The tensor of two strategies, over the tensor of their typing LTSs.
