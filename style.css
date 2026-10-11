@@ -818,24 +818,6 @@ body.mode-compose .trace-lane {
   display: none;
 }
 
-/* The Client tab (bin/synthesis_display.ml): the synthesized client program,
-   or the reason there is none. */
-#client pre {
-  font-family: "Courier New", Courier, monospace;
-  font-size: 13px;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  margin: 0;
-  padding: 10px 12px;
-}
-#client .client-note {
-  color: #a6a69c;
-  font-style: italic;
-}
-#client .client-source {
-  color: #e8e8e4;
-}
-
 /* --------------------------------------------------------------------------
    Guide panel: a drawer over the right edge; tutorial text and help.md
    render here (front/scenario.js).
