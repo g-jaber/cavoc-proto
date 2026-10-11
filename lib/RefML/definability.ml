@@ -348,7 +348,7 @@ and pp_source_atomic_typ fmt = function
   | Types.TExn -> Format.pp_print_string fmt "exn"
   | Types.TVar tvar -> Format.pp_print_string fmt tvar
   | Types.TName id -> Format.pp_print_string fmt id
-  | Types.TRef typ -> Format.fprintf fmt "ref %a" pp_source_atomic_typ typ
+  | Types.TRef typ -> Format.fprintf fmt "%a ref" pp_source_atomic_typ typ
   | Types.TRecord fields ->
       Format.pp_print_string fmt "{ ";
       Util.Pmap.iter

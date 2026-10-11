@@ -35,7 +35,7 @@ let rec pp_typ fmt = function
       Format.fprintf fmt "%a × %a" pp_par_typ ty1 pp_par_typ ty2
   | TSum (ty1, ty2) ->
       Format.fprintf fmt "%a + %a" pp_par_typ ty1 pp_par_typ ty2
-  | TRef ty -> Format.fprintf fmt "ref %a" pp_typ ty
+  | TRef ty -> Format.fprintf fmt "%a ref" pp_par_typ ty
   | TExn -> Format.fprintf fmt "exn"
   | TVar typevar -> pp_tvar fmt typevar
   | TForall ([], ty) -> Format.fprintf fmt "%a" pp_typ ty
@@ -63,7 +63,6 @@ and pp_par_typ fmt = function
       Format.fprintf fmt "(%a × %a)" pp_par_typ ty1 pp_par_typ ty2
   | TSum (ty1, ty2) ->
       Format.fprintf fmt "(%a + %a)" pp_par_typ ty1 pp_par_typ ty2
-  | TRef ty -> Format.fprintf fmt "(ref %a)" pp_typ ty
   | TForall ([], ty) -> Format.fprintf fmt "%a" pp_typ ty
   | TForall (tvar_l, ty) ->
       Format.fprintf fmt "(∀%a . %a)" pp_tvar_l tvar_l pp_typ ty

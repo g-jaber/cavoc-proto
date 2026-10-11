@@ -306,7 +306,6 @@ let evaluate_code () =
                 recorded_moves := move :: !recorded_moves;
                 if fst move = OGS_LTS.TypingLTS.Moves.Input then
                   Synthesis_display.display_synthesized_client
-                    ~imports:participant.Editor_manager.signature_code
                     (fun () ->
                       synthesize_client_source initial_position
                         (List.rev !recorded_moves)) in

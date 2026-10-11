@@ -1,1 +1,1 @@
-let f g = while true do g (); g () in f
+let f g = while true do g (); g () done in f

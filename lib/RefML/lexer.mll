@@ -46,13 +46,14 @@ rule token = parse
   | "rec" { REC }
   | "in"  { IN }
   | "fun"  { FUN }
-  | "fix"  { FIX }
   | "with"  { WITH }
   | "assert" { ASSERT }
   | "while" { WHILE }
   | "do" { DO }
   | "done" { DONE }
   | "nondet" { NONDET }
+  | "begin" { BEGIN }
+  | "end" { END }
 
   | "()" { UNIT }
   | "ref" { REF }

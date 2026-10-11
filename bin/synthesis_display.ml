@@ -19,15 +19,10 @@ let display_no_client reason = set_client_code ("(* " ^ reason ^ " *)")
 
 (* The synthesis fails outside the definable fragment, so it is run
    here, where its reason can be shown in place of the code. *)
-let display_synthesized_client ~imports synthesize =
+let display_synthesized_client synthesize =
   match synthesize () with
   | None -> reset ()
-  | Some source ->
-      let header =
-        match String.trim imports with
-        | "" -> ""
-        | imports -> "(* imports *)\n" ^ imports ^ "\n\n(* client *)\n" in
-      set_client_code (header ^ source)
+  | Some source -> set_client_code source
   | exception Failure reason -> display_no_client reason
 
 (* The read-only module pane of a card (front/common.js). *)

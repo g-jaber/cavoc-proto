@@ -17,11 +17,12 @@
 %token TRUE FALSE
 %token LPAR RPAR LBRACE RBRACE COMMA COLON SEMICOLON DOT
 %token LET REC IN
-%token FUN FIX ARROW
+%token FUN ARROW
 %token IF THEN ELSE
 %token UNIT
 %token REF ASSIGN DEREF NONDET
 %token WHILE DO DONE
+%token BEGIN END
 %token WITH
 %token ASSERT
 %token RAISE
@@ -37,21 +38,20 @@
 %token TEXN
 
 %right ARROW
-%left ELSE IN
+%nonassoc below_PIPE
+%left PIPE
+%left IN
 %left SEMICOLON
+%left ELSE
 %left ASSIGN
 %left LOR
 %left LAND
+%left EQ NEQ GREAT GREATEQ LESS LESSEQ
 %left PLUS MINUS
 %left MULT DIV
-%nonassoc REF
-%nonassoc ASSERT
-%nonassoc RAISE
-%nonassoc NOT
-%nonassoc EQ NEQ GREAT GREATEQ LESS LESSEQ
 
 %nonassoc CONSTRUCTOR
-%nonassoc VAR UNIT INT TRUE FALSE LPAR DEREF LBRACE
+%nonassoc VAR UNIT INT TRUE FALSE LPAR DEREF LBRACE NONDET BEGIN
 
 %start prog
 %type <Declaration.implem_decl list> prog
@@ -66,7 +66,7 @@
 %%
 
 fullexpr: 
-| e=expr_with_try_or_match; EOF  { e }
+| e=expr; EOF  { e }
 
 prog: 
 | l=list_implem_decl; EOF  { l }
@@ -83,7 +83,7 @@ signature_decl:
 
 implem_decl:
   | TYPE v=VAR EQ t=ty { TypeDecl (v,t) }
-  | LET v=VAR l=list_ident EQ e=expr_with_try_or_match
+  | LET v=VAR l=list_ident EQ e=expr
     { ValDecl (v, List.fold_left (fun expr var -> Fun (var,expr)) e l) }
   | LET REC v=VAR t=typed_ident l=list_ident EQ e=expr
     { ValDecl (v, Fix ((v,TUndef),t, List.fold_left (fun expr_with_try_or_match var -> Fun (var,expr_with_try_or_match)) e l)) }
@@ -112,13 +112,11 @@ list_implem_decl:
 
  handler : PIPE p=pattern ARROW e=expr {p,e}
  handler_list :
-   | { [] }
+   | %prec below_PIPE { [] }
    | h=handler hl=handler_list {Handler h :: hl}
-
-expr_with_try_or_match:
-  | e=expr { e }
-  | TRY e=expr WITH hl=handler_list { TryWith (e,hl) }
-  | MATCH e=expr WITH hl=handler_list { Match (e, hl) }
+ handler_list_with_optional_first_pipe :
+   | hl=handler_list { hl }
+   | p=pattern ARROW e=expr hl=handler_list { Handler (p, e) :: hl }
 
 
 expr:
@@ -126,8 +124,8 @@ expr:
   | e1=expr SEMICOLON e2=expr         { Seq (e1, e2) }
   | IF e1=expr THEN e2=expr ELSE e3=expr        { If (e1, e2, e3) }
   | FUN tid=typed_ident ARROW e=expr { Fun (tid, e) }
-  | FIX tid1=typed_ident tid2=typed_ident ARROW e=expr
-    { Fix (tid1, tid2, e) }
+  | TRY e=expr WITH hl=handler_list_with_optional_first_pipe { TryWith (e,hl) }
+  | MATCH e=expr WITH hl=handler_list_with_optional_first_pipe { Match (e, hl) }
   | LET v=VAR lid=list_ident EQ e1=expr IN e2=expr
     { Let (v, List.fold_left (fun expr var -> Fun (var,expr)) e1 lid, e2) }
   | LET REC v=VAR tid=typed_ident lid=list_ident EQ e1=expr IN e2=expr
@@ -135,16 +133,12 @@ expr:
   | LET LPAR v1=VAR COMMA v2=VAR RPAR EQ e1=expr IN e2=expr
     { LetPair (v1,v2,e1,e2)}
   | WHILE e1=expr DO e2=expr DONE { While (e1,e2) }
-  | REF e=expr         { Newref (TUndef,e) }
   | e1=expr ASSIGN e2=expr { Assign (e1,e2) }
-  | ASSERT e=expr      { Assert e }
-  | RAISE e=expr { Raise e }
 (*  | MINUS e=expr          { UMinus e }  *)
   | e1=expr PLUS e2=expr     { BinaryOp (Plus, e1, e2) }
   | e1=expr MINUS e2=expr    { BinaryOp (Minus, e1, e2) }
   | e1=expr MULT e2=expr     { BinaryOp (Mult, e1, e2) }
   | e1=expr DIV e2=expr      { BinaryOp (Div, e1, e2) }
-  | NOT e=expr          { UnaryOp (Not, e) }
   | e1=expr LAND e2=expr     { BinaryOp (And, e1, e2) }
   | e1=expr LOR e2=expr      { BinaryOp (Or, e1, e2) }
   | e1=expr EQ e2=expr      { BinaryOp (Equal, e1, e2) }
@@ -157,6 +151,10 @@ expr:
 app_expr:
   | e=proj_expr { e }
   | e1=app_expr e2=proj_expr         { App (e1, e2) }
+  | REF e=proj_expr         { Newref (TUndef,e) }
+  | ASSERT e=proj_expr      { Assert e }
+  | RAISE e=proj_expr { Raise e }
+  | NOT e=proj_expr          { UnaryOp (Not, e) }
 
 proj_expr:
   | e=simple_expr { e }
@@ -174,7 +172,8 @@ simple_expr:
   | LPAR e1=expr COMMA e2=expr RPAR   { Pair (e1, e2) }
   | DEREF v=VAR       { Deref (Var v) }
   | LBRACE r=record RBRACE  { Record (Util.Pmap.list_to_pmap r) }
-  | LPAR e=expr_with_try_or_match RPAR   { e }
+  | LPAR e=expr RPAR   { e }
+  | BEGIN e=expr END   { e }
 
 record:
   | v=VAR EQ e=expr { [(v, e)] }
@@ -197,7 +196,7 @@ atomic_ty:
   | TINT          { TInt }
   | LPAR t=arrow_ty RPAR { t }
   | LBRACE r=t_record RBRACE { TRecord (Util.Pmap.list_to_pmap r) }
-  | REF t=atomic_ty { TRef t }
+  | t=atomic_ty REF { TRef t }
   | TEXN  { TExn }
 
 t_record:
@@ -217,6 +216,8 @@ ty:
   | a=algebraic_decl  { TAlgebraic (Util.Pmap.list_to_pmap a)}
 
 algebraic_decl:
+  | c=CONSTRUCTOR { [(c, None)] }
+  | c=CONSTRUCTOR OF t=arrow_ty { [(c, Some t)] }
   | PIPE c=CONSTRUCTOR { [(c, None)] }
   | PIPE c=CONSTRUCTOR OF t=arrow_ty { [(c, Some t)] }
   | e=algebraic_decl PIPE c=CONSTRUCTOR { (c, None)::e }

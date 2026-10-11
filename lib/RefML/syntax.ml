@@ -167,9 +167,9 @@ and pp_term_in pp_name fmt term =
         e3
   | Fun (typedvar, e) ->
       Format.fprintf fmt "fun %a -> %a" pp_typed_var typedvar pp_term e
-  | Fix (typedvar1, typedvar2, e) ->
-      Format.fprintf fmt "fix %a %a -> %a" pp_typed_var typedvar1 pp_typed_var
-        typedvar2 pp_term e
+  | Fix ((f, _), typedvar, e) ->
+      Format.fprintf fmt "let rec %a %a = %a in %a" pp_id f pp_typed_var
+        typedvar pp_term e pp_id f
   | Let (var, e1, e2) ->
       Format.fprintf fmt "let %a = %a in %a" pp_id var pp_term e1 pp_term e2
   | LetPair (var1, var2, e1, e2) ->
