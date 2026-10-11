@@ -23,6 +23,7 @@ depends: [
   "cohttp-lwt-unix"
   "ppx_deriving_yojson"
   "msat"
+  "ocamlformat-lib"
 ]
 build: [
   ["dune" "subst"] {dev}

@@ -33,7 +33,8 @@
   cohttp-lwt-jsoo
   cohttp-lwt-unix
   ppx_deriving_yojson
-  msat)
+  msat
+  ocamlformat-lib)
  (tags
   (topics "to describe" your project)))
 

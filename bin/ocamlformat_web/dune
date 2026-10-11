@@ -1,0 +1,4 @@
+(executable
+ (name ocamlformat_web)
+ (modes js)
+ (libraries js_of_ocaml ocamlformat-lib))
