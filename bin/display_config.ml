@@ -4,8 +4,8 @@
    Renders a passive configuration into the participant card it belongs to:
    the IEnv and Store live panels, and the raw JSON in the Configuration
    tab. *)
-(* The panel elements are built by front/common.js and hold the collapsed/Δ/
-   full state, so only the strip text and the entries are replaced here. *)
+(* The panel elements are built by front/common.js, so only their entries are
+   replaced here. *)
 
 open Js_of_ocaml
 
@@ -63,143 +63,69 @@ let store_entry_pairs (store_json : Yojson.Safe.t)
         (private_bindings @ entries "heap" @ symbolic_path)
   | _ -> []
 
-(* --- the Δ of the last move ------------------------------------------
-   An ienv entry is fresh when its name is new, a store cell when it is new or
-   its value changed, both read off the previously committed configuration. *)
-(* Contexts only ever grow, so the increment stays small even when the total
-   is large. *)
-
-type committed_entries = {
-  ienv_pairs: (string * string) list;
-  store_pairs: (string * string) list;
-}
-
-let committed_baselines : (int * committed_entries) list ref = ref []
-let reset_move_deltas () = committed_baselines := []
-
-let baseline_of_card card =
-  match List.assoc_opt card !committed_baselines with
-  | Some entries -> entries
-  | None -> { ienv_pairs= []; store_pairs= [] }
-
-let commit_baseline card entries =
-  committed_baselines :=
-    (card, entries) :: List.remove_assoc card !committed_baselines
-
 (* --- HTML ----------------------------------------------------------------- *)
 
-let plural n word = if n = 1 then word else word ^ "s"
-
-(* Prepended to the entries when the last move changed nothing, so the Δ state
-   of the panel has something to say. *)
-let delta_note_html fresh_count =
-  if fresh_count = 0 then
-    "<div class=\"delta-note\">no change on the last move</div>"
-  else ""
-
-(* One entry: a one-line clamped summary, expandable into the full text. *)
+(* One entry: its name, then its full text. *)
 (* Only ienv entries are subjects a move can address, so only they carry the
    class Moves_display.highlight_subject targets. *)
-let entry_html ~fresh ~name ~item_class ~head_class ~text =
+let entry_html ~name ~item_class ~head_class ~text =
   Printf.sprintf
-    "<details class=\"live-entry %s%s\" data-name=\"%s\">\n\
-     <summary><span class=\"%s\">%s</span><span \
-     class=\"entry-preview\">%s</span></summary>\n\
-     <pre class=\"entry-code\">%s</pre>\n\
-     </details>"
+    "<div class=\"live-entry %s\" data-name=\"%s\"><span \
+     class=\"%s\">%s</span><span class=\"entry-text\">%s</span></div>"
     item_class
-    (if fresh then " fresh" else "")
     (Ui_helpers.html_escape name)
     head_class
     (Ui_helpers.html_escape name)
     (Ui_helpers.html_escape text)
-    (Ui_helpers.html_escape text)
 
-(* Writes one live panel of a card, leaving the panel node itself — and with
-   it the collapsed/Δ/full state — alone. *)
-let update_live_panel ~card ~kind ~strip_text ~entries_html =
+(* Writes the entries of one live panel of a card. *)
+let update_live_panel ~card ~kind ~entries_html =
   let element_id suffix = Printf.sprintf "card-%d-%s%s" card kind suffix in
   (match Dom_html.getElementById_opt (element_id "-panel") with
   | Some panel -> panel##.classList##add (Js.string "has-data")
-  | None -> ());
-  (match Dom_html.getElementById_opt (element_id "-strip") with
-  | Some strip -> strip##.textContent := Js.some (Js.string strip_text)
   | None -> ());
   match Dom_html.getElementById_opt (element_id "") with
   | Some container -> container##.innerHTML := Js.string entries_html
   | None -> ()
 
-let display_ienv_panel ~card ~baseline ienv_json =
+let display_ienv_panel ~card ienv_json =
   match ienv_json with
   | None ->
       update_live_panel ~card ~kind:"ienv"
-        ~strip_text:"interactive environment — none"
-        ~entries_html:"<div class=\"conf-notice\">No ienv data available.</div>";
-      []
+        ~entries_html:"<div class=\"conf-notice\">No ienv data available.</div>"
   | Some ienv_json -> (
       match ienv_entry_pairs ienv_json with
       | None ->
           update_live_panel ~card ~kind:"ienv"
-            ~strip_text:"interactive environment — invalid format"
             ~entries_html:
               (Printf.sprintf
                  "<div class=\"conf-notice\">Expected a JSON object (Assoc), \
                   but received:<br><code>%s</code></div>"
                  (Ui_helpers.html_escape
-                    (Yojson.Safe.pretty_to_string ienv_json)));
-          []
+                    (Yojson.Safe.pretty_to_string ienv_json)))
       | Some pairs ->
-          let fresh_names =
-            List.filter
-              (fun (name, _) -> not (List.mem_assoc name baseline.ienv_pairs))
-              pairs in
           let entries_html =
-            delta_note_html (List.length fresh_names)
-            ^ (pairs
-              |> List.map (fun (name, text) ->
-                  entry_html
-                    ~fresh:(List.mem_assoc name fresh_names)
-                    ~name ~item_class:"ienv-item" ~head_class:"ienv-id" ~text)
-              |> String.concat "\n") in
-          let strip_text =
-            Printf.sprintf "interactive environment — %d %s · Δ +%d"
-              (List.length pairs)
-              (plural (List.length pairs) "name")
-              (List.length fresh_names) in
-          update_live_panel ~card ~kind:"ienv" ~strip_text ~entries_html;
-          pairs)
+            pairs
+            |> List.map (fun (name, text) ->
+                entry_html ~name ~item_class:"ienv-item" ~head_class:"ienv-id"
+                  ~text)
+            |> String.concat "\n" in
+          update_live_panel ~card ~kind:"ienv" ~entries_html)
 
-let display_store_panel ~card ~baseline store_json ienv_json =
+let display_store_panel ~card store_json ienv_json =
   match store_json with
   | None ->
-      update_live_panel ~card ~kind:"store" ~strip_text:"store — none"
+      update_live_panel ~card ~kind:"store"
         ~entries_html:
-          "<div class=\"conf-notice\">No store data available.</div>";
-      []
+          "<div class=\"conf-notice\">No store data available.</div>"
   | Some store_json ->
-      let pairs = store_entry_pairs store_json ienv_json in
-      let changed_cells =
-        List.filter
-          (fun (location, value) ->
-            match List.assoc_opt location baseline.store_pairs with
-            | Some previous_value -> previous_value <> value
-            | None -> true)
-          pairs in
       let entries_html =
-        delta_note_html (List.length changed_cells)
-        ^ (pairs
-          |> List.map (fun (location, text) ->
-              entry_html
-                ~fresh:(List.mem_assoc location changed_cells)
-                ~name:location ~item_class:"store-item" ~head_class:"store-key"
-                ~text)
-          |> String.concat "\n") in
-      let strip_text =
-        Printf.sprintf "store — %d %s · %d changed" (List.length pairs)
-          (if List.length pairs = 1 then "entry" else "entries")
-          (List.length changed_cells) in
-      update_live_panel ~card ~kind:"store" ~strip_text ~entries_html;
-      pairs
+        store_entry_pairs store_json ienv_json
+        |> List.map (fun (location, text) ->
+            entry_html ~name:location ~item_class:"store-item"
+              ~head_class:"store-key" ~text)
+        |> String.concat "\n" in
+      update_live_panel ~card ~kind:"store" ~entries_html
 
 (* The Configuration tab is an ACE editor, reached through the instance the
    page stored on the window object (see cavocInitAce in front/common.js). *)
@@ -211,34 +137,28 @@ let set_config_editor_text (text : string) : unit =
   Js.Unsafe.meth_call config_editor "clearSelection" [||] |> ignore
 
 (* Shown in place of a configuration whose branch has no continuation. *)
-(* Previews never advance the Δ baselines, and neither does this. *)
 let display_terminal_conf ?(card = 0) (reason : string) : unit =
   set_config_editor_text reason;
   let notice =
     Printf.sprintf "<div class=\"conf-notice\">%s</div>"
       (Ui_helpers.html_escape reason) in
-  update_live_panel ~card ~kind:"ienv"
-    ~strip_text:"interactive environment — no continuation" ~entries_html:notice;
-  update_live_panel ~card ~kind:"store" ~strip_text:"store — no continuation"
-    ~entries_html:notice
+  update_live_panel ~card ~kind:"ienv" ~entries_html:notice;
+  update_live_panel ~card ~kind:"store" ~entries_html:notice
 
 (* The live panels of one card, fed from one component's configuration
    JSON; the composite routes its two sides here, one card each. *)
-let display_conf_panels ~card ~preview conf_json : unit =
+let display_conf_panels ~card conf_json : unit =
   match conf_json with
   | `Assoc fields ->
       let ienv_json = List.assoc_opt "ienv" fields in
       let store_json = List.assoc_opt "store" fields in
-      let baseline = baseline_of_card card in
-      let ienv_pairs = display_ienv_panel ~card ~baseline ienv_json in
-      let store_pairs =
-        display_store_panel ~card ~baseline store_json ienv_json in
-      if not preview then commit_baseline card { ienv_pairs; store_pairs }
+      display_ienv_panel ~card ienv_json;
+      display_store_panel ~card store_json ienv_json
   | _ -> Ui_helpers.print_to_output "Invalid JSON format"
 
-let display_conf ?(card = 0) ?(preview = false) conf_json : unit =
+let display_conf ?(card = 0) conf_json : unit =
   set_config_editor_text (Yojson.Safe.pretty_to_string conf_json);
-  display_conf_panels ~card ~preview conf_json
+  display_conf_panels ~card conf_json
 
 (* --- the composite: two cards and the play panel ------------------------------
    The client left and the module right, each {strategy, position,
@@ -308,7 +228,7 @@ let display_shared_position =
   display_position ~element_id:"play-panel-shared" ~title:"shared context"
     ~labelP:"provided by the module" ~labelO:"introduced by the client"
 
-let display_composite_conf ?(preview = false) conf_json : unit =
+let display_composite_conf conf_json : unit =
   set_config_editor_text (Yojson.Safe.pretty_to_string conf_json);
   match conf_json with
   | `Assoc _ ->
@@ -317,7 +237,7 @@ let display_composite_conf ?(preview = false) conf_json : unit =
       let card split_json card =
         match Option.bind split_json (field "strategy") with
         | Some component_json ->
-            display_conf_panels ~card ~preview component_json
+            display_conf_panels ~card component_json
         | None -> () in
       card (split "right") 0;
       card (split "left") 1;

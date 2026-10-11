@@ -85,8 +85,6 @@ function cavocToolbarMarkup() {
         </div>
       </div>
       <span class="toolbar-spacer"></span>
-      <button id="tutorial-btn" class="tbtn">Tutorial</button>
-      <button id="guide-btn" class="tbtn">Guide</button>
       <button id="shutdown-btn" class="server-badge" style="display:none"
               title="Stop the local server">
         <span class="server-dot"></span>local server &mdash; stop</button>
@@ -168,12 +166,13 @@ function cavocWorkspaceMarkup() {
 
 window.cavocCards = [];
 
-/* The role a card's signature plays, stated in its chrome: the rightmost
-   module's signature is the public interface the user plays on; the modules
-   before it (compose mode) share theirs with the next participant. */
+/* The role a card's signature plays, stated in its chrome when there are
+   several cards: the rightmost module's signature is the public interface the
+   user plays on; the modules before it share theirs with the next one. */
 function cavocCardRole(mode, index, count) {
     if (mode === 'synthesis')
         return index === 0 ? 'synthesized module' : 'synthesized client';
+    if (mode !== 'compose') return '';
     if (index === count - 1) return 'public signature';
     return 'shared interface — not public';
 }
@@ -184,7 +183,7 @@ function cavocCardMarkup(participant, index, role) {
     <section class="participant-card" id="card-${i}">
       <header class="card-head">
         <span class="card-name" id="card-${i}-name"></span>
-        <span class="role-badge">${role}</span>
+        ${role ? `<span class="role-badge">${role}</span>` : ''}
         <span class="card-head-spacer"></span>
         <select class="card-file tsel" id="card-${i}-file" title="Load another module into this card"></select>
         <button class="card-collapse" id="card-${i}-collapse" title="Collapse the editors">&#9662;</button>
@@ -201,12 +200,12 @@ function cavocCardMarkup(participant, index, role) {
           <div class="card-editor" id="card-${i}-sig"></div>
         </div>
       </div>
-      <div class="live-panel state-full" id="card-${i}-ienv-panel">
-        <button class="live-strip" id="card-${i}-ienv-strip">interactive environment</button>
+      <div class="live-panel" id="card-${i}-ienv-panel">
+        <div class="live-strip">interactive environment</div>
         <div class="live-entries" id="card-${i}-ienv"></div>
       </div>
-      <div class="live-panel state-collapsed" id="card-${i}-store-panel">
-        <button class="live-strip" id="card-${i}-store-strip">store</button>
+      <div class="live-panel" id="card-${i}-store-panel">
+        <div class="live-strip">store</div>
         <div class="live-entries" id="card-${i}-store"></div>
       </div>
     </section>`;
@@ -277,27 +276,8 @@ function cavocSetHistoryLanes(mode) {
     }
 }
 
-/* A live panel is a summary strip over its entries; clicking the strip
-   cycles it through its three states — collapsed (strip only, the focused
-   move's subject still peeks through), the Δ of the last move, the full
-   state. The interactive environment rests unfolded (state-full): it is the
-   list of values the user may play with. The store rests collapsed. The
-   state classes live on the panel node, which survives re-renders:
-   bin/display_config.ml only replaces the strip text and the entries. */
-const cavocPanelStates = ['state-collapsed', 'state-delta', 'state-full'];
-
-function cavocCyclePanelState(panel) {
-    const current = cavocPanelStates.findIndex((c) => panel.classList.contains(c));
-    panel.classList.remove(cavocPanelStates[current]);
-    panel.classList.add(cavocPanelStates[(current + 1) % cavocPanelStates.length]);
-}
-
 function cavocWireCard(index) {
     const card = document.getElementById(`card-${index}`);
-    card.querySelectorAll('.live-strip').forEach((strip) => {
-        strip.addEventListener('click', () =>
-            cavocCyclePanelState(strip.parentElement));
-    });
     const paneSplitter = document.getElementById(`card-${index}-pane-splitter`);
     paneSplitter.addEventListener('mousedown', (e) => {
         cavocPaneDrag = {
@@ -451,7 +431,7 @@ function cavocInitSplitter() {
     });
 }
 
-/* The side tabs rest folded to their tab buttons; the History window takes
+/* Folded, the side tabs show only their buttons; the History window takes
    the width they free. Opening a tab unfolds the pane, clicking the open
    tab folds it back. */
 function cavocFoldSideTabs() {

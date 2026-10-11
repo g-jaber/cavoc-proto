@@ -277,11 +277,9 @@ body.tutorial .card-file {
 }
 
 /* --------------------------------------------------------------------------
-   Live panels: summary first. Each panel is a one-line strip; clicking it
-   cycles collapsed -> Δ of the last move -> full state (cavocCyclePanelState,
-   front/common.js). The entries never grow the page: the body is bounded and
-   scrolls. A panel only appears once a run has fed it (has-data, set by
-   bin/display_config.ml).
+   Live panels: a label over every entry, in full. The entries never grow the
+   page: the body is bounded and scrolls. A panel only appears once a run has
+   fed it (has-data, set by bin/display_config.ml).
    -------------------------------------------------------------------------- */
 .live-panel {
   display: none;
@@ -301,23 +299,9 @@ body.tutorial .card-file {
   background: #efefec;
   border: none;
   padding: 4px 10px;
-  cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.live-strip:hover {
-  background: #e6e6e2;
-}
-/* The strip announces the state it cycles to next. */
-.live-strip::before {
-  content: "▸ ";
-  color: #8a8a86;
-}
-.state-delta .live-strip::before,
-.state-full .live-strip::before {
-  content: "▾ ";
-  color: #8a8a86;
 }
 
 .live-entries {
@@ -328,78 +312,25 @@ body.tutorial .card-file {
   font-size: 12px;
   color: #f8f8f2;
 }
-/* An empty container keeps no height, so a collapsed panel is just its
-   strip. */
+/* An empty container keeps no height. */
 .live-entries:empty {
   display: none;
 }
 
-/* The three states. Collapsed hides the entries individually, so the entry
-   of the focused move's subject can still peek through
-   (bin/moves_display.ml sets .peek). The Δ state only shows what the last
-   move changed (.fresh, set by bin/display_config.ml). */
-.state-collapsed .live-entry {
-  display: none;
-}
-.state-collapsed .live-entry.peek {
-  display: block;
-}
-.state-delta .live-entry:not(.fresh):not(.peek) {
-  display: none;
-}
-.delta-note {
-  display: none;
-  padding: 4px 10px;
-  color: #75715e;
-  font-style: italic;
-}
-.state-delta .delta-note {
-  display: block;
-}
-
-/* One entry per name / location: a one-line clamped summary, expandable per
-   entry into the full text. */
+/* One entry per name / location: its name, then its full text. */
 .live-entry {
   border-bottom: 1px solid #3a3b34;
-}
-.live-entry > summary {
-  list-style: none;
-  cursor: pointer;
   padding: 3px 10px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.live-entry > summary::-webkit-details-marker {
-  display: none;
-}
-/* Open: the name stays as the header, the full text lives in the pre below —
-   the one-line preview would repeat it. */
-.live-entry[open] > summary {
-  background: #2d2e27;
-}
-.live-entry[open] .entry-preview {
-  display: none;
-}
-.live-entry.fresh > summary {
-  border-left: 3px solid #7aa25c;
-  padding-left: 7px;
-}
-
-.entry-code {
-  margin: 0;
-  padding: 4px 10px 6px 18px;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #e6db74;
 }
 
 .ienv-id {
   color: #66d9ef;
   margin-right: 8px;
 }
-.entry-preview {
-  color: #c8c8c0;
+.entry-text {
+  color: #e6db74;
 }
 
 .store-key {
@@ -412,7 +343,7 @@ body.tutorial .card-file {
 }
 
 /* Highlight for the entry addressed by the focused move. */
-.ienv-item-highlighted > summary {
+.ienv-item-highlighted {
   background-color: rgba(201, 161, 90, 0.18);
   box-shadow: inset 3px 0 0 #c9a15a;
 }
@@ -649,7 +580,7 @@ body.resizing {
   display: flex;
   flex-direction: column;
 }
-/* Folded (the resting state, cavocFoldSideTabs): only the tab buttons show,
+/* Folded (cavocFoldSideTabs): only the tab buttons show,
    at their natural width — the History window flexes into the rest. */
 #side-tabs.folded {
   flex: 0 0 auto;

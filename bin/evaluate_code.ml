@@ -109,12 +109,9 @@ let choose_conf confs =
           | Terminal reason ->
               Printf.sprintf "Configuration %d of %d — %s" (i + 1) nconf reason
         in
-        (* Browsing must not advance the Δ baselines: each browsed
-           configuration diffs against the one before the split. *)
         let preview i =
           match List.nth_opt confs i with
-          | Some (Runnable conf) ->
-              Display_config.display_conf ~preview:true conf
+          | Some (Runnable conf) -> Display_config.display_conf conf
           | Some (Terminal reason) ->
               Display_config.display_terminal_conf reason
           | None -> () in
@@ -230,7 +227,6 @@ let evaluate_synthesis participant =
 let evaluate_code () =
   Moves_manager.flush_moves ();
   Synthesis_display.reset ();
-  Display_config.reset_move_deltas ();
 
   (* Single-module exploration runs over the leftmost card, a compose scenario
      over the first two, module then client. *)

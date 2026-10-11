@@ -420,7 +420,6 @@ function cavocEnterTutorial(level) {
        covers the cards of later levels). */
     document.querySelector('.options-dropdown-container').style.display = 'none';
     document.body.classList.add('tutorial');
-    document.getElementById('tutorial-btn').textContent = 'Exit tutorial';
     const stored = parseInt(localStorage.getItem(cavocLevelKey) || '1', 10);
     cavocLoadLevel(level || (stored > 0 ? stored : 1));
 }
@@ -433,7 +432,6 @@ function cavocExitTutorial() {
     document.querySelector('.options-dropdown-container').style.display = '';
     document.body.classList.remove('tutorial');
     document.getElementById('level-indicator').style.display = 'none';
-    document.getElementById('tutorial-btn').textContent = 'Tutorial';
     cavocLoadGuide('help.md');
     const select = document.getElementById('scenario-select');
     if (select.value) cavocLoadPickedScenario(select.value);
@@ -522,8 +520,8 @@ function cavocPageInit() {
        the menu is wired on its own, and once: its widgets are static markup. */
     cavocWireChatterControl();
     cavocBuildModals();
+    cavocShowTab('client');
 
-    document.getElementById('guide-btn').addEventListener('click', cavocToggleGuide);
     document.getElementById('guide-close').addEventListener('click', cavocToggleGuide);
     cavocLoadGuide('help.md');
 
@@ -536,11 +534,6 @@ function cavocPageInit() {
     select.addEventListener('change', () => {
         cavocStopIfRunning();
         cavocLoadPickedScenario(select.value);
-    });
-
-    document.getElementById('tutorial-btn').addEventListener('click', () => {
-        if (cavocTutorial) cavocExitTutorial();
-        else cavocEnterTutorial();
     });
 
     window.addEventListener('hashchange', () => {

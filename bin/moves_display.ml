@@ -24,9 +24,7 @@ let interrupt_buttons = [ "stop-btn" ]
 
 (* The entries of the cards' live panels carry their name as data-name
    (Display_config.entry_html); the subject of the focused move is found by
-   it, wherever its card is. Besides the highlight, the entry gets the peek
-   class: a collapsed panel still reveals it, so it keeps answering "what am
-   I about to call?". *)
+   it, wherever its card is. *)
 let remove_class_everywhere class_name =
   Dom_html.document##querySelectorAll (Js.string ("." ^ class_name))
   |> Dom.list_of_nodeList
@@ -36,7 +34,6 @@ let remove_class_everywhere class_name =
 
 let highlight_subject (move_json_str : string) : unit =
   remove_class_everywhere "ienv-item-highlighted";
-  remove_class_everywhere "peek";
   try
     let json = Yojson.Safe.from_string move_json_str in
     let set_target_highlighted name =
@@ -47,8 +44,7 @@ let highlight_subject (move_json_str : string) : unit =
       |> Dom.list_of_nodeList
       |> List.iter (fun node ->
              Js.Opt.iter (Dom_html.CoerceTo.element node) (fun el ->
-                 el##.classList##add (Js.string "ienv-item-highlighted");
-                 el##.classList##add (Js.string "peek"))) in
+                 el##.classList##add (Js.string "ienv-item-highlighted"))) in
     match json with
     | `Assoc fields -> (
         match List.assoc_opt "subjectName" fields with
