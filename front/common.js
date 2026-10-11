@@ -373,12 +373,20 @@ function cavocSetCardCode(index, text) {
     card.editor.clearSelection();
 }
 
+/* The synthesized client of the Client tab, written by bin/synthesis_display.ml. */
+function cavocSetClientCode(text) {
+    if (!window.clientEditor) return;
+    window.clientEditor.session.setValue(text);
+    window.clientEditor.clearSelection();
+}
+
 function cavocResizeEditors() {
     window.cavocCards.forEach((card) => {
         card.editor.resize();
         card.signatureEditor.resize();
     });
     if (window.configEditor) window.configEditor.resize();
+    if (window.clientEditor) window.clientEditor.resize();
 }
 
 /* The pane splitter drag in progress, if any: set by the mousedown handler of
@@ -423,6 +431,7 @@ function cavocInitSplitter() {
                 Math.min(rect.width * 0.6, rect.right - e.clientX));
             lowerRow.style.setProperty('--side-tabs-w', w + 'px');
             if (window.configEditor) window.configEditor.resize();
+            if (window.clientEditor) window.clientEditor.resize();
         } else if (cavocPaneDrag) {
             const rect = cavocPaneDrag.editors.getBoundingClientRect();
             const fraction = Math.min(0.9,
@@ -467,9 +476,10 @@ function cavocShowTab(tabId) {
     if (content) content.classList.add("active");
     const link = document.querySelector('.tab-link[data-tab="' + tabId + '"]');
     if (link) link.classList.add("active");
-    /* The Configuration tab is an ACE editor: it only measures itself
-       correctly once visible. */
+    /* The Configuration and Client tabs are ACE editors: they only measure
+       themselves correctly once visible. */
     if (tabId === 'config' && window.configEditor) window.configEditor.resize();
+    if (tabId === 'client' && window.clientEditor) window.clientEditor.resize();
 }
 
 function openTab(event, tabId) {
@@ -482,14 +492,20 @@ function openTab(event, tabId) {
    Display_config reads the configEditor instance through the window object.
    The card editors are mounted per scenario by cavocBuildCards. */
 function cavocInitAce() {
-    const configEditor = ace.edit("config");
-    configEditor.setTheme("ace/theme/monokai");
-    configEditor.session.setMode("ace/mode/ocaml");
-    configEditor.setReadOnly(true);
-    configEditor.renderer.$cursorLayer.element.style.display = "none";
-    window.configEditor = configEditor;
+    window.configEditor = cavocReadOnlyTabEditor("config");
+    window.clientEditor = cavocReadOnlyTabEditor("client");
+    window.clientEditor.session.setUseWrapMode(true);
 
     cavocInitSplitter();
+}
+
+function cavocReadOnlyTabEditor(tabId) {
+    const editor = ace.edit(tabId);
+    editor.setTheme("ace/theme/monokai");
+    editor.session.setMode("ace/mode/ocaml");
+    editor.setReadOnly(true);
+    editor.renderer.$cursorLayer.element.style.display = "none";
+    return editor;
 }
 
 function openModal(modal) {

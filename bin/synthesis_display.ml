@@ -8,18 +8,14 @@ open Js_of_ocaml
 
 let waiting_line = "The client appears here once you have played a move."
 
-let set_panel style text =
-  match Dom_html.getElementById_opt "client" with
-  | None -> ()
-  | Some panel ->
-      let line = Dom_html.createPre Dom_html.document in
-      line##.className := Js.string style;
-      line##.textContent := Js.some (Js.string text);
-      panel##.innerHTML := Js.string "";
-      Dom.appendChild panel line
+(* The Client tab is a read-only ACE editor (front/common.js). *)
+let set_client_code text : unit =
+  Js.Unsafe.fun_call
+    (Js.Unsafe.get Js.Unsafe.global "cavocSetClientCode")
+    [| Js.Unsafe.inject (Js.string text) |]
 
-let reset () = set_panel "client-note" waiting_line
-let display_no_client reason = set_panel "client-note" reason
+let reset () = set_client_code ("(* " ^ waiting_line ^ " *)")
+let display_no_client reason = set_client_code ("(* " ^ reason ^ " *)")
 
 (* The synthesis fails outside the definable fragment, so it is run
    here, where its reason can be shown in place of the code. *)
@@ -31,7 +27,7 @@ let display_synthesized_client ~imports synthesize =
         match String.trim imports with
         | "" -> ""
         | imports -> "(* imports *)\n" ^ imports ^ "\n\n(* client *)\n" in
-      set_panel "client-source" (header ^ source)
+      set_client_code (header ^ source)
   | exception Failure reason -> display_no_client reason
 
 (* The read-only module pane of a card (front/common.js). *)
