@@ -136,6 +136,7 @@ let run_interaction (type a)
      f is of type `(unit -> unit) -> string -> unit` and gets passed
      a function that can be used to ask the question again, and the
      line that has just been read *)
+      Random.self_init (); (*initialisation du générateur *)
   let rec ask rangestr f =
     Printf.printf "(%s/exit) %!" rangestr;
     match String.trim (read_line ()) with
@@ -186,7 +187,25 @@ let run_interaction (type a)
          results_list) in
   let get_move n =
     let n = n + 1 in
-    print_endline
+    (* Étape 1 : continuer ou s'arrêter ? *)
+    print_endline "Do you want to continue?";
+    let continue_aux askagain line =
+      match String.lowercase_ascii line with
+      | "yes" | "y" -> Some true
+      | "no" | "n" -> Some false
+      | _ -> askagain () in
+    match ask_or_quit "yes/no" continue_aux with
+    | None 
+    | Some false ->
+        (* "exit", Ctrl+D ou "no" : on arrête *)
+        IBuild.UserMonad.return Lts.Interactive_build.Quit
+    | Some true ->
+     (* Étape 2 : tirage au hasard d'un indice entre 0 et n-1 *)
+      let i = Random.int n in
+      Printf.printf "Random move chosen: %d\n%!" (i + 1);
+      IBuild.UserMonad.return (Lts.Interactive_build.Chose i) in
+
+    (*print_endline
       ("Choose an integer between 1 and " ^ string_of_int n
      ^ " to decide what to do, or type 'exit' to stop.");
     let aux askagain line =
@@ -202,7 +221,7 @@ let run_interaction (type a)
     IBuild.UserMonad.return
       (match ask_or_quit (Printf.sprintf "1..%d" n) aux with
       | None -> Lts.Interactive_build.Quit
-      | Some i -> Lts.Interactive_build.Chose i) in
+      | Some i -> Lts.Interactive_build.Chose i) in*)
 
   let _result =
     IBuild.interactive_build ~show_move ~show_conf ~show_moves_list ~get_move
